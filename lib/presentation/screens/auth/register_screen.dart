@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fitness_exercise_application/presentation/screens/profile/profile_setup_screen.dart';
+import 'package:fitness_exercise_application/presentation/screens/auth/auth_wrapper.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -44,19 +44,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
       if (mounted) {
         setState(() {
-          _successMessage =
-              'Registration successful! Please complete your profile.';
+          _successMessage = 'Registration successful! Setting up your profile…';
           _isLoading = false;
         });
 
-        // Navigate to profile setup after a delay
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
-            );
-          }
-        });
+        // Navigate to AuthWrapper which detects no profile and routes
+        // to ProfileSetupScreen automatically. No artificial delay needed.
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          (_) => false,
+        );
       }
     } on AuthException catch (e) {
       setState(() {

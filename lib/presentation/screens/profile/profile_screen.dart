@@ -265,15 +265,15 @@ class ProfileScreen extends ConsumerWidget {
                         final totalWorkouts = workouts.length;
                         final totalDistance = workouts.fold<double>(
                           0,
-                          (sum, w) => sum + (w.distanceKm ?? 0),
+                          (sum, w) => sum + w.distanceKm,
                         );
-                        final totalDuration = workouts.fold<double>(
+                        final totalDurationMinutes = workouts.fold<double>(
                           0,
-                          (sum, w) => sum + (w.durationMin ?? 0),
+                          (sum, w) => sum + (w.durationSec / 60.0),
                         );
-                        final totalCalories = workouts.fold<int>(
+                        final totalCalories = workouts.fold<double>(
                           0,
-                          (sum, w) => sum + (w.calories ?? 0),
+                          (sum, w) => sum + w.caloriesKcal,
                         );
 
                         return Column(
@@ -294,7 +294,7 @@ class ProfileScreen extends ConsumerWidget {
                               icon: Icons.timer,
                               label: 'Total Duration',
                               value: WorkoutFormatters.formatDuration(
-                                totalDuration.round(),
+                                totalDurationMinutes.round(),
                               ),
                             ),
                             const Divider(),
@@ -302,7 +302,7 @@ class ProfileScreen extends ConsumerWidget {
                               icon: Icons.local_fire_department,
                               label: 'Total Calories',
                               value: WorkoutFormatters.formatCalories(
-                                totalCalories,
+                                totalCalories.round(),
                               ),
                             ),
                           ],
@@ -322,7 +322,7 @@ class ProfileScreen extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _logout(context),
+                onPressed: () => _logout(context, ref),
                 icon: const Icon(Icons.logout),
                 label: const Text('Logout'),
                 style: ElevatedButton.styleFrom(
@@ -351,7 +351,7 @@ class ProfileScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _logout(BuildContext context) async {
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -372,7 +372,11 @@ class ProfileScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      // Clear in-memory Riverpod state for workouts
+      ref.invalidate(workoutListProvider);
+
       await Supabase.instance.client.auth.signOut();
+
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),

@@ -71,7 +71,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                             Text(
                               DateFormat(
                                 'EEEE, MMM dd, yyyy',
-                              ).format(workout.startedAt),
+                              ).format(workout.startedAt.toLocal()),
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 14,
@@ -92,9 +92,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                       child: _StatCard(
                         icon: Icons.straighten,
                         label: 'Distance',
-                        value: workout.distanceKm != null
-                            ? '${workout.distanceKm!.toStringAsFixed(2)} km'
-                            : 'N/A',
+                        value: '${workout.distanceKm.toStringAsFixed(2)} km',
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -102,9 +100,8 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                       child: _StatCard(
                         icon: Icons.timer,
                         label: 'Duration',
-                        value: workout.durationMin != null
-                            ? '${workout.durationMin!.toStringAsFixed(0)} min'
-                            : 'N/A',
+                        value:
+                            '${(workout.durationSec / 60.0).toStringAsFixed(0)} min',
                       ),
                     ),
                   ],
@@ -116,9 +113,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                       child: _StatCard(
                         icon: Icons.speed,
                         label: 'Avg Speed',
-                        value: workout.avgSpeedKmh != null
-                            ? '${workout.avgSpeedKmh!.toStringAsFixed(1)} km/h'
-                            : 'N/A',
+                        value: '${workout.avgSpeedKmh.toStringAsFixed(1)} km/h',
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -126,11 +121,9 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                       child: _StatCard(
                         icon: Icons.local_fire_department,
                         label: 'Calories',
-                        value: workout.calories != null
-                            ? WorkoutFormatters.formatCalories(
-                                workout.calories!,
-                              )
-                            : 'N/A',
+                        value: WorkoutFormatters.formatCalories(
+                          workout.caloriesKcal.round(),
+                        ),
                       ),
                     ),
                   ],
@@ -157,7 +150,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                           label: 'Started',
                           time: DateFormat(
                             'HH:mm:ss',
-                          ).format(workout.startedAt),
+                          ).format(workout.startedAt.toLocal()),
                         ),
                         if (workout.endedAt != null) ...[
                           const SizedBox(height: 12),
@@ -166,7 +159,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                             label: 'Ended',
                             time: DateFormat(
                               'HH:mm:ss',
-                            ).format(workout.endedAt!),
+                            ).format(workout.endedAt!.toLocal()),
                           ),
                         ],
                       ],

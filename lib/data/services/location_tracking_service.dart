@@ -70,6 +70,47 @@ class LocationTrackingService {
     );
   }
 
+  // ── Location acquisition helpers ───────────────────────────────────────────
+
+  /// Tier 1 — instant. Returns the OS-cached last known position (no GPS wait).
+  /// Always call this first to show the map marker immediately.
+  Future<Position?> getLastKnownPosition() async {
+    try {
+      final p = await Geolocator.getLastKnownPosition();
+      debugPrint('[GPS] lastKnown: lat=${p?.latitude} lng=${p?.longitude}');
+      return p;
+    } catch (e) {
+      debugPrint('[GPS] getLastKnownPosition error: $e');
+      return null;
+    }
+  }
+
+  /// Tier 2 — fresh GPS fix with a hard [timeout].
+  /// Falls back to [fallback] (lastKnown) if the device cannot get a fix in time.
+  Future<Position?> getCurrentPositionWithTimeout({
+    Position? fallback,
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: timeout,
+        ),
+      );
+      debugPrint(
+        '[GPS] getCurrentPosition: ${p.latitude}, ${p.longitude} acc=${p.accuracy}m',
+      );
+      return p;
+    } on TimeoutException {
+      debugPrint('[GPS] getCurrentPosition timeout — using lastKnown');
+      return fallback;
+    } catch (e) {
+      debugPrint('[GPS] getCurrentPosition error: $e — using lastKnown');
+      return fallback;
+    }
+  }
+
   // ── Start / stop ───────────────────────────────────────────────────────────
 
   /// Starts the GPS position stream. Returns immediately after starting the
@@ -157,7 +198,10 @@ class LocationTrackingService {
   // ── Noise filter ──────────────────────────────────────────────────────────
 
   bool _isValidPosition(Position position, String activityType) {
+    // Reject poor accuracy — anything above 25m is too noisy.
     if (position.accuracy > 25.0) return false;
+
+    // First valid position is always accepted.
     if (_lastValidPosition == null) return true;
 
     final distance = Geolocator.distanceBetween(
@@ -167,14 +211,17 @@ class LocationTrackingService {
       position.longitude,
     );
 
-    if (distance < 2.0) return false;
+    // NOTE: The 2m distance filter was intentionally removed.
+    // The service's job is to forward all ACCURATE positions so that the live
+    // "You" marker updates continuously. The 5m polyline jitter filter lives
+    // in _onPosition() in record_providers.dart, where it belongs.
 
+    // Sanity check: reject physically-impossible speed jumps.
     final timeDelta = position.timestamp
         .difference(_lastValidPosition!.timestamp)
         .inSeconds;
-
     if (timeDelta > 0) {
-      final speed = distance / timeDelta;
+      final speed = distance / timeDelta; // m/s
       final maxSpeed = activityType.toLowerCase() == 'cycling' ? 25.0 : 15.0;
       if (speed > maxSpeed) return false;
     }

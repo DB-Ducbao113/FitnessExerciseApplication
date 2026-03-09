@@ -5,7 +5,7 @@ import 'package:fitness_exercise_application/presentation/providers/workout_prov
 import 'package:fitness_exercise_application/presentation/screens/stats/widgets/stat_card.dart';
 import 'package:fitness_exercise_application/presentation/screens/stats/widgets/time_period_selector.dart';
 import 'package:fitness_exercise_application/presentation/screens/stats/widgets/activity_breakdown.dart';
-import 'package:fitness_exercise_application/domain/entities/workout.dart';
+import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/core/utils/workout_formatters.dart';
 
 // State provider for selected time period
@@ -64,16 +64,27 @@ class StatsScreen extends ConsumerWidget {
           final totalWorkouts = filteredWorkouts.length;
           final totalDistance = filteredWorkouts.fold<double>(
             0,
-            (sum, w) => sum + (w.distanceKm ?? 0),
+            (sum, w) => sum + w.distanceKm,
           );
-          final totalDuration = filteredWorkouts.fold<double>(
+          // Sum in seconds for precision: durationMin * 60 avoids accumulating
+          // float rounding errors from fractional minutes.
+          final totalDurationSec = filteredWorkouts.fold<int>(
             0,
-            (sum, w) => sum + (w.durationMin ?? 0),
+            (sum, w) => sum + w.durationSec,
           );
           final totalCalories = filteredWorkouts.fold<int>(
             0,
-            (sum, w) => sum + (w.calories ?? 0),
+            (sum, w) => sum + w.caloriesKcal.round(),
           );
+          final totalSteps = filteredWorkouts.fold<int>(
+            0,
+            (sum, w) => sum + w.steps,
+          );
+          // Overall avg speed: totalDistance / totalTime (weight-correct formula).
+          // This is more accurate than averaging per-session speeds.
+          final overallAvgSpeedKmh = totalDurationSec > 0
+              ? totalDistance / (totalDurationSec / 3600.0)
+              : 0.0;
 
           // Activity breakdown
           final activityCounts = <String, int>{};
@@ -130,8 +141,8 @@ class StatsScreen extends ConsumerWidget {
                         child: StatCard(
                           icon: Icons.timer,
                           label: 'Duration',
-                          value: WorkoutFormatters.formatDuration(
-                            totalDuration.round(),
+                          value: WorkoutFormatters.formatDurationFromSeconds(
+                            totalDurationSec,
                           ),
                         ),
                       ),
@@ -143,6 +154,37 @@ class StatsScreen extends ConsumerWidget {
                           value: WorkoutFormatters.formatCalories(
                             totalCalories,
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Row 3: Overall avg speed + Steps
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.speed,
+                          label: 'Avg Speed',
+                          value:
+                              '${overallAvgSpeedKmh.toStringAsFixed(1)} km/h',
+                          color: const Color(0xff4ECDC4),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.directions_walk,
+                          label: 'Steps',
+                          value: totalSteps > 999
+                              ? '${(totalSteps / 1000).toStringAsFixed(1)}k'
+                              : '$totalSteps',
+                          color: const Color(0xff9B59B6),
                         ),
                       ),
                     ],
@@ -194,8 +236,8 @@ class StatsScreen extends ConsumerWidget {
     );
   }
 
-  List<Workout> _filterWorkoutsByPeriod(
-    List<Workout> workouts,
+  List<WorkoutSession> _filterWorkoutsByPeriod(
+    List<WorkoutSession> workouts,
     TimePeriod period,
   ) {
     final now = DateTime.now();
@@ -218,7 +260,7 @@ class StatsScreen extends ConsumerWidget {
 }
 
 class _WorkoutChart extends StatelessWidget {
-  final List<Workout> workouts;
+  final List<WorkoutSession> workouts;
   final TimePeriod period;
 
   const _WorkoutChart({required this.workouts, required this.period});

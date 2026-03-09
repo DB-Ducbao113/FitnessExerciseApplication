@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:fitness_exercise_application/domain/entities/workout.dart';
+import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/presentation/screens/workout/workout_details_screen.dart';
 import 'package:fitness_exercise_application/core/utils/workout_formatters.dart';
 
 class DailyWorkoutList extends StatelessWidget {
   final DateTime selectedDate;
-  final List<Workout> workouts;
+  final List<WorkoutSession> workouts;
 
   const DailyWorkoutList({
     super.key,
@@ -89,25 +89,19 @@ class DailyWorkoutList extends StatelessWidget {
               final color = _getActivityColor(workout.activityType);
               final icon = _getActivityIcon(workout.activityType);
 
+              final distanceStr = '${workout.distanceKm.toStringAsFixed(2)} km';
+              final durationStr = WorkoutFormatters.formatDurationFromSeconds(
+                workout.durationSec,
+              );
+              final speedStr = '${workout.avgSpeedKmh.toStringAsFixed(1)} km/h';
+              final calStr = WorkoutFormatters.formatCalories(
+                workout.caloriesKcal.round(),
+              );
+
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, color: color),
-                  ),
-                  title: Text(
-                    workout.activityType,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${workout.calories != null ? WorkoutFormatters.formatCalories(workout.calories!) : '0 kcal'} • ${workout.durationMin != null ? WorkoutFormatters.formatDuration(workout.durationMin!.round()) : '0 min'}',
-                  ),
-                  trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -116,6 +110,86 @@ class DailyWorkoutList extends StatelessWidget {
                       ),
                     );
                   },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Activity icon
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(icon, color: color, size: 26),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Metrics
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title row
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    workout.activityType,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: Colors.grey[400],
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+
+                              // 2×2 metric grid
+                              Row(
+                                children: [
+                                  _MetricChip(
+                                    icon: Icons.straighten,
+                                    value: distanceStr,
+                                    color: color,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _MetricChip(
+                                    icon: Icons.timer_outlined,
+                                    value: durationStr,
+                                    color: color,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  _MetricChip(
+                                    icon: Icons.speed,
+                                    value: speedStr,
+                                    color: color,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _MetricChip(
+                                    icon: Icons.local_fire_department,
+                                    value: calStr,
+                                    color: color,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -125,7 +199,7 @@ class DailyWorkoutList extends StatelessWidget {
   }
 
   String _formatDate(DateTime date) {
-    final months = [
+    const months = [
       'Jan',
       'Feb',
       'Mar',
@@ -140,5 +214,50 @@ class DailyWorkoutList extends StatelessWidget {
       'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+}
+
+// ─── Metric chip ─────────────────────────────────────────────────────────────
+
+class _MetricChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final Color color;
+
+  const _MetricChip({
+    required this.icon,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color.withOpacity(0.9),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

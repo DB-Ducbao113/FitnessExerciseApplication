@@ -4,13 +4,13 @@ import 'package:fitness_exercise_application/presentation/providers/workout_prov
 import 'package:fitness_exercise_application/presentation/screens/workout/workout_details_screen.dart';
 
 class WorkoutEndScreen extends ConsumerStatefulWidget {
-  final String workoutId;
+  final String sessionId;
   final String activityType;
   final int durationSeconds;
 
   const WorkoutEndScreen({
     super.key,
-    required this.workoutId,
+    required this.sessionId,
     required this.activityType,
     required this.durationSeconds,
   });
@@ -38,11 +38,33 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
     return distance / (_durationMinutes / 60);
   }
 
+  // ─── Calorie helpers (identical to record_providers._computeCalories) ────────
+  //
+  // IMPORTANT: this formula MUST stay in sync with _computeCalories() in
+  // record_providers.dart so the end-screen, record screen, stats, and
+  // calendar all show the same number for the same session.
+  //
+  // Formula: kcal = weight_kg × distance_km × k
+  //   k ≈ 0.92  (walking base)  |  1.05 (running base)
+  //   +0.05 if speed > 10 km/h  |  +0.05 if speed > 15 km/h
+
+  // Default weight used when no profile loaded (60 kg). Override via
+  // workout_providers.finishWorkout which uses the caller-supplied calories.
+  static const double _kDefaultWeightKg = 60.0;
+
+  double _calorieK(double speedKmh) {
+    final isRunning = widget.activityType.toLowerCase().contains('run');
+    double k = isRunning ? 1.05 : 0.92;
+    if (speedKmh > 10) k += 0.05;
+    if (speedKmh > 15) k += 0.05;
+    return k;
+  }
+
   int? get _calories {
     final distance = double.tryParse(_distanceController.text);
-    if (distance == null) return null;
-    // Simple formula: ~60 calories per km
-    return (distance * 60).round();
+    if (distance == null || distance <= 0) return null;
+    final k = _calorieK(_speed ?? 0);
+    return (_kDefaultWeightKg * distance * k).round();
   }
 
   Future<void> _saveWorkout() async {
@@ -51,23 +73,19 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final distance = double.parse(_distanceController.text);
-
       // Call provider to finish workout
       await ref
           .read(workoutListProvider.notifier)
-          .finishWorkout(
-            workoutId: widget.workoutId,
+          .quickAddWorkout(
             activityType: widget.activityType,
-            durationSeconds: widget.durationSeconds,
-            distance: distance,
-            calories: _calories,
+            durationMinutes: widget.durationSeconds / 60.0,
           );
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => WorkoutDetailsScreen(workoutId: widget.workoutId),
+            // TODO: We will need a way to reliably fetch the recently generated ID if navigating to details
+            builder: (_) => WorkoutDetailsScreen(workoutId: widget.sessionId),
           ),
         );
       }

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:fitness_exercise_application/domain/entities/workout.dart';
+import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/presentation/providers/providers.dart';
 import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
+import 'package:uuid/uuid.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 part 'workout_providers.g.dart';
 
@@ -11,104 +13,49 @@ part 'workout_providers.g.dart';
 @riverpod
 class WorkoutList extends _$WorkoutList {
   @override
-  Future<List<Workout>> build() async {
+  Future<List<WorkoutSession>> build() async {
+    final user = ref.read(currentUserIdProvider);
+    if (user == null) throw Exception('No user logged in');
+
     final repository = ref.watch(workoutRepositoryProvider);
-    return await repository.getWorkouts();
+    // 1. Pull down any remote changes (syncId collision fixes, cross-device sync)
+    // We let the bootstrap handle immediate fetch, or we can keep syncFromCloud here.
+    await repository.syncFromCloud();
+    // 2. Load from local DB
+    return await repository.getSessionsLocal(user);
   }
 
   /// Refresh workout list
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
+      final user = ref.read(currentUserIdProvider);
+      if (user == null) throw Exception('No user logged in');
+
       final repository = ref.read(workoutRepositoryProvider);
-      return await repository.getWorkouts();
+      await repository.syncFromCloud();
+      return await repository.getSessionsLocal(user);
     });
-  }
-
-  /// Start a new workout
-  Future<String?> startWorkout(String activityType) async {
-    try {
-      final repository = ref.read(workoutRepositoryProvider);
-      final workoutId = await repository.startWorkout(activityType);
-
-      // Refresh list
-      ref.invalidateSelf();
-
-      return workoutId.toString();
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// End a workout
-  Future<bool> endWorkout(String workoutId) async {
-    try {
-      final repository = ref.read(workoutRepositoryProvider);
-      final intId = int.tryParse(workoutId);
-      if (intId != null) {
-        await repository.endWorkout(intId);
-        ref.invalidateSelf();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
   }
 
   /// Delete a workout
   Future<void> deleteWorkout(String workoutId) async {
     final repository = ref.read(workoutRepositoryProvider);
-    await repository.deleteWorkout(workoutId);
+    await repository.deleteSession(workoutId);
     ref.invalidateSelf();
   }
 
-  /// Finish a workout with metrics
-  Future<void> finishWorkout({
-    required String workoutId,
-    required String activityType,
-    required int durationSeconds,
-    double? distance,
-    int? calories,
-  }) async {
-    // Get user profile for calorie calc if not provided
-    int finalCalories = calories ?? 0;
-
-    if (calories == null) {
-      final user = ref.read(currentUserIdProvider);
-      if (user == null) throw Exception('No user logged in');
-
-      final profile = await ref.read(userProfileProvider(user).future);
-      if (profile == null) throw Exception('No user profile found');
-
-      // Calculate metrics
-      final durationMin = durationSeconds / 60.0;
-      final calculatedCalories = profile.calculateCalories(
-        activityType: activityType,
-        durationMinutes: durationMin,
-      );
-      finalCalories = calculatedCalories.round();
-    }
-
-    final durationMin = durationSeconds / 60.0;
-    double? speed;
-    if (distance != null && durationMin > 0) {
-      speed = distance / (durationMin / 60.0); // km/h
-    }
-
-    // Update repository
+  /// Save a completed workout session verbatim
+  Future<void> saveSession(WorkoutSession session) async {
     final repository = ref.read(workoutRepositoryProvider);
-    final intId = int.tryParse(workoutId);
-    if (intId != null) {
-      await repository.endWorkout(
-        intId,
-        distance: distance,
-        durationMinutes: durationMin,
-        speed: speed,
-        calories: finalCalories,
-      );
+    try {
+      if (await InternetConnectionChecker().hasConnection) {
+        await repository.saveSessionRemote(session);
+      }
+    } catch (_) {
+      // Offline fallback
     }
-
+    await repository.cacheSessionLocal(session);
     ref.invalidateSelf();
   }
 
@@ -128,17 +75,25 @@ class WorkoutList extends _$WorkoutList {
       durationMinutes: durationMinutes,
     );
 
-    final repository = ref.read(workoutRepositoryProvider);
-    final workoutId = await repository.startWorkout(activityType);
-
-    await repository.endWorkout(
-      workoutId,
-      distance: null,
-      durationMinutes: durationMinutes,
-      calories: calories.round(),
+    // Quick Add -> Generate UUID -> Save immediately
+    final session = WorkoutSession(
+      id: const Uuid().v4(),
+      userId: user,
+      activityType: activityType,
+      startedAt: DateTime.now().subtract(
+        Duration(minutes: durationMinutes.round()),
+      ),
+      endedAt: DateTime.now(),
+      durationSec: (durationMinutes * 60).round(),
+      distanceKm: 0.0,
+      steps: 0,
+      avgSpeedKmh: 0.0,
+      caloriesKcal: calories,
+      mode: 'indoor', // Default for quick add
+      createdAt: DateTime.now(),
     );
 
-    ref.invalidateSelf();
+    await saveSession(session);
   }
 }
 
@@ -161,9 +116,9 @@ class ActiveWorkout extends _$ActiveWorkout {
 
 /// Single Workout Provider
 @riverpod
-Future<Workout?> workout(WorkoutRef ref, String id) async {
+Future<WorkoutSession?> workout(WorkoutRef ref, String id) async {
   final repository = ref.watch(workoutRepositoryProvider);
-  return await repository.getWorkout(id);
+  return await repository.getSessionById(id);
 }
 
 // --- Timer Logic ---

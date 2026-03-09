@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/presentation/screens/auth/login_screen.dart';
 import 'package:fitness_exercise_application/presentation/screens/settings/widgets/profile_header.dart';
+import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/presentation/screens/settings/widgets/settings_section.dart';
 import 'package:fitness_exercise_application/presentation/screens/settings/widgets/settings_tile.dart';
 
@@ -148,7 +149,7 @@ class SettingsScreen extends ConsumerWidget {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _logout(context),
+                onPressed: () => _logout(context, ref),
                 icon: const Icon(Icons.logout),
                 label: const Text('Logout'),
                 style: ElevatedButton.styleFrom(
@@ -215,7 +216,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _logout(BuildContext context) async {
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -236,7 +237,11 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      // Clear in-memory Riverpod state for workouts
+      ref.invalidate(workoutListProvider);
+
       await Supabase.instance.client.auth.signOut();
+
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),

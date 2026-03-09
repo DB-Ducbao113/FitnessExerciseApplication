@@ -1,30 +1,18 @@
-import 'package:fitness_exercise_application/data/local/schema/local_workout.dart';
-import 'package:fitness_exercise_application/data/local/schema/local_gps_point.dart';
-
-import 'package:fitness_exercise_application/domain/entities/workout.dart';
+import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
 
 abstract class WorkoutRepository {
-  Future<List<Workout>> getWorkouts();
-  Future<Workout?> getWorkout(String id);
-  Future<int> startWorkout(String activityType);
-  Future<void> deleteWorkout(String id);
-  Future<void> pauseWorkout(int workoutId);
-  Future<void> resumeWorkout(int workoutId);
-  Future<void> endWorkout(
-    int workoutId, {
-    double? distance,
-    double? durationMinutes,
-    double? speed,
-    int? calories,
-    String? mode,
-    int? stepCount,
-    double? elevationGainMeters,
-  });
+  Future<void> saveSessionRemote(WorkoutSession session);
+  Future<void> cacheSessionLocal(WorkoutSession session);
+  Future<List<WorkoutSession>> fetchSessionsRemote(String userId);
+  Future<List<WorkoutSession>> getSessionsLocal(String userId);
+  Future<void> replaceLocalCache(String userId, List<WorkoutSession> sessions);
 
-  Future<void> trackPoint(int workoutId, LocalGPSPoint point);
-
-  Stream<LocalWorkout?> watchWorkout(int workoutId);
-  Stream<List<LocalGPSPoint>> watchPoints(int workoutId);
-
+  // Keep for active use
+  Future<List<WorkoutSession>> getSessionsByType(String activityType);
+  Future<WorkoutSession?> getSessionById(String sessionId);
+  Future<void> deleteSession(String sessionId);
   Future<void> syncPendingData();
+
+  // Legacy alias, consider migrating to fetchSessionsRemote + replaceLocalCache
+  Future<void> syncFromCloud();
 }

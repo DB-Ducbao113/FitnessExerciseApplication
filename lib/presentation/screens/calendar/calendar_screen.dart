@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:fitness_exercise_application/domain/entities/workout.dart';
+import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/presentation/screens/calendar/widgets/daily_workout_list.dart';
+import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 
 // State provider for selected date
 final selectedDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
@@ -99,7 +100,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     markerBuilder: (context, date, events) {
                       if (events.isEmpty) return null;
 
-                      final workoutsForDay = events.cast<Workout>();
+                      final workoutsForDay = events.cast<WorkoutSession>();
                       final colors = workoutsForDay
                           .take(3)
                           .map((w) => _getActivityColor(w.activityType))
@@ -143,24 +144,25 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  Map<DateTime, List<Workout>> _groupWorkoutsByDate(List<Workout> workouts) {
-    final map = <DateTime, List<Workout>>{};
+  Map<DateTime, List<WorkoutSession>> _groupWorkoutsByDate(
+    List<WorkoutSession> workouts,
+  ) {
+    final map = <DateTime, List<WorkoutSession>>{};
     for (final workout in workouts) {
-      final date = DateTime(
-        workout.startedAt.year,
-        workout.startedAt.month,
-        workout.startedAt.day,
-      );
+      final date = DateTimeHelper.localDateOnly(workout.startedAt);
       map[date] = [...(map[date] ?? []), workout];
     }
     return map;
   }
 
-  List<Workout> _getWorkoutsForDate(DateTime date, List<Workout> allWorkouts) {
+  List<WorkoutSession> _getWorkoutsForDate(
+    DateTime date,
+    List<WorkoutSession> allWorkouts,
+  ) {
+    final targetDate = DateTimeHelper.localDateOnly(date);
     return allWorkouts.where((w) {
-      return w.startedAt.year == date.year &&
-          w.startedAt.month == date.month &&
-          w.startedAt.day == date.day;
+      final workoutDate = DateTimeHelper.localDateOnly(w.startedAt);
+      return workoutDate == targetDate;
     }).toList();
   }
 

@@ -6,7 +6,7 @@ part of 'workout_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$workoutHash() => r'b7863c1e44a4ad37c06e029923888697e2cb3cf4';
+String _$workoutHash() => r'd2454c57e2d5ff62dee13c5b574fc6d6e8220133';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -38,7 +38,7 @@ const workoutProvider = WorkoutFamily();
 /// Single Workout Provider
 ///
 /// Copied from [workout].
-class WorkoutFamily extends Family<AsyncValue<Workout?>> {
+class WorkoutFamily extends Family<AsyncValue<WorkoutSession?>> {
   /// Single Workout Provider
   ///
   /// Copied from [workout].
@@ -82,7 +82,7 @@ class WorkoutFamily extends Family<AsyncValue<Workout?>> {
 /// Single Workout Provider
 ///
 /// Copied from [workout].
-class WorkoutProvider extends AutoDisposeFutureProvider<Workout?> {
+class WorkoutProvider extends AutoDisposeFutureProvider<WorkoutSession?> {
   /// Single Workout Provider
   ///
   /// Copied from [workout].
@@ -118,7 +118,7 @@ class WorkoutProvider extends AutoDisposeFutureProvider<Workout?> {
 
   @override
   Override overrideWith(
-    FutureOr<Workout?> Function(WorkoutRef provider) create,
+    FutureOr<WorkoutSession?> Function(WorkoutRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -135,7 +135,7 @@ class WorkoutProvider extends AutoDisposeFutureProvider<Workout?> {
   }
 
   @override
-  AutoDisposeFutureProviderElement<Workout?> createElement() {
+  AutoDisposeFutureProviderElement<WorkoutSession?> createElement() {
     return _WorkoutProviderElement(this);
   }
 
@@ -153,27 +153,27 @@ class WorkoutProvider extends AutoDisposeFutureProvider<Workout?> {
   }
 }
 
-mixin WorkoutRef on AutoDisposeFutureProviderRef<Workout?> {
+mixin WorkoutRef on AutoDisposeFutureProviderRef<WorkoutSession?> {
   /// The parameter `id` of this provider.
   String get id;
 }
 
-class _WorkoutProviderElement extends AutoDisposeFutureProviderElement<Workout?>
-    with WorkoutRef {
+class _WorkoutProviderElement
+    extends AutoDisposeFutureProviderElement<WorkoutSession?> with WorkoutRef {
   _WorkoutProviderElement(super.provider);
 
   @override
   String get id => (origin as WorkoutProvider).id;
 }
 
-String _$workoutListHash() => r'0815143dca7602f44c83d0c1d2e091e011623714';
+String _$workoutListHash() => r'851383f52c43b26ad0178317a73578d1cd9e5fe1';
 
 /// Workout List Provider
 ///
 /// Copied from [WorkoutList].
 @ProviderFor(WorkoutList)
-final workoutListProvider =
-    AutoDisposeAsyncNotifierProvider<WorkoutList, List<Workout>>.internal(
+final workoutListProvider = AutoDisposeAsyncNotifierProvider<WorkoutList,
+    List<WorkoutSession>>.internal(
   WorkoutList.new,
   name: r'workoutListProvider',
   debugGetCreateSourceHash:
@@ -182,7 +182,7 @@ final workoutListProvider =
   allTransitiveDependencies: null,
 );
 
-typedef _$WorkoutList = AutoDisposeAsyncNotifier<List<Workout>>;
+typedef _$WorkoutList = AutoDisposeAsyncNotifier<List<WorkoutSession>>;
 String _$activeWorkoutHash() => r'26bf8da3f0954038dcf4ebeca436e8c08a90b154';
 
 /// Active Workout Provider

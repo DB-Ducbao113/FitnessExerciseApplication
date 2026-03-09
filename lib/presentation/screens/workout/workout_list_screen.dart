@@ -83,7 +83,7 @@ class WorkoutListScreen extends ConsumerWidget {
                         Text(
                           DateFormat(
                             'MMM dd, yyyy - HH:mm',
-                          ).format(workout.startedAt),
+                          ).format(workout.startedAt.toLocal()),
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 12,
@@ -92,23 +92,19 @@ class WorkoutListScreen extends ConsumerWidget {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            if (workout.distanceKm != null) ...[
-                              const Icon(Icons.straighten, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${workout.distanceKm!.toStringAsFixed(2)} km',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              const SizedBox(width: 16),
-                            ],
-                            if (workout.durationMin != null) ...[
-                              const Icon(Icons.timer, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${workout.durationMin!.toStringAsFixed(0)} min',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
+                            const Icon(Icons.straighten, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${workout.distanceKm.toStringAsFixed(2)} km',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            const SizedBox(width: 16),
+                            const Icon(Icons.timer, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${(workout.durationSec / 60.0).toStringAsFixed(0)} min',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ],
                         ),
                       ],

@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
-import 'package:fitness_exercise_application/presentation/screens/home/home_screen.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   final UserProfile? existingProfile;
@@ -88,13 +87,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           );
         }
       } else {
-        // Create mode
+        // Create mode: save profile then invalidate profile gate so
+        // AuthWrapper automatically navigates → HomeScreen.
         await repository.createProfile(profile);
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
-        }
+        // Invalidate the profile check — AuthWrapper will re-read and
+        // route to HomeScreen once hasProfile returns true.
+        ref.invalidate(hasUserProfileProvider(user.id));
+        // No Navigator call here — AuthWrapper drives the transition.
       }
     } catch (e) {
       if (mounted) {

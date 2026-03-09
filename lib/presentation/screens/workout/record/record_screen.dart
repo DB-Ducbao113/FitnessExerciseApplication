@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/presentation/screens/workout/record/record_providers.dart';
+import 'package:fitness_exercise_application/presentation/screens/workout/record/widgets/locate_button.dart';
 import 'package:fitness_exercise_application/presentation/screens/workout/record/widgets/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/presentation/screens/workout/summary/workout_summary_screen.dart';
 import 'package:flutter/material.dart';
@@ -15,13 +16,10 @@ class RecordScreen extends ConsumerStatefulWidget {
 
 class _RecordScreenState extends ConsumerState<RecordScreen>
     with WidgetsBindingObserver {
-  bool _isAutoFollow = true;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // startWorkout is now synchronous: fires immediately, no await needed.
     WidgetsBinding.instance.addPostFrameCallback((_) => _startWorkout());
   }
 
@@ -44,15 +42,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     }
   }
 
-  // ─── Workout lifecycle ────────────────────────────────────────────────────
-
   void _startWorkout() {
-    // Fire-and-return: sensors start in background, UI responds immediately.
     ref.read(workoutSessionProvider.notifier).startWorkout(widget.activityType);
   }
 
   void _showStartError(String code) {
-    String title, message, actionLabel;
+    String title;
+    String message;
+    String actionLabel;
     VoidCallback onAction;
 
     switch (code) {
@@ -76,7 +73,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
       case 'permission_denied_forever':
         title = 'Permission Blocked';
         message =
-            'Location is permanently blocked. Open App Settings → Permissions → Location.';
+            'Location is permanently blocked. Open App Settings > Permissions > Location.';
         actionLabel = 'Close';
         onAction = () {
           Navigator.of(context).pop();
@@ -118,6 +115,15 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     );
   }
 
+  void _onLocatePressed() {
+    final didRequest = ref.read(workoutSessionProvider.notifier).requestRecenter();
+    if (didRequest) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dang cho GPS fix...')),
+    );
+  }
+
   Future<void> _confirmStop() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -145,13 +151,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => WorkoutSummaryScreen(
-              workoutId: finalState.workoutId ?? 0,
+              sessionId: finalState.sessionId ?? '',
               activityType: finalState.activityType,
               trackingMode: finalState.trackingMode,
               durationSeconds: finalState.durationSeconds,
               distanceMeters: finalState.distanceMeters,
-              avgPace: 0,
+              avgSpeedKmh: finalState.avgSpeedKmh,
               calories: finalState.caloriesBurned,
+              routePoints: finalState.routePoints,
             ),
           ),
         );
@@ -159,13 +166,10 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     }
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(workoutSessionProvider);
 
-    // React to GPS errors surfaced through state (non-blocking)
     ref.listen<WorkoutSessionState>(workoutSessionProvider, (prev, next) {
       if (next.errorMessage != null &&
           next.errorMessage != prev?.errorMessage) {
@@ -173,80 +177,40 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
       }
     });
 
-    final isDetecting = state.trackingMode == kAutoTrackingMode;
     final isOutdoor = state.trackingMode == kOutdoorMode;
-    final currentLocation = state.routePoints.isNotEmpty
-        ? state.routePoints.last
-        : null;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // ── 1. MAP — always rendered, even during detecting/indoor ─────────
           Positioned.fill(
             bottom: MediaQuery.of(context).size.height * 0.45,
             child: TrackingMapWidget(
               routePoints: state.routePoints,
-              currentLocation: currentLocation,
-              isAutoFollow: _isAutoFollow,
-              showRoute: isOutdoor, // polyline only in outdoor
-              onPan: () => setState(() => _isAutoFollow = false),
+              initialPosition: state.initialPosition,
+              currentLocation: state.currentLatLng,
+              followUser: state.followUser,
+              recenterRequestId: state.recenterRequestId,
+              showRoute: isOutdoor,
+              onUserGesturePan: () {
+                ref.read(workoutSessionProvider.notifier).onUserDraggedMap();
+              },
             ),
           ),
-
-          // ── 2. Detecting overlay (transparent, on top of map) ─────────────
-          if (isDetecting)
-            Positioned(
-              top: MediaQuery.of(context).size.height * 0.04,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Detecting environment…',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          Positioned(
+            right: 16,
+            bottom: MediaQuery.of(context).size.height * 0.45 + 16,
+            child: LocateButton(
+              isFollowEnabled: state.followUser,
+              onPressed: _onLocatePressed,
             ),
-
-          // ── 3. Indoor mode overlay (bottom-left chip on map) ──────────────
-          if (!isDetecting && !isOutdoor)
+          ),
+          if (state.modeDecisionLocked && !isOutdoor)
             Positioned(
               bottom: MediaQuery.of(context).size.height * 0.455,
               left: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(20),
@@ -257,7 +221,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                     Icon(Icons.directions_walk, color: Colors.white, size: 16),
                     SizedBox(width: 6),
                     Text(
-                      'Indoor — Step tracking',
+                      'Indoor - Step tracking',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -268,27 +232,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                 ),
               ),
             ),
-
-          // ── 4. Top bar ────────────────────────────────────────────────────
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Activity + mode badge
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.92),
                         borderRadius: BorderRadius.circular(20),
@@ -331,24 +286,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                         ],
                       ),
                     ),
-
-                    // Re-center button
-                    if (isOutdoor && !_isAutoFollow)
-                      FloatingActionButton.small(
-                        backgroundColor: Colors.white,
-                        onPressed: () => setState(() => _isAutoFollow = true),
-                        child: const Icon(
-                          Icons.my_location,
-                          color: Color(0xff18b0e8),
-                        ),
-                      ),
+                    const SizedBox.shrink(),
                   ],
                 ),
               ),
             ),
           ),
-
-          // ── 5. Metrics + Controls panel ───────────────────────────────────
           Positioned(
             left: 0,
             right: 0,
@@ -357,9 +300,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.08),
@@ -373,7 +314,6 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Timer + Distance
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -390,22 +330,16 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 16),
                     const Divider(height: 1),
                     const SizedBox(height: 16),
-
-                    // Secondary metrics
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        _MetricStat(label: 'STEPS', value: '${state.stepCount}'),
                         _MetricStat(
-                          label: 'SPEED',
-                          value: '${state.speedKmh.toStringAsFixed(1)} km/h',
-                        ),
-                        _MetricStat(
-                          label: 'STEPS',
-                          value: '${state.stepCount}',
+                          label: 'AVG SPD',
+                          value: '${state.avgSpeedKmh.toStringAsFixed(1)} km/h',
                         ),
                         _MetricStat(
                           label: 'CALORIES',
@@ -413,7 +347,6 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                         ),
                       ],
                     ),
-
                     const Spacer(),
                     _buildControls(state.status),
                   ],
@@ -426,15 +359,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     );
   }
 
-  // ─── Controls ─────────────────────────────────────────────────────────────
-
   Widget _buildControls(RecordingState status) {
     if (status == RecordingState.initializing) {
       return const SizedBox(
         height: 64,
         child: Center(
           child: Text(
-            'Initializing…',
+            'Initializing...',
             style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
           ),
         ),
@@ -503,8 +434,6 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     );
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-
   String _formatDuration(int seconds) {
     final h = seconds ~/ 3600;
     final m = (seconds % 3600) ~/ 60;
@@ -518,11 +447,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
   String _modeBadgeText(String mode) {
     switch (mode) {
       case kOutdoorMode:
-        return '🛰️ GPS Tracking';
+        return 'GPS Tracking';
       case kIndoorMode:
-        return '🏃 Step Tracking';
+        return 'Step Tracking';
       default:
-        return '🔍 Detecting…';
+        return 'Tracking';
     }
   }
 
@@ -540,12 +469,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
   }
 }
 
-// ─── Stat widgets ─────────────────────────────────────────────────────────────
-
 class _BigStat extends StatelessWidget {
   final String label;
   final String value;
   final TextAlign align;
+
   const _BigStat({
     required this.label,
     required this.value,
@@ -585,6 +513,7 @@ class _BigStat extends StatelessWidget {
 class _MetricStat extends StatelessWidget {
   final String label;
   final String value;
+
   const _MetricStat({required this.label, required this.value});
 
   @override

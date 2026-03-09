@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fitness_exercise_application/presentation/screens/home/home_screen.dart';
+import 'package:fitness_exercise_application/presentation/screens/auth/auth_wrapper.dart';
 import 'package:fitness_exercise_application/presentation/screens/auth/register_screen.dart';
+import 'package:fitness_exercise_application/presentation/providers/bootstrap_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -39,9 +40,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         password: _passwordController.text,
       );
 
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final bootstrapService = ref.read(appBootstrapServiceProvider);
+        await bootstrapService.hydrateUser(user.id);
+      }
+
+      // Route through AuthWrapper so profile-gate is enforced.
+      // AuthWrapper's StreamBuilder fires on signedIn and routes to
+      // ProfileSetupScreen (new/incomplete) or HomeScreen (complete profile).
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          (_) => false,
         );
       }
     } on AuthException catch (e) {
@@ -51,7 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'An unexpected error occurred';
+        _errorMessage = e.toString();
         _isLoading = false;
       });
     }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fitness_exercise_application/presentation/providers/providers.dart';
 import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/presentation/screens/home/home_screen.dart';
 
@@ -220,22 +219,15 @@ class ActiveWorkoutScreen extends ConsumerWidget {
       // Use notifier to finish workout
       await ref
           .read(workoutListProvider.notifier)
-          .finishWorkout(
-            workoutId: workoutId,
+          .quickAddWorkout(
             activityType: activityType,
-            durationSeconds: durationSeconds,
+            durationMinutes: durationSeconds / 60.0,
           );
-
-      // Fetch updated workout to get calculated calories
-      final repository = ref.read(workoutRepositoryProvider);
-      final workout = await repository.getWorkout(workoutId);
 
       // Dismiss loading
       if (context.mounted) {
         Navigator.of(context).pop();
       }
-
-      if (workout == null) throw Exception('Failed to fetch workout details');
 
       // Show success dialog
       if (context.mounted) {
@@ -248,20 +240,16 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Great job on your $activityType workout!',
+                  'Great job! You finished your $activityType session.',
                   style: const TextStyle(fontSize: 16),
                 ),
-                const SizedBox(height: 16),
-                _ResultRow(
-                  icon: Icons.timer,
-                  label: 'Duration',
-                  value: '${(durationSeconds / 60).toStringAsFixed(1)} min',
-                ),
-                _ResultRow(
-                  icon: Icons.local_fire_department,
-                  label: 'Calories Burned',
-                  value: '${workout.calories ?? 0} kcal',
-                  valueColor: Colors.orange,
+                const SizedBox(height: 8),
+                Text(
+                  'Duration: ${(durationSeconds / 60).toStringAsFixed(1)} min',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
@@ -294,45 +282,5 @@ class ActiveWorkoutScreen extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('Error saving workout: $e')));
       }
     }
-  }
-}
-
-// Result Row Widget for Success Dialog
-class _ResultRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _ResultRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? Colors.black,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

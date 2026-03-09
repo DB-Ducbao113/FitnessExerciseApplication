@@ -2,23 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-/// Map widget that always renders, regardless of indoor/outdoor mode.
-/// [showRoute] controls whether the polyline is drawn (outdoor) or hidden (indoor).
-/// [currentLocation] is always shown as a marker when not null.
 class TrackingMapWidget extends StatefulWidget {
   final List<LatLng> routePoints;
+  final LatLng? initialPosition;
   final LatLng? currentLocation;
-  final bool isAutoFollow;
-  final bool showRoute; // false in indoor mode
-  final VoidCallback? onPan;
+  final bool followUser;
+  final int recenterRequestId;
+  final bool showRoute;
+  final VoidCallback? onUserGesturePan;
 
   const TrackingMapWidget({
     super.key,
     required this.routePoints,
+    this.initialPosition,
     this.currentLocation,
-    this.isAutoFollow = true,
+    this.followUser = true,
+    this.recenterRequestId = 0,
     this.showRoute = true,
-    this.onPan,
+    this.onUserGesturePan,
   });
 
   @override
@@ -28,12 +29,10 @@ class TrackingMapWidget extends StatefulWidget {
 class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   late final MapController _mapController;
   DateTime? _lastCameraMove;
+  bool _initialCameraSet = false;
 
   static const double _defaultZoom = 17.0;
-  static const LatLng _defaultCenter = LatLng(
-    10.7769,
-    106.7009,
-  ); // HCMC fallback
+  static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
   static const Duration _cameraThrottle = Duration(seconds: 2);
 
   @override
@@ -52,32 +51,56 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   void didUpdateWidget(TrackingMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!widget.isAutoFollow) return;
-    if (widget.currentLocation == null) return;
-    if (widget.currentLocation == oldWidget.currentLocation) return;
+    if (!_initialCameraSet &&
+        widget.initialPosition != null &&
+        oldWidget.initialPosition == null) {
+      _initialCameraSet = true;
+      _recenterToCurrent(animated: false, force: true);
+      return;
+    }
 
-    // Throttle camera moves to max once per 2 seconds
+    if (widget.recenterRequestId != oldWidget.recenterRequestId) {
+      _recenterToCurrent(animated: true, force: true);
+      return;
+    }
+
+    if (!widget.followUser) return;
+
+    final target = widget.currentLocation ?? widget.initialPosition;
+    final prevTarget = oldWidget.currentLocation ?? oldWidget.initialPosition;
+    if (target == null || target == prevTarget) return;
+
+    _recenterToCurrent(animated: false);
+  }
+
+  void _recenterToCurrent({required bool animated, bool force = false}) {
+    final target = widget.currentLocation ?? widget.initialPosition;
+    if (target == null) return;
+
     final now = DateTime.now();
-    if (_lastCameraMove != null &&
+    if (!force &&
+        _lastCameraMove != null &&
         now.difference(_lastCameraMove!) < _cameraThrottle) {
       return;
     }
+
     _lastCameraMove = now;
-    _mapController.move(widget.currentLocation!, _defaultZoom);
+    _mapController.move(target, _defaultZoom);
   }
 
-  LatLng get _center =>
+  LatLng get _initialCenter =>
       widget.currentLocation ??
-      (widget.routePoints.isNotEmpty
-          ? widget.routePoints.last
-          : _defaultCenter);
+      widget.initialPosition ??
+      (widget.routePoints.isNotEmpty ? widget.routePoints.last : _defaultCenter);
+
+  LatLng? get _markerPosition => widget.currentLocation ?? widget.initialPosition;
 
   @override
   Widget build(BuildContext context) {
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        initialCenter: _center,
+        initialCenter: _initialCenter,
         initialZoom: _defaultZoom,
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
@@ -85,7 +108,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
         onMapEvent: (event) {
           if (event is MapEventMove &&
               event.source != MapEventSource.mapController) {
-            widget.onPan?.call();
+            widget.onUserGesturePan?.call();
           }
         },
       ),
@@ -95,37 +118,31 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
           userAgentPackageName: 'com.fitness_exercise_application',
           maxZoom: 19,
         ),
-
-        // Polyline — only in outdoor mode
         if (widget.showRoute && widget.routePoints.length >= 2)
           PolylineLayer(
             polylines: [
               Polyline(
                 points: widget.routePoints,
-                strokeWidth: 5.0,
+                strokeWidth: 5,
                 color: const Color(0xff18b0e8),
               ),
             ],
           ),
-
         MarkerLayer(
           markers: [
-            // Start marker — shown only when outdoor route exists
             if (widget.showRoute && widget.routePoints.isNotEmpty)
               Marker(
                 point: widget.routePoints.first,
                 width: 36,
                 height: 36,
-                child: _StartMarker(),
+                child: const _StartMarker(),
               ),
-
-            // Current position — always shown when available
-            if (widget.currentLocation != null)
+            if (_markerPosition != null)
               Marker(
-                point: widget.currentLocation!,
+                point: _markerPosition!,
                 width: 44,
                 height: 44,
-                child: _CurrentLocationMarker(),
+                child: const _CurrentLocationMarker(),
               ),
           ],
         ),
@@ -134,9 +151,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   }
 }
 
-// ─── Marker widgets ───────────────────────────────────────────────────────────
-
 class _StartMarker extends StatelessWidget {
+  const _StartMarker();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -158,6 +175,8 @@ class _StartMarker extends StatelessWidget {
 }
 
 class _CurrentLocationMarker extends StatelessWidget {
+  const _CurrentLocationMarker();
+
   @override
   Widget build(BuildContext context) {
     return Container(
