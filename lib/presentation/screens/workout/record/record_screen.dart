@@ -116,12 +116,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
   }
 
   void _onLocatePressed() {
-    final didRequest = ref.read(workoutSessionProvider.notifier).requestRecenter();
+    final didRequest = ref
+        .read(workoutSessionProvider.notifier)
+        .requestRecenter();
     if (didRequest) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Dang cho GPS fix...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Dang cho GPS fix...')));
   }
 
   Future<void> _confirmStop() async {
@@ -178,139 +180,160 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     });
 
     final isOutdoor = state.trackingMode == kOutdoorMode;
+    final shouldShowGpsRoute = state.trackingMode != kIndoorMode;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
+      body: Column(
         children: [
-          Positioned.fill(
-            bottom: MediaQuery.of(context).size.height * 0.45,
-            child: TrackingMapWidget(
-              routePoints: state.routePoints,
-              initialPosition: state.initialPosition,
-              currentLocation: state.currentLatLng,
-              followUser: state.followUser,
-              recenterRequestId: state.recenterRequestId,
-              showRoute: isOutdoor,
-              onUserGesturePan: () {
-                ref.read(workoutSessionProvider.notifier).onUserDraggedMap();
-              },
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: MediaQuery.of(context).size.height * 0.45 + 16,
-            child: LocateButton(
-              isFollowEnabled: state.followUser,
-              onPressed: _onLocatePressed,
-            ),
-          ),
-          if (state.modeDecisionLocked && !isOutdoor)
-            Positioned(
-              bottom: MediaQuery.of(context).size.height * 0.455,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(20),
+          // MAP AREA ~70-75%
+          Expanded(
+            flex: 7,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: TrackingMapWidget(
+                    routePoints: state.routePoints,
+                    initialPosition: state.initialPosition,
+                    currentLocation: state.currentLatLng,
+                    followUser: state.followUser,
+                    recenterRequestId: state.recenterRequestId,
+                    showRoute: shouldShowGpsRoute,
+                    onUserGesturePan: () {
+                      ref
+                          .read(workoutSessionProvider.notifier)
+                          .onUserDraggedMap();
+                    },
+                  ),
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.directions_walk, color: Colors.white, size: 16),
-                    SizedBox(width: 6),
-                    Text(
-                      'Indoor - Step tracking',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                Positioned(
+                  right: 16,
+                  bottom: 16,
+                  child: LocateButton(
+                    isFollowEnabled: state.followUser,
+                    onPressed: _onLocatePressed,
+                  ),
+                ),
+                if (state.modeDecisionLocked && !isOutdoor)
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.92),
+                        color: Colors.black.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 6,
-                          ),
-                        ],
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _activityIcon(widget.activityType),
-                            size: 20,
-                            color: const Color(0xff18b0e8),
+                            Icons.directions_walk,
+                            color: Colors.white,
+                            size: 16,
                           ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.activityType.toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                _modeBadgeText(state.trackingMode),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
+                          SizedBox(width: 6),
+                          Text(
+                            'Indoor - Step tracking',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox.shrink(),
-                  ],
+                  ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 6,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _activityIcon(widget.activityType),
+                                  size: 20,
+                                  color: const Color(0xff18b0e8),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.activityType.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      _modeBadgeText(state.trackingMode),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox.shrink(),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            top: MediaQuery.of(context).size.height * 0.55,
+          // METRICS PANEL ~20-25%
+          Expanded(
+            flex: 2,
             child: Container(
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, -5),
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, -4),
                   ),
                 ],
               ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -330,15 +353,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _MetricStat(label: 'STEPS', value: '${state.stepCount}'),
                         _MetricStat(
-                          label: 'AVG SPD',
+                          label: 'AVG SPEED',
                           value: '${state.avgSpeedKmh.toStringAsFixed(1)} km/h',
                         ),
                         _MetricStat(
@@ -347,11 +367,17 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    _buildControls(state.status),
                   ],
                 ),
               ),
+            ),
+          ),
+          // CONTROL BUTTONS ~5-10%
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+              child: _buildControls(state.status),
             ),
           ),
         ],
@@ -492,7 +518,7 @@ class _BigStat extends StatelessWidget {
           textAlign: align,
           style: const TextStyle(
             color: Colors.grey,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -500,9 +526,9 @@ class _BigStat extends StatelessWidget {
           value,
           textAlign: align,
           style: const TextStyle(
-            fontSize: 38,
+            fontSize: 26,
             fontWeight: FontWeight.w900,
-            letterSpacing: -2,
+            letterSpacing: -1.2,
           ),
         ),
       ],

@@ -13,6 +13,7 @@ class UserProfile with _$UserProfile {
     required String gender, // 'male' or 'female'
     required DateTime createdAt,
     required DateTime updatedAt,
+    String? avatarUrl, // Supabase Storage public URL, null until uploaded
   }) = _UserProfile;
 
   const UserProfile._();

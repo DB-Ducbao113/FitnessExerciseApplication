@@ -45,6 +45,16 @@ class WorkoutList extends _$WorkoutList {
     ref.invalidateSelf();
   }
 
+  /// Delete all workouts
+  Future<void> deleteAllWorkouts() async {
+    final user = ref.read(currentUserIdProvider);
+    if (user == null) return;
+
+    final repository = ref.read(workoutRepositoryProvider);
+    await repository.deleteAllSessions(user);
+    ref.invalidateSelf();
+  }
+
   /// Save a completed workout session verbatim
   Future<void> saveSession(WorkoutSession session) async {
     final repository = ref.read(workoutRepositoryProvider);

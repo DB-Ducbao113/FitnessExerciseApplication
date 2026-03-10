@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -55,12 +56,12 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
         widget.initialPosition != null &&
         oldWidget.initialPosition == null) {
       _initialCameraSet = true;
-      _recenterToCurrent(animated: false, force: true);
+      _recenterToCurrent(force: true);
       return;
     }
 
     if (widget.recenterRequestId != oldWidget.recenterRequestId) {
-      _recenterToCurrent(animated: true, force: true);
+      _recenterToCurrent(force: true);
       return;
     }
 
@@ -70,10 +71,10 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
     final prevTarget = oldWidget.currentLocation ?? oldWidget.initialPosition;
     if (target == null || target == prevTarget) return;
 
-    _recenterToCurrent(animated: false);
+    _recenterToCurrent();
   }
 
-  void _recenterToCurrent({required bool animated, bool force = false}) {
+  void _recenterToCurrent({bool force = false}) {
     final target = widget.currentLocation ?? widget.initialPosition;
     if (target == null) return;
 
@@ -91,12 +92,21 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   LatLng get _initialCenter =>
       widget.currentLocation ??
       widget.initialPosition ??
-      (widget.routePoints.isNotEmpty ? widget.routePoints.last : _defaultCenter);
+      (widget.routePoints.isNotEmpty
+          ? widget.routePoints.last
+          : _defaultCenter);
 
-  LatLng? get _markerPosition => widget.currentLocation ?? widget.initialPosition;
+  LatLng? get _markerPosition =>
+      widget.currentLocation ?? widget.initialPosition;
 
   @override
   Widget build(BuildContext context) {
+    if (kDebugMode) {
+      debugPrint(
+        '[Map] rebuild marker=${_markerPosition != null} routePoints=${widget.routePoints.length} showRoute=${widget.showRoute} follow=${widget.followUser}',
+      );
+    }
+
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
@@ -133,15 +143,15 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
             if (widget.showRoute && widget.routePoints.isNotEmpty)
               Marker(
                 point: widget.routePoints.first,
-                width: 36,
-                height: 36,
+                width: 28,
+                height: 28,
                 child: const _StartMarker(),
               ),
             if (_markerPosition != null)
               Marker(
                 point: _markerPosition!,
-                width: 44,
-                height: 44,
+                width: 26,
+                height: 26,
                 child: const _CurrentLocationMarker(),
               ),
           ],
@@ -179,19 +189,36 @@ class _CurrentLocationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xff18b0e8),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xff18b0e8).withValues(alpha: 0.45),
-            blurRadius: 10,
-            spreadRadius: 3,
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Accuracy ring
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: const Color(0xff18b0e8).withValues(alpha: 0.15),
+            shape: BoxShape.circle,
           ),
-        ],
-      ),
+        ),
+        // Center blue dot
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: const Color(0xff18b0e8),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xff18b0e8).withValues(alpha: 0.45),
+                blurRadius: 6,
+                spreadRadius: 1.5,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

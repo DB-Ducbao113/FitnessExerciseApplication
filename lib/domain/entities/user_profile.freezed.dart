@@ -25,6 +25,7 @@ mixin _$UserProfile {
   String get gender => throw _privateConstructorUsedError; // 'male' or 'female'
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime get updatedAt => throw _privateConstructorUsedError;
+  String? get avatarUrl => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $UserProfileCopyWith<UserProfile> get copyWith =>
@@ -45,7 +46,8 @@ abstract class $UserProfileCopyWith<$Res> {
       int age,
       String gender,
       DateTime createdAt,
-      DateTime updatedAt});
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -69,6 +71,7 @@ class _$UserProfileCopyWithImpl<$Res, $Val extends UserProfile>
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
+    Object? avatarUrl = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -103,6 +106,10 @@ class _$UserProfileCopyWithImpl<$Res, $Val extends UserProfile>
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
               as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -123,7 +130,8 @@ abstract class _$$UserProfileImplCopyWith<$Res>
       int age,
       String gender,
       DateTime createdAt,
-      DateTime updatedAt});
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -145,6 +153,7 @@ class __$$UserProfileImplCopyWithImpl<$Res>
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
+    Object? avatarUrl = freezed,
   }) {
     return _then(_$UserProfileImpl(
       id: null == id
@@ -179,6 +188,10 @@ class __$$UserProfileImplCopyWithImpl<$Res>
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
               as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -194,7 +207,8 @@ class _$UserProfileImpl extends _UserProfile {
       required this.age,
       required this.gender,
       required this.createdAt,
-      required this.updatedAt})
+      required this.updatedAt,
+      this.avatarUrl})
       : super._();
 
   @override
@@ -215,10 +229,12 @@ class _$UserProfileImpl extends _UserProfile {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
+  @override
+  final String? avatarUrl;
 
   @override
   String toString() {
-    return 'UserProfile(id: $id, userId: $userId, weightKg: $weightKg, heightM: $heightM, age: $age, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'UserProfile(id: $id, userId: $userId, weightKg: $weightKg, heightM: $heightM, age: $age, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt, avatarUrl: $avatarUrl)';
   }
 
   @override
@@ -236,12 +252,14 @@ class _$UserProfileImpl extends _UserProfile {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt));
+                other.updatedAt == updatedAt) &&
+            (identical(other.avatarUrl, avatarUrl) ||
+                other.avatarUrl == avatarUrl));
   }
 
   @override
   int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightM,
-      age, gender, createdAt, updatedAt);
+      age, gender, createdAt, updatedAt, avatarUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -259,7 +277,8 @@ abstract class _UserProfile extends UserProfile {
       required final int age,
       required final String gender,
       required final DateTime createdAt,
-      required final DateTime updatedAt}) = _$UserProfileImpl;
+      required final DateTime updatedAt,
+      final String? avatarUrl}) = _$UserProfileImpl;
   const _UserProfile._() : super._();
 
   @override
@@ -278,6 +297,8 @@ abstract class _UserProfile extends UserProfile {
   DateTime get createdAt;
   @override
   DateTime get updatedAt;
+  @override
+  String? get avatarUrl;
   @override
   @JsonKey(ignore: true)
   _$$UserProfileImplCopyWith<_$UserProfileImpl> get copyWith =>

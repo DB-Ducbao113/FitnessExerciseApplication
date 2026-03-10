@@ -28,6 +28,7 @@ mixin _$UserProfileModel {
   String get gender => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime get updatedAt => throw _privateConstructorUsedError;
+  String? get avatarUrl => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -49,7 +50,8 @@ abstract class $UserProfileModelCopyWith<$Res> {
       int age,
       String gender,
       DateTime createdAt,
-      DateTime updatedAt});
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -73,6 +75,7 @@ class _$UserProfileModelCopyWithImpl<$Res, $Val extends UserProfileModel>
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
+    Object? avatarUrl = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -107,6 +110,10 @@ class _$UserProfileModelCopyWithImpl<$Res, $Val extends UserProfileModel>
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
               as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -127,7 +134,8 @@ abstract class _$$UserProfileModelImplCopyWith<$Res>
       int age,
       String gender,
       DateTime createdAt,
-      DateTime updatedAt});
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -149,6 +157,7 @@ class __$$UserProfileModelImplCopyWithImpl<$Res>
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
+    Object? avatarUrl = freezed,
   }) {
     return _then(_$UserProfileModelImpl(
       id: null == id
@@ -183,6 +192,10 @@ class __$$UserProfileModelImplCopyWithImpl<$Res>
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
               as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -198,7 +211,8 @@ class _$UserProfileModelImpl extends _UserProfileModel {
       required this.age,
       required this.gender,
       required this.createdAt,
-      required this.updatedAt})
+      required this.updatedAt,
+      this.avatarUrl})
       : super._();
 
   factory _$UserProfileModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -220,10 +234,12 @@ class _$UserProfileModelImpl extends _UserProfileModel {
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
+  @override
+  final String? avatarUrl;
 
   @override
   String toString() {
-    return 'UserProfileModel(id: $id, userId: $userId, weightKg: $weightKg, heightM: $heightM, age: $age, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'UserProfileModel(id: $id, userId: $userId, weightKg: $weightKg, heightM: $heightM, age: $age, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt, avatarUrl: $avatarUrl)';
   }
 
   @override
@@ -241,13 +257,15 @@ class _$UserProfileModelImpl extends _UserProfileModel {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt));
+                other.updatedAt == updatedAt) &&
+            (identical(other.avatarUrl, avatarUrl) ||
+                other.avatarUrl == avatarUrl));
   }
 
   @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightM,
-      age, gender, createdAt, updatedAt);
+      age, gender, createdAt, updatedAt, avatarUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -273,7 +291,8 @@ abstract class _UserProfileModel extends UserProfileModel {
       required final int age,
       required final String gender,
       required final DateTime createdAt,
-      required final DateTime updatedAt}) = _$UserProfileModelImpl;
+      required final DateTime updatedAt,
+      final String? avatarUrl}) = _$UserProfileModelImpl;
   const _UserProfileModel._() : super._();
 
   factory _UserProfileModel.fromJson(Map<String, dynamic> json) =
@@ -295,6 +314,8 @@ abstract class _UserProfileModel extends UserProfileModel {
   DateTime get createdAt;
   @override
   DateTime get updatedAt;
+  @override
+  String? get avatarUrl;
   @override
   @JsonKey(ignore: true)
   _$$UserProfileModelImplCopyWith<_$UserProfileModelImpl> get copyWith =>

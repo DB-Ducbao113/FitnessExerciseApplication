@@ -16,6 +16,14 @@ class WorkoutListScreen extends ConsumerWidget {
         title: const Text('Workout History'),
         backgroundColor: const Color(0xff18b0e8),
         foregroundColor: Colors.white,
+        actions: [
+          if (workoutsAsync.valueOrNull?.isNotEmpty ?? false)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep),
+              tooltip: 'Delete All Workouts',
+              onPressed: () => _confirmDeleteAll(context, ref),
+            ),
+        ],
       ),
       body: workoutsAsync.when(
         data: (workouts) {
@@ -145,6 +153,38 @@ class WorkoutListScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAll(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete All Workouts?'),
+        content: const Text(
+          'Are you sure you want to delete your entire workout history? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(workoutListProvider.notifier).deleteAllWorkouts();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('All workouts deleted')));
+      }
+    }
   }
 
   IconData _getActivityIcon(String activityType) {

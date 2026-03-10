@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fitness_exercise_application/presentation/providers/avatar_providers.dart';
 
-class AppHeader extends StatelessWidget {
+/// AppHeader is now a [ConsumerWidget] so it can watch [currentUserProfileProvider]
+/// and display the real user avatar from Supabase Storage.
+/// Both ProfileScreen and AppHeader subscribe to [currentUserProfileProvider],
+/// so updating the avatar in Profile automatically refreshes the header on Home.
+class AppHeader extends ConsumerWidget {
   final VoidCallback? onMenuTap;
 
   const AppHeader({super.key, this.onMenuTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(currentUserProfileProvider);
+    final user = Supabase.instance.client.auth.currentUser;
+
+    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+    final displayName = user?.email?.split('@').first ?? 'User';
+
     return SizedBox(
       width: double.infinity,
       height: 200,
@@ -16,6 +29,7 @@ class AppHeader extends StatelessWidget {
             painter: HeaderPainter(),
             size: const Size(double.infinity, 200),
           ),
+          // Menu button
           Positioned(
             top: 20,
             left: 20,
@@ -24,34 +38,49 @@ class AppHeader extends StatelessWidget {
               icon: const Icon(Icons.menu, color: Colors.white),
             ),
           ),
+          // Live avatar (top-right)
           Positioned(
             top: 25,
             right: 30,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const CircleAvatar(
-                radius: 32,
-                foregroundImage: AssetImage('assets/profile.jpg'),
+            child: GestureDetector(
+              onTap: onMenuTap, // navigate to profile on avatar tap
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 32,
+                  backgroundColor: const Color(0xffe8f7fd),
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? const Icon(
+                          Icons.person,
+                          size: 32,
+                          color: Color(0xff18b0e8),
+                        )
+                      : null,
+                ),
               ),
             ),
           ),
+          // Greeting text
           Positioned(
             left: 33,
             bottom: 20,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Hello',
                   style: TextStyle(
                     color: Colors.white,
@@ -67,13 +96,13 @@ class AppHeader extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Bao Bung Bu',
-                  style: TextStyle(
+                  displayName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 28,
+                    fontSize: 26,
                     letterSpacing: 0.5,
                     shadows: [
                       Shadow(
@@ -96,8 +125,7 @@ class AppHeader extends StatelessWidget {
 class HeaderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // Gradient background
-    final gradient = LinearGradient(
+    final gradient = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [Color(0xff00d4ff), Color(0xff0099ff), Color(0xff0066ff)],
@@ -105,10 +133,8 @@ class HeaderPainter extends CustomPainter {
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final paint = Paint()..shader = gradient.createShader(rect);
-
     canvas.drawRect(rect, paint);
 
-    // Decorative circles with varying opacity
     Paint circles1 = Paint()..color = Colors.white.withOpacity(0.15);
     Paint circles2 = Paint()..color = Colors.white.withOpacity(0.1);
     Paint circles3 = Paint()..color = Colors.white.withOpacity(0.08);

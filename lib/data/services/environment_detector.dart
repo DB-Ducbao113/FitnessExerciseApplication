@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'package:fitness_exercise_application/core/config/debug_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -26,13 +27,16 @@ const int _kMinWindowSize = 3;
 const int _kWindowSize = 10;
 
 /// Outdoor: accuracy must be ≤ this.
-const double _kOutdoorMaxAccuracy = 20.0; // m
+/// In debug mode we allow weaker accuracy (emulator GPS is simulated).
+double get _kOutdoorMaxAccuracy => kDebugLocationMode ? 50.0 : 20.0; // m
 
 /// Outdoor: net displacement must be ≥ this in the window.
-const double _kOutdoorMinDisplacement = 25.0; // m
+/// In debug (emulator) mode this is reduced to 3 m so the classifier fires
+/// quickly on short emulator routes.
+double get _kOutdoorMinDisplacement => kDebugLocationMode ? 3.0 : 25.0; // m
 
 /// Outdoor: OR average GPS speed ≥ this (m/s).
-const double _kOutdoorMinSpeed = 0.8; // m/s
+double get _kOutdoorMinSpeed => kDebugLocationMode ? 0.2 : 0.8; // m/s
 
 /// Outdoor: jitter ratio must be ≤ this (path is coherent).
 const double _kOutdoorMaxJitterRatio = 4.0;
@@ -237,6 +241,14 @@ class EnvironmentClassifier {
 
   /// Returns outdoor, indoor, or null (ambiguous — not enough evidence yet).
   TrackingEnvironment? _classify(_WindowMetrics m) {
+    // ── Emulator Debug Mode ──────────────────────────────────────────────────
+    if (kDebugLocationMode) {
+      // In debug mode, we assume emulator testing is for outdoor routes.
+      // Force outdoor so `record_providers.dart` accumulates distance correctly.
+      _stepsDeltaSinceLastEval = 0;
+      return TrackingEnvironment.outdoor;
+    }
+
     // ── Outdoor ──────────────────────────────────────────────────────────────
     if (m.avgAccuracy <= _kOutdoorMaxAccuracy &&
         (m.netDisplacement >= _kOutdoorMinDisplacement ||

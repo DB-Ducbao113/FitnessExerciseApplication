@@ -86,6 +86,23 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   }
 
   @override
+  Future<void> deleteAllSessions(String userId) async {
+    // Clear local cache completely
+    await LocalDB.clearAllForUser(userId);
+
+    // Try deleting remote
+    if (await InternetConnectionChecker().hasConnection) {
+      try {
+        await _remoteDataSource.deleteAllSessions(userId);
+      } catch (e) {
+        debugPrint(
+          '[WorkoutRepository] Failed to delete all remote sessions: $e',
+        );
+      }
+    }
+  }
+
+  @override
   Future<void> syncPendingData() async {
     if (!await InternetConnectionChecker().hasConnection) return;
 

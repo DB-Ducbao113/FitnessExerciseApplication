@@ -17,6 +17,7 @@ _$UserProfileModelImpl _$$UserProfileModelImplFromJson(
       gender: json['gender'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      avatarUrl: json['avatarUrl'] as String?,
     );
 
 Map<String, dynamic> _$$UserProfileModelImplToJson(
@@ -30,4 +31,5 @@ Map<String, dynamic> _$$UserProfileModelImplToJson(
       'gender': instance.gender,
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
+      'avatarUrl': instance.avatarUrl,
     };

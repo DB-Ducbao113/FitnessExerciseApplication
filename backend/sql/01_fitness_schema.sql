@@ -1,136 +1,80 @@
--- Enable PostGIS for geospatial storage
-create extension if not exists postgis;
+-- ================================================================
+-- 01_fitness_schema.sql  ──  MASTER SCHEMA ENTRY POINT
+-- Run this file FIRST in Supabase SQL Editor.
+-- It defines extensions, the updated_at helper, and execution order.
+-- Individual table definitions live in their own files (run after this).
+-- ================================================================
 
--- 1. WORKOUTS TABLE
-create type workout_activity as enum ('RUNNING', 'CYCLING', 'WALKING', 'SWIMMING', 'WEIGHTS', 'YOGA');
-create type workout_status as enum ('ONGOING', 'COMPLETED', 'CANCELLED');
-create type workout_source as enum ('GPS', 'MANUAL', 'PEDOMETER');
+-- ── 1. Extensions ─────────────────────────────────────────────────
+create extension if not exists "uuid-ossp";
+create extension if not exists "pgcrypto";
+create extension if not exists postgis;          -- required for gps_points.location
 
-create table if not exists workouts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  activity_type workout_activity not null,
-  status workout_status default 'ONGOING' not null,
-  source workout_source default 'GPS' not null,
-  
-  start_time timestamptz default now() not null,
-  end_time timestamptz,
-  
-  -- Aggregates (calculated at end)
-  duration_seconds int default 0,
-  distance_meters float default 0,
-  calories_burned float default 0,
-  avg_pace float, -- seconds per km
-  elevation_gain float default 0,
-  steps_count int default 0, -- for walking
-  
-  created_at timestamptz default now()
-);
+-- ── 2. Shared trigger function ────────────────────────────────────
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
--- RLS for workouts
-alter table workouts enable row level security;
+-- ── 3. Execution order ────────────────────────────────────────────
+-- Run in this order to satisfy foreign-key dependencies:
+--
+--   1) users.sql            → public.users
+--   2) user_metrics.sql     → public.user_profiles
+--   3) workouts.sql         → public.workout_sessions, public.workouts (legacy)
+--   4) gps_tracks.sql       → public.gps_tracks, public.gps_points, public.step_sessions
+--   5) insert_sample.sql    → seed data (optional, dev only)
 
-create policy "Users can insert their own workouts"
-on workouts for insert
-to authenticated
-with check (auth.uid() = user_id);
+-- ── 4. Statistics views ───────────────────────────────────────────
 
-create policy "Users can view their own workouts"
-on workouts for select
-to authenticated
-using (auth.uid() = user_id);
+-- All-time totals per user
+create or replace view public.v_user_stats as
+select
+  user_id,
+  count(*)                                              as total_sessions,
+  coalesce(sum(duration_sec), 0)                        as total_duration_sec,
+  coalesce(sum(distance_km),  0)                        as total_distance_km,
+  coalesce(sum(calories_kcal), 0)                       as total_calories_kcal,
+  coalesce(sum(steps), 0)                               as total_steps,
+  coalesce(
+    avg(avg_speed_kmh) filter (where avg_speed_kmh is not null),
+    0
+  )                                                     as overall_avg_speed_kmh
+from public.workout_sessions
+group by user_id;
 
-create policy "Users can update their own workouts"
-on workouts for update
-to authenticated
-using (auth.uid() = user_id);
+-- Last-7-days summary
+create or replace view public.v_weekly_stats as
+select
+  user_id,
+  count(*)                             as sessions_this_week,
+  coalesce(sum(duration_sec), 0)       as duration_sec_week,
+  coalesce(sum(distance_km),  0)       as distance_km_week,
+  coalesce(sum(calories_kcal), 0)      as calories_week,
+  coalesce(sum(steps), 0)              as steps_week
+from public.workout_sessions
+where started_at >= (now() - interval '7 days')
+group by user_id;
 
+-- Monthly breakdown (for chart bars)
+create or replace view public.v_monthly_sessions as
+select
+  user_id,
+  date_trunc('month', started_at)      as month,
+  count(*)                             as sessions,
+  coalesce(sum(distance_km),  0)       as distance_km,
+  coalesce(sum(calories_kcal), 0)      as calories,
+  coalesce(sum(duration_sec), 0)       as duration_sec
+from public.workout_sessions
+group by user_id, date_trunc('month', started_at)
+order by user_id, month desc;
 
--- 2. GPS POINTS TABLE (Time-Series)
-create table if not exists gps_points (
-  id bigint generated always as identity primary key,
-  workout_id uuid references workouts(id) on delete cascade not null,
-  timestamp timestamptz not null,
-  
-  -- Store as PostGIS Geography Point (Long, Lat)
-  location geography(POINT, 4326) not null,
-  
-  altitude float,
-  speed float, -- m/s
-  accuracy float, -- meters
-  heading float,
-  
-  created_at timestamptz default now()
-);
-
--- Index for querying points by workout
-create index if not exists idx_gps_points_workout on gps_points(workout_id);
--- Spatial index (GIST) for location queries
-create index if not exists idx_gps_points_location on gps_points using gist(location);
-
--- RLS for gps_points
-alter table gps_points enable row level security;
-
-create policy "Users can insert points for their workouts"
-on gps_points for insert
-to authenticated
-with check (
-  exists (
-    select 1 from workouts
-    where workouts.id = gps_points.workout_id
-    and workouts.user_id = auth.uid()
-  )
-);
-
-create policy "Users can select points for their workouts"
-on gps_points for select
-to authenticated
-using (
-  exists (
-    select 1 from workouts
-    where workouts.id = gps_points.workout_id
-    and workouts.user_id = auth.uid()
-  )
-);
-
-
--- 3. STEP SESSIONS TABLE (For Pedometer Data)
--- Instead of storing every step, we store intervals (e.g. every minute)
-create table if not exists step_sessions (
-  id bigint generated always as identity primary key,
-  workout_id uuid references workouts(id) on delete cascade not null,
-  
-  interval_start timestamptz not null,
-  interval_end timestamptz not null,
-  steps_count int not null,
-  
-  created_at timestamptz default now()
-);
-
--- Index
-create index if not exists idx_step_sessions_workout on step_sessions(workout_id);
-
--- RLS
-alter table step_sessions enable row level security;
-
-create policy "Users can insert steps for their workouts"
-on step_sessions for insert
-to authenticated
-with check (
-  exists (
-    select 1 from workouts
-    where workouts.id = step_sessions.workout_id
-    and workouts.user_id = auth.uid()
-  )
-);
-
-create policy "Users can select steps for their workouts"
-on step_sessions for select
-to authenticated
-using (
-  exists (
-    select 1 from workouts
-    where workouts.id = step_sessions.workout_id
-    and workouts.user_id = auth.uid()
-  )
-);
+-- ── 5. Supabase Storage ───────────────────────────────────────────
+-- Create a bucket named 'avatars' in Supabase Dashboard > Storage.
+-- Recommended path pattern: <user_id>/avatar.jpg
+-- After upload, store the public URL in public.users (add avatar_url column if needed):
+--
+--   alter table public.users add column if not exists avatar_url text;

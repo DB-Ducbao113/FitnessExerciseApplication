@@ -77,4 +77,17 @@ class WorkoutRemoteDataSource {
       rethrow;
     }
   }
+
+  /// Delete all workouts for a user from Supabase
+  Future<void> deleteAllSessions(String userId) async {
+    try {
+      await _supabase
+          .from(DbTables.workoutSessions)
+          .delete()
+          .eq('user_id', userId);
+    } catch (e) {
+      debugPrint('[WorkoutRemoteDataSource] deleteAllSessions error: $e');
+      rethrow;
+    }
+  }
 }

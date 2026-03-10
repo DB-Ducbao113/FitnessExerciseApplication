@@ -1,7 +1,0 @@
-﻿Analyzing record, workout_result.dart...
-
-   info - lib\presentation\screens\workout\record\record_screen.dart:129:45 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
-   info - lib\presentation\screens\workout\record\record_screen.dart:133:49 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
-   info - lib\presentation\screens\workout\record\record_screen.dart:182:41 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
-
-3 issues found.

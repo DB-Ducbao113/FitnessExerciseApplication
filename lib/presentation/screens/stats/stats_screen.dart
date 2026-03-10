@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/presentation/screens/stats/widgets/stat_card.dart';
 import 'package:fitness_exercise_application/presentation/screens/stats/widgets/time_period_selector.dart';
 import 'package:fitness_exercise_application/presentation/screens/stats/widgets/activity_breakdown.dart';
@@ -190,6 +191,11 @@ class StatsScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+
+                // Goal Progress Banner
+                _GoalProgressCard(progress: ref.watch(goalProgressProvider)),
 
                 const SizedBox(height: 16),
 
@@ -428,5 +434,102 @@ class _WorkoutChart extends StatelessWidget {
     }
 
     return data;
+  }
+}
+
+// ── Goal Progress Card ──────────────────────────────────────────────────
+/// Displays inside StatsScreen above the trend chart.
+/// Shows current progress toward the active fitness goal with a fill bar.
+class _GoalProgressCard extends StatelessWidget {
+  final GoalProgress? progress;
+  const _GoalProgressCard({required this.progress});
+
+  static const _primaryColor = Color(0xff18b0e8);
+
+  @override
+  Widget build(BuildContext context) {
+    if (progress == null) return const SizedBox.shrink();
+
+    final p = progress!;
+    final fillColor = p.isAchieved ? Colors.green : _primaryColor;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      elevation: 3,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.flag, color: fillColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Goal Progress',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: fillColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    p.isAchieved ? '🎉 Done!' : '${p.percent}%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: p.ratio,
+                minHeight: 10,
+                backgroundColor: fillColor.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(fillColor),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${p.currentLabel} ${p.unit}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: fillColor,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  'Target: ${p.targetLabel} ${p.unit}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

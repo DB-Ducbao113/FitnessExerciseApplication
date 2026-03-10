@@ -1,48 +1,97 @@
--- =================================================================
--- SCRIPT CẬP NHẬT DỮ LIỆU (ID ĐÃ ĐƯỢC ĐIỀN SẴN)
--- =================================================================
+-- ================================================================
+-- insert_sample.sql  ──  DEV SEED DATA
+-- Run AFTER all schema files. Replace the user UUID below with
+-- a real auth.users ID from your Supabase project.
+-- ================================================================
 
--- Bước 1: Tạo User Profile trong bảng 'users' (public) để tránh lỗi Foreign Key
--- (Sử dụng ID của bạn: 6e2f84d1-e16c-4ab4-bd89-1688aea5a37d)
-
-INSERT INTO users (id, name, gender, age, weight_kg, height_cm)
-VALUES (
-  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d', -- ID CỦA BẠN
+-- ── Step 1: Upsert user row ───────────────────────────────────────
+-- Replace the UUID with your own from Supabase Auth > Users tab.
+insert into public.users (id, name, gender, age, weight_kg, height_cm)
+values (
+  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
   'Duc Bao',
-  'Male',
+  'male',
   22,
   65.0,
   175.0
-) ON CONFLICT (id) DO UPDATE 
-SET name = 'Duc Bao'; -- Update để đảm bảo row tồn tại
+)
+on conflict (id) do update set
+  name   = excluded.name,
+  gender = excluded.gender,
+  age    = excluded.age;
 
+-- ── Step 2: Upsert user_profile row ──────────────────────────────
+insert into public.user_profiles (user_id, weight_kg, height_m, age, gender)
+values (
+  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
+  65.0,
+  1.75,
+  22,
+  'male'
+)
+on conflict (user_id) do update set
+  weight_kg = excluded.weight_kg,
+  height_m  = excluded.height_m;
 
--- Bước 2: Thêm dữ liệu Workouts mẫu
--- (Đã bao gồm Running, Cycling, Weights, Yoga)
+-- ── Step 3: Sample workout_sessions ──────────────────────────────
 
--- Sample 1: Running (Hôm qua - 5.2km trong 30p)
-INSERT INTO workouts (user_id, activity_type, started_at, ended_at, duration_min, calories, distance_km, avg_speed_kmh)
-VALUES 
-('6e2f84d1-e16c-4ab4-bd89-1688aea5a37d', 'running', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 day' + INTERVAL '30 minutes', 30, 320, 5.2, 10.4);
+-- Outdoor running (yesterday, 30 min)
+insert into public.workout_sessions (
+  user_id, activity_type, mode,
+  started_at, ended_at, duration_sec,
+  distance_km, avg_speed_kmh, calories_kcal
+) values (
+  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
+  'running', 'outdoor',
+  now() - interval '1 day',
+  now() - interval '1 day' + interval '30 minutes',
+  1800,
+  5.2, 10.4, 320.0
+);
 
--- Sample 2: Cycling (Sáng nay - 20.5km trong 60p)
-INSERT INTO workouts (user_id, activity_type, started_at, ended_at, duration_min, calories, distance_km, avg_speed_kmh)
-VALUES 
-('6e2f84d1-e16c-4ab4-bd89-1688aea5a37d', 'cycling', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '3 hours', 60, 450, 20.5, 20.5);
+-- Outdoor cycling (4 hours ago, 60 min)
+insert into public.workout_sessions (
+  user_id, activity_type, mode,
+  started_at, ended_at, duration_sec,
+  distance_km, avg_speed_kmh, calories_kcal
+) values (
+  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
+  'cycling', 'outdoor',
+  now() - interval '4 hours',
+  now() - interval '3 hours',
+  3600,
+  20.5, 20.5, 450.0
+);
 
--- Sample 3: Weights (2 ngày trước - 45p tập tạ)
-INSERT INTO workouts (user_id, activity_type, started_at, ended_at, duration_min, calories)
-VALUES 
-('6e2f84d1-e16c-4ab4-bd89-1688aea5a37d', 'weights', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days' + INTERVAL '45 minutes', 45, 200);
+-- Indoor walking (2 days ago, step-based)
+insert into public.workout_sessions (
+  user_id, activity_type, mode,
+  started_at, ended_at, duration_sec,
+  steps, calories_kcal
+) values (
+  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
+  'walking', 'indoor',
+  now() - interval '2 days',
+  now() - interval '2 days' + interval '45 minutes',
+  2700,
+  5400, 200.0
+);
 
--- Sample 4: Yoga (Vừa tập xong - 20p)
-INSERT INTO workouts (user_id, activity_type, started_at, ended_at, duration_min, calories)
-VALUES 
-('6e2f84d1-e16c-4ab4-bd89-1688aea5a37d', 'yoga', NOW() - INTERVAL '20 minutes', NOW(), 20, 80);
+-- ── Step 4: Sample gps_tracks for the running session ────────────
+-- Get the running session id first:
+--   select id from workout_sessions where activity_type='running' limit 1;
+-- Then replace <RUNNING_SESSION_UUID> below.
 
+/*
+insert into public.gps_tracks (workout_id, latitude, longitude, recorded_at)
+values
+  ('<RUNNING_SESSION_UUID>', 10.77690, 106.70090, now() - interval '1 day'),
+  ('<RUNNING_SESSION_UUID>', 10.77710, 106.70120, now() - interval '1 day' + interval '30 seconds'),
+  ('<RUNNING_SESSION_UUID>', 10.77740, 106.70150, now() - interval '1 day' + interval '60 seconds');
+*/
 
--- Bước 3: Kiểm tra kết quả
-SELECT activity_type, duration_min, calories, distance_km, started_at 
-FROM workouts 
-WHERE user_id = '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d'
-ORDER BY started_at DESC;
+-- ── Step 5: Verify ────────────────────────────────────────────────
+select activity_type, mode, duration_sec, distance_km, calories_kcal, started_at
+from public.workout_sessions
+where user_id = '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d'
+order by started_at desc;

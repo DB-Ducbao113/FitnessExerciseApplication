@@ -15,6 +15,7 @@ class UserProfileModel with _$UserProfileModel {
     required String gender,
     required DateTime createdAt,
     required DateTime updatedAt,
+    String? avatarUrl,
   }) = _UserProfileModel;
 
   const UserProfileModel._();
@@ -33,6 +34,7 @@ class UserProfileModel with _$UserProfileModel {
       gender: gender,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      avatarUrl: avatarUrl,
     );
   }
 
@@ -47,6 +49,7 @@ class UserProfileModel with _$UserProfileModel {
       gender: profile.gender,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
+      avatarUrl: profile.avatarUrl,
     );
   }
 }

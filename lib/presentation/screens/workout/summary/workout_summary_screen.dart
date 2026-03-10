@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:fitness_exercise_application/presentation/screens/stats/stats_screen.dart';
 
 class WorkoutSummaryScreen extends StatelessWidget {
   final String sessionId;
@@ -185,10 +186,9 @@ class WorkoutSummaryScreen extends StatelessWidget {
                     height: 56,
                     child: OutlinedButton(
                       onPressed: () {
-                        // TODO: Navigate to detailed analysis screen
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Detailed view coming soon!'),
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (_) => const StatsScreen(),
                           ),
                         );
                       },

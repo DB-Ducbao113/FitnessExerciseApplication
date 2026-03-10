@@ -1,13 +1,12 @@
 import 'dart:async';
+import 'package:fitness_exercise_application/core/config/debug_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final locationTrackingServiceProvider = Provider(
-  (ref) => LocationTrackingService(),
+  (ref) => LocationTrackingService(debugLocationMode: kDebugLocationMode),
 );
-
-// ─── Kalman filter ────────────────────────────────────────────────────────────
 
 class _KalmanAxis {
   double estimate;
@@ -25,9 +24,11 @@ class _KalmanAxis {
   }
 }
 
-// ─── Service ──────────────────────────────────────────────────────────────────
-
 class LocationTrackingService {
+  final bool debugLocationMode;
+
+  LocationTrackingService({this.debugLocationMode = false});
+
   StreamSubscription<Position>? _positionStream;
   final _positionController = StreamController<Position>.broadcast();
 
@@ -37,24 +38,18 @@ class LocationTrackingService {
 
   Stream<Position> get positionStream => _positionController.stream;
 
-  // ── Permission check (throws named exceptions, never opens settings) ────────
-
-  /// Returns normally if permissions are ready.
-  /// Throws a named exception string if the caller must show UI.
-  /// Does NOT open any system settings dialog — avoids the indefinite await.
   Future<void> ensurePermissionsOrThrow() async {
     final t0 = DateTime.now();
     debugPrint('[GPS] ensurePermissions start');
 
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Throw immediately — let the UI decide whether to open settings
       throw Exception('location_disabled');
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      debugPrint('[GPS] requesting permission…');
+      debugPrint('[GPS] requesting permission...');
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         throw Exception('permission_denied');
@@ -70,14 +65,10 @@ class LocationTrackingService {
     );
   }
 
-  // ── Location acquisition helpers ───────────────────────────────────────────
-
-  /// Tier 1 — instant. Returns the OS-cached last known position (no GPS wait).
-  /// Always call this first to show the map marker immediately.
   Future<Position?> getLastKnownPosition() async {
     try {
       final p = await Geolocator.getLastKnownPosition();
-      debugPrint('[GPS] lastKnown: lat=${p?.latitude} lng=${p?.longitude}');
+      debugPrint('[GPS] lastKnown lat=${p?.latitude} lng=${p?.longitude}');
       return p;
     } catch (e) {
       debugPrint('[GPS] getLastKnownPosition error: $e');
@@ -85,8 +76,6 @@ class LocationTrackingService {
     }
   }
 
-  /// Tier 2 — fresh GPS fix with a hard [timeout].
-  /// Falls back to [fallback] (lastKnown) if the device cannot get a fix in time.
   Future<Position?> getCurrentPositionWithTimeout({
     Position? fallback,
     Duration timeout = const Duration(seconds: 4),
@@ -94,65 +83,83 @@ class LocationTrackingService {
     try {
       final p = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.bestForNavigation,
           timeLimit: timeout,
         ),
       );
       debugPrint(
-        '[GPS] getCurrentPosition: ${p.latitude}, ${p.longitude} acc=${p.accuracy}m',
+        '[GPS] getCurrentPosition lat=${p.latitude}, lng=${p.longitude}, acc=${p.accuracy}m',
       );
       return p;
     } on TimeoutException {
-      debugPrint('[GPS] getCurrentPosition timeout — using lastKnown');
+      debugPrint('[GPS] getCurrentPosition timeout, fallback to lastKnown');
       return fallback;
     } catch (e) {
-      debugPrint('[GPS] getCurrentPosition error: $e — using lastKnown');
+      debugPrint('[GPS] getCurrentPosition error: $e, fallback to lastKnown');
       return fallback;
     }
   }
 
-  // ── Start / stop ───────────────────────────────────────────────────────────
-
-  /// Starts the GPS position stream. Returns immediately after starting the
-  /// subscription — does NOT await the first fix.
   Future<void> startTracking(String activityType) async {
     await ensurePermissionsOrThrow();
-    debugPrint('[GPS] startTracking: setting up stream');
 
-    // Reset Kalman state for fresh session
+    final distanceFilter = debugLocationMode
+        ? 0
+        : 3; // 0 = every point on emulator
+    final settings = AndroidSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: distanceFilter,
+      // forceLocationManager=true makes Android Emulator mock routes work correctly.
+      // The FusedLocationProvider sometimes ignores emulator mock locations.
+      forceLocationManager: debugLocationMode ? true : false,
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationText: 'Tracking your workout',
+        notificationTitle: 'Fitness Tracker',
+        enableWakeLock: true,
+      ),
+    );
+
+    debugPrint(
+      '[GPS] startTracking activity=$activityType debug=$debugLocationMode distanceFilter=$distanceFilter forceLocationManager=${debugLocationMode}',
+    );
+
     _lastValidPosition = null;
     _latFilter = null;
     _lngFilter = null;
 
-    _positionStream?.cancel();
+    await _positionStream?.cancel();
+    _positionStream = Geolocator.getPositionStream(locationSettings: settings).listen(
+      (raw) {
+        // Always log raw incoming position in debug mode.
+        if (debugLocationMode) {
+          debugPrint(
+            '[GPS-RAW] lat=${raw.latitude}, lng=${raw.longitude}, acc=${raw.accuracy}, speed=${raw.speed}',
+          );
+        }
 
-    _positionStream =
-        Geolocator.getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy:
-                LocationAccuracy.high, // not "bestForNavigation" — faster fix
-            distanceFilter: 2,
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationText: 'Tracking your workout',
-              notificationTitle: 'Fitness Tracker',
-              enableWakeLock: true,
-            ),
-          ),
-        ).listen(
-          (Position rawPosition) {
-            final smoothed = _applyKalmanFilter(rawPosition);
-            if (_isValidPosition(smoothed, activityType)) {
-              _lastValidPosition = smoothed;
-              _positionController.add(smoothed);
-            }
-          },
-          onError: (e) {
-            debugPrint('[GPS] stream error: $e');
-            _positionController.addError(e);
-          },
-        );
+        // In debug/emulator mode, skip the Kalman filter entirely.
+        // Emulator sends accuracy=0.0 which causes NaN in the filter.
+        final smoothed = debugLocationMode ? raw : _applyKalmanFilter(raw);
+        final validation = _validatePosition(smoothed, activityType);
 
-    debugPrint('[GPS] stream subscription started');
+        if (debugLocationMode) {
+          debugPrint(
+            '[GPS-VAL] accepted=${validation.accepted} reason=${validation.reason}',
+          );
+        }
+
+        if (!validation.accepted) return;
+
+        _lastValidPosition = smoothed;
+        _positionController.add(smoothed);
+      },
+      onError: (e) {
+        debugPrint('[GPS] stream error: $e');
+        _positionController.addError(e);
+      },
+    );
+
+    debugPrint('[GPS] stream subscription started OK');
   }
 
   void stopTracking() {
@@ -163,8 +170,6 @@ class LocationTrackingService {
     _latFilter = null;
     _lngFilter = null;
   }
-
-  // ── Kalman filter ─────────────────────────────────────────────────────────
 
   Position _applyKalmanFilter(Position raw) {
     final measuredNoise = raw.accuracy * raw.accuracy;
@@ -195,37 +200,56 @@ class LocationTrackingService {
     );
   }
 
-  // ── Noise filter ──────────────────────────────────────────────────────────
+  _ValidationResult _validatePosition(Position position, String activityType) {
+    final maxAccuracy = debugLocationMode ? 80.0 : 35.0;
+    if (position.accuracy > maxAccuracy) {
+      return _ValidationResult(
+        false,
+        'accuracy>${maxAccuracy.toStringAsFixed(0)}m',
+      );
+    }
 
-  bool _isValidPosition(Position position, String activityType) {
-    // Reject poor accuracy — anything above 25m is too noisy.
-    if (position.accuracy > 25.0) return false;
+    if (_lastValidPosition == null) {
+      return const _ValidationResult(true, 'first_point');
+    }
 
-    // First valid position is always accepted.
-    if (_lastValidPosition == null) return true;
-
+    final prev = _lastValidPosition!;
     final distance = Geolocator.distanceBetween(
-      _lastValidPosition!.latitude,
-      _lastValidPosition!.longitude,
+      prev.latitude,
+      prev.longitude,
       position.latitude,
       position.longitude,
     );
 
-    // NOTE: The 2m distance filter was intentionally removed.
-    // The service's job is to forward all ACCURATE positions so that the live
-    // "You" marker updates continuously. The 5m polyline jitter filter lives
-    // in _onPosition() in record_providers.dart, where it belongs.
-
-    // Sanity check: reject physically-impossible speed jumps.
-    final timeDelta = position.timestamp
-        .difference(_lastValidPosition!.timestamp)
-        .inSeconds;
-    if (timeDelta > 0) {
-      final speed = distance / timeDelta; // m/s
-      final maxSpeed = activityType.toLowerCase() == 'cycling' ? 25.0 : 15.0;
-      if (speed > maxSpeed) return false;
+    if (distance < 0.3) {
+      return const _ValidationResult(false, 'duplicate_or_tiny_move');
     }
 
-    return true;
+    final nowTs = position.timestamp;
+    final prevTs = prev.timestamp;
+    if (nowTs != null && prevTs != null) {
+      final sec = nowTs.difference(prevTs).inMilliseconds / 1000;
+      if (sec > 0) {
+        final speed = distance / sec;
+        final maxSpeed = debugLocationMode
+            ? 40.0
+            : (activityType.toLowerCase() == 'cycling' ? 25.0 : 15.0);
+        if (speed > maxSpeed) {
+          return _ValidationResult(
+            false,
+            'unrealistic_speed=${speed.toStringAsFixed(2)}m/s',
+          );
+        }
+      }
+    }
+
+    return const _ValidationResult(true, 'ok');
   }
+}
+
+class _ValidationResult {
+  final bool accepted;
+  final String reason;
+
+  const _ValidationResult(this.accepted, this.reason);
 }

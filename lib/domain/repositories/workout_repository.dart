@@ -11,6 +11,7 @@ abstract class WorkoutRepository {
   Future<List<WorkoutSession>> getSessionsByType(String activityType);
   Future<WorkoutSession?> getSessionById(String sessionId);
   Future<void> deleteSession(String sessionId);
+  Future<void> deleteAllSessions(String userId);
   Future<void> syncPendingData();
 
   // Legacy alias, consider migrating to fetchSessionsRemote + replaceLocalCache

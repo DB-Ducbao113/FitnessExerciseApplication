@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'package:fitness_exercise_application/core/config/debug_config.dart';
 import 'package:fitness_exercise_application/core/services/location_service.dart';
 import 'package:fitness_exercise_application/data/services/environment_detector.dart';
 import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
@@ -14,6 +15,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+// kDebugLocationMode is defined in core/config/debug_config.dart
 
 const String kOutdoorMode = 'outdoor';
 const String kIndoorMode = 'indoor';
@@ -213,7 +216,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       trackingMode: kAutoTrackingMode,
       modeDecisionLocked: false,
       strideLengthMeters: stride,
-      routePoints: const [],
       startedAt: DateTime.now(), // Capture exact start time
     );
     debugPrint(
@@ -282,21 +284,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       await locationService.startTracking(activityType);
       _locationSub?.cancel();
       _locationSub = locationService.positionStream.listen(_onPosition);
-
-      locationService
-          .getCurrentPositionWithTimeout(
-            fallback: lastKnown,
-            timeout: const Duration(seconds: 4),
-          )
-          .then((pos) {
-            if (pos != null && mounted) {
-              final latLng = LatLng(pos.latitude, pos.longitude);
-              state = state.copyWith(
-                initialPosition: latLng,
-                currentLatLng: latLng,
-              );
-            }
-          });
+      debugPrint('[Workout] GPS position subscription started');
     } catch (e) {
       debugPrint('[Workout] GPS error: $e');
       if (mounted) {
@@ -382,6 +370,13 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final userId = _ref.read(currentUserIdProvider);
     if (userId == null) throw Exception("Cannot save workout: No active user");
 
+    // Calculate final steps based on tracking mode
+    int finalSteps = state.stepCount;
+    if (state.trackingMode != kIndoorMode) {
+      // Outdoor: estimate steps from GPS distance (1 step ~ 0.75m)
+      finalSteps = (state.distanceMeters / 0.75).round();
+    }
+
     final sessionId = const Uuid().v4();
     final session = WorkoutSession(
       id: sessionId,
@@ -393,7 +388,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       endedAt: DateTime.now().toUtc(),
       durationSec: finalDurationSec,
       distanceKm: finalDistKm,
-      steps: state.stepCount,
+      steps: finalSteps,
       avgSpeedKmh: finalAvgSpeedKmh,
       caloriesKcal: finalCalories.toDouble(),
       mode: state.trackingMode,
@@ -453,17 +448,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     if (newMode == kIndoorMode) {
       _lastStepCountForDistance = state.stepCount;
       _startIndoorDistanceTimer();
-      state = state.copyWith(
-        trackingMode: newMode,
-        modeDecisionLocked: true,
-        routePoints: const [],
-      );
+      state = state.copyWith(trackingMode: newMode, modeDecisionLocked: true);
     } else {
-      state = state.copyWith(
-        trackingMode: newMode,
-        modeDecisionLocked: true,
-        routePoints: const [],
-      );
+      state = state.copyWith(trackingMode: newMode, modeDecisionLocked: true);
     }
 
     _startCalorieTimer();
@@ -484,30 +471,70 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     final livePoint = LatLng(position.latitude, position.longitude);
 
-    if (state.trackingMode != kOutdoorMode) {
+    debugPrint(
+      '[GPS] lat=${position.latitude}, lng=${position.longitude}, acc=${position.accuracy}, speed=${position.speed} | mode=${state.trackingMode}',
+    );
+
+    // Indoor mode: update marker position and speed but skip route/distance.
+    if (state.trackingMode == kIndoorMode) {
+      state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
+      return;
+    }
+    // NOTE: In debug/emulator mode, treat 'auto' (detecting phase) as
+    // pseudo-outdoor so that distance accumulates immediately while the
+    // EnvironmentClassifier is still warming up. In production this is a
+    // no-op because the classifier commits quickly on real hardware.
+    final effectivelyOutdoor =
+        state.trackingMode == kOutdoorMode ||
+        (kDebugLocationMode && state.trackingMode == kAutoTrackingMode);
+    if (!effectivelyOutdoor) {
       state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
       return;
     }
 
-    double addedDistance = 0;
-    const distCalc = Distance();
+    // ── First point: seed the route and return. ───────────────────────────────
+    if (state.routePoints.isEmpty) {
+      state = state.copyWith(
+        currentLatLng: livePoint,
+        routePoints: [livePoint],
+        speedKmh: smoothedKmh,
+      );
+      debugPrint('[GPS-ACCEPT] first route point seeded');
+      return;
+    }
 
-    if (state.routePoints.isNotEmpty) {
-      final lastPt = state.routePoints.last;
-      addedDistance = distCalc.as(LengthUnit.Meter, lastPt, livePoint);
+    // ── Subsequent points: apply light jitter filter. ─────────────────────────
+    final lastPt = state.routePoints.last;
+    final segmentMeters = Geolocator.distanceBetween(
+      lastPt.latitude,
+      lastPt.longitude,
+      livePoint.latitude,
+      livePoint.longitude,
+    );
 
-      if (addedDistance < 5.0 || position.accuracy > 25.0) {
-        state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
-        return;
-      }
+    final minSegmentMeters = kDebugLocationMode ? 1.0 : 3.0;
+    final maxAccuracy = kDebugLocationMode ? 100.0 : 30.0;
+
+    if (segmentMeters < minSegmentMeters) {
+      // Position too close: still update marker but don't add segment.
+      state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
+      debugPrint(
+        '[GPS-SKIP] segment=${segmentMeters.toStringAsFixed(2)}m < $minSegmentMeters',
+      );
+      return;
+    }
+
+    if (position.accuracy > maxAccuracy) {
+      // Accuracy too poor: still update marker but skip the route point.
+      state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
+      debugPrint(
+        '[GPS-SKIP] accuracy=${position.accuracy.toStringAsFixed(2)}m > $maxAccuracy',
+      );
+      return;
     }
 
     final updatedRoute = List<LatLng>.from(state.routePoints)..add(livePoint);
-    final newDistanceM = state.distanceMeters + addedDistance;
-
-    // Persist GPS Point directly via local DB wrapper if needed.
-    // Since saveSession happens cleanly at the end, point sync might need adjusting in the future.
-    // For now, this focuses on the session fix.
+    final newDistanceM = state.distanceMeters + segmentMeters;
 
     state = state.copyWith(
       currentLatLng: livePoint,
@@ -515,10 +542,13 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       distanceMeters: newDistanceM,
       speedKmh: smoothedKmh,
     );
+
+    debugPrint(
+      '[GPS-ACCEPT] segment=${segmentMeters.toStringAsFixed(2)}m, total=${newDistanceM.toStringAsFixed(2)}m, routePoints=${updatedRoute.length}',
+    );
   }
 
   // ─── Step handler ─────────────────────────────────────────────────────────
-
   void _onStep(int sessionSteps) {
     if (state.status != RecordingState.active) return;
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/data/models/user_profile_model.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
@@ -25,6 +26,7 @@ class UserProfileRemoteDataSource {
       gender: response['gender'] as String,
       createdAt: DateTime.parse(response['created_at'] as String),
       updatedAt: DateTime.parse(response['updated_at'] as String),
+      avatarUrl: response['avatar_url'] as String?,
     );
   }
 
@@ -36,6 +38,7 @@ class UserProfileRemoteDataSource {
       'height_m': profile.heightM,
       'age': profile.age,
       'gender': profile.gender,
+      'avatar_url': profile.avatarUrl,
       'created_at': profile.createdAt.toIso8601String(),
       'updated_at': profile.updatedAt.toIso8601String(),
     });
@@ -52,5 +55,36 @@ class UserProfileRemoteDataSource {
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('user_id', profile.userId);
+  }
+
+  /// Upload [imageFile] to Supabase Storage under avatars/{userId}.jpg
+  /// Returns the public URL of the uploaded image.
+  Future<String> uploadAvatar(String userId, File imageFile) async {
+    final storagePath = 'avatars/$userId.jpg';
+    await _supabase.storage
+        .from('avatars')
+        .upload(
+          storagePath,
+          imageFile,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true, // overwrite on re-upload
+          ),
+        );
+    final publicUrl = _supabase.storage
+        .from('avatars')
+        .getPublicUrl(storagePath);
+    return publicUrl;
+  }
+
+  /// Persist [avatarUrl] to user_profiles.avatar_url in the database.
+  Future<void> updateAvatarUrl(String userId, String avatarUrl) async {
+    await _supabase
+        .from(DbTables.userProfiles)
+        .update({
+          'avatar_url': avatarUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('user_id', userId);
   }
 }
