@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Ignore scripts with credentials
+run.bat
+build_release.bat
+backend/deploy_functions.bat
