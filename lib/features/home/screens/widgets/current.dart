@@ -1,54 +1,67 @@
-import 'package:fitness_exercise_application/models/fitness_program.dart';
 import 'package:flutter/material.dart';
+import 'package:fitness_exercise_application/features/workout/screens/workout_start_screen.dart';
 
-class CurrentPrograms extends StatefulWidget {
+class CurrentPrograms extends StatelessWidget {
   const CurrentPrograms({super.key});
-
-  @override
-  State<CurrentPrograms> createState() => _CurrentProgramsState();
-}
-
-class _CurrentProgramsState extends State<CurrentPrograms> {
-  ProgramType active = fitnessPrograms[0].type!;
-
-  void _changeProgram(ProgramType newType) {
-    setState(() {
-      active = newType;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Current Programs',
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              Icon(Icons.arrow_forward_ios, size: 15),
-            ],
+          child: Text(
+            'Choose Your Activity',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+              letterSpacing: 0.5,
+            ),
           ),
         ),
-        SizedBox(
-          width: double.infinity,
-          height: 100,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 30),
-            scrollDirection: Axis.horizontal,
-            itemCount: fitnessPrograms.length,
-            itemBuilder: (context, index) {
-              return Program(
-                program: fitnessPrograms[index],
-                active: fitnessPrograms[index].type == active,
-                onTap: _changeProgram,
-              );
-            },
-            separatorBuilder: (context, index) => SizedBox(width: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 30),
+          child: GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 20,
+            crossAxisSpacing: 20,
+            childAspectRatio: 1.2,
+            children: [
+              _ActivityCard(
+                name: 'Running',
+                type: 'running',
+                imagePath: 'assets/running.jpg',
+              ),
+              _ActivityCard(
+                name: 'Cycling',
+                type: 'cycling',
+                imagePath: 'assets/cycling.jpg',
+              ),
+              _ActivityCard(
+                name: 'Walking',
+                type: 'walking',
+                imagePath: 'assets/walking.jpg',
+              ),
+              _ActivityCard(
+                name: 'Swimming',
+                type: 'swimming',
+                imagePath: 'assets/swimming.jpg',
+              ),
+              _ActivityCard(
+                name: 'Weights',
+                type: 'weights',
+                imagePath: 'assets/weights.jpg',
+              ),
+              _ActivityCard(
+                name: 'Yoga',
+                type: 'yoga',
+                imagePath: 'assets/yoga.jpg',
+              ),
+            ],
           ),
         ),
       ],
@@ -56,67 +69,112 @@ class _CurrentProgramsState extends State<CurrentPrograms> {
   }
 }
 
-class Program extends StatelessWidget {
-  final FitnessProgram program;
-  final bool active;
-  final Function(ProgramType) onTap;
+class _ActivityCard extends StatefulWidget {
+  final String name;
+  final String type;
+  final String imagePath;
 
-  const Program({
-    super.key,
-    required this.program,
-    this.active = false,
-    required this.onTap,
+  const _ActivityCard({
+    required this.name,
+    required this.type,
+    required this.imagePath,
   });
+
+  @override
+  State<_ActivityCard> createState() => _ActivityCardState();
+}
+
+class _ActivityCardState extends State<_ActivityCard> {
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        onTap(program.type!);
-      },
-      child: Container(
-        height: 100,
-        width: 180,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          image: DecorationImage(
-            colorFilter: ColorFilter.mode(
-              active
-                  ? Color(0xff1ebdf8).withValues(alpha: .8)
-                  : Colors.white.withValues(alpha: .8),
-              BlendMode.lighten,
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => WorkoutStartScreen(
+              activityType: widget.type,
+              activityName: widget.name,
+              activityImagePath: widget.imagePath,
             ),
-            image: program.image,
-            fit: BoxFit.cover,
           ),
-        ),
-        alignment: Alignment.bottomLeft,
-        padding: const EdgeInsets.all(15),
-        child: DefaultTextStyle.merge(
-          style: TextStyle(
-            color: active ? Colors.white : Colors.black,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(program.name),
-              Row(
-                children: [
-                  Text(program.calories),
-                  SizedBox(width: 15),
-                  Icon(
-                    Icons.timer,
-                    size: 10,
-                    color: active ? Colors.white : Colors.black,
-                  ),
-                  SizedBox(width: 5),
-                  Text(program.time),
-                ],
+        );
+      },
+      child: AnimatedScale(
+        scale: _isPressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              children: [
+                // Background image
+                Positioned.fill(
+                  child: Image.asset(widget.imagePath, fit: BoxFit.cover),
+                ),
+                // Gradient overlay
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.1),
+                          Colors.black.withOpacity(0.6),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Text
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: Text(
+                    widget.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,0 +1,1797 @@
+﻿diff --git a/.gitignore b/.gitignore
+index 3820a95..03800b8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -43,3 +43,8 @@ app.*.map.json
+ /android/app/debug
+ /android/app/profile
+ /android/app/release
++
++# Ignore scripts with credentials
++run.bat
++build_release.bat
++backend/deploy_functions.bat
+diff --git a/README.md b/README.md
+index b7dcb98..2e90ca5 100644
+--- a/README.md
++++ b/README.md
+@@ -1,92 +1,93 @@
+-# Fitness Exercise Application
++# FlowFit - Fitness Exercise Application
+ 
+-Flutter application for tracking fitness activities with offline-first
+-architecture using Clean Architecture, Riverpod state management, and Supabase
+-backend.
++An enterprise-grade Flutter application for comprehensive fitness tracking. Designed with an Offline-First architecture, robust Riverpod state management, a Supabase backend, and local SQLite for seamless offline capabilities.
+ 
+-## Features
++## ≡ƒîƒ Key Features
+ 
+-- Γ£à **Authentication** - Email/password login and registration with Supabase
+-  Auth
+-- Γ£à **Offline-First** - SQLite local database with automatic background sync
+-- Γ£à **Clean Architecture** - Separation of domain, data, and presentation
+-  layers
+-- Γ£à **State Management** - Riverpod with code generation
+-- ≡ƒÜº **Workout Tracking** - Start, track, and end workout sessions (in progress)
+-- ≡ƒÜº **GPS Tracking** - Real-time location tracking during workouts (in
+-  progress)
++### ≡ƒöÉ Authentication & Profiles
++- Email/Password login and registration powered by **Supabase Auth**.
++- Secure, persistent user sessions.
++- **User Profiles**: Manage personal information (Age, Weight, Height) and set progressive **Fitness Goals** (Distance, Frequency, Calories).
++- Avatars and metric tracking.
+ 
+-## Architecture
++### ≡ƒÅâΓÇìΓÖé∩╕Å Comprehensive Workout Tracking
++- **Multi-Activity Support**: Track various activities including Running, Cycling, Walking, Swimming, Yoga, and Weights.
++- **Indoor Activities**: Integrates with the device's pedometer (`pedometer` plugin) to measure steps and estimate distance/calories for indoor routines.
++- **Outdoor Activities**: High-precision **GPS tracking** (`flutter_map`, `geolocator`, `latlong2`). Records real-time polyline routes, calculates accurate pace, total distance, and time.
++- **Live Metrics**: Foreground tracking with precise UI updates and wakelocks to prevent the OS from killing ongoing sessions.
++- **Review & Playback**: View your completed GPS routes drawn precisely on an interactive map, along with summary statistics.
+ 
+-### Project Structure
++### ≡ƒôè Statistics & History
++- **Interactive Charts**: Visualizations (`fl_chart`) of burned calories, distances covered, and goal progress.
++- **Workout History**: Interactive Calendar (`table_calendar`) logging all daily activities and completed routines, automatically adjusted to local timezones.
+ 
+-```
++### ∩┐╜ Offline-First Synchronization
++- **Zero Latency**: Rapid local reads/writes using SQLite (`sqflite`).
++- **Background Sync**: Automatic queue-based synchronization pushing local changes to Supabase Postgres databases and Edge Functions when the internet is restored.
++- **Conflict Management**: Ensures remote and local state remain perfectly aligned without user intervention.
++
++## ≡ƒÅù∩╕Å Enterprise Architecture
++
++The codebase is structured using an **Enterprise Feature-First** pattern. This ensures maximum scalability, maintainability, and isolated domains for large development teams.
++
++```text
+ lib/
+-Γö£ΓöÇΓöÇ domain/              # Business logic layer
+-Γöé   Γö£ΓöÇΓöÇ entities/        # Domain models (Workout, GPSTrack)
+-Γöé   ΓööΓöÇΓöÇ repositories/    # Repository interfaces
+-Γö£ΓöÇΓöÇ data/                # Data layer
+-Γöé   Γö£ΓöÇΓöÇ models/          # Data models with JSON/SQLite serialization
+-Γöé   Γö£ΓöÇΓöÇ datasources/     # Local (SQLite) and Remote (Supabase) data sources
+-Γöé   ΓööΓöÇΓöÇ repositories/    # Repository implementations
+-ΓööΓöÇΓöÇ presentation/        # UI layer
+-    Γö£ΓöÇΓöÇ providers/       # Riverpod providers for DI and state
+-    Γö£ΓöÇΓöÇ screens/         # App screens (auth, home, workout)
+-    ΓööΓöÇΓöÇ widgets/         # Reusable UI components
++Γö£ΓöÇΓöÇ config/              # Environments, Themes, Routes, Constants
++Γö£ΓöÇΓöÇ core/                # Core abstractions, Error handling, Base clients
++Γö£ΓöÇΓöÇ features/            # Feature-first modules (Isolated UI & logic)
++Γöé   Γö£ΓöÇΓöÇ auth/            # Authentication flows
++Γöé   Γö£ΓöÇΓöÇ history/         # Calendar and past workout logs
++Γöé   Γö£ΓöÇΓöÇ home/            # Main dashboard and recent activities
++Γöé   Γö£ΓöÇΓöÇ profile/         # User profile, settings, and goal definitions
++Γöé   Γö£ΓöÇΓöÇ settings/        # Application preferences
++Γöé   Γö£ΓöÇΓöÇ statistics/      # Charts and metric analysis
++Γöé   ΓööΓöÇΓöÇ workout/         # Live tracking, maps, and pedometer services
++Γö£ΓöÇΓöÇ models/              # Shared data definitions and Serialization (Freezed)
++Γö£ΓöÇΓöÇ providers/           # Global dependency injection via Riverpod
++Γö£ΓöÇΓöÇ services/            # Infrastructure: Supabase, local DB, APIs
++Γö£ΓöÇΓöÇ utils/               # Formatters, Extensions, Validators
++ΓööΓöÇΓöÇ widgets/             # Reusable, stateless UI components
+ ```
+ 
+-### Technology Stack
++## ≡ƒ¢á∩╕Å Technology Stack
+ 
+-- **Framework:** Flutter 3.x
+-- **State Management:** Riverpod 2.4.0 with code generation
+-- **Local Database:** SQLite (sqflite)
+-- **Backend:** Supabase (Auth + PostgreSQL + Edge Functions)
++- **Framework:** Flutter 3.10+
++- **State Management:** Riverpod 2.4+
++- **Local Database:** SQLite (`sqflite`)
++- **Backend:** Supabase (PostgreSQL, Auth, Edge Functions)
++- **Edge Functions (Deno):** Handles complex backend validations (`workouts-start`, `workouts-end`, `gps-track`).
+ - **Code Generation:** Freezed, JSON Serializable, Riverpod Generator
++- **Sensors & Maps:** Geolocator, Pedometer, Wakelock Plus, Latlong2, Flutter Map
+ 
+-## Setup Instructions
++## ≡ƒÜÇ Setup Instructions
+ 
+ ### Prerequisites
++- Flutter SDK 3.10+
++- A Supabase Project ([supabase.com](https://supabase.com))
+ 
+-- Flutter SDK 3.0 or higher
+-- Dart SDK 3.0 or higher
+-- A Supabase account and project
+-
+-### 1. Clone and Install Dependencies
+-
++### 1. Clone & Install dependencies
+ ```bash
+ git clone <repository-url>
+ cd fitness_exercise_application
+ flutter pub get
+ ```
+ 
+-### 2. Configure Supabase
+-
+-1. Create a Supabase project at https://supabase.com
+-2. Go to **Settings ΓåÆ API** in your Supabase dashboard
+-3. Copy your **Project URL** and **anon public key**
+-4. Create a `.env` file in the project root:
+-
++### 2. Connect to Supabase
++Create a `.env` file in the root directory:
+ ```env
+-SUPABASE_URL=your_project_url_here
+-SUPABASE_ANON_KEY=your_anon_key_here
+-```
+-
+-### 3. Set Up Database Schema
+-
+-Run the SQL scripts in `backend/sql/` to create the required tables:
+-
+-```sql
+--- Run these in Supabase SQL Editor
+-backend/sql/users.sql
+-backend/sql/workouts.sql
+-backend/sql/gps_tracks.sql
+-backend/sql/user_metrics.sql
++SUPABASE_URL=your_project_url
++SUPABASE_ANON_KEY=your_anon_key
+ ```
+ 
+-### 4. Deploy Edge Functions (Optional)
+-
+-If you want to use the backend Edge Functions:
++### 3. Database Schema Setup
++Run the provided SQL initialization scripts found in `backend/database/` (or wherever your migration scripts are located) inside your Supabase Project's SQL Editor:
++- `users.sql`
++- `workouts.sql`
++- `gps_tracks.sql`
++- `user_metrics.sql`
+ 
++### 4. Deploy Deno Edge Functions
++The backend relies on Deno-based edge functions to process operations reliably. Navigate to the `backend/supabase` folder and deploy:
+ ```bash
+ cd backend
+ supabase functions deploy workouts-start
+@@ -94,92 +95,23 @@ supabase functions deploy workouts-end
+ supabase functions deploy gps-track
+ ```
+ 
+-### 5. Run Code Generation
+-
++### 5. Code Generation
++Because Riverpod and Freezed rely heavily on generated code, you must run build_runner:
+ ```bash
+ dart run build_runner build --delete-conflicting-outputs
+ ```
+ 
+ ### 6. Run the App
+-
+ ```bash
+-# With environment variables
+-flutter run --dart-define=SUPABASE_URL=your_url --dart-define=SUPABASE_ANON_KEY=your_key
+-
+-# Or configure in your IDE's run configuration
++flutter run
+ ```
+ 
+-## Development
+-
+-### Running Tests
+-
+-```bash
+-flutter test
+-flutter test --coverage
+-```
+-
+-### Code Generation
+-
+-When you modify Freezed models or Riverpod providers:
+-
+-```bash
+-dart run build_runner watch
+-```
+-
+-### Linting
+-
+-```bash
+-flutter analyze
+-```
+-
+-## Backend Security
+-
+-All Edge Functions use JWT authentication:
+-
+-- Extract `user_id` from JWT token, not from request body
+-- Validate Authorization header on every request
+-- Use `SUPABASE_ANON_KEY` (not service role key) for client operations
+-
+-## Offline-First Strategy
+-
+-1. **Write operations:** Save to local SQLite first, then sync to Supabase
+-2. **Read operations:** Return local data immediately, sync in background
+-3. **Conflict resolution:** Last-write-wins (can be customized)
+-4. **Sync status:** Track `synced` flag in local database
+-
+-## Project Status
+-
+-### Γ£à Completed (Phase 1)
+-
+-- Clean Architecture foundation
+-- Riverpod state management setup
+-- SQLite offline database
+-- Supabase integration
+-- Backend security fixes
+-- Authentication screens
+-
+-### ≡ƒÜº In Progress (Phase 2)
+-
+-- Workout tracking flows
+-- GPS tracking implementation
+-- Workout history display
+-- Testing infrastructure
+-
+-### ≡ƒôï Planned
+-
+-- User profile management
+-- Workout statistics and analytics
+-- Social features
+-- Health platform integration
+-
+-## Contributing
+-
+-1. Follow Clean Architecture principles
+-2. Use Riverpod for state management
+-3. Write tests for new features
+-4. Run `flutter analyze` before committing
+-5. Use conventional commits
++## ≡ƒæ¿ΓÇì≡ƒÆ╗ Development Guidelines
+ 
+-## License
++- **Component Isolation:** Ensure new screens/logic are placed inside their respective `features/` directory.
++- **Dependency Injection:** Expose services and repositories via `providers/` instead of creating strict Singleton instances.
++- **Auto code-gen:** Whenever modifying `.freezed`, `.g.dart` mappings, or Annotated Riverpod providers, execute `dart run build_runner watch` in a secondary terminal.
++- **Validation:** Always run `flutter format .` and `flutter analyze` before creating a pull request.
+ 
+-[Your License Here]
++## ≡ƒôä License
++[Your License Details]
+diff --git a/backend/sql/gps_tracks.sql b/backend/database/gps_tracks.sql
+similarity index 100%
+rename from backend/sql/gps_tracks.sql
+rename to backend/database/gps_tracks.sql
+diff --git a/backend/sql/01_fitness_schema.sql b/backend/database/schema.sql
+similarity index 100%
+rename from backend/sql/01_fitness_schema.sql
+rename to backend/database/schema.sql
+diff --git a/backend/sql/user_metrics.sql b/backend/database/user_metrics.sql
+similarity index 100%
+rename from backend/sql/user_metrics.sql
+rename to backend/database/user_metrics.sql
+diff --git a/backend/sql/users.sql b/backend/database/users.sql
+similarity index 100%
+rename from backend/sql/users.sql
+rename to backend/database/users.sql
+diff --git a/backend/sql/workouts.sql b/backend/database/workouts.sql
+similarity index 100%
+rename from backend/sql/workouts.sql
+rename to backend/database/workouts.sql
+diff --git a/backend/deploy_functions.bat b/backend/deploy_functions.bat
+deleted file mode 100644
+index 0b840f0..0000000
+--- a/backend/deploy_functions.bat
++++ /dev/null
+@@ -1,22 +0,0 @@
+-@echo off
+-echo ==========================================
+-echo Deploying Supabase Edge Functions
+-echo ==========================================
+-
+-echo.
+-echo Deploying workouts-start...
+-call supabase functions deploy workouts-start --no-verify-jwt
+-
+-echo.
+-echo Deploying workouts-end...
+-call supabase functions deploy workouts-end --no-verify-jwt
+-
+-echo.
+-echo ==========================================
+-echo Deployment Completed!
+-echo ==========================================
+-echo.
+-echo NOTE: If deployment failed, please ensure you are logged in via 'supabase login'
+-echo and linked to your project via 'supabase link'.
+-echo.
+-pause
+diff --git a/backend/sql/migration_add_avatar_url.sql b/backend/migrations/20260311_add_avatar_url.sql
+similarity index 100%
+rename from backend/sql/migration_add_avatar_url.sql
+rename to backend/migrations/20260311_add_avatar_url.sql
+diff --git a/backend/sql/migration_user_goals.sql b/backend/migrations/20260311_user_goals.sql
+similarity index 100%
+rename from backend/sql/migration_user_goals.sql
+rename to backend/migrations/20260311_user_goals.sql
+diff --git a/backend/sql/insert_sample.sql b/backend/seed/dev_seed.sql
+similarity index 100%
+rename from backend/sql/insert_sample.sql
+rename to backend/seed/dev_seed.sql
+diff --git a/build_release.bat b/build_release.bat.example
+similarity index 55%
+rename from build_release.bat
+rename to build_release.bat.example
+index d5e11cd..9fbcda3 100644
+--- a/build_release.bat
++++ b/build_release.bat.example
+@@ -3,8 +3,8 @@ echo ============================================
+ echo  Building Release APK with Supabase config
+ echo ============================================
+ 
+-set SUPABASE_URL=https://xsqptdzselqyefpmdozz.supabase.co
+-set SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzcXB0ZHpzZWxxeWVmcG1kb3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjU4MjEsImV4cCI6MjA4NTg0MTgyMX0.MfdUQpEDB4m5d7xv4wmjKf52sRmapewG-r1ecW6Hndk
++set SUPABASE_URL=YOUR_SUPABASE_URL_HERE
++set SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY_HERE
+ 
+ flutter build apk --release ^
+   --dart-define=SUPABASE_URL=%SUPABASE_URL% ^
+@@ -12,13 +12,13 @@ flutter build apk --release ^
+ 
+ if %ERRORLEVEL% == 0 (
+     echo.
+-    echo [OK] Build thanh cong!
++    echo [OK] Build success!
+     echo APK: build\app\outputs\flutter-apk\app-release.apk
+     echo.
+     explorer build\app\outputs\flutter-apk
+ ) else (
+     echo.
+-    echo [FAIL] Build that bai. Xem log phia tren.
++    echo [FAIL] Build failed. Check log above.
+ )
+ 
+ pause
+diff --git a/backend/api/api_contract.md b/docs/api/api_contract.md
+similarity index 100%
+rename from backend/api/api_contract.md
+rename to docs/api/api_contract.md
+diff --git a/lib/core/constants/db_tables.dart b/lib/config/constants/db_tables.dart
+similarity index 100%
+rename from lib/core/constants/db_tables.dart
+rename to lib/config/constants/db_tables.dart
+diff --git a/lib/core/config/debug_config.dart b/lib/config/debug_config.dart
+similarity index 100%
+rename from lib/core/config/debug_config.dart
+rename to lib/config/debug_config.dart
+diff --git a/lib/data/repositories/auth_repository_impl.dart b/lib/features/auth/repositories/auth_repository_impl.dart
+similarity index 86%
+rename from lib/data/repositories/auth_repository_impl.dart
+rename to lib/features/auth/repositories/auth_repository_impl.dart
+index 1073d7c..a329a31 100644
+--- a/lib/data/repositories/auth_repository_impl.dart
++++ b/lib/features/auth/repositories/auth_repository_impl.dart
+@@ -1,5 +1,5 @@
+-import 'package:fitness_exercise_application/domain/entities/app_user.dart';
+-import 'package:fitness_exercise_application/domain/repositories/auth_repository.dart';
++import 'package:fitness_exercise_application/models/app_user.dart';
++import 'package:fitness_exercise_application/repositories/auth_repository.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ 
+ class AuthRepositoryImpl implements AuthRepository {
+diff --git a/lib/presentation/screens/auth/auth_wrapper.dart b/lib/features/auth/screens/auth_wrapper.dart
+similarity index 85%
+rename from lib/presentation/screens/auth/auth_wrapper.dart
+rename to lib/features/auth/screens/auth_wrapper.dart
+index b84ff0b..c3a149d 100644
+--- a/lib/presentation/screens/auth/auth_wrapper.dart
++++ b/lib/features/auth/screens/auth_wrapper.dart
+@@ -1,8 +1,8 @@
+-import 'package:fitness_exercise_application/presentation/screens/home/home_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/auth/login_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/profile/profile_setup_screen.dart';
+-import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/features/home/screens/home_screen.dart';
++import 'package:fitness_exercise_application/features/auth/screens/login_screen.dart';
++import 'package:fitness_exercise_application/features/profile/screens/profile_setup_screen.dart';
++import 'package:fitness_exercise_application/providers/user_profile_providers.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+diff --git a/lib/presentation/screens/auth/login_screen.dart b/lib/features/auth/screens/login_screen.dart
+similarity index 96%
+rename from lib/presentation/screens/auth/login_screen.dart
+rename to lib/features/auth/screens/login_screen.dart
+index 7b794f5..9980af1 100644
+--- a/lib/presentation/screens/auth/login_screen.dart
++++ b/lib/features/auth/screens/login_screen.dart
+@@ -1,9 +1,9 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/presentation/screens/auth/auth_wrapper.dart';
+-import 'package:fitness_exercise_application/presentation/screens/auth/register_screen.dart';
+-import 'package:fitness_exercise_application/presentation/providers/bootstrap_providers.dart';
++import 'package:fitness_exercise_application/features/auth/screens/auth_wrapper.dart';
++import 'package:fitness_exercise_application/features/auth/screens/register_screen.dart';
++import 'package:fitness_exercise_application/services/app_bootstrap_service.dart';
+ 
+ class LoginScreen extends ConsumerStatefulWidget {
+   const LoginScreen({super.key});
+diff --git a/lib/presentation/screens/auth/register_screen.dart b/lib/features/auth/screens/register_screen.dart
+similarity index 98%
+rename from lib/presentation/screens/auth/register_screen.dart
+rename to lib/features/auth/screens/register_screen.dart
+index b074c66..5b14e68 100644
+--- a/lib/presentation/screens/auth/register_screen.dart
++++ b/lib/features/auth/screens/register_screen.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/presentation/screens/auth/auth_wrapper.dart';
++import 'package:fitness_exercise_application/features/auth/screens/auth_wrapper.dart';
+ 
+ class RegisterScreen extends ConsumerStatefulWidget {
+   const RegisterScreen({super.key});
+diff --git a/lib/presentation/screens/calendar/calendar_screen.dart b/lib/features/history/screens/calendar_screen.dart
+similarity index 94%
+rename from lib/presentation/screens/calendar/calendar_screen.dart
+rename to lib/features/history/screens/calendar_screen.dart
+index 9527c48..a3ef6ae 100644
+--- a/lib/presentation/screens/calendar/calendar_screen.dart
++++ b/lib/features/history/screens/calendar_screen.dart
+@@ -1,10 +1,10 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:table_calendar/table_calendar.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/calendar/widgets/daily_workout_list.dart';
+-import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/features/history/screens/widgets/daily_workout_list.dart';
++import 'package:fitness_exercise_application/utils/date_time_helper.dart';
+ 
+ // State provider for selected date
+ final selectedDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
+diff --git a/lib/presentation/screens/calendar/widgets/daily_workout_list.dart b/lib/features/history/screens/widgets/daily_workout_list.dart
+similarity index 97%
+rename from lib/presentation/screens/calendar/widgets/daily_workout_list.dart
+rename to lib/features/history/screens/widgets/daily_workout_list.dart
+index c3d202b..d1be559 100644
+--- a/lib/presentation/screens/calendar/widgets/daily_workout_list.dart
++++ b/lib/features/history/screens/widgets/daily_workout_list.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/workout_details_screen.dart';
+-import 'package:fitness_exercise_application/core/utils/workout_formatters.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
++import 'package:fitness_exercise_application/features/workout/screens/workout_details_screen.dart';
++import 'package:fitness_exercise_application/utils/workout_formatters.dart';
+ 
+ class DailyWorkoutList extends StatelessWidget {
+   final DateTime selectedDate;
+diff --git a/lib/pages/home/home.dart b/lib/features/home/screens/home_screen.dart
+similarity index 61%
+rename from lib/pages/home/home.dart
+rename to lib/features/home/screens/home_screen.dart
+index 623855c..2cd8072 100644
+--- a/lib/pages/home/home.dart
++++ b/lib/features/home/screens/home_screen.dart
+@@ -1,11 +1,11 @@
+-import 'package:fitness_exercise_application/pages/home/widgets/activity.dart';
+-import 'package:fitness_exercise_application/pages/home/widgets/current.dart';
++import 'package:fitness_exercise_application/features/home/screens/widgets/activity.dart';
++import 'package:fitness_exercise_application/features/home/screens/widgets/current.dart';
+ import 'package:fitness_exercise_application/widgets/bottom_navigation.dart';
+ import 'package:flutter/material.dart';
+ import 'widgets/header.dart';
+ 
+-class HomePage extends StatelessWidget {
+-  const HomePage({super.key});
++class HomeScreen extends StatelessWidget {
++  const HomeScreen({super.key});
+ 
+   @override
+   Widget build(BuildContext context) {
+@@ -20,4 +20,4 @@ class HomePage extends StatelessWidget {
+       ),
+     );
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/lib/pages/home/widgets/activity.dart b/lib/features/home/screens/widgets/activity.dart
+similarity index 100%
+rename from lib/pages/home/widgets/activity.dart
+rename to lib/features/home/screens/widgets/activity.dart
+diff --git a/lib/pages/home/widgets/current.dart b/lib/features/home/screens/widgets/current.dart
+similarity index 100%
+rename from lib/pages/home/widgets/current.dart
+rename to lib/features/home/screens/widgets/current.dart
+diff --git a/lib/pages/home/widgets/header.dart b/lib/features/home/screens/widgets/header.dart
+similarity index 100%
+rename from lib/pages/home/widgets/header.dart
+rename to lib/features/home/screens/widgets/header.dart
+diff --git a/lib/presentation/screens/profile/goal_screen.dart b/lib/features/profile/screens/goal_screen.dart
+similarity index 99%
+rename from lib/presentation/screens/profile/goal_screen.dart
+rename to lib/features/profile/screens/goal_screen.dart
+index f99102a..43b1883 100644
+--- a/lib/presentation/screens/profile/goal_screen.dart
++++ b/lib/features/profile/screens/goal_screen.dart
+@@ -1,8 +1,8 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/domain/entities/user_goal.dart';
+-import 'package:fitness_exercise_application/presentation/providers/goal_providers.dart';
++import 'package:fitness_exercise_application/models/user_goal.dart';
++import 'package:fitness_exercise_application/providers/goal_providers.dart';
+ 
+ class GoalScreen extends ConsumerStatefulWidget {
+   const GoalScreen({super.key});
+diff --git a/lib/presentation/screens/profile/profile_screen.dart b/lib/features/profile/screens/profile_screen.dart
+similarity index 97%
+rename from lib/presentation/screens/profile/profile_screen.dart
+rename to lib/features/profile/screens/profile_screen.dart
+index 523f59a..08c6cd2 100644
+--- a/lib/presentation/screens/profile/profile_screen.dart
++++ b/lib/features/profile/screens/profile_screen.dart
+@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:image_picker/image_picker.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/presentation/providers/avatar_providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/goal_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/auth/login_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/profile/profile_setup_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/profile/goal_screen.dart';
++import 'package:fitness_exercise_application/providers/avatar_providers.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/providers/goal_providers.dart';
++import 'package:fitness_exercise_application/features/auth/screens/login_screen.dart';
++import 'package:fitness_exercise_application/features/profile/screens/profile_setup_screen.dart';
++import 'package:fitness_exercise_application/features/profile/screens/goal_screen.dart';
+ 
+ class ProfileScreen extends ConsumerWidget {
+   const ProfileScreen({super.key});
+diff --git a/lib/presentation/screens/profile/profile_setup_screen.dart b/lib/features/profile/screens/profile_setup_screen.dart
+similarity index 98%
+rename from lib/presentation/screens/profile/profile_setup_screen.dart
+rename to lib/features/profile/screens/profile_setup_screen.dart
+index 4f4a7a5..4348569 100644
+--- a/lib/presentation/screens/profile/profile_setup_screen.dart
++++ b/lib/features/profile/screens/profile_setup_screen.dart
+@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ import 'package:uuid/uuid.dart';
+-import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
+-import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
++import 'package:fitness_exercise_application/models/user_profile.dart';
++import 'package:fitness_exercise_application/providers/user_profile_providers.dart';
+ 
+ class ProfileSetupScreen extends ConsumerStatefulWidget {
+   final UserProfile? existingProfile;
+diff --git a/lib/presentation/screens/settings/settings_screen.dart b/lib/features/settings/screens/settings_screen.dart
+similarity index 94%
+rename from lib/presentation/screens/settings/settings_screen.dart
+rename to lib/features/settings/screens/settings_screen.dart
+index 8ab7a64..7d4a7c2 100644
+--- a/lib/presentation/screens/settings/settings_screen.dart
++++ b/lib/features/settings/screens/settings_screen.dart
+@@ -1,11 +1,11 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/presentation/screens/auth/login_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/settings/widgets/profile_header.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/settings/widgets/settings_section.dart';
+-import 'package:fitness_exercise_application/presentation/screens/settings/widgets/settings_tile.dart';
++import 'package:fitness_exercise_application/features/auth/screens/login_screen.dart';
++import 'package:fitness_exercise_application/features/settings/screens/widgets/profile_header.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/features/settings/screens/widgets/settings_section.dart';
++import 'package:fitness_exercise_application/features/settings/screens/widgets/settings_tile.dart';
+ 
+ // State providers for settings
+ final notificationsEnabledProvider = StateProvider<bool>((ref) => true);
+diff --git a/lib/presentation/screens/settings/widgets/profile_header.dart b/lib/features/settings/screens/widgets/profile_header.dart
+similarity index 100%
+rename from lib/presentation/screens/settings/widgets/profile_header.dart
+rename to lib/features/settings/screens/widgets/profile_header.dart
+diff --git a/lib/presentation/screens/settings/widgets/settings_section.dart b/lib/features/settings/screens/widgets/settings_section.dart
+similarity index 100%
+rename from lib/presentation/screens/settings/widgets/settings_section.dart
+rename to lib/features/settings/screens/widgets/settings_section.dart
+diff --git a/lib/presentation/screens/settings/widgets/settings_tile.dart b/lib/features/settings/screens/widgets/settings_tile.dart
+similarity index 100%
+rename from lib/presentation/screens/settings/widgets/settings_tile.dart
+rename to lib/features/settings/screens/widgets/settings_tile.dart
+diff --git a/lib/presentation/screens/stats/stats_screen.dart b/lib/features/statistics/screens/stats_screen.dart
+similarity index 96%
+rename from lib/presentation/screens/stats/stats_screen.dart
+rename to lib/features/statistics/screens/stats_screen.dart
+index a9d3f40..bc76e4f 100644
+--- a/lib/presentation/screens/stats/stats_screen.dart
++++ b/lib/features/statistics/screens/stats_screen.dart
+@@ -1,13 +1,13 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:fl_chart/fl_chart.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/goal_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/stats/widgets/stat_card.dart';
+-import 'package:fitness_exercise_application/presentation/screens/stats/widgets/time_period_selector.dart';
+-import 'package:fitness_exercise_application/presentation/screens/stats/widgets/activity_breakdown.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
+-import 'package:fitness_exercise_application/core/utils/workout_formatters.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/providers/goal_providers.dart';
++import 'package:fitness_exercise_application/features/statistics/screens/widgets/stat_card.dart';
++import 'package:fitness_exercise_application/features/statistics/screens/widgets/time_period_selector.dart';
++import 'package:fitness_exercise_application/features/statistics/screens/widgets/activity_breakdown.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
++import 'package:fitness_exercise_application/utils/workout_formatters.dart';
+ 
+ // State provider for selected time period
+ final selectedPeriodProvider = StateProvider<TimePeriod>(
+diff --git a/lib/presentation/screens/stats/widgets/activity_breakdown.dart b/lib/features/statistics/screens/widgets/activity_breakdown.dart
+similarity index 100%
+rename from lib/presentation/screens/stats/widgets/activity_breakdown.dart
+rename to lib/features/statistics/screens/widgets/activity_breakdown.dart
+diff --git a/lib/presentation/screens/stats/widgets/stat_card.dart b/lib/features/statistics/screens/widgets/stat_card.dart
+similarity index 100%
+rename from lib/presentation/screens/stats/widgets/stat_card.dart
+rename to lib/features/statistics/screens/widgets/stat_card.dart
+diff --git a/lib/presentation/screens/stats/widgets/time_period_selector.dart b/lib/features/statistics/screens/widgets/time_period_selector.dart
+similarity index 100%
+rename from lib/presentation/screens/stats/widgets/time_period_selector.dart
+rename to lib/features/statistics/screens/widgets/time_period_selector.dart
+diff --git a/lib/presentation/screens/workout/active_workout_screen.dart b/lib/features/workout/screens/active_workout_screen.dart
+similarity index 97%
+rename from lib/presentation/screens/workout/active_workout_screen.dart
+rename to lib/features/workout/screens/active_workout_screen.dart
+index c3f9a6f..90ab614 100644
+--- a/lib/presentation/screens/workout/active_workout_screen.dart
++++ b/lib/features/workout/screens/active_workout_screen.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/home/home_screen.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/features/home/screens/home_screen.dart';
+ 
+ class ActiveWorkoutScreen extends ConsumerWidget {
+   final String workoutId;
+diff --git a/lib/pages/details/details.dart b/lib/features/workout/screens/details.dart
+similarity index 53%
+rename from lib/pages/details/details.dart
+rename to lib/features/workout/screens/details.dart
+index e72aec8..8020846 100644
+--- a/lib/pages/details/details.dart
++++ b/lib/features/workout/screens/details.dart
+@@ -1,10 +1,10 @@
+-import 'package:fitness_exercise_application/pages/details/widgets/stats.dart';
+-import 'package:fitness_exercise_application/pages/details/widgets/appbar.dart';
+-import 'package:fitness_exercise_application/pages/details/widgets/dates.dart';
+-import 'package:fitness_exercise_application/pages/details/widgets/graph.dart';
+-import 'package:fitness_exercise_application/pages/details/widgets/info.dart'
++import 'package:fitness_exercise_application/features/workout/screens/widgets/stats.dart';
++import 'package:fitness_exercise_application/features/workout/screens/widgets/appbar.dart';
++import 'package:fitness_exercise_application/features/workout/screens/widgets/dates.dart';
++import 'package:fitness_exercise_application/features/workout/screens/widgets/graph.dart';
++import 'package:fitness_exercise_application/features/workout/screens/widgets/info.dart'
+     hide Stats;
+-import 'package:fitness_exercise_application/pages/details/widgets/steps.dart';
++import 'package:fitness_exercise_application/features/workout/screens/widgets/steps.dart';
+ import 'package:fitness_exercise_application/widgets/bottom_navigation.dart';
+ import 'package:flutter/material.dart';
+ 
+diff --git a/lib/presentation/screens/workout/record/record_providers.dart b/lib/features/workout/screens/record/record_providers.dart
+similarity index 96%
+rename from lib/presentation/screens/workout/record/record_providers.dart
+rename to lib/features/workout/screens/record/record_providers.dart
+index f9c3786..df84920 100644
+--- a/lib/presentation/screens/workout/record/record_providers.dart
++++ b/lib/features/workout/screens/record/record_providers.dart
+@@ -1,13 +1,13 @@
+ import 'dart:async';
+ import 'dart:collection';
+-import 'package:fitness_exercise_application/core/config/debug_config.dart';
+-import 'package:fitness_exercise_application/core/services/location_service.dart';
+-import 'package:fitness_exercise_application/data/services/environment_detector.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
+-import 'package:fitness_exercise_application/presentation/providers/providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/data/services/location_tracking_service.dart';
+-import 'package:fitness_exercise_application/data/services/step_tracking_service.dart';
++import 'package:fitness_exercise_application/config/debug_config.dart';
++import 'package:fitness_exercise_application/services/location_service.dart';
++import 'package:fitness_exercise_application/services/environment_detector.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
++import 'package:fitness_exercise_application/providers/providers.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/services/location_tracking_service.dart';
++import 'package:fitness_exercise_application/services/step_tracking_service.dart';
+ import 'package:flutter/foundation.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:geolocator/geolocator.dart';
+diff --git a/lib/presentation/screens/workout/record/record_screen.dart b/lib/features/workout/screens/record/record_screen.dart
+similarity index 97%
+rename from lib/presentation/screens/workout/record/record_screen.dart
+rename to lib/features/workout/screens/record/record_screen.dart
+index 48b6e13..0041810 100644
+--- a/lib/presentation/screens/workout/record/record_screen.dart
++++ b/lib/features/workout/screens/record/record_screen.dart
+@@ -1,7 +1,7 @@
+-import 'package:fitness_exercise_application/presentation/screens/workout/record/record_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/record/widgets/locate_button.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/record/widgets/tracking_map_widget.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/summary/workout_summary_screen.dart';
++import 'package:fitness_exercise_application/features/workout/screens/record/record_providers.dart';
++import 'package:fitness_exercise_application/features/workout/screens/record/widgets/locate_button.dart';
++import 'package:fitness_exercise_application/features/workout/screens/record/widgets/tracking_map_widget.dart';
++import 'package:fitness_exercise_application/features/workout/screens/summary/workout_summary_screen.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ 
+diff --git a/lib/presentation/screens/workout/record/widgets/locate_button.dart b/lib/features/workout/screens/record/widgets/locate_button.dart
+similarity index 100%
+rename from lib/presentation/screens/workout/record/widgets/locate_button.dart
+rename to lib/features/workout/screens/record/widgets/locate_button.dart
+diff --git a/lib/presentation/screens/workout/record/widgets/tracking_map_widget.dart b/lib/features/workout/screens/record/widgets/tracking_map_widget.dart
+similarity index 100%
+rename from lib/presentation/screens/workout/record/widgets/tracking_map_widget.dart
+rename to lib/features/workout/screens/record/widgets/tracking_map_widget.dart
+diff --git a/lib/presentation/screens/workout/summary/workout_summary_screen.dart b/lib/features/workout/screens/summary/workout_summary_screen.dart
+similarity index 99%
+rename from lib/presentation/screens/workout/summary/workout_summary_screen.dart
+rename to lib/features/workout/screens/summary/workout_summary_screen.dart
+index 69e8a27..4d43a9f 100644
+--- a/lib/presentation/screens/workout/summary/workout_summary_screen.dart
++++ b/lib/features/workout/screens/summary/workout_summary_screen.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_map/flutter_map.dart';
+ import 'package:latlong2/latlong.dart';
+-import 'package:fitness_exercise_application/presentation/screens/stats/stats_screen.dart';
++import 'package:fitness_exercise_application/features/statistics/screens/stats_screen.dart';
+ 
+ class WorkoutSummaryScreen extends StatelessWidget {
+   final String sessionId;
+diff --git a/lib/pages/details/widgets/appbar.dart b/lib/features/workout/screens/widgets/appbar.dart
+similarity index 100%
+rename from lib/pages/details/widgets/appbar.dart
+rename to lib/features/workout/screens/widgets/appbar.dart
+diff --git a/lib/pages/details/widgets/dates.dart b/lib/features/workout/screens/widgets/dates.dart
+similarity index 96%
+rename from lib/pages/details/widgets/dates.dart
+rename to lib/features/workout/screens/widgets/dates.dart
+index 488a9e4..d856ecd 100644
+--- a/lib/pages/details/widgets/dates.dart
++++ b/lib/features/workout/screens/widgets/dates.dart
+@@ -1,4 +1,4 @@
+-import 'package:fitness_exercise_application/helpers.dart';
++import 'package:fitness_exercise_application/utils/helpers.dart';
+ import 'package:flutter/material.dart';
+ 
+ class Dates extends StatelessWidget {
+diff --git a/lib/pages/details/widgets/graph.dart b/lib/features/workout/screens/widgets/graph.dart
+similarity index 100%
+rename from lib/pages/details/widgets/graph.dart
+rename to lib/features/workout/screens/widgets/graph.dart
+diff --git a/lib/pages/details/widgets/info.dart b/lib/features/workout/screens/widgets/info.dart
+similarity index 100%
+rename from lib/pages/details/widgets/info.dart
+rename to lib/features/workout/screens/widgets/info.dart
+diff --git a/lib/pages/details/widgets/stats.dart b/lib/features/workout/screens/widgets/stats.dart
+similarity index 100%
+rename from lib/pages/details/widgets/stats.dart
+rename to lib/features/workout/screens/widgets/stats.dart
+diff --git a/lib/pages/details/widgets/steps.dart b/lib/features/workout/screens/widgets/steps.dart
+similarity index 91%
+rename from lib/pages/details/widgets/steps.dart
+rename to lib/features/workout/screens/widgets/steps.dart
+index 9f5904b..3ec753e 100644
+--- a/lib/pages/details/widgets/steps.dart
++++ b/lib/features/workout/screens/widgets/steps.dart
+@@ -1,4 +1,4 @@
+-import 'package:fitness_exercise_application/helpers.dart';
++import 'package:fitness_exercise_application/utils/helpers.dart';
+ import 'package:flutter/material.dart';
+ 
+ class Steps extends StatelessWidget {
+diff --git a/lib/presentation/screens/workout/workout_details_screen.dart b/lib/features/workout/screens/workout_details_screen.dart
+similarity index 98%
+rename from lib/presentation/screens/workout/workout_details_screen.dart
+rename to lib/features/workout/screens/workout_details_screen.dart
+index fb8adc6..7349d02 100644
+--- a/lib/presentation/screens/workout/workout_details_screen.dart
++++ b/lib/features/workout/screens/workout_details_screen.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/core/utils/workout_formatters.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/utils/workout_formatters.dart';
+ import 'package:intl/intl.dart';
+ 
+ class WorkoutDetailsScreen extends ConsumerWidget {
+diff --git a/lib/presentation/screens/workout/workout_end_screen.dart b/lib/features/workout/screens/workout_end_screen.dart
+similarity index 98%
+rename from lib/presentation/screens/workout/workout_end_screen.dart
+rename to lib/features/workout/screens/workout_end_screen.dart
+index af3d266..c0d40a7 100644
+--- a/lib/presentation/screens/workout/workout_end_screen.dart
++++ b/lib/features/workout/screens/workout_end_screen.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/workout_details_screen.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/features/workout/screens/workout_details_screen.dart';
+ 
+ class WorkoutEndScreen extends ConsumerStatefulWidget {
+   final String sessionId;
+diff --git a/lib/presentation/screens/workout/workout_list_screen.dart b/lib/features/workout/screens/workout_list_screen.dart
+similarity index 97%
+rename from lib/presentation/screens/workout/workout_list_screen.dart
+rename to lib/features/workout/screens/workout_list_screen.dart
+index 58d1a24..60153b9 100644
+--- a/lib/presentation/screens/workout/workout_list_screen.dart
++++ b/lib/features/workout/screens/workout_list_screen.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/workout_details_screen.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/features/workout/screens/workout_details_screen.dart';
+ import 'package:intl/intl.dart';
+ 
+ class WorkoutListScreen extends ConsumerWidget {
+diff --git a/lib/presentation/screens/workout/workout_start_screen.dart b/lib/features/workout/screens/workout_start_screen.dart
+similarity index 98%
+rename from lib/presentation/screens/workout/workout_start_screen.dart
+rename to lib/features/workout/screens/workout_start_screen.dart
+index e74f7f1..864988c 100644
+--- a/lib/presentation/screens/workout/workout_start_screen.dart
++++ b/lib/features/workout/screens/workout_start_screen.dart
+@@ -1,6 +1,6 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/record/record_screen.dart';
++import 'package:fitness_exercise_application/features/workout/screens/record/record_screen.dart';
+ 
+ class WorkoutStartScreen extends ConsumerStatefulWidget {
+   final String activityType;
+diff --git a/lib/main.dart b/lib/main.dart
+index 4f20c18..5b154bc 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -1,9 +1,9 @@
+-import 'package:fitness_exercise_application/presentation/screens/auth/auth_wrapper.dart';
++import 'package:fitness_exercise_application/features/auth/screens/auth_wrapper.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/data/local/local_db.dart';
++import 'package:fitness_exercise_application/services/local/local_db.dart';
+ 
+ void main() async {
+   WidgetsFlutterBinding.ensureInitialized();
+diff --git a/lib/domain/entities/app_user.dart b/lib/models/app_user.dart
+similarity index 100%
+rename from lib/domain/entities/app_user.dart
+rename to lib/models/app_user.dart
+diff --git a/lib/domain/entities/gps_track.dart b/lib/models/gps_track.dart
+similarity index 100%
+rename from lib/domain/entities/gps_track.dart
+rename to lib/models/gps_track.dart
+diff --git a/lib/domain/entities/gps_track.freezed.dart b/lib/models/gps_track.freezed.dart
+similarity index 100%
+rename from lib/domain/entities/gps_track.freezed.dart
+rename to lib/models/gps_track.freezed.dart
+diff --git a/lib/data/models/gps_track_model.dart b/lib/models/gps_track_model.dart
+similarity index 95%
+rename from lib/data/models/gps_track_model.dart
+rename to lib/models/gps_track_model.dart
+index f4b0b3f..afdbce6 100644
+--- a/lib/data/models/gps_track_model.dart
++++ b/lib/models/gps_track_model.dart
+@@ -1,5 +1,5 @@
+ import 'package:freezed_annotation/freezed_annotation.dart';
+-import 'package:fitness_exercise_application/domain/entities/gps_track.dart';
++import 'package:fitness_exercise_application/models/gps_track.dart';
+ 
+ part 'gps_track_model.freezed.dart';
+ part 'gps_track_model.g.dart';
+diff --git a/lib/data/models/gps_track_model.freezed.dart b/lib/models/gps_track_model.freezed.dart
+similarity index 100%
+rename from lib/data/models/gps_track_model.freezed.dart
+rename to lib/models/gps_track_model.freezed.dart
+diff --git a/lib/data/models/gps_track_model.g.dart b/lib/models/gps_track_model.g.dart
+similarity index 100%
+rename from lib/data/models/gps_track_model.g.dart
+rename to lib/models/gps_track_model.g.dart
+diff --git a/lib/domain/entities/user_goal.dart b/lib/models/user_goal.dart
+similarity index 100%
+rename from lib/domain/entities/user_goal.dart
+rename to lib/models/user_goal.dart
+diff --git a/lib/domain/entities/user_profile.dart b/lib/models/user_profile.dart
+similarity index 100%
+rename from lib/domain/entities/user_profile.dart
+rename to lib/models/user_profile.dart
+diff --git a/lib/domain/entities/user_profile.freezed.dart b/lib/models/user_profile.freezed.dart
+similarity index 100%
+rename from lib/domain/entities/user_profile.freezed.dart
+rename to lib/models/user_profile.freezed.dart
+diff --git a/lib/data/models/user_profile_model.dart b/lib/models/user_profile_model.dart
+similarity index 94%
+rename from lib/data/models/user_profile_model.dart
+rename to lib/models/user_profile_model.dart
+index 44c9693..47696cd 100644
+--- a/lib/data/models/user_profile_model.dart
++++ b/lib/models/user_profile_model.dart
+@@ -1,5 +1,5 @@
+ import 'package:freezed_annotation/freezed_annotation.dart';
+-import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
++import 'package:fitness_exercise_application/models/user_profile.dart';
+ 
+ part 'user_profile_model.freezed.dart';
+ part 'user_profile_model.g.dart';
+diff --git a/lib/data/models/user_profile_model.freezed.dart b/lib/models/user_profile_model.freezed.dart
+similarity index 100%
+rename from lib/data/models/user_profile_model.freezed.dart
+rename to lib/models/user_profile_model.freezed.dart
+diff --git a/lib/data/models/user_profile_model.g.dart b/lib/models/user_profile_model.g.dart
+similarity index 100%
+rename from lib/data/models/user_profile_model.g.dart
+rename to lib/models/user_profile_model.g.dart
+diff --git a/lib/domain/entities/workout.dart b/lib/models/workout.dart
+similarity index 100%
+rename from lib/domain/entities/workout.dart
+rename to lib/models/workout.dart
+diff --git a/lib/domain/entities/workout.freezed.dart b/lib/models/workout.freezed.dart
+similarity index 100%
+rename from lib/domain/entities/workout.freezed.dart
+rename to lib/models/workout.freezed.dart
+diff --git a/lib/data/models/workout_model.dart b/lib/models/workout_model.dart
+similarity index 97%
+rename from lib/data/models/workout_model.dart
+rename to lib/models/workout_model.dart
+index 724521f..692c528 100644
+--- a/lib/data/models/workout_model.dart
++++ b/lib/models/workout_model.dart
+@@ -1,5 +1,5 @@
+ import 'package:freezed_annotation/freezed_annotation.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout.dart';
++import 'package:fitness_exercise_application/models/workout.dart';
+ 
+ part 'workout_model.freezed.dart';
+ part 'workout_model.g.dart';
+diff --git a/lib/data/models/workout_model.freezed.dart b/lib/models/workout_model.freezed.dart
+similarity index 100%
+rename from lib/data/models/workout_model.freezed.dart
+rename to lib/models/workout_model.freezed.dart
+diff --git a/lib/data/models/workout_model.g.dart b/lib/models/workout_model.g.dart
+similarity index 100%
+rename from lib/data/models/workout_model.g.dart
+rename to lib/models/workout_model.g.dart
+diff --git a/lib/domain/models/workout_result.dart b/lib/models/workout_result.dart
+similarity index 100%
+rename from lib/domain/models/workout_result.dart
+rename to lib/models/workout_result.dart
+diff --git a/lib/domain/entities/workout_session.dart b/lib/models/workout_session.dart
+similarity index 100%
+rename from lib/domain/entities/workout_session.dart
+rename to lib/models/workout_session.dart
+diff --git a/lib/domain/entities/workout_session.freezed.dart b/lib/models/workout_session.freezed.dart
+similarity index 100%
+rename from lib/domain/entities/workout_session.freezed.dart
+rename to lib/models/workout_session.freezed.dart
+diff --git a/lib/data/models/workout_session_model.dart b/lib/models/workout_session_model.dart
+similarity index 95%
+rename from lib/data/models/workout_session_model.dart
+rename to lib/models/workout_session_model.dart
+index 7e3cc6d..41f4036 100644
+--- a/lib/data/models/workout_session_model.dart
++++ b/lib/models/workout_session_model.dart
+@@ -1,5 +1,5 @@
+ import 'package:freezed_annotation/freezed_annotation.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
+ 
+ part 'workout_session_model.freezed.dart';
+ part 'workout_session_model.g.dart';
+diff --git a/lib/data/models/workout_session_model.freezed.dart b/lib/models/workout_session_model.freezed.dart
+similarity index 100%
+rename from lib/data/models/workout_session_model.freezed.dart
+rename to lib/models/workout_session_model.freezed.dart
+diff --git a/lib/data/models/workout_session_model.g.dart b/lib/models/workout_session_model.g.dart
+similarity index 100%
+rename from lib/data/models/workout_session_model.g.dart
+rename to lib/models/workout_session_model.g.dart
+diff --git a/lib/presentation/providers/bootstrap_providers.dart b/lib/presentation/providers/bootstrap_providers.dart
+deleted file mode 100644
+index ed7b3c1..0000000
+--- a/lib/presentation/providers/bootstrap_providers.dart
++++ /dev/null
+@@ -1 +0,0 @@
+-export 'package:fitness_exercise_application/core/services/app_bootstrap_service.dart';
+diff --git a/lib/presentation/screens/home/home_screen.dart b/lib/presentation/screens/home/home_screen.dart
+deleted file mode 100644
+index fcbb87d..0000000
+--- a/lib/presentation/screens/home/home_screen.dart
++++ /dev/null
+@@ -1,101 +0,0 @@
+-import 'package:fitness_exercise_application/presentation/widgets/home/current.dart';
+-import 'package:fitness_exercise_application/presentation/widgets/home/header.dart';
+-import 'package:fitness_exercise_application/presentation/widgets/bottom_navigation.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/workout_list_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/profile/profile_screen.dart';
+-import 'package:flutter/material.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
+-import 'package:flutter_riverpod/flutter_riverpod.dart';
+-
+-class HomeScreen extends ConsumerWidget {
+-  const HomeScreen({super.key});
+-
+-  @override
+-  Widget build(BuildContext context, WidgetRef ref) {
+-    return Scaffold(
+-      body: RefreshIndicator(
+-        onRefresh: () async {
+-          await ref.read(workoutListProvider.notifier).refresh();
+-        },
+-        child: SingleChildScrollView(
+-          physics: const AlwaysScrollableScrollPhysics(),
+-          child: Column(
+-            children: [
+-              // Header
+-              AppHeader(
+-                onMenuTap: () {
+-                  Navigator.of(context).push(
+-                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+-                  );
+-                },
+-              ),
+-
+-              const CurrentPrograms(),
+-
+-              // History Button
+-              Padding(
+-                padding: const EdgeInsets.symmetric(
+-                  horizontal: 30,
+-                  vertical: 20,
+-                ),
+-                child: Container(
+-                  width: double.infinity,
+-                  decoration: BoxDecoration(
+-                    gradient: const LinearGradient(
+-                      colors: [Color(0xff00d4ff), Color(0xff0099ff)],
+-                      begin: Alignment.centerLeft,
+-                      end: Alignment.centerRight,
+-                    ),
+-                    borderRadius: BorderRadius.circular(16),
+-                    boxShadow: [
+-                      BoxShadow(
+-                        color: const Color(0xff0099ff).withOpacity(0.3),
+-                        blurRadius: 12,
+-                        offset: const Offset(0, 6),
+-                      ),
+-                    ],
+-                  ),
+-                  child: Material(
+-                    color: Colors.transparent,
+-                    child: InkWell(
+-                      onTap: () {
+-                        Navigator.of(context).push(
+-                          MaterialPageRoute(
+-                            builder: (_) => const WorkoutListScreen(),
+-                          ),
+-                        );
+-                      },
+-                      borderRadius: BorderRadius.circular(16),
+-                      child: Padding(
+-                        padding: const EdgeInsets.symmetric(vertical: 16),
+-                        child: Row(
+-                          mainAxisAlignment: MainAxisAlignment.center,
+-                          children: const [
+-                            Icon(Icons.history, color: Colors.white, size: 24),
+-                            SizedBox(width: 12),
+-                            Text(
+-                              'View Workout History',
+-                              style: TextStyle(
+-                                color: Colors.white,
+-                                fontSize: 16,
+-                                fontWeight: FontWeight.bold,
+-                                letterSpacing: 0.5,
+-                              ),
+-                            ),
+-                          ],
+-                        ),
+-                      ),
+-                    ),
+-                  ),
+-                ),
+-              ),
+-
+-              const SizedBox(height: 20),
+-            ],
+-          ),
+-        ),
+-      ),
+-      bottomNavigationBar: const BottomNavigation(),
+-    );
+-  }
+-}
+diff --git a/lib/presentation/widgets/bottom_navigation.dart b/lib/presentation/widgets/bottom_navigation.dart
+deleted file mode 100644
+index 009611d..0000000
+--- a/lib/presentation/widgets/bottom_navigation.dart
++++ /dev/null
+@@ -1,76 +0,0 @@
+-import 'package:flutter/material.dart';
+-import 'package:fitness_exercise_application/presentation/screens/settings/settings_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/stats/stats_screen.dart';
+-import 'package:fitness_exercise_application/presentation/screens/calendar/calendar_screen.dart';
+-
+-class BottomNavigation extends StatelessWidget {
+-  const BottomNavigation({super.key});
+-
+-  @override
+-  Widget build(BuildContext context) {
+-    return Container(
+-      width: double.infinity,
+-      height: 60,
+-      color: const Color(0xfff8f8f8),
+-      child: IconTheme(
+-        data: const IconThemeData(color: Color(0xffabadb4)),
+-        child: Row(
+-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+-          children: [
+-            GestureDetector(
+-              onTap: () {
+-                Navigator.of(
+-                  context,
+-                ).push(MaterialPageRoute(builder: (_) => const StatsScreen()));
+-              },
+-              child: const Icon(Icons.add_chart),
+-            ),
+-            const Icon(Icons.search),
+-            Transform.translate(
+-              offset: const Offset(0, -15),
+-              child: GestureDetector(
+-                onTap: () {
+-                  Navigator.of(context).pushReplacementNamed('/');
+-                },
+-                child: Container(
+-                  padding: const EdgeInsets.all(13),
+-                  decoration: const BoxDecoration(
+-                    shape: BoxShape.circle,
+-                    gradient: LinearGradient(
+-                      begin: Alignment.topLeft,
+-                      colors: [Color(0xff92e2ff), Color(0xff1ebdf8)],
+-                    ),
+-                    boxShadow: [
+-                      BoxShadow(
+-                        color: Colors.black,
+-                        offset: Offset(3, 3),
+-                        blurRadius: 3,
+-                      ),
+-                    ],
+-                  ),
+-                  child: const Icon(Icons.home, color: Colors.white),
+-                ),
+-              ),
+-            ),
+-            GestureDetector(
+-              onTap: () {
+-                Navigator.of(context).push(
+-                  MaterialPageRoute(builder: (_) => const CalendarScreen()),
+-                );
+-              },
+-              child: const Icon(Icons.date_range),
+-            ),
+-            GestureDetector(
+-              onTap: () {
+-                Navigator.of(context).push(
+-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+-                );
+-              },
+-              child: const Icon(Icons.settings),
+-            ),
+-          ],
+-        ),
+-      ),
+-    );
+-  }
+-}
+diff --git a/lib/presentation/providers/avatar_providers.dart b/lib/providers/avatar_providers.dart
+similarity index 95%
+rename from lib/presentation/providers/avatar_providers.dart
+rename to lib/providers/avatar_providers.dart
+index 04970fd..286b417 100644
+--- a/lib/presentation/providers/avatar_providers.dart
++++ b/lib/providers/avatar_providers.dart
+@@ -2,8 +2,8 @@ import 'dart:io';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:image_picker/image_picker.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
+-import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
++import 'package:fitness_exercise_application/providers/user_profile_providers.dart';
++import 'package:fitness_exercise_application/models/user_profile.dart';
+ 
+ // ΓöÇΓöÇΓöÇ Avatar notifier state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ class AvatarState {
+diff --git a/lib/providers/bootstrap_providers.dart b/lib/providers/bootstrap_providers.dart
+new file mode 100644
+index 0000000..9882bbf
+--- /dev/null
++++ b/lib/providers/bootstrap_providers.dart
+@@ -0,0 +1 @@
++export 'package:fitness_exercise_application/services/app_bootstrap_service.dart';
+diff --git a/lib/presentation/providers/goal_providers.dart b/lib/providers/goal_providers.dart
+similarity index 94%
+rename from lib/presentation/providers/goal_providers.dart
+rename to lib/providers/goal_providers.dart
+index 394a068..70e58e5 100644
+--- a/lib/presentation/providers/goal_providers.dart
++++ b/lib/providers/goal_providers.dart
+@@ -1,8 +1,8 @@
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/core/constants/db_tables.dart';
+-import 'package:fitness_exercise_application/domain/entities/user_goal.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/config/constants/db_tables.dart';
++import 'package:fitness_exercise_application/models/user_goal.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
+ 
+ // ΓöÇΓöÇΓöÇ Remote datasource (inline ΓÇö no separate file needed at this scale) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ final _supabase = Supabase.instance.client;
+diff --git a/lib/presentation/providers/providers.dart b/lib/providers/providers.dart
+similarity index 73%
+rename from lib/presentation/providers/providers.dart
+rename to lib/providers/providers.dart
+index fd093ef..b89d268 100644
+--- a/lib/presentation/providers/providers.dart
++++ b/lib/providers/providers.dart
+@@ -1,10 +1,10 @@
+ import 'package:riverpod_annotation/riverpod_annotation.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/data/datasources/local/database_helper.dart';
+-import 'package:fitness_exercise_application/data/datasources/local/workout_local_datasource.dart';
+-import 'package:fitness_exercise_application/data/datasources/remote/workout_remote_datasource.dart';
+-import 'package:fitness_exercise_application/data/repositories/workout_repository_impl.dart';
+-import 'package:fitness_exercise_application/domain/repositories/workout_repository.dart';
++import 'package:fitness_exercise_application/services/datasources/local/database_helper.dart';
++import 'package:fitness_exercise_application/services/datasources/local/workout_local_datasource.dart';
++import 'package:fitness_exercise_application/services/datasources/remote/workout_remote_datasource.dart';
++import 'package:fitness_exercise_application/repositories/workout_repository_impl.dart';
++import 'package:fitness_exercise_application/repositories/workout_repository.dart';
+ 
+ part 'providers.g.dart';
+ 
+diff --git a/lib/presentation/providers/providers.g.dart b/lib/providers/providers.g.dart
+similarity index 100%
+rename from lib/presentation/providers/providers.g.dart
+rename to lib/providers/providers.g.dart
+diff --git a/lib/presentation/providers/user_profile_providers.dart b/lib/providers/user_profile_providers.dart
+similarity index 70%
+rename from lib/presentation/providers/user_profile_providers.dart
+rename to lib/providers/user_profile_providers.dart
+index 4f6c258..cab9597 100644
+--- a/lib/presentation/providers/user_profile_providers.dart
++++ b/lib/providers/user_profile_providers.dart
+@@ -1,11 +1,11 @@
+ import 'package:riverpod_annotation/riverpod_annotation.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
+-import 'package:fitness_exercise_application/domain/repositories/user_profile_repository.dart';
+-import 'package:fitness_exercise_application/data/repositories/user_profile_repository_impl.dart';
+-import 'package:fitness_exercise_application/data/datasources/local/user_profile_local_datasource.dart';
+-import 'package:fitness_exercise_application/data/datasources/remote/user_profile_remote_datasource.dart';
+-import 'package:fitness_exercise_application/data/datasources/local/database_helper.dart';
++import 'package:fitness_exercise_application/models/user_profile.dart';
++import 'package:fitness_exercise_application/repositories/user_profile_repository.dart';
++import 'package:fitness_exercise_application/repositories/user_profile_repository_impl.dart';
++import 'package:fitness_exercise_application/services/datasources/local/user_profile_local_datasource.dart';
++import 'package:fitness_exercise_application/services/datasources/remote/user_profile_remote_datasource.dart';
++import 'package:fitness_exercise_application/services/datasources/local/database_helper.dart';
+ 
+ part 'user_profile_providers.g.dart';
+ 
+diff --git a/lib/presentation/providers/user_profile_providers.g.dart b/lib/providers/user_profile_providers.g.dart
+similarity index 100%
+rename from lib/presentation/providers/user_profile_providers.g.dart
+rename to lib/providers/user_profile_providers.g.dart
+diff --git a/lib/presentation/providers/workout_providers.dart b/lib/providers/workout_providers.dart
+similarity index 94%
+rename from lib/presentation/providers/workout_providers.dart
+rename to lib/providers/workout_providers.dart
+index d7f6cd9..a7f77de 100644
+--- a/lib/presentation/providers/workout_providers.dart
++++ b/lib/providers/workout_providers.dart
+@@ -1,9 +1,9 @@
+ import 'dart:async';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:riverpod_annotation/riverpod_annotation.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
+-import 'package:fitness_exercise_application/presentation/providers/providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
++import 'package:fitness_exercise_application/providers/providers.dart';
++import 'package:fitness_exercise_application/providers/user_profile_providers.dart';
+ import 'package:uuid/uuid.dart';
+ import 'package:internet_connection_checker/internet_connection_checker.dart';
+ 
+diff --git a/lib/presentation/providers/workout_providers.g.dart b/lib/providers/workout_providers.g.dart
+similarity index 100%
+rename from lib/presentation/providers/workout_providers.g.dart
+rename to lib/providers/workout_providers.g.dart
+diff --git a/lib/domain/repositories/auth_repository.dart b/lib/repositories/auth_repository.dart
+similarity index 56%
+rename from lib/domain/repositories/auth_repository.dart
+rename to lib/repositories/auth_repository.dart
+index 4b1e622..fa76b84 100644
+--- a/lib/domain/repositories/auth_repository.dart
++++ b/lib/repositories/auth_repository.dart
+@@ -1,4 +1,4 @@
+-import 'package:fitness_exercise_application/domain/entities/app_user.dart';
++import 'package:fitness_exercise_application/models/app_user.dart';
+ 
+ abstract class AuthRepository {
+   Future<AppUser?> getCurrentUser();
+diff --git a/lib/domain/repositories/user_profile_repository.dart b/lib/repositories/user_profile_repository.dart
+similarity index 85%
+rename from lib/domain/repositories/user_profile_repository.dart
+rename to lib/repositories/user_profile_repository.dart
+index 756e469..a8ee620 100644
+--- a/lib/domain/repositories/user_profile_repository.dart
++++ b/lib/repositories/user_profile_repository.dart
+@@ -1,4 +1,4 @@
+-import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
++import 'package:fitness_exercise_application/models/user_profile.dart';
+ 
+ abstract class UserProfileRepository {
+   Future<UserProfile?> fetchRemote(String userId);
+diff --git a/lib/data/repositories/user_profile_repository_impl.dart b/lib/repositories/user_profile_repository_impl.dart
+similarity index 86%
+rename from lib/data/repositories/user_profile_repository_impl.dart
+rename to lib/repositories/user_profile_repository_impl.dart
+index 57c5459..be9eeae 100644
+--- a/lib/data/repositories/user_profile_repository_impl.dart
++++ b/lib/repositories/user_profile_repository_impl.dart
+@@ -1,8 +1,8 @@
+-import 'package:fitness_exercise_application/domain/entities/user_profile.dart';
+-import 'package:fitness_exercise_application/domain/repositories/user_profile_repository.dart';
+-import 'package:fitness_exercise_application/data/models/user_profile_model.dart';
+-import 'package:fitness_exercise_application/data/datasources/local/user_profile_local_datasource.dart';
+-import 'package:fitness_exercise_application/data/datasources/remote/user_profile_remote_datasource.dart';
++import 'package:fitness_exercise_application/models/user_profile.dart';
++import 'package:fitness_exercise_application/repositories/user_profile_repository.dart';
++import 'package:fitness_exercise_application/models/user_profile_model.dart';
++import 'package:fitness_exercise_application/services/datasources/local/user_profile_local_datasource.dart';
++import 'package:fitness_exercise_application/services/datasources/remote/user_profile_remote_datasource.dart';
+ 
+ class UserProfileRepositoryImpl implements UserProfileRepository {
+   final UserProfileLocalDataSource _localDataSource;
+diff --git a/lib/domain/repositories/workout_repository.dart b/lib/repositories/workout_repository.dart
+similarity index 90%
+rename from lib/domain/repositories/workout_repository.dart
+rename to lib/repositories/workout_repository.dart
+index 8cfd4dd..726ea5b 100644
+--- a/lib/domain/repositories/workout_repository.dart
++++ b/lib/repositories/workout_repository.dart
+@@ -1,4 +1,4 @@
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
+ 
+ abstract class WorkoutRepository {
+   Future<void> saveSessionRemote(WorkoutSession session);
+diff --git a/lib/data/repositories/workout_repository_impl.dart b/lib/repositories/workout_repository_impl.dart
+similarity index 90%
+rename from lib/data/repositories/workout_repository_impl.dart
+rename to lib/repositories/workout_repository_impl.dart
+index a0eff90..53bf259 100644
+--- a/lib/data/repositories/workout_repository_impl.dart
++++ b/lib/repositories/workout_repository_impl.dart
+@@ -1,12 +1,12 @@
+ import 'dart:async';
+ import 'package:flutter/foundation.dart';
+-import 'package:fitness_exercise_application/data/datasources/remote/workout_remote_datasource.dart';
+-import 'package:fitness_exercise_application/data/local/local_db.dart';
+-import 'package:fitness_exercise_application/data/local/schema/local_workout.dart';
+-import 'package:fitness_exercise_application/domain/repositories/workout_repository.dart';
++import 'package:fitness_exercise_application/services/datasources/remote/workout_remote_datasource.dart';
++import 'package:fitness_exercise_application/services/local/local_db.dart';
++import 'package:fitness_exercise_application/services/local/schema/local_workout.dart';
++import 'package:fitness_exercise_application/repositories/workout_repository.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ import 'package:internet_connection_checker/internet_connection_checker.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
+ 
+ class WorkoutRepositoryImpl implements WorkoutRepository {
+   final WorkoutRemoteDataSource _remoteDataSource;
+diff --git a/lib/core/services/app_bootstrap_service.dart b/lib/services/app_bootstrap_service.dart
+similarity index 85%
+rename from lib/core/services/app_bootstrap_service.dart
+rename to lib/services/app_bootstrap_service.dart
+index 0a95868..0cd7f0d 100644
+--- a/lib/core/services/app_bootstrap_service.dart
++++ b/lib/services/app_bootstrap_service.dart
+@@ -1,8 +1,8 @@
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:flutter/foundation.dart';
+-import 'package:fitness_exercise_application/presentation/providers/providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/user_profile_providers.dart';
+-import 'package:fitness_exercise_application/presentation/providers/workout_providers.dart';
++import 'package:fitness_exercise_application/providers/providers.dart';
++import 'package:fitness_exercise_application/providers/user_profile_providers.dart';
++import 'package:fitness_exercise_application/providers/workout_providers.dart';
+ 
+ class AppBootstrapService {
+   final Ref ref;
+diff --git a/lib/data/datasources/local/database_helper.dart b/lib/services/datasources/local/database_helper.dart
+similarity index 100%
+rename from lib/data/datasources/local/database_helper.dart
+rename to lib/services/datasources/local/database_helper.dart
+diff --git a/lib/data/datasources/local/user_profile_local_datasource.dart b/lib/services/datasources/local/user_profile_local_datasource.dart
+similarity index 92%
+rename from lib/data/datasources/local/user_profile_local_datasource.dart
+rename to lib/services/datasources/local/user_profile_local_datasource.dart
+index 40a2dac..4aa8e44 100644
+--- a/lib/data/datasources/local/user_profile_local_datasource.dart
++++ b/lib/services/datasources/local/user_profile_local_datasource.dart
+@@ -1,6 +1,6 @@
+ import 'package:sqflite/sqflite.dart';
+-import 'package:fitness_exercise_application/data/models/user_profile_model.dart';
+-import 'package:fitness_exercise_application/data/datasources/local/database_helper.dart';
++import 'package:fitness_exercise_application/models/user_profile_model.dart';
++import 'package:fitness_exercise_application/services/datasources/local/database_helper.dart';
+ 
+ class UserProfileLocalDataSource {
+   final DatabaseHelper _dbHelper;
+diff --git a/lib/data/datasources/local/workout_local_datasource.dart b/lib/services/datasources/local/workout_local_datasource.dart
+similarity index 92%
+rename from lib/data/datasources/local/workout_local_datasource.dart
+rename to lib/services/datasources/local/workout_local_datasource.dart
+index 7d316d0..e933a39 100644
+--- a/lib/data/datasources/local/workout_local_datasource.dart
++++ b/lib/services/datasources/local/workout_local_datasource.dart
+@@ -1,6 +1,6 @@
+-import 'package:fitness_exercise_application/data/datasources/local/database_helper.dart';
+-import 'package:fitness_exercise_application/data/models/workout_model.dart';
+-import 'package:fitness_exercise_application/data/models/gps_track_model.dart';
++import 'package:fitness_exercise_application/services/datasources/local/database_helper.dart';
++import 'package:fitness_exercise_application/models/workout_model.dart';
++import 'package:fitness_exercise_application/models/gps_track_model.dart';
+ import 'package:sqflite/sqflite.dart';
+ import 'package:uuid/uuid.dart';
+ 
+diff --git a/lib/data/datasources/remote/user_profile_remote_datasource.dart b/lib/services/datasources/remote/user_profile_remote_datasource.dart
+similarity index 94%
+rename from lib/data/datasources/remote/user_profile_remote_datasource.dart
+rename to lib/services/datasources/remote/user_profile_remote_datasource.dart
+index 89819d7..b86e855 100644
+--- a/lib/data/datasources/remote/user_profile_remote_datasource.dart
++++ b/lib/services/datasources/remote/user_profile_remote_datasource.dart
+@@ -1,7 +1,7 @@
+ import 'dart:io';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/data/models/user_profile_model.dart';
+-import 'package:fitness_exercise_application/core/constants/db_tables.dart';
++import 'package:fitness_exercise_application/models/user_profile_model.dart';
++import 'package:fitness_exercise_application/config/constants/db_tables.dart';
+ 
+ class UserProfileRemoteDataSource {
+   final SupabaseClient _supabase;
+diff --git a/lib/data/datasources/remote/workout_remote_datasource.dart b/lib/services/datasources/remote/workout_remote_datasource.dart
+similarity index 91%
+rename from lib/data/datasources/remote/workout_remote_datasource.dart
+rename to lib/services/datasources/remote/workout_remote_datasource.dart
+index 402249e..1f2368a 100644
+--- a/lib/data/datasources/remote/workout_remote_datasource.dart
++++ b/lib/services/datasources/remote/workout_remote_datasource.dart
+@@ -1,7 +1,7 @@
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/data/models/workout_session_model.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
+-import 'package:fitness_exercise_application/core/constants/db_tables.dart';
++import 'package:fitness_exercise_application/models/workout_session_model.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
++import 'package:fitness_exercise_application/config/constants/db_tables.dart';
+ import 'package:flutter/foundation.dart';
+ 
+ class WorkoutRemoteDataSource {
+diff --git a/lib/data/services/environment_detector.dart b/lib/services/environment_detector.dart
+similarity index 99%
+rename from lib/data/services/environment_detector.dart
+rename to lib/services/environment_detector.dart
+index b45222b..f961d66 100644
+--- a/lib/data/services/environment_detector.dart
++++ b/lib/services/environment_detector.dart
+@@ -1,6 +1,6 @@
+ import 'dart:async';
+ import 'dart:collection';
+-import 'package:fitness_exercise_application/core/config/debug_config.dart';
++import 'package:fitness_exercise_application/config/debug_config.dart';
+ import 'package:flutter/foundation.dart';
+ import 'package:geolocator/geolocator.dart';
+ 
+diff --git a/lib/data/local/local_db.dart b/lib/services/local/local_db.dart
+similarity index 94%
+rename from lib/data/local/local_db.dart
+rename to lib/services/local/local_db.dart
+index 60918fd..ccbf318 100644
+--- a/lib/data/local/local_db.dart
++++ b/lib/services/local/local_db.dart
+@@ -1,6 +1,6 @@
+-import 'package:fitness_exercise_application/data/local/schema/local_gps_point.dart';
+-import 'package:fitness_exercise_application/data/local/schema/local_workout.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
++import 'package:fitness_exercise_application/services/local/schema/local_gps_point.dart';
++import 'package:fitness_exercise_application/services/local/schema/local_workout.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
+ import 'package:isar/isar.dart';
+ import 'package:path_provider/path_provider.dart';
+ 
+diff --git a/lib/data/local/schema/local_gps_point.dart b/lib/services/local/schema/local_gps_point.dart
+similarity index 100%
+rename from lib/data/local/schema/local_gps_point.dart
+rename to lib/services/local/schema/local_gps_point.dart
+diff --git a/lib/data/local/schema/local_gps_point.g.dart b/lib/services/local/schema/local_gps_point.g.dart
+similarity index 100%
+rename from lib/data/local/schema/local_gps_point.g.dart
+rename to lib/services/local/schema/local_gps_point.g.dart
+diff --git a/lib/data/local/schema/local_workout.dart b/lib/services/local/schema/local_workout.dart
+similarity index 94%
+rename from lib/data/local/schema/local_workout.dart
+rename to lib/services/local/schema/local_workout.dart
+index b3b40b3..ebb860d 100644
+--- a/lib/data/local/schema/local_workout.dart
++++ b/lib/services/local/schema/local_workout.dart
+@@ -1,5 +1,5 @@
+ import 'package:isar/isar.dart';
+-import 'package:fitness_exercise_application/domain/entities/workout_session.dart';
++import 'package:fitness_exercise_application/models/workout_session.dart';
+ 
+ part 'local_workout.g.dart';
+ 
+diff --git a/lib/data/local/schema/local_workout.g.dart b/lib/services/local/schema/local_workout.g.dart
+similarity index 100%
+rename from lib/data/local/schema/local_workout.g.dart
+rename to lib/services/local/schema/local_workout.g.dart
+diff --git a/lib/core/services/location_service.dart b/lib/services/location_service.dart
+similarity index 100%
+rename from lib/core/services/location_service.dart
+rename to lib/services/location_service.dart
+diff --git a/lib/data/services/location_tracking_service.dart b/lib/services/location_tracking_service.dart
+similarity index 99%
+rename from lib/data/services/location_tracking_service.dart
+rename to lib/services/location_tracking_service.dart
+index 5a3dcbb..3900e5d 100644
+--- a/lib/data/services/location_tracking_service.dart
++++ b/lib/services/location_tracking_service.dart
+@@ -1,5 +1,5 @@
+ import 'dart:async';
+-import 'package:fitness_exercise_application/core/config/debug_config.dart';
++import 'package:fitness_exercise_application/config/debug_config.dart';
+ import 'package:flutter/foundation.dart';
+ import 'package:geolocator/geolocator.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+diff --git a/lib/core/services/pedometer_service.dart b/lib/services/pedometer_service.dart
+similarity index 100%
+rename from lib/core/services/pedometer_service.dart
+rename to lib/services/pedometer_service.dart
+diff --git a/lib/data/services/step_tracking_service.dart b/lib/services/step_tracking_service.dart
+similarity index 100%
+rename from lib/data/services/step_tracking_service.dart
+rename to lib/services/step_tracking_service.dart
+diff --git a/lib/core/utils/date_time_helper.dart b/lib/utils/date_time_helper.dart
+similarity index 100%
+rename from lib/core/utils/date_time_helper.dart
+rename to lib/utils/date_time_helper.dart
+diff --git a/lib/helpers.dart b/lib/utils/helpers.dart
+similarity index 100%
+rename from lib/helpers.dart
+rename to lib/utils/helpers.dart
+diff --git a/lib/core/utils/workout_formatters.dart b/lib/utils/workout_formatters.dart
+similarity index 100%
+rename from lib/core/utils/workout_formatters.dart
+rename to lib/utils/workout_formatters.dart
+diff --git a/lib/widgets/bottom_navigation.dart b/lib/widgets/bottom_navigation.dart
+index 4ad787f..c17bd7c 100644
+--- a/lib/widgets/bottom_navigation.dart
++++ b/lib/widgets/bottom_navigation.dart
+@@ -1,4 +1,7 @@
+ import 'package:flutter/material.dart';
++import 'package:fitness_exercise_application/features/settings/screens/settings_screen.dart';
++import 'package:fitness_exercise_application/features/statistics/screens/stats_screen.dart';
++import 'package:fitness_exercise_application/features/history/screens/calendar_screen.dart';
+ 
+ class BottomNavigation extends StatelessWidget {
+   const BottomNavigation({super.key});
+@@ -8,54 +11,66 @@ class BottomNavigation extends StatelessWidget {
+     return Container(
+       width: double.infinity,
+       height: 60,
+-      color:  Color(0xfff8f8f8),
++      color: const Color(0xfff8f8f8),
+       child: IconTheme(
+-        data: IconThemeData(color: Color(0xffabadb4)),
++        data: const IconThemeData(color: Color(0xffabadb4)),
+         child: Row(
+           mainAxisAlignment: MainAxisAlignment.spaceAround,
+-          children: [ 
+-            Icon(Icons.add_chart),
+-            Icon(Icons.search),
++          children: [
++            GestureDetector(
++              onTap: () {
++                Navigator.of(
++                  context,
++                ).push(MaterialPageRoute(builder: (_) => const StatsScreen()));
++              },
++              child: const Icon(Icons.add_chart),
++            ),
++            const Icon(Icons.search),
+             Transform.translate(
+               offset: const Offset(0, -15),
+               child: GestureDetector(
+-                onTap: (){
++                onTap: () {
+                   Navigator.of(context).pushReplacementNamed('/');
+                 },
+                 child: Container(
+                   padding: const EdgeInsets.all(13),
+-                  decoration: BoxDecoration(
++                  decoration: const BoxDecoration(
+                     shape: BoxShape.circle,
+                     gradient: LinearGradient(
+                       begin: Alignment.topLeft,
+-                      colors: [
+-                        Color(0xff92e2ff),
+-                        Color(0xff1ebdf8),
+-                      ],
++                      colors: [Color(0xff92e2ff), Color(0xff1ebdf8)],
+                     ),
+-                  boxShadow:[
+-                    BoxShadow(
+-                      color: Colors.black, 
+-                      offset: Offset(3, 3),
+-                      blurRadius: 3,
+-                    )]
+-                  ),
+-                  child: Icon(
+-                    Icons.home,
+-                    color: Colors.white,
++                    boxShadow: [
++                      BoxShadow(
++                        color: Colors.black,
++                        offset: Offset(3, 3),
++                        blurRadius: 3,
++                      ),
++                    ],
+                   ),
++                  child: const Icon(Icons.home, color: Colors.white),
+                 ),
+               ),
+             ),
+-            Icon(Icons.date_range),
+             GestureDetector(
+-              onTap: (){
+-                Navigator.of(context).pushNamed('/details');
++              onTap: () {
++                Navigator.of(context).push(
++                  MaterialPageRoute(builder: (_) => const CalendarScreen()),
++                );
++              },
++              child: const Icon(Icons.date_range),
++            ),
++            GestureDetector(
++              onTap: () {
++                Navigator.of(context).push(
++                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
++                );
+               },
+-              child: Icon(Icons.settings)
++              child: const Icon(Icons.settings),
+             ),
+-      ],)
+-      )
++          ],
++        ),
++      ),
+     );
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/lib/presentation/widgets/home/activity.dart b/lib/widgets/home/activity.dart
+similarity index 100%
+rename from lib/presentation/widgets/home/activity.dart
+rename to lib/widgets/home/activity.dart
+diff --git a/lib/presentation/widgets/home/current.dart b/lib/widgets/home/current.dart
+similarity index 98%
+rename from lib/presentation/widgets/home/current.dart
+rename to lib/widgets/home/current.dart
+index b8457be..29d5969 100644
+--- a/lib/presentation/widgets/home/current.dart
++++ b/lib/widgets/home/current.dart
+@@ -1,5 +1,5 @@
+ import 'package:flutter/material.dart';
+-import 'package:fitness_exercise_application/presentation/screens/workout/workout_start_screen.dart';
++import 'package:fitness_exercise_application/features/workout/screens/workout_start_screen.dart';
+ 
+ class CurrentPrograms extends StatelessWidget {
+   const CurrentPrograms({super.key});
+diff --git a/lib/presentation/widgets/home/header.dart b/lib/widgets/home/header.dart
+similarity index 98%
+rename from lib/presentation/widgets/home/header.dart
+rename to lib/widgets/home/header.dart
+index 94093f8..c822b1f 100644
+--- a/lib/presentation/widgets/home/header.dart
++++ b/lib/widgets/home/header.dart
+@@ -1,7 +1,7 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+-import 'package:fitness_exercise_application/presentation/providers/avatar_providers.dart';
++import 'package:fitness_exercise_application/providers/avatar_providers.dart';
+ 
+ /// AppHeader is now a [ConsumerWidget] so it can watch [currentUserProfileProvider]
+ /// and display the real user avatar from Supabase Storage.
+diff --git a/run.bat b/run.bat
+deleted file mode 100644
+index f8f51ad..0000000
+--- a/run.bat
++++ /dev/null
+@@ -1,3 +0,0 @@
+-@echo off
+-echo Starting Flutter app with Supabase credentials...
+-flutter run -d emulator-5554 --dart-define=SUPABASE_URL=https://xsqptdzselqyefpmdozz.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzcXB0ZHpzZWxxeWVmcG1kb3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjU4MjEsImV4cCI6MjA4NTg0MTgyMX0.MfdUQpEDB4m5d7xv4wmjKf52sRmapewG-r1ecW6Hndk
+diff --git a/run.bat.example b/run.bat.example
+new file mode 100644
+index 0000000..49628cb
+--- /dev/null
++++ b/run.bat.example
+@@ -0,0 +1,3 @@
++@echo off
++echo Starting Flutter app with Supabase credentials...
++flutter run -d emulator-5554 --dart-define=SUPABASE_URL=YOUR_SUPABASE_URL_HERE --dart-define=SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY_HERE

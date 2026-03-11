@@ -21,7 +21,7 @@ class RecentActivities extends StatelessWidget {
             Expanded(
               child: ListView.builder(
                 itemCount: 10,
-                itemBuilder: (context, index) => ActivityItem(),
+                itemBuilder: (context, index) => const ActivityItem(),
               ),
             ),
           ],
@@ -37,9 +37,10 @@ class ActivityItem extends StatefulWidget {
   static const activities = [
     'Running',
     'Cycling',
-    'Swimming',
     'Walking',
-    'Hiking',
+    'Swimming',
+    'Weights',
+    'Yoga',
   ];
 
   @override
@@ -56,6 +57,25 @@ class _ActivityItemState extends State<ActivityItem> {
         .activities[Random().nextInt(ActivityItem.activities.length)];
   }
 
+  String _getActivityImage(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'running':
+        return 'assets/running.jpg';
+      case 'cycling':
+        return 'assets/cycling.jpg';
+      case 'walking':
+        return 'assets/walking.jpg';
+      case 'swimming':
+        return 'assets/swimming.jpg';
+      case 'weights':
+        return 'assets/weights.jpg';
+      case 'yoga':
+        return 'assets/yoga.jpg';
+      default:
+        return 'assets/running.jpg';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -66,15 +86,15 @@ class _ActivityItemState extends State<ActivityItem> {
         margin: const EdgeInsets.symmetric(vertical: 5),
         height: 50,
         decoration: BoxDecoration(
-          border: Border.all(color: Color(0xffe1e1e1)),
+          border: Border.all(color: const Color(0xffe1e1e1)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Container(
               padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: Color(0xffcff2ff),
               ),
@@ -84,8 +104,8 @@ class _ActivityItemState extends State<ActivityItem> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   image: DecorationImage(
-                    image: AssetImage('assets/running.jpg'),
-                    fit: BoxFit.fill,
+                    image: AssetImage(_getActivityImage(activity)),
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),

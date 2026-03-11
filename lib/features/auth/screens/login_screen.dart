@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/features/auth/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/auth/screens/register_screen.dart';
-import 'package:fitness_exercise_application/services/app_bootstrap_service.dart';
+import 'package:fitness_exercise_application/providers/bootstrap_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});

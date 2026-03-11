@@ -1,0 +1,95 @@
+﻿Analyzing fitness_exercise_application...                       
+
+   info - Don't invoke 'print' in production code - fix_all_imports.dart:8:5 - avoid_print
+   info - Don't invoke 'print' in production code - fix_all_imports.dart:58:3 - avoid_print
+   info - Unnecessary use of multiple underscores - lib\features\auth\screens\auth_wrapper.dart:71:22 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\screens\calendar_screen.dart:82:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\screens\widgets\daily_workout_list.dart:122:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\screens\widgets\daily_workout_list.dart:239:24 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\history\screens\widgets\daily_workout_list.dart:253:32 - deprecated_member_use
+  error - Target of URI doesn't exist: 'package:fitness_exercise_application/presentation/widgets/bottom_navigation.dart' - lib\features\home\screens\home_screen.dart:3:8 - uri_does_not_exist
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\home_screen.dart:52:56 - deprecated_member_use
+  error - The name 'BottomNavigation' isn't a class - lib\features\home\screens\home_screen.dart:98:34 - creation_with_non_type
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\current.dart:115:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\current.dart:120:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\current.dart:142:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\current.dart:143:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\header.dart:53:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\header.dart:138:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\header.dart:139:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\screens\widgets\header.dart:140:52 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\profile\screens\goal_screen.dart:96:47 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\screens\profile_screen.dart:232:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\screens\profile_screen.dart:259:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\screens\profile_screen.dart:422:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\profile\screens\profile_screen.dart:424:52 - deprecated_member_use
+warning - A value for optional parameter 'disabled' isn't ever given - lib\features\profile\screens\profile_screen.dart:580:10 - unused_element_parameter
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\profile\screens\profile_setup_screen.dart:242:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\profile\screens\profile_setup_screen.dart:243:23 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\profile\screens\profile_setup_screen.dart:262:23 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\profile\screens\profile_setup_screen.dart:263:23 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\settings\screens\settings_screen.dart:56:19 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\settings\screens\settings_screen.dart:75:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\settings\screens\widgets\settings_tile.dart:25:42 - deprecated_member_use
+  error - Target of URI doesn't exist: 'package:fitness_exercise_application/core/utils/workout_formatters.dart' - lib\features\statistics\screens\stats_screen.dart:10:8 - uri_does_not_exist
+  error - Undefined name 'WorkoutFormatters' - lib\features\statistics\screens\stats_screen.dart:145:34 - undefined_identifier
+  error - Undefined name 'WorkoutFormatters' - lib\features\statistics\screens\stats_screen.dart:155:34 - undefined_identifier
+   info - 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre - lib\features\workout\screens\active_workout_screen.dart:22:7 - deprecated_member_use
+  error - Target of URI doesn't exist: 'package:fitness_exercise_application/core/config/debug_config.dart' - lib\features\workout\screens\record\record_providers.dart:3:8 - uri_does_not_exist
+  error - Undefined name 'kDebugLocationMode' - lib\features\workout\screens\record\record_providers.dart:489:10 - undefined_identifier
+  error - Undefined name 'kDebugLocationMode' - lib\features\workout\screens\record\record_providers.dart:515:30 - undefined_identifier
+  error - Undefined name 'kDebugLocationMode' - lib\features\workout\screens\record\record_providers.dart:516:25 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\workout\screens\summary\workout_summary_screen.dart:372:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\workout\screens\summary\workout_summary_screen.dart:394:54 - deprecated_member_use
+  error - Target of URI doesn't exist: 'package:fitness_exercise_application/core/utils/workout_formatters.dart' - lib\features\workout\screens\workout_details_screen.dart:4:8 - uri_does_not_exist
+  error - Undefined name 'WorkoutFormatters' - lib\features\workout\screens\workout_details_screen.dart:124:32 - undefined_identifier
+warning - The operand can't be 'null', so the condition is always 'true' - lib\features\workout\screens\workout_details_screen.dart:155:45 - unnecessary_null_comparison
+warning - The '!' will have no effect because the receiver can't be null - lib\features\workout\screens\workout_details_screen.dart:162:53 - unnecessary_non_null_assertion
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:13:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:14:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:15:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:16:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:17:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:18:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:20:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:21:6 - invalid_annotation_target
+warning - The annotation 'JsonKey.new' can only be used on fields or getters - lib\models\workout_session_model.dart:23:6 - invalid_annotation_target
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\providers.g.dart:25:29 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\providers.g.dart:42:29 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\providers.g.dart:59:28 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\providers.g.dart:79:7 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\providers.g.dart:99:7 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\providers.g.dart:117:32 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\user_profile_providers.g.dart:23:29 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\user_profile_providers.g.dart:41:7 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\user_profile_providers.g.dart:59:7 - deprecated_member_use
+   info - 'AutoDisposeProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\user_profile_providers.g.dart:77:7 - deprecated_member_use
+   info - 'AutoDisposeFutureProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\user_profile_providers.g.dart:214:25 - deprecated_member_use
+   info - 'AutoDisposeFutureProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\user_profile_providers.g.dart:342:28 - deprecated_member_use
+   info - 'AutoDisposeFutureProviderRef' is deprecated and shouldn't be used. will be removed in 3.0.0. Use Ref instead - lib\providers\workout_providers.g.dart:156:21 - deprecated_member_use
+warning - 'getByIndex' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:225:12 - experimental_member_use
+warning - 'getByIndexSync' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:229:12 - experimental_member_use
+warning - 'deleteByIndex' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:233:12 - experimental_member_use
+warning - 'deleteByIndexSync' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:237:12 - experimental_member_use
+warning - 'getAllByIndex' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:242:12 - experimental_member_use
+warning - 'getAllByIndexSync' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:247:12 - experimental_member_use
+warning - 'deleteAllByIndex' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:252:12 - experimental_member_use
+warning - 'deleteAllByIndexSync' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:257:12 - experimental_member_use
+warning - 'putByIndex' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:261:12 - experimental_member_use
+warning - 'putByIndexSync' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:265:12 - experimental_member_use
+warning - 'putAllByIndex' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:269:12 - experimental_member_use
+warning - 'putAllByIndexSync' is experimental and could be removed or changed at any time - lib\services\local\schema\local_workout.g.dart:274:12 - experimental_member_use
+warning - The receiver can't be null, so the null-aware operator '?.' is unnecessary - lib\services\location_service.dart:47:36 - invalid_null_aware_operator
+   info - Unnecessary braces in a string interpolation - lib\services\location_tracking_service.dart:123:128 - unnecessary_brace_in_string_interps
+warning - The operand can't be 'null', so the condition is always 'true' - lib\services\location_tracking_service.dart:230:15 - unnecessary_null_comparison
+warning - The operand can't be 'null', so the condition is always 'true' - lib\services\location_tracking_service.dart:230:33 - unnecessary_null_comparison
+   info - Dangling library doc comment - lib\utils\workout_formatters.dart:1:1 - dangling_library_doc_comments
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\current.dart:115:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\current.dart:120:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\current.dart:142:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\current.dart:143:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\header.dart:53:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\header.dart:138:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\header.dart:139:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\widgets\home\header.dart:140:52 - deprecated_member_use
+
