@@ -3,8 +3,8 @@ echo ============================================
 echo  Building Release APK with Supabase config
 echo ============================================
 
-set SUPABASE_URL=https://xsqptdzselqyefpmdozz.supabase.co
-set SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzcXB0ZHpzZWxxeWVmcG1kb3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjU4MjEsImV4cCI6MjA4NTg0MTgyMX0.MfdUQpEDB4m5d7xv4wmjKf52sRmapewG-r1ecW6Hndk
+set SUPABASE_URL=YOUR_SUPABASE_URL
+set SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 
 flutter build apk --release ^
   --dart-define=SUPABASE_URL=%SUPABASE_URL% ^
