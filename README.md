@@ -1,92 +1,93 @@
-# Fitness Exercise Application
+# FlowFit - Fitness Exercise Application
 
-Flutter application for tracking fitness activities with offline-first
-architecture using Clean Architecture, Riverpod state management, and Supabase
-backend.
+An enterprise-grade Flutter application for comprehensive fitness tracking. Designed with an Offline-First architecture, robust Riverpod state management, a Supabase backend, and local SQLite for seamless offline capabilities.
 
-## Features
+## 🌟 Key Features
 
-- ✅ **Authentication** - Email/password login and registration with Supabase
-  Auth
-- ✅ **Offline-First** - SQLite local database with automatic background sync
-- ✅ **Clean Architecture** - Separation of domain, data, and presentation
-  layers
-- ✅ **State Management** - Riverpod with code generation
-- 🚧 **Workout Tracking** - Start, track, and end workout sessions (in progress)
-- 🚧 **GPS Tracking** - Real-time location tracking during workouts (in
-  progress)
+### 🔐 Authentication & Profiles
+- Email/Password login and registration powered by **Supabase Auth**.
+- Secure, persistent user sessions.
+- **User Profiles**: Manage personal information (Age, Weight, Height) and set progressive **Fitness Goals** (Distance, Frequency, Calories).
+- Avatars and metric tracking.
 
-## Architecture
+### 🏃‍♂️ Comprehensive Workout Tracking
+- **Multi-Activity Support**: Track various activities including Running, Cycling, Walking, Swimming, Yoga, and Weights.
+- **Indoor Activities**: Integrates with the device's pedometer (`pedometer` plugin) to measure steps and estimate distance/calories for indoor routines.
+- **Outdoor Activities**: High-precision **GPS tracking** (`flutter_map`, `geolocator`, `latlong2`). Records real-time polyline routes, calculates accurate pace, total distance, and time.
+- **Live Metrics**: Foreground tracking with precise UI updates and wakelocks to prevent the OS from killing ongoing sessions.
+- **Review & Playback**: View your completed GPS routes drawn precisely on an interactive map, along with summary statistics.
 
-### Project Structure
+### 📊 Statistics & History
+- **Interactive Charts**: Visualizations (`fl_chart`) of burned calories, distances covered, and goal progress.
+- **Workout History**: Interactive Calendar (`table_calendar`) logging all daily activities and completed routines, automatically adjusted to local timezones.
 
-```
+### � Offline-First Synchronization
+- **Zero Latency**: Rapid local reads/writes using SQLite (`sqflite`).
+- **Background Sync**: Automatic queue-based synchronization pushing local changes to Supabase Postgres databases and Edge Functions when the internet is restored.
+- **Conflict Management**: Ensures remote and local state remain perfectly aligned without user intervention.
+
+## 🏗️ Enterprise Architecture
+
+The codebase is structured using an **Enterprise Feature-First** pattern. This ensures maximum scalability, maintainability, and isolated domains for large development teams.
+
+```text
 lib/
-├── domain/              # Business logic layer
-│   ├── entities/        # Domain models (Workout, GPSTrack)
-│   └── repositories/    # Repository interfaces
-├── data/                # Data layer
-│   ├── models/          # Data models with JSON/SQLite serialization
-│   ├── datasources/     # Local (SQLite) and Remote (Supabase) data sources
-│   └── repositories/    # Repository implementations
-└── presentation/        # UI layer
-    ├── providers/       # Riverpod providers for DI and state
-    ├── screens/         # App screens (auth, home, workout)
-    └── widgets/         # Reusable UI components
+├── config/              # Environments, Themes, Routes, Constants
+├── core/                # Core abstractions, Error handling, Base clients
+├── features/            # Feature-first modules (Isolated UI & logic)
+│   ├── auth/            # Authentication flows
+│   ├── history/         # Calendar and past workout logs
+│   ├── home/            # Main dashboard and recent activities
+│   ├── profile/         # User profile, settings, and goal definitions
+│   ├── settings/        # Application preferences
+│   ├── statistics/      # Charts and metric analysis
+│   └── workout/         # Live tracking, maps, and pedometer services
+├── models/              # Shared data definitions and Serialization (Freezed)
+├── providers/           # Global dependency injection via Riverpod
+├── services/            # Infrastructure: Supabase, local DB, APIs
+├── utils/               # Formatters, Extensions, Validators
+└── widgets/             # Reusable, stateless UI components
 ```
 
-### Technology Stack
+## 🛠️ Technology Stack
 
-- **Framework:** Flutter 3.x
-- **State Management:** Riverpod 2.4.0 with code generation
-- **Local Database:** SQLite (sqflite)
-- **Backend:** Supabase (Auth + PostgreSQL + Edge Functions)
+- **Framework:** Flutter 3.10+
+- **State Management:** Riverpod 2.4+
+- **Local Database:** SQLite (`sqflite`)
+- **Backend:** Supabase (PostgreSQL, Auth, Edge Functions)
+- **Edge Functions (Deno):** Handles complex backend validations (`workouts-start`, `workouts-end`, `gps-track`).
 - **Code Generation:** Freezed, JSON Serializable, Riverpod Generator
+- **Sensors & Maps:** Geolocator, Pedometer, Wakelock Plus, Latlong2, Flutter Map
 
-## Setup Instructions
+## 🚀 Setup Instructions
 
 ### Prerequisites
+- Flutter SDK 3.10+
+- A Supabase Project ([supabase.com](https://supabase.com))
 
-- Flutter SDK 3.0 or higher
-- Dart SDK 3.0 or higher
-- A Supabase account and project
-
-### 1. Clone and Install Dependencies
-
+### 1. Clone & Install dependencies
 ```bash
 git clone <repository-url>
 cd fitness_exercise_application
 flutter pub get
 ```
 
-### 2. Configure Supabase
-
-1. Create a Supabase project at https://supabase.com
-2. Go to **Settings → API** in your Supabase dashboard
-3. Copy your **Project URL** and **anon public key**
-4. Create a `.env` file in the project root:
-
+### 2. Connect to Supabase
+Create a `.env` file in the root directory:
 ```env
-SUPABASE_URL=your_project_url_here
-SUPABASE_ANON_KEY=your_anon_key_here
+SUPABASE_URL=your_project_url
+SUPABASE_ANON_KEY=your_anon_key
 ```
 
-### 3. Set Up Database Schema
+### 3. Database Schema Setup
+Run the provided SQL initialization scripts found in `backend/database/` (or wherever your migration scripts are located) inside your Supabase Project's SQL Editor:
+- `users.sql`
+- `workouts.sql`
+- `gps_tracks.sql`
+- `user_metrics.sql`
 
-Run the SQL scripts in `backend/sql/` to create the required tables:
-
-```sql
--- Run these in Supabase SQL Editor
-backend/sql/users.sql
-backend/sql/workouts.sql
-backend/sql/gps_tracks.sql
-backend/sql/user_metrics.sql
-```
-
-### 4. Deploy Edge Functions (Optional)
-
-If you want to use the backend Edge Functions:
-
+### 4. Deploy Deno Edge Functions
+The backend relies on Deno-based edge functions to process operations reliably. Navigate to the `backend/supabase` folder and deploy:
 ```bash
 cd backend
 supabase functions deploy workouts-start
@@ -94,92 +95,23 @@ supabase functions deploy workouts-end
 supabase functions deploy gps-track
 ```
 
-### 5. Run Code Generation
-
+### 5. Code Generation
+Because Riverpod and Freezed rely heavily on generated code, you must run build_runner:
 ```bash
 dart run build_runner build --delete-conflicting-outputs
 ```
 
 ### 6. Run the App
-
 ```bash
-# With environment variables
-flutter run --dart-define=SUPABASE_URL=your_url --dart-define=SUPABASE_ANON_KEY=your_key
-
-# Or configure in your IDE's run configuration
+flutter run
 ```
 
-## Development
+## 👨‍💻 Development Guidelines
 
-### Running Tests
+- **Component Isolation:** Ensure new screens/logic are placed inside their respective `features/` directory.
+- **Dependency Injection:** Expose services and repositories via `providers/` instead of creating strict Singleton instances.
+- **Auto code-gen:** Whenever modifying `.freezed`, `.g.dart` mappings, or Annotated Riverpod providers, execute `dart run build_runner watch` in a secondary terminal.
+- **Validation:** Always run `flutter format .` and `flutter analyze` before creating a pull request.
 
-```bash
-flutter test
-flutter test --coverage
-```
-
-### Code Generation
-
-When you modify Freezed models or Riverpod providers:
-
-```bash
-dart run build_runner watch
-```
-
-### Linting
-
-```bash
-flutter analyze
-```
-
-## Backend Security
-
-All Edge Functions use JWT authentication:
-
-- Extract `user_id` from JWT token, not from request body
-- Validate Authorization header on every request
-- Use `SUPABASE_ANON_KEY` (not service role key) for client operations
-
-## Offline-First Strategy
-
-1. **Write operations:** Save to local SQLite first, then sync to Supabase
-2. **Read operations:** Return local data immediately, sync in background
-3. **Conflict resolution:** Last-write-wins (can be customized)
-4. **Sync status:** Track `synced` flag in local database
-
-## Project Status
-
-### ✅ Completed (Phase 1)
-
-- Clean Architecture foundation
-- Riverpod state management setup
-- SQLite offline database
-- Supabase integration
-- Backend security fixes
-- Authentication screens
-
-### 🚧 In Progress (Phase 2)
-
-- Workout tracking flows
-- GPS tracking implementation
-- Workout history display
-- Testing infrastructure
-
-### 📋 Planned
-
-- User profile management
-- Workout statistics and analytics
-- Social features
-- Health platform integration
-
-## Contributing
-
-1. Follow Clean Architecture principles
-2. Use Riverpod for state management
-3. Write tests for new features
-4. Run `flutter analyze` before committing
-5. Use conventional commits
-
-## License
-
-[Your License Here]
+## 📄 License
+[Your License Details]

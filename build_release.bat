@@ -12,13 +12,13 @@ flutter build apk --release ^
 
 if %ERRORLEVEL% == 0 (
     echo.
-    echo [OK] Build thanh cong!
+    echo [OK] Build success!
     echo APK: build\app\outputs\flutter-apk\app-release.apk
     echo.
     explorer build\app\outputs\flutter-apk
 ) else (
     echo.
-    echo [FAIL] Build that bai. Xem log phia tren.
+    echo [FAIL] Build failed. Check log above.
 )
 
 pause

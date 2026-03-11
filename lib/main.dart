@@ -1,9 +1,9 @@
-import 'package:fitness_exercise_application/presentation/screens/auth/auth_wrapper.dart';
+import 'package:fitness_exercise_application/features/auth/screens/auth_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fitness_exercise_application/data/local/local_db.dart';
+import 'package:fitness_exercise_application/services/local/local_db.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

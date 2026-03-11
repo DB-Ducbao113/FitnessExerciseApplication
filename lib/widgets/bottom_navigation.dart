@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:fitness_exercise_application/features/settings/screens/settings_screen.dart';
+import 'package:fitness_exercise_application/features/statistics/screens/stats_screen.dart';
+import 'package:fitness_exercise_application/features/history/screens/calendar_screen.dart';
 
 class BottomNavigation extends StatelessWidget {
   const BottomNavigation({super.key});
@@ -8,54 +11,66 @@ class BottomNavigation extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: 60,
-      color:  Color(0xfff8f8f8),
+      color: const Color(0xfff8f8f8),
       child: IconTheme(
-        data: IconThemeData(color: Color(0xffabadb4)),
+        data: const IconThemeData(color: Color(0xffabadb4)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [ 
-            Icon(Icons.add_chart),
-            Icon(Icons.search),
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const StatsScreen()));
+              },
+              child: const Icon(Icons.add_chart),
+            ),
+            const Icon(Icons.search),
             Transform.translate(
               offset: const Offset(0, -15),
               child: GestureDetector(
-                onTap: (){
+                onTap: () {
                   Navigator.of(context).pushReplacementNamed('/');
                 },
                 child: Container(
                   padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
-                      colors: [
-                        Color(0xff92e2ff),
-                        Color(0xff1ebdf8),
-                      ],
+                      colors: [Color(0xff92e2ff), Color(0xff1ebdf8)],
                     ),
-                  boxShadow:[
-                    BoxShadow(
-                      color: Colors.black, 
-                      offset: Offset(3, 3),
-                      blurRadius: 3,
-                    )]
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black,
+                        offset: Offset(3, 3),
+                        blurRadius: 3,
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    Icons.home,
-                    color: Colors.white,
-                  ),
+                  child: const Icon(Icons.home, color: Colors.white),
                 ),
               ),
             ),
-            Icon(Icons.date_range),
             GestureDetector(
-              onTap: (){
-                Navigator.of(context).pushNamed('/details');
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                );
               },
-              child: Icon(Icons.settings)
+              child: const Icon(Icons.date_range),
             ),
-      ],)
-      )
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
+              },
+              child: const Icon(Icons.settings),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
