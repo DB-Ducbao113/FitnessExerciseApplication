@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.compile.JavaCompile
 allprojects {
     repositories {
         google()
@@ -35,5 +36,11 @@ subprojects {
                 }
             }
         }
+    }
+}
+
+subprojects {
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.add("-Xlint:-options")
     }
 }

@@ -1,6 +1,7 @@
 # Miscellaneous
 *.class
 *.log
+hs_err_pid*
 *.pyc
 *.swp
 .DS_Store
@@ -32,6 +33,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/.turbo/
 
 # Symbolication related
 app.*.symbols
@@ -43,8 +45,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.gradle/
+/android/.kotlin/
+/android/build/
 
 # Ignore scripts with credentials
 run.bat
 build_release.bat
 backend/deploy_functions.bat
+
+# Local tooling / editor files
+.metadata
+devtools_options.yaml
+.idea/
+.vscode/
+backend/.vscode/
+
+# Frontend local files
+frontend/node_modules/
+frontend/.env
+
+# Supabase local temp/state
+supabase/.temp/
+backend/supabase/.temp/
+backend/supabase/.branches/
