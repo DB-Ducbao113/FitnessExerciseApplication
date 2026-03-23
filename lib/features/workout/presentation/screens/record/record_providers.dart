@@ -34,17 +34,36 @@ double _calorieK(String activityType, double speedKmh) {
 
 // ─── Stride length from activityType ───────────────
 
-double _defaultStrideLength(String activityType) {
-  final isRunning = activityType.toLowerCase().contains('run');
-  return isRunning ? 0.90 : 0.75;
+String? _normalizeGender(String? gender) {
+  final normalized = gender?.trim().toLowerCase();
+  if (normalized == 'female') return 'female';
+  if (normalized == 'male') return 'male';
+  return null;
 }
 
-double computeStrideLength({required String activityType, double? heightCm}) {
+double _defaultStrideLength(String activityType, String? gender) {
+  final isRunning = activityType.toLowerCase().contains('run');
+  final normalizedGender = _normalizeGender(gender);
+  if (isRunning) {
+    return normalizedGender == 'female' ? 0.85 : 0.93;
+  }
+  return normalizedGender == 'female' ? 0.68 : 0.73;
+}
+
+double computeStrideLength({
+  required String activityType,
+  double? heightCm,
+  String? gender,
+}) {
   if (heightCm == null || heightCm <= 0) {
-    return _defaultStrideLength(activityType);
+    return _defaultStrideLength(activityType, gender);
   }
   final isRunning = activityType.toLowerCase().contains('run');
-  final raw = isRunning ? heightCm * 0.65 / 100 : heightCm * 0.415 / 100;
+  final normalizedGender = _normalizeGender(gender);
+  final factor = isRunning
+      ? (normalizedGender == 'female' ? 0.62 : 0.67)
+      : (normalizedGender == 'female' ? 0.40 : 0.43);
+  final raw = heightCm * factor / 100;
   return raw.clamp(0.50, 1.50); // sanity bounds in meters
 }
 
@@ -182,6 +201,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   int _lastStepCountForDistance = 0;
 
   double _weightKg = 60.0;
+  double? _heightCm;
+  String? _gender;
 
   WorkoutSessionNotifier(this._ref)
     : super(
@@ -194,12 +215,17 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   // ─── Profile ──────────────────────────────────────────────────────────────
 
-  void setUserProfile({double? weightKg, double? heightCm}) {
+  void setUserProfile({double? weightKg, double? heightCm, String? gender}) {
     if (weightKg != null && weightKg > 0) _weightKg = weightKg;
-    if (heightCm != null && heightCm > 0) {
+    if (heightCm != null && heightCm > 0) _heightCm = heightCm;
+    final normalizedGender = _normalizeGender(gender);
+    if (normalizedGender != null) _gender = normalizedGender;
+
+    if ((_heightCm ?? 0) > 0) {
       final stride = computeStrideLength(
         activityType: state.activityType,
-        heightCm: heightCm,
+        heightCm: _heightCm,
+        gender: _gender,
       );
       state = state.copyWith(strideLengthMeters: stride);
     }
@@ -208,7 +234,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   // ─── Public API ───────────────────────────────────────────────────────────
 
   void startWorkout(String activityType) {
-    final stride = computeStrideLength(activityType: activityType);
+    final stride = computeStrideLength(
+      activityType: activityType,
+      heightCm: _heightCm,
+      gender: _gender,
+    );
 
     state = WorkoutSessionState(
       status: RecordingState.initializing,
@@ -373,8 +403,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     // Calculate final steps based on tracking mode
     int finalSteps = state.stepCount;
     if (state.trackingMode != kIndoorMode) {
-      // Outdoor: estimate steps from GPS distance (1 step ~ 0.75m)
-      finalSteps = (state.distanceMeters / 0.75).round();
+      final strideToUse = state.strideLengthMeters > 0
+          ? state.strideLengthMeters
+          : _defaultStrideLength(state.activityType, _gender);
+      finalSteps = (state.distanceMeters / strideToUse).round();
     }
 
     final sessionId = const Uuid().v4();
@@ -415,7 +447,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final distKm = state.distanceMeters / 1000.0;
     if (distKm <= 0) return 0;
     final k = _calorieK(state.activityType, state.speedKmh);
-    return (_weightKg * distKm * k).round();
+    final genderFactor = _gender == 'female' ? 0.94 : 1.0;
+    return (_weightKg * distKm * k * genderFactor).round();
   }
 
   void _startCalorieTimer() {

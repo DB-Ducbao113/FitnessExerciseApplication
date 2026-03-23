@@ -337,7 +337,7 @@ class _SelectedDaySummary extends StatelessWidget {
           Text(
             summary.workouts == 0
                 ? 'No workouts logged for this day.'
-                : '${summary.workouts} workouts • ${summary.distanceKm.toStringAsFixed(1)} km • ${summary.calories} kcal',
+                : '${summary.workouts} workouts - ${summary.distanceKm.toStringAsFixed(1)} km - ${summary.calories} kcal',
             style: const TextStyle(
               color: _kMutedText,
               fontSize: 13,

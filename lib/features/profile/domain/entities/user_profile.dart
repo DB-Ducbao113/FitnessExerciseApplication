@@ -39,8 +39,8 @@ class UserProfile with _$UserProfile {
   }) {
     final met = _getMetValue(activityType);
     final durationHours = durationMinutes / 60;
-    // Correct formula: MET * weight * hours
-    return met * weightKg * durationHours;
+    final genderFactor = gender.toLowerCase() == 'female' ? 0.95 : 1.0;
+    return met * weightKg * durationHours * genderFactor;
   }
 
   double _getMetValue(String activityType) {

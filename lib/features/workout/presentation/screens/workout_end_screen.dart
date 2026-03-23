@@ -56,34 +56,43 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
     return k;
   }
 
-  double _getWeightKg() {
+  ({double weightKg, String gender}) _getProfileData() {
     final userId = ref.read(currentUserIdProvider);
-    if (userId == null) return 60.0;
+    if (userId == null) return (weightKg: 60.0, gender: 'male');
     final profileAsync = ref.read(userProfileProvider(userId));
-    return profileAsync.valueOrNull?.weightKg ?? 60.0;
+    final profile = profileAsync.valueOrNull;
+    return (
+      weightKg: profile?.weightKg ?? 60.0,
+      gender: profile?.gender.toLowerCase() ?? 'male',
+    );
   }
 
   int? get _calories {
     final distance = double.tryParse(_distanceController.text);
     if (distance == null || distance <= 0) return null;
     final k = _calorieK(_speed ?? 0);
-    return (_getWeightKg() * distance * k).round();
+    final profile = _getProfileData();
+    final genderFactor = profile.gender == 'female' ? 0.95 : 1.0;
+    return (profile.weightKg * distance * k * genderFactor).round();
   }
 
   Future<void> _saveWorkout() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      await ref
+      final savedSession = await ref
           .read(workoutListProvider.notifier)
           .quickAddWorkout(
             activityType: widget.activityType,
             durationMinutes: widget.durationSeconds / 60.0,
+            distanceKm: double.parse(_distanceController.text),
+            avgSpeedKmh: _speed ?? 0.0,
+            caloriesKcal: (_calories ?? 0).toDouble(),
           );
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => WorkoutDetailsScreen(workoutId: widget.sessionId),
+            builder: (_) => WorkoutDetailsScreen(workoutId: savedSession.id),
           ),
         );
       }

@@ -1,4 +1,5 @@
-import 'package:fitness_exercise_application/features/analytics/presentation/screens/analytics_screen.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -170,7 +171,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (_) => const StatsScreen(),
+                              builder: (_) => const MainShell(initialIndex: 3),
                             ),
                           );
                         },
@@ -210,16 +211,12 @@ class WorkoutSummaryScreen extends StatelessWidget {
                         ),
                         child: ElevatedButton(
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Saved to Server!'),
-                                backgroundColor: Colors.green[600],
-                                behavior: SnackBarBehavior.floating,
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    WorkoutDetailsScreen(workoutId: sessionId),
                               ),
                             );
-                            Navigator.of(
-                              context,
-                            ).popUntil((route) => route.isFirst);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.transparent,
@@ -230,7 +227,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
                             ),
                           ),
                           child: const Text(
-                            'Save to Server',
+                            'View Details',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w900,

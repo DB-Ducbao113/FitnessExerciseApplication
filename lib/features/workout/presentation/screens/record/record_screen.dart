@@ -1,4 +1,6 @@
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_providers.dart';
+import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/locate_button.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
@@ -48,8 +50,24 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     }
   }
 
-  void _startWorkout() {
-    ref.read(workoutSessionProvider.notifier).startWorkout(widget.activityType);
+  Future<void> _startWorkout() async {
+    final notifier = ref.read(workoutSessionProvider.notifier);
+    final userId = ref.read(currentUserIdProvider);
+    if (userId != null) {
+      try {
+        final profile = await ref.read(userProfileProvider(userId).future);
+        if (profile != null) {
+          notifier.setUserProfile(
+            weightKg: profile.weightKg,
+            heightCm: profile.heightM * 100,
+            gender: profile.gender,
+          );
+        }
+      } catch (_) {
+        // Fall back to default stride/weight when profile is temporarily unavailable.
+      }
+    }
+    notifier.startWorkout(widget.activityType);
   }
 
   void _showStartError(String code) {
@@ -134,7 +152,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
 
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Dang cho GPS fix...')));
+    ).showSnackBar(const SnackBar(content: Text('Waiting for GPS fix...')));
   }
 
   Future<void> _confirmStop() async {
@@ -162,13 +180,23 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
     );
 
     if (confirmed == true && mounted) {
-      final finalState = ref.read(workoutSessionProvider);
       await ref.read(workoutSessionProvider.notifier).stopWorkout();
+      final finalState = ref.read(workoutSessionProvider);
+      if ((finalState.sessionId ?? '').isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not load the saved workout summary.'),
+            ),
+          );
+        }
+        return;
+      }
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => WorkoutSummaryScreen(
-              sessionId: finalState.sessionId ?? '',
+              sessionId: finalState.sessionId!,
               activityType: finalState.activityType,
               trackingMode: finalState.trackingMode,
               durationSeconds: finalState.durationSeconds,

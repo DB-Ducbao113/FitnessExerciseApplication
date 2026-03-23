@@ -71,9 +71,14 @@ class WorkoutList extends _$WorkoutList {
   }
 
   /// Quick Add Workout
-  Future<void> quickAddWorkout({
+  Future<WorkoutSession> quickAddWorkout({
     required String activityType,
     required double durationMinutes,
+    double distanceKm = 0.0,
+    int steps = 0,
+    double? avgSpeedKmh,
+    double? caloriesKcal,
+    String mode = 'indoor',
   }) async {
     final user = ref.read(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
@@ -81,30 +86,32 @@ class WorkoutList extends _$WorkoutList {
     final profile = await ref.read(userProfileProvider(user).future);
     if (profile == null) throw Exception('No user profile found');
 
-    final calories = profile.calculateCalories(
-      activityType: activityType,
-      durationMinutes: durationMinutes,
-    );
+    final resolvedCalories =
+        caloriesKcal ??
+        profile.calculateCalories(
+          activityType: activityType,
+          durationMinutes: durationMinutes,
+        );
 
     // Quick Add -> Generate UUID -> Save immediately
+    final durationSec = (durationMinutes * 60).round();
     final session = WorkoutSession(
       id: const Uuid().v4(),
       userId: user,
       activityType: activityType,
-      startedAt: DateTime.now().subtract(
-        Duration(minutes: durationMinutes.round()),
-      ),
+      startedAt: DateTime.now().subtract(Duration(seconds: durationSec)),
       endedAt: DateTime.now(),
-      durationSec: (durationMinutes * 60).round(),
-      distanceKm: 0.0,
-      steps: 0,
-      avgSpeedKmh: 0.0,
-      caloriesKcal: calories,
-      mode: 'indoor', // Default for quick add
+      durationSec: durationSec,
+      distanceKm: distanceKm,
+      steps: steps,
+      avgSpeedKmh: avgSpeedKmh ?? 0.0,
+      caloriesKcal: resolvedCalories,
+      mode: mode,
       createdAt: DateTime.now(),
     );
 
     await saveSession(session);
+    return session;
   }
 }
 

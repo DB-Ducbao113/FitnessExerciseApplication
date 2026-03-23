@@ -13,14 +13,16 @@ const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  final int initialIndex;
+
+  const MainShell({super.key, this.initialIndex = 0});
 
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   static const _screens = [
     HomeScreen(),
@@ -29,6 +31,12 @@ class _MainShellState extends State<MainShell> {
     StatsScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, _screens.length - 1);
+  }
 
   @override
   Widget build(BuildContext context) {
