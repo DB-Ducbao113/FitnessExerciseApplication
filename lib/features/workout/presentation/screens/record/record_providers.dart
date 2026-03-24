@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:fitness_exercise_application/core/services/location_service.dart';
 import 'package:fitness_exercise_application/core/services/environment_detector.dart';
@@ -80,6 +81,7 @@ class WorkoutSessionState {
   final bool modeDecisionLocked;
 
   final int durationSeconds;
+  final int movingTimeSeconds;
   final double distanceMeters;
   final double speedKmh;
   final double avgSpeedKmh;
@@ -91,6 +93,7 @@ class WorkoutSessionState {
   final LatLng? initialPosition;
   final LatLng? currentLatLng;
   final bool followUser;
+  final bool isAutoPaused;
   final int recenterRequestId;
   final String? errorMessage;
   final DateTime? startedAt;
@@ -107,6 +110,7 @@ class WorkoutSessionState {
     required this.trackingMode,
     this.modeDecisionLocked = false,
     this.durationSeconds = 0,
+    this.movingTimeSeconds = 0,
     this.distanceMeters = 0,
     this.speedKmh = 0,
     this.avgSpeedKmh = 0,
@@ -117,6 +121,7 @@ class WorkoutSessionState {
     this.initialPosition,
     this.currentLatLng,
     this.followUser = true,
+    this.isAutoPaused = false,
     this.recenterRequestId = 0,
     this.errorMessage,
     this.startedAt,
@@ -129,6 +134,7 @@ class WorkoutSessionState {
     String? trackingMode,
     bool? modeDecisionLocked,
     int? durationSeconds,
+    int? movingTimeSeconds,
     double? distanceMeters,
     double? speedKmh,
     double? avgSpeedKmh,
@@ -139,6 +145,7 @@ class WorkoutSessionState {
     LatLng? initialPosition,
     LatLng? currentLatLng,
     bool? followUser,
+    bool? isAutoPaused,
     int? recenterRequestId,
     String? errorMessage,
     DateTime? startedAt,
@@ -150,6 +157,7 @@ class WorkoutSessionState {
       trackingMode: trackingMode ?? this.trackingMode,
       modeDecisionLocked: modeDecisionLocked ?? this.modeDecisionLocked,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      movingTimeSeconds: movingTimeSeconds ?? this.movingTimeSeconds,
       distanceMeters: distanceMeters ?? this.distanceMeters,
       speedKmh: speedKmh ?? this.speedKmh,
       avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
@@ -160,6 +168,7 @@ class WorkoutSessionState {
       initialPosition: initialPosition ?? this.initialPosition,
       currentLatLng: currentLatLng ?? this.currentLatLng,
       followUser: followUser ?? this.followUser,
+      isAutoPaused: isAutoPaused ?? this.isAutoPaused,
       recenterRequestId: recenterRequestId ?? this.recenterRequestId,
       errorMessage: errorMessage,
       startedAt: startedAt ?? this.startedAt,
@@ -196,13 +205,16 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   EnvironmentClassifier? _classifier;
 
   final _speedSamples = Queue<double>();
-  static const int _speedWindowSize = 5;
-
-  int _lastStepCountForDistance = 0;
+  static const int _speedWindowSize = 12;
 
   double _weightKg = 60.0;
   double? _heightCm;
   String? _gender;
+  DateTime? _lastAcceptedPositionTime;
+  DateTime? _lastStepTime;
+  int _lowSpeedGpsSamples = 0;
+
+  static const int _autoPauseSampleThreshold = 3;
 
   WorkoutSessionNotifier(this._ref)
     : super(
@@ -239,6 +251,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       heightCm: _heightCm,
       gender: _gender,
     );
+    _speedSamples.clear();
+    _lastAcceptedPositionTime = null;
+    _lastStepTime = null;
+    _lowSpeedGpsSamples = 0;
 
     state = WorkoutSessionState(
       status: RecordingState.initializing,
@@ -282,17 +298,18 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     _stopwatch.reset();
     _startTicker();
-    _startIndoorDistanceTimer();
     _startCalorieTimer();
 
     if (mounted) {
       state = state.copyWith(
         status: RecordingState.active,
         durationSeconds: 0,
+        movingTimeSeconds: 0,
         distanceMeters: 0,
         speedKmh: 0,
         stepCount: 0,
         caloriesBurned: 0,
+        isAutoPaused: false,
       );
       debugPrint('[Workout] status=active, sensors starting in background');
     }
@@ -323,8 +340,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
           modeDecisionLocked: true,
           errorMessage: e.toString().replaceAll('Exception: ', ''),
         );
-        _lastStepCountForDistance = state.stepCount;
-        _startIndoorDistanceTimer();
         _startCalorieTimer();
       }
     }
@@ -362,7 +377,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _stepSub?.resume();
     _startTicker();
     _startCalorieTimer();
-    if (state.trackingMode == kIndoorMode) _startIndoorDistanceTimer();
     state = state.copyWith(status: RecordingState.active);
   }
 
@@ -391,9 +405,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     // ── STEP 1: Final Metrics Snap ────────────────
     final finalCalories = _computeCalories();
     final finalDurationSec = state.durationSeconds;
+    final finalMovingSec = state.movingTimeSeconds;
     final finalDistKm = state.distanceMeters / 1000.0;
-    final finalAvgSpeedKmh = finalDurationSec > 0
-        ? finalDistKm / (finalDurationSec / 3600.0)
+    final finalAvgSpeedKmh = finalMovingSec > 0
+        ? finalDistKm / (finalMovingSec / 3600.0)
         : 0.0;
 
     // ── STEP 2: Construct WorkoutSession with UUID ─────────────────────
@@ -406,7 +421,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       final strideToUse = state.strideLengthMeters > 0
           ? state.strideLengthMeters
           : _defaultStrideLength(state.activityType, _gender);
-      finalSteps = (state.distanceMeters / strideToUse).round();
+      finalSteps = math.max(0, (state.distanceMeters / strideToUse).round());
     }
 
     final sessionId = const Uuid().v4();
@@ -476,11 +491,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     if (state.trackingMode == newMode && state.modeDecisionLocked) return;
 
-    _indoorDistanceTimer?.cancel();
-
     if (newMode == kIndoorMode) {
-      _lastStepCountForDistance = state.stepCount;
-      _startIndoorDistanceTimer();
       state = state.copyWith(trackingMode: newMode, modeDecisionLocked: true);
     } else {
       state = state.copyWith(trackingMode: newMode, modeDecisionLocked: true);
@@ -499,8 +510,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final rawKmh = position.speed.clamp(0.0, 50.0) * 3.6;
     _speedSamples.addLast(rawKmh);
     if (_speedSamples.length > _speedWindowSize) _speedSamples.removeFirst();
-    final smoothedKmh =
-        _speedSamples.reduce((a, b) => a + b) / _speedSamples.length;
+    final smoothedKmh = _computeSmoothedSpeed();
 
     final livePoint = LatLng(position.latitude, position.longitude);
 
@@ -524,6 +534,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     // ── First point: seed the route and return. ───────────────────────────────
     if (state.routePoints.isEmpty) {
+      _lastAcceptedPositionTime = position.timestamp;
       state = state.copyWith(
         initialPosition: state.initialPosition ?? livePoint,
         currentLatLng: livePoint,
@@ -543,7 +554,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       livePoint.longitude,
     );
 
-    final minSegmentMeters = kDebugLocationMode ? 1.0 : 3.0;
+    final minSegmentMeters = kDebugLocationMode
+        ? 1.0
+        : _getMinSegmentMeters(state.activityType);
     final maxAccuracy = kDebugLocationMode ? 100.0 : 30.0;
 
     if (segmentMeters < minSegmentMeters) {
@@ -564,14 +577,78 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       return;
     }
 
+    final maxSpeedMs = _getMaxSpeedMs(state.activityType);
+    if (position.speed > 0 && position.speed > maxSpeedMs) {
+      state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
+      debugPrint(
+        '[GPS-SKIP] gps_speed=${position.speed.toStringAsFixed(2)}m/s > ${maxSpeedMs.toStringAsFixed(2)}m/s',
+      );
+      return;
+    }
+
+    final previousAcceptedTime = _lastAcceptedPositionTime;
+    if (previousAcceptedTime != null) {
+      final timeDeltaSec =
+          position.timestamp.difference(previousAcceptedTime).inMilliseconds /
+          1000.0;
+      if (timeDeltaSec > 0) {
+        final impliedSpeed = segmentMeters / timeDeltaSec;
+        if (impliedSpeed > maxSpeedMs * 1.2) {
+          state = state.copyWith(
+            currentLatLng: livePoint,
+            speedKmh: smoothedKmh,
+          );
+          debugPrint(
+            '[GPS-SKIP] implied_speed=${impliedSpeed.toStringAsFixed(2)}m/s',
+          );
+          return;
+        }
+      }
+    }
+
+    if (state.routePoints.length >= 2 && segmentMeters > 20) {
+      final previousBearing = _computeBearing(
+        state.routePoints[state.routePoints.length - 2],
+        lastPt,
+      );
+      final currentBearing = _computeBearing(lastPt, livePoint);
+      final bearingDelta = _bearingDelta(previousBearing, currentBearing);
+      if (bearingDelta > 120) {
+        state = state.copyWith(currentLatLng: livePoint, speedKmh: smoothedKmh);
+        debugPrint(
+          '[GPS-SKIP] bearing_delta=${bearingDelta.toStringAsFixed(1)}°',
+        );
+        return;
+      }
+    }
+
+    if (_shouldAutoPause(smoothedKmh)) {
+      _lowSpeedGpsSamples++;
+      if (_lowSpeedGpsSamples >= _autoPauseSampleThreshold) {
+        state = state.copyWith(
+          currentLatLng: livePoint,
+          speedKmh: 0,
+          isAutoPaused: true,
+        );
+        debugPrint(
+          '[GPS-SKIP] auto_paused speed=${smoothedKmh.toStringAsFixed(2)}km/h',
+        );
+        return;
+      }
+    } else {
+      _lowSpeedGpsSamples = 0;
+    }
+
     final updatedRoute = List<LatLng>.from(state.routePoints)..add(livePoint);
     final newDistanceM = state.distanceMeters + segmentMeters;
+    _lastAcceptedPositionTime = position.timestamp;
 
     state = state.copyWith(
       currentLatLng: livePoint,
       routePoints: updatedRoute,
       distanceMeters: newDistanceM,
       speedKmh: smoothedKmh,
+      isAutoPaused: false,
     );
 
     debugPrint(
@@ -588,36 +665,35 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     _classifier?.addStepDelta(delta);
     state = state.copyWith(stepCount: sessionSteps);
+    if (state.trackingMode == kIndoorMode) {
+      _updateIndoorDistanceFromSteps(delta);
+    }
   }
 
   // ─── Indoor distance (every 5s) ───────────────────────────────────────────
 
-  void _startIndoorDistanceTimer() {
-    _indoorDistanceTimer?.cancel();
-    _indoorDistanceTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
-      if (state.status != RecordingState.active) return;
-      if (state.trackingMode == kOutdoorMode) return;
-      _updateIndoorDistance();
-    });
-  }
+  void _updateIndoorDistanceFromSteps(int newSteps) {
+    final addedDistM = newSteps * state.strideLengthMeters;
+    final now = DateTime.now();
 
-  void _updateIndoorDistance() {
-    final stepsDelta = state.stepCount - _lastStepCountForDistance;
-    if (stepsDelta <= 0) return;
+    if (_lastStepTime != null) {
+      final secSinceLastStep =
+          now.difference(_lastStepTime!).inMilliseconds / 1000.0;
+      if (secSinceLastStep > 0) {
+        final instantSpeedKmh = (addedDistM / secSinceLastStep) * 3.6;
+        _speedSamples.addLast(instantSpeedKmh);
+        if (_speedSamples.length > _speedWindowSize) {
+          _speedSamples.removeFirst();
+        }
+      }
+    }
 
-    final addedDistM = stepsDelta * state.strideLengthMeters;
-    _lastStepCountForDistance = state.stepCount;
-
-    final speedFromStepsKmh = (addedDistM / 5.0) * 3.6;
-    _speedSamples.addLast(speedFromStepsKmh);
-    if (_speedSamples.length > _speedWindowSize) _speedSamples.removeFirst();
-    final smoothedKmh =
-        _speedSamples.reduce((a, b) => a + b) / _speedSamples.length;
+    _lastStepTime = now;
 
     state = state.copyWith(
       distanceMeters: state.distanceMeters + addedDistM,
-      speedKmh: smoothedKmh,
+      speedKmh: _computeSmoothedSpeed(),
+      isAutoPaused: false,
     );
   }
 
@@ -630,13 +706,109 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       if (!mounted) return;
 
       final elapsedSec = _stopwatch.elapsed.inSeconds;
+      var liveSpeedKmh = state.speedKmh;
+      var movingTimeSec = state.movingTimeSeconds;
+      var isAutoPaused = state.isAutoPaused;
+
+      if (state.trackingMode == kIndoorMode &&
+          _lastStepTime != null &&
+          DateTime.now().difference(_lastStepTime!).inSeconds >= 3) {
+        liveSpeedKmh = 0;
+        isAutoPaused = true;
+      }
+
+      if (_isMoving(liveSpeedKmh, state.activityType)) {
+        movingTimeSec += 1;
+        isAutoPaused = false;
+      }
 
       final distKm = state.distanceMeters / 1000.0;
-      final elapsedHours = elapsedSec / 3600.0;
-      final avg = elapsedHours > 0 ? (distKm / elapsedHours) : 0.0;
+      final movingHours = movingTimeSec / 3600.0;
+      final avg = movingHours > 0 ? (distKm / movingHours) : 0.0;
 
-      state = state.copyWith(durationSeconds: elapsedSec, avgSpeedKmh: avg);
+      state = state.copyWith(
+        durationSeconds: elapsedSec,
+        movingTimeSeconds: movingTimeSec,
+        speedKmh: liveSpeedKmh,
+        avgSpeedKmh: avg,
+        isAutoPaused: isAutoPaused,
+      );
     });
+  }
+
+  double _computeSmoothedSpeed() {
+    if (_speedSamples.isEmpty) return 0;
+    final samples = _speedSamples.toList();
+    double weightedSum = 0;
+    double weightSum = 0;
+    for (var i = 0; i < samples.length; i++) {
+      final weight = (i + 1).toDouble();
+      weightedSum += samples[i] * weight;
+      weightSum += weight;
+    }
+    return weightSum > 0 ? weightedSum / weightSum : 0;
+  }
+
+  bool _shouldAutoPause(double speedKmh) =>
+      !_isMoving(speedKmh, state.activityType);
+
+  bool _isMoving(double speedKmh, String activityType) {
+    return speedKmh >= _getMinMovingSpeedKmh(activityType);
+  }
+
+  double _getMinMovingSpeedKmh(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 0.5;
+      case 'cycling':
+        return 2.0;
+      case 'running':
+      default:
+        return 1.0;
+    }
+  }
+
+  double _getMaxSpeedMs(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 3.5;
+      case 'cycling':
+        return 20.0;
+      case 'running':
+        return 12.0;
+      default:
+        return 15.0;
+    }
+  }
+
+  double _getMinSegmentMeters(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 2.0;
+      case 'cycling':
+        return 8.0;
+      case 'running':
+        return 4.0;
+      default:
+        return 3.0;
+    }
+  }
+
+  double _computeBearing(LatLng from, LatLng to) {
+    final lat1 = from.latitude * math.pi / 180.0;
+    final lat2 = to.latitude * math.pi / 180.0;
+    final dLng = (to.longitude - from.longitude) * math.pi / 180.0;
+    final y = math.sin(dLng) * math.cos(lat2);
+    final x =
+        math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
+    final bearing = math.atan2(y, x) * 180.0 / math.pi;
+    return (bearing + 360.0) % 360.0;
+  }
+
+  double _bearingDelta(double a, double b) {
+    final delta = (a - b).abs();
+    return delta > 180 ? 360 - delta : delta;
   }
 
   // ─── Dispose ─────────────────────────────────────────────────────────────

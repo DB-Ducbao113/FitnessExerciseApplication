@@ -242,13 +242,6 @@ class EnvironmentClassifier {
   /// Returns outdoor, indoor, or null (ambiguous — not enough evidence yet).
   TrackingEnvironment? _classify(_WindowMetrics m) {
     // ── Emulator Debug Mode ──────────────────────────────────────────────────
-    if (kDebugLocationMode) {
-      // In debug mode, we assume emulator testing is for outdoor routes.
-      // Force outdoor so `record_providers.dart` accumulates distance correctly.
-      _stepsDeltaSinceLastEval = 0;
-      return TrackingEnvironment.outdoor;
-    }
-
     // ── Outdoor ──────────────────────────────────────────────────────────────
     if (m.avgAccuracy <= _kOutdoorMaxAccuracy &&
         (m.netDisplacement >= _kOutdoorMinDisplacement ||

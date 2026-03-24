@@ -34,7 +34,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
 
   static const double _defaultZoom = 17.0;
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
-  static const Duration _cameraThrottle = Duration(seconds: 2);
+  static const Duration _cameraThrottle = Duration(milliseconds: 400);
 
   @override
   void initState() {

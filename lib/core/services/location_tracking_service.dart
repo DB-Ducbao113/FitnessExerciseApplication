@@ -5,18 +5,32 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final locationTrackingServiceProvider = Provider(
-  (ref) => LocationTrackingService(debugLocationMode: kDebugLocationMode),
+  (ref) => LocationTrackingService(
+    debugLocationMode: kDebugLocationMode,
+    debugMockPlaybackMode: kDebugMockPlaybackMode,
+  ),
 );
 
 class _KalmanAxis {
   double estimate;
   double errorEstimate;
-  static const double _processNoise = 1e-3;
 
   _KalmanAxis({required this.estimate, required this.errorEstimate});
 
-  double update(double measured, double measuredNoise) {
-    errorEstimate += _processNoise;
+  static double processNoise(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 0.005;
+      case 'cycling':
+        return 0.008;
+      case 'running':
+      default:
+        return 0.01;
+    }
+  }
+
+  double update(double measured, double measuredNoise, String activityType) {
+    errorEstimate += processNoise(activityType);
     final k = errorEstimate / (errorEstimate + measuredNoise);
     estimate = estimate + k * (measured - estimate);
     errorEstimate = (1 - k) * errorEstimate;
@@ -26,8 +40,12 @@ class _KalmanAxis {
 
 class LocationTrackingService {
   final bool debugLocationMode;
+  final bool debugMockPlaybackMode;
 
-  LocationTrackingService({this.debugLocationMode = false});
+  LocationTrackingService({
+    this.debugLocationMode = false,
+    this.debugMockPlaybackMode = false,
+  });
 
   StreamSubscription<Position>? _positionStream;
   final _positionController = StreamController<Position>.broadcast();
@@ -120,7 +138,7 @@ class LocationTrackingService {
     );
 
     debugPrint(
-      '[GPS] startTracking activity=$activityType debug=$debugLocationMode distanceFilter=$distanceFilter forceLocationManager=$debugLocationMode',
+      '[GPS] startTracking activity=$activityType debug=$debugLocationMode mockPlayback=$debugMockPlaybackMode distanceFilter=$distanceFilter forceLocationManager=$debugLocationMode',
     );
 
     _lastValidPosition = null;
@@ -139,9 +157,12 @@ class LocationTrackingService {
           );
         }
 
-        // In debug/emulator mode, skip the Kalman filter entirely.
-        // Emulator sends accuracy=0.0 which causes NaN in the filter.
-        final smoothed = debugLocationMode ? raw : _applyKalmanFilter(raw);
+        // Keep normal debug on a real device accurate. Only bypass Kalman when
+        // mock playback is explicitly enabled for emulator route testing.
+        final shouldBypassKalman = debugLocationMode && debugMockPlaybackMode;
+        final smoothed = shouldBypassKalman
+            ? raw
+            : _applyKalmanFilter(raw, activityType);
         final validation = _validatePosition(smoothed, activityType);
 
         if (debugLocationMode) {
@@ -173,8 +194,9 @@ class LocationTrackingService {
     _lngFilter = null;
   }
 
-  Position _applyKalmanFilter(Position raw) {
-    final measuredNoise = raw.accuracy * raw.accuracy;
+  Position _applyKalmanFilter(Position raw, String activityType) {
+    final safeAccuracy = raw.accuracy <= 0 ? 1.0 : raw.accuracy;
+    final measuredNoise = safeAccuracy * safeAccuracy;
 
     _latFilter ??= _KalmanAxis(
       estimate: raw.latitude,
@@ -185,8 +207,16 @@ class LocationTrackingService {
       errorEstimate: measuredNoise,
     );
 
-    final smoothLat = _latFilter!.update(raw.latitude, measuredNoise);
-    final smoothLng = _lngFilter!.update(raw.longitude, measuredNoise);
+    final smoothLat = _latFilter!.update(
+      raw.latitude,
+      measuredNoise,
+      activityType,
+    );
+    final smoothLng = _lngFilter!.update(
+      raw.longitude,
+      measuredNoise,
+      activityType,
+    );
 
     return Position(
       latitude: smoothLat,
@@ -233,7 +263,11 @@ class LocationTrackingService {
       final speed = distance / sec;
       final maxSpeed = debugLocationMode
           ? 40.0
-          : (activityType.toLowerCase() == 'cycling' ? 25.0 : 15.0);
+          : (activityType.toLowerCase() == 'cycling'
+                ? 25.0
+                : activityType.toLowerCase() == 'walking'
+                ? 6.0
+                : 15.0);
       if (speed > maxSpeed) {
         return _ValidationResult(
           false,

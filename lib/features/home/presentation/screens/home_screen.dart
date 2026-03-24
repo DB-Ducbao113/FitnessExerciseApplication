@@ -206,139 +206,149 @@ class _HomeTopBar extends ConsumerWidget {
     final name = _displayNameForUser(user);
     final dayPart = _dayPartGreeting();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const _ActivityPickerSheet(),
-              ),
-              icon: const Icon(
-                Icons.grid_view_rounded,
-                color: _kNeonCyan,
-                size: 26,
-              ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [
-                    Color(0xffeefbff),
-                    Color(0xff86f0ff),
-                    Color(0xff00e5ff),
-                  ],
-                ).createShader(bounds),
-                child: const Text(
-                  'AETRON',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
-              child: Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _kNeonCyan.withValues(alpha: 0.42),
-                    width: 2,
-                  ),
-                  image: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? DecorationImage(
-                          image: NetworkImage(avatarUrl),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: avatarUrl == null || avatarUrl.isEmpty
-                    ? Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _kCardBorder),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.035),
+            _kNeonCyan.withValues(alpha: 0.015),
           ],
         ),
-        const SizedBox(height: 18),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Welcome back',
-                    style: TextStyle(
-                      color: _kMutedText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
-                    ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const _ActivityPickerSheet(),
+                ),
+                borderRadius: BorderRadius.circular(16),
+                child: Ink(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _kCardBorder),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Good $dayPart,',
+                  child: const Icon(
+                    Icons.grid_view_rounded,
+                    color: _kNeonCyan,
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [
+                      Color(0xfff4fdff),
+                      Color(0xff9cefff),
+                      Color(0xff00d8ff),
+                    ],
+                  ).createShader(bounds),
+                  child: const Text(
+                    'AETRON',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.9,
-                            color: _kNeonCyan,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text('??', style: TextStyle(fontSize: 22)),
-                    ],
-                  ),
-                ],
+                ),
               ),
+              const SizedBox(width: 10),
+              _StreakPill(streak: streak),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                ),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.04),
+                    border: Border.all(
+                      color: _kNeonCyan.withValues(alpha: 0.36),
+                      width: 1.8,
+                    ),
+                    image: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(avatarUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Welcome back',
+            style: TextStyle(
+              color: _kMutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
-            const SizedBox(width: 12),
-            _StreakPill(streak: streak),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Good $dayPart',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.8,
+              color: Colors.white,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.9,
+              color: _kNeonCyan,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -670,27 +680,27 @@ class _StreakPill extends StatelessWidget {
         builder: (_) => _StreakDetailsSheet(streak: streak),
       ),
       child: Container(
-        height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: const Color(0xff3a2717),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0xffffb800), width: 1.6),
+          border: Border.all(color: const Color(0xffffb800), width: 1.4),
           boxShadow: [
             BoxShadow(
               color: const Color(0xffffb800).withValues(alpha: 0.16),
-              blurRadius: 24,
-              spreadRadius: 1,
+              blurRadius: 18,
+              spreadRadius: 0.5,
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.bolt_rounded, color: Color(0xffffc21a), size: 18),
-            const SizedBox(width: 6),
+            const Icon(Icons.bolt_rounded, color: Color(0xffffc21a), size: 17),
+            const SizedBox(width: 5),
             Text(
-              '${streak.currentStreak}D STREAK',
+              '${streak.currentStreak}D',
               style: const TextStyle(
                 color: Color(0xffffc21a),
                 fontSize: 12,
