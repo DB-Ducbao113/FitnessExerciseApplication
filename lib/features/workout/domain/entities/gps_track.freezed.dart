@@ -12,8 +12,7 @@ part of 'gps_track.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$GPSTrack {
@@ -33,13 +32,12 @@ abstract class $GPSTrackCopyWith<$Res> {
   factory $GPSTrackCopyWith(GPSTrack value, $Res Function(GPSTrack) then) =
       _$GPSTrackCopyWithImpl<$Res, GPSTrack>;
   @useResult
-  $Res call({
-    int? id,
-    String workoutId,
-    double latitude,
-    double longitude,
-    DateTime recordedAt,
-  });
+  $Res call(
+      {int? id,
+      String workoutId,
+      double latitude,
+      double longitude,
+      DateTime recordedAt});
 }
 
 /// @nodoc
@@ -61,31 +59,28 @@ class _$GPSTrackCopyWithImpl<$Res, $Val extends GPSTrack>
     Object? longitude = null,
     Object? recordedAt = null,
   }) {
-    return _then(
-      _value.copyWith(
-            id: freezed == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as int?,
-            workoutId: null == workoutId
-                ? _value.workoutId
-                : workoutId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            latitude: null == latitude
-                ? _value.latitude
-                : latitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            longitude: null == longitude
-                ? _value.longitude
-                : longitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            recordedAt: null == recordedAt
-                ? _value.recordedAt
-                : recordedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as int?,
+      workoutId: null == workoutId
+          ? _value.workoutId
+          : workoutId // ignore: cast_nullable_to_non_nullable
+              as String,
+      latitude: null == latitude
+          ? _value.latitude
+          : latitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      longitude: null == longitude
+          ? _value.longitude
+          : longitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      recordedAt: null == recordedAt
+          ? _value.recordedAt
+          : recordedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+    ) as $Val);
   }
 }
 
@@ -93,18 +88,16 @@ class _$GPSTrackCopyWithImpl<$Res, $Val extends GPSTrack>
 abstract class _$$GPSTrackImplCopyWith<$Res>
     implements $GPSTrackCopyWith<$Res> {
   factory _$$GPSTrackImplCopyWith(
-    _$GPSTrackImpl value,
-    $Res Function(_$GPSTrackImpl) then,
-  ) = __$$GPSTrackImplCopyWithImpl<$Res>;
+          _$GPSTrackImpl value, $Res Function(_$GPSTrackImpl) then) =
+      __$$GPSTrackImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    int? id,
-    String workoutId,
-    double latitude,
-    double longitude,
-    DateTime recordedAt,
-  });
+  $Res call(
+      {int? id,
+      String workoutId,
+      double latitude,
+      double longitude,
+      DateTime recordedAt});
 }
 
 /// @nodoc
@@ -112,9 +105,8 @@ class __$$GPSTrackImplCopyWithImpl<$Res>
     extends _$GPSTrackCopyWithImpl<$Res, _$GPSTrackImpl>
     implements _$$GPSTrackImplCopyWith<$Res> {
   __$$GPSTrackImplCopyWithImpl(
-    _$GPSTrackImpl _value,
-    $Res Function(_$GPSTrackImpl) _then,
-  ) : super(_value, _then);
+      _$GPSTrackImpl _value, $Res Function(_$GPSTrackImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -125,43 +117,40 @@ class __$$GPSTrackImplCopyWithImpl<$Res>
     Object? longitude = null,
     Object? recordedAt = null,
   }) {
-    return _then(
-      _$GPSTrackImpl(
-        id: freezed == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as int?,
-        workoutId: null == workoutId
-            ? _value.workoutId
-            : workoutId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        latitude: null == latitude
-            ? _value.latitude
-            : latitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        longitude: null == longitude
-            ? _value.longitude
-            : longitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        recordedAt: null == recordedAt
-            ? _value.recordedAt
-            : recordedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-      ),
-    );
+    return _then(_$GPSTrackImpl(
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as int?,
+      workoutId: null == workoutId
+          ? _value.workoutId
+          : workoutId // ignore: cast_nullable_to_non_nullable
+              as String,
+      latitude: null == latitude
+          ? _value.latitude
+          : latitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      longitude: null == longitude
+          ? _value.longitude
+          : longitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      recordedAt: null == recordedAt
+          ? _value.recordedAt
+          : recordedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$GPSTrackImpl implements _GPSTrack {
-  const _$GPSTrackImpl({
-    required this.id,
-    required this.workoutId,
-    required this.latitude,
-    required this.longitude,
-    required this.recordedAt,
-  });
+  const _$GPSTrackImpl(
+      {required this.id,
+      required this.workoutId,
+      required this.latitude,
+      required this.longitude,
+      required this.recordedAt});
 
   @override
   final int? id;
@@ -207,13 +196,12 @@ class _$GPSTrackImpl implements _GPSTrack {
 }
 
 abstract class _GPSTrack implements GPSTrack {
-  const factory _GPSTrack({
-    required final int? id,
-    required final String workoutId,
-    required final double latitude,
-    required final double longitude,
-    required final DateTime recordedAt,
-  }) = _$GPSTrackImpl;
+  const factory _GPSTrack(
+      {required final int? id,
+      required final String workoutId,
+      required final double latitude,
+      required final double longitude,
+      required final DateTime recordedAt}) = _$GPSTrackImpl;
 
   @override
   int? get id;

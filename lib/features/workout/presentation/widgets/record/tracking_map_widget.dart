@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -34,7 +35,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
 
   static const double _defaultZoom = 17.0;
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
-  static const Duration _cameraThrottle = Duration(milliseconds: 400);
+  static Duration get _cameraThrottle => kDebugLocationMode
+      ? const Duration(milliseconds: 120)
+      : const Duration(milliseconds: 300);
 
   @override
   void initState() {

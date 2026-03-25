@@ -12,8 +12,7 @@ part of 'workout_model.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 WorkoutModel _$WorkoutModelFromJson(Map<String, dynamic> json) {
   return _WorkoutModel.fromJson(json);
@@ -45,26 +44,24 @@ mixin _$WorkoutModel {
 /// @nodoc
 abstract class $WorkoutModelCopyWith<$Res> {
   factory $WorkoutModelCopyWith(
-    WorkoutModel value,
-    $Res Function(WorkoutModel) then,
-  ) = _$WorkoutModelCopyWithImpl<$Res, WorkoutModel>;
+          WorkoutModel value, $Res Function(WorkoutModel) then) =
+      _$WorkoutModelCopyWithImpl<$Res, WorkoutModel>;
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    String activityType,
-    DateTime startedAt,
-    DateTime? endedAt,
-    double? distanceKm,
-    double? durationMin,
-    double? avgSpeedKmh,
-    int? calories,
-    String mode,
-    int? stepCount,
-    double? strideLength,
-    double? estimatedDistanceMeters,
-    bool synced,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      String activityType,
+      DateTime startedAt,
+      DateTime? endedAt,
+      double? distanceKm,
+      double? durationMin,
+      double? avgSpeedKmh,
+      int? calories,
+      String mode,
+      int? stepCount,
+      double? strideLength,
+      double? estimatedDistanceMeters,
+      bool synced});
 }
 
 /// @nodoc
@@ -95,67 +92,64 @@ class _$WorkoutModelCopyWithImpl<$Res, $Val extends WorkoutModel>
     Object? estimatedDistanceMeters = freezed,
     Object? synced = null,
   }) {
-    return _then(
-      _value.copyWith(
-            id: null == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as String,
-            userId: null == userId
-                ? _value.userId
-                : userId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            activityType: null == activityType
-                ? _value.activityType
-                : activityType // ignore: cast_nullable_to_non_nullable
-                      as String,
-            startedAt: null == startedAt
-                ? _value.startedAt
-                : startedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            endedAt: freezed == endedAt
-                ? _value.endedAt
-                : endedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime?,
-            distanceKm: freezed == distanceKm
-                ? _value.distanceKm
-                : distanceKm // ignore: cast_nullable_to_non_nullable
-                      as double?,
-            durationMin: freezed == durationMin
-                ? _value.durationMin
-                : durationMin // ignore: cast_nullable_to_non_nullable
-                      as double?,
-            avgSpeedKmh: freezed == avgSpeedKmh
-                ? _value.avgSpeedKmh
-                : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
-                      as double?,
-            calories: freezed == calories
-                ? _value.calories
-                : calories // ignore: cast_nullable_to_non_nullable
-                      as int?,
-            mode: null == mode
-                ? _value.mode
-                : mode // ignore: cast_nullable_to_non_nullable
-                      as String,
-            stepCount: freezed == stepCount
-                ? _value.stepCount
-                : stepCount // ignore: cast_nullable_to_non_nullable
-                      as int?,
-            strideLength: freezed == strideLength
-                ? _value.strideLength
-                : strideLength // ignore: cast_nullable_to_non_nullable
-                      as double?,
-            estimatedDistanceMeters: freezed == estimatedDistanceMeters
-                ? _value.estimatedDistanceMeters
-                : estimatedDistanceMeters // ignore: cast_nullable_to_non_nullable
-                      as double?,
-            synced: null == synced
-                ? _value.synced
-                : synced // ignore: cast_nullable_to_non_nullable
-                      as bool,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      activityType: null == activityType
+          ? _value.activityType
+          : activityType // ignore: cast_nullable_to_non_nullable
+              as String,
+      startedAt: null == startedAt
+          ? _value.startedAt
+          : startedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      endedAt: freezed == endedAt
+          ? _value.endedAt
+          : endedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      distanceKm: freezed == distanceKm
+          ? _value.distanceKm
+          : distanceKm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      durationMin: freezed == durationMin
+          ? _value.durationMin
+          : durationMin // ignore: cast_nullable_to_non_nullable
+              as double?,
+      avgSpeedKmh: freezed == avgSpeedKmh
+          ? _value.avgSpeedKmh
+          : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+              as double?,
+      calories: freezed == calories
+          ? _value.calories
+          : calories // ignore: cast_nullable_to_non_nullable
+              as int?,
+      mode: null == mode
+          ? _value.mode
+          : mode // ignore: cast_nullable_to_non_nullable
+              as String,
+      stepCount: freezed == stepCount
+          ? _value.stepCount
+          : stepCount // ignore: cast_nullable_to_non_nullable
+              as int?,
+      strideLength: freezed == strideLength
+          ? _value.strideLength
+          : strideLength // ignore: cast_nullable_to_non_nullable
+              as double?,
+      estimatedDistanceMeters: freezed == estimatedDistanceMeters
+          ? _value.estimatedDistanceMeters
+          : estimatedDistanceMeters // ignore: cast_nullable_to_non_nullable
+              as double?,
+      synced: null == synced
+          ? _value.synced
+          : synced // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ) as $Val);
   }
 }
 
@@ -163,27 +157,25 @@ class _$WorkoutModelCopyWithImpl<$Res, $Val extends WorkoutModel>
 abstract class _$$WorkoutModelImplCopyWith<$Res>
     implements $WorkoutModelCopyWith<$Res> {
   factory _$$WorkoutModelImplCopyWith(
-    _$WorkoutModelImpl value,
-    $Res Function(_$WorkoutModelImpl) then,
-  ) = __$$WorkoutModelImplCopyWithImpl<$Res>;
+          _$WorkoutModelImpl value, $Res Function(_$WorkoutModelImpl) then) =
+      __$$WorkoutModelImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    String activityType,
-    DateTime startedAt,
-    DateTime? endedAt,
-    double? distanceKm,
-    double? durationMin,
-    double? avgSpeedKmh,
-    int? calories,
-    String mode,
-    int? stepCount,
-    double? strideLength,
-    double? estimatedDistanceMeters,
-    bool synced,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      String activityType,
+      DateTime startedAt,
+      DateTime? endedAt,
+      double? distanceKm,
+      double? durationMin,
+      double? avgSpeedKmh,
+      int? calories,
+      String mode,
+      int? stepCount,
+      double? strideLength,
+      double? estimatedDistanceMeters,
+      bool synced});
 }
 
 /// @nodoc
@@ -191,9 +183,8 @@ class __$$WorkoutModelImplCopyWithImpl<$Res>
     extends _$WorkoutModelCopyWithImpl<$Res, _$WorkoutModelImpl>
     implements _$$WorkoutModelImplCopyWith<$Res> {
   __$$WorkoutModelImplCopyWithImpl(
-    _$WorkoutModelImpl _value,
-    $Res Function(_$WorkoutModelImpl) _then,
-  ) : super(_value, _then);
+      _$WorkoutModelImpl _value, $Res Function(_$WorkoutModelImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -213,88 +204,86 @@ class __$$WorkoutModelImplCopyWithImpl<$Res>
     Object? estimatedDistanceMeters = freezed,
     Object? synced = null,
   }) {
-    return _then(
-      _$WorkoutModelImpl(
-        id: null == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as String,
-        userId: null == userId
-            ? _value.userId
-            : userId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        activityType: null == activityType
-            ? _value.activityType
-            : activityType // ignore: cast_nullable_to_non_nullable
-                  as String,
-        startedAt: null == startedAt
-            ? _value.startedAt
-            : startedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        endedAt: freezed == endedAt
-            ? _value.endedAt
-            : endedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime?,
-        distanceKm: freezed == distanceKm
-            ? _value.distanceKm
-            : distanceKm // ignore: cast_nullable_to_non_nullable
-                  as double?,
-        durationMin: freezed == durationMin
-            ? _value.durationMin
-            : durationMin // ignore: cast_nullable_to_non_nullable
-                  as double?,
-        avgSpeedKmh: freezed == avgSpeedKmh
-            ? _value.avgSpeedKmh
-            : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
-                  as double?,
-        calories: freezed == calories
-            ? _value.calories
-            : calories // ignore: cast_nullable_to_non_nullable
-                  as int?,
-        mode: null == mode
-            ? _value.mode
-            : mode // ignore: cast_nullable_to_non_nullable
-                  as String,
-        stepCount: freezed == stepCount
-            ? _value.stepCount
-            : stepCount // ignore: cast_nullable_to_non_nullable
-                  as int?,
-        strideLength: freezed == strideLength
-            ? _value.strideLength
-            : strideLength // ignore: cast_nullable_to_non_nullable
-                  as double?,
-        estimatedDistanceMeters: freezed == estimatedDistanceMeters
-            ? _value.estimatedDistanceMeters
-            : estimatedDistanceMeters // ignore: cast_nullable_to_non_nullable
-                  as double?,
-        synced: null == synced
-            ? _value.synced
-            : synced // ignore: cast_nullable_to_non_nullable
-                  as bool,
-      ),
-    );
+    return _then(_$WorkoutModelImpl(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      activityType: null == activityType
+          ? _value.activityType
+          : activityType // ignore: cast_nullable_to_non_nullable
+              as String,
+      startedAt: null == startedAt
+          ? _value.startedAt
+          : startedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      endedAt: freezed == endedAt
+          ? _value.endedAt
+          : endedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      distanceKm: freezed == distanceKm
+          ? _value.distanceKm
+          : distanceKm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      durationMin: freezed == durationMin
+          ? _value.durationMin
+          : durationMin // ignore: cast_nullable_to_non_nullable
+              as double?,
+      avgSpeedKmh: freezed == avgSpeedKmh
+          ? _value.avgSpeedKmh
+          : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+              as double?,
+      calories: freezed == calories
+          ? _value.calories
+          : calories // ignore: cast_nullable_to_non_nullable
+              as int?,
+      mode: null == mode
+          ? _value.mode
+          : mode // ignore: cast_nullable_to_non_nullable
+              as String,
+      stepCount: freezed == stepCount
+          ? _value.stepCount
+          : stepCount // ignore: cast_nullable_to_non_nullable
+              as int?,
+      strideLength: freezed == strideLength
+          ? _value.strideLength
+          : strideLength // ignore: cast_nullable_to_non_nullable
+              as double?,
+      estimatedDistanceMeters: freezed == estimatedDistanceMeters
+          ? _value.estimatedDistanceMeters
+          : estimatedDistanceMeters // ignore: cast_nullable_to_non_nullable
+              as double?,
+      synced: null == synced
+          ? _value.synced
+          : synced // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$WorkoutModelImpl extends _WorkoutModel {
-  const _$WorkoutModelImpl({
-    required this.id,
-    required this.userId,
-    required this.activityType,
-    required this.startedAt,
-    this.endedAt,
-    this.distanceKm,
-    this.durationMin,
-    this.avgSpeedKmh,
-    this.calories,
-    this.mode = 'outdoor',
-    this.stepCount,
-    this.strideLength,
-    this.estimatedDistanceMeters,
-    this.synced = false,
-  }) : super._();
+  const _$WorkoutModelImpl(
+      {required this.id,
+      required this.userId,
+      required this.activityType,
+      required this.startedAt,
+      this.endedAt,
+      this.distanceKm,
+      this.durationMin,
+      this.avgSpeedKmh,
+      this.calories,
+      this.mode = 'outdoor',
+      this.stepCount,
+      this.strideLength,
+      this.estimatedDistanceMeters,
+      this.synced = false})
+      : super._();
 
   factory _$WorkoutModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$WorkoutModelImplFromJson(json);
@@ -361,9 +350,7 @@ class _$WorkoutModelImpl extends _WorkoutModel {
             (identical(other.strideLength, strideLength) ||
                 other.strideLength == strideLength) &&
             (identical(
-                  other.estimatedDistanceMeters,
-                  estimatedDistanceMeters,
-                ) ||
+                    other.estimatedDistanceMeters, estimatedDistanceMeters) ||
                 other.estimatedDistanceMeters == estimatedDistanceMeters) &&
             (identical(other.synced, synced) || other.synced == synced));
   }
@@ -371,22 +358,21 @@ class _$WorkoutModelImpl extends _WorkoutModel {
   @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    userId,
-    activityType,
-    startedAt,
-    endedAt,
-    distanceKm,
-    durationMin,
-    avgSpeedKmh,
-    calories,
-    mode,
-    stepCount,
-    strideLength,
-    estimatedDistanceMeters,
-    synced,
-  );
+      runtimeType,
+      id,
+      userId,
+      activityType,
+      startedAt,
+      endedAt,
+      distanceKm,
+      durationMin,
+      avgSpeedKmh,
+      calories,
+      mode,
+      stepCount,
+      strideLength,
+      estimatedDistanceMeters,
+      synced);
 
   @JsonKey(ignore: true)
   @override
@@ -396,27 +382,28 @@ class _$WorkoutModelImpl extends _WorkoutModel {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$WorkoutModelImplToJson(this);
+    return _$$WorkoutModelImplToJson(
+      this,
+    );
   }
 }
 
 abstract class _WorkoutModel extends WorkoutModel {
-  const factory _WorkoutModel({
-    required final String id,
-    required final String userId,
-    required final String activityType,
-    required final DateTime startedAt,
-    final DateTime? endedAt,
-    final double? distanceKm,
-    final double? durationMin,
-    final double? avgSpeedKmh,
-    final int? calories,
-    final String mode,
-    final int? stepCount,
-    final double? strideLength,
-    final double? estimatedDistanceMeters,
-    final bool synced,
-  }) = _$WorkoutModelImpl;
+  const factory _WorkoutModel(
+      {required final String id,
+      required final String userId,
+      required final String activityType,
+      required final DateTime startedAt,
+      final DateTime? endedAt,
+      final double? distanceKm,
+      final double? durationMin,
+      final double? avgSpeedKmh,
+      final int? calories,
+      final String mode,
+      final int? stepCount,
+      final double? strideLength,
+      final double? estimatedDistanceMeters,
+      final bool synced}) = _$WorkoutModelImpl;
   const _WorkoutModel._() : super._();
 
   factory _WorkoutModel.fromJson(Map<String, dynamic> json) =

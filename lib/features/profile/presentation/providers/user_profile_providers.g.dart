@@ -13,17 +13,17 @@ String _$userProfileLocalDataSourceHash() =>
 @ProviderFor(userProfileLocalDataSource)
 final userProfileLocalDataSourceProvider =
     AutoDisposeProvider<UserProfileLocalDataSource>.internal(
-      userProfileLocalDataSource,
-      name: r'userProfileLocalDataSourceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$userProfileLocalDataSourceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  userProfileLocalDataSource,
+  name: r'userProfileLocalDataSourceProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$userProfileLocalDataSourceHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
-typedef UserProfileLocalDataSourceRef =
-    AutoDisposeProviderRef<UserProfileLocalDataSource>;
+typedef UserProfileLocalDataSourceRef
+    = AutoDisposeProviderRef<UserProfileLocalDataSource>;
 String _$userProfileRemoteDataSourceHash() =>
     r'b4ecd14a879550a48321b83bd0b77f5a4c4b03e7';
 
@@ -31,17 +31,17 @@ String _$userProfileRemoteDataSourceHash() =>
 @ProviderFor(userProfileRemoteDataSource)
 final userProfileRemoteDataSourceProvider =
     AutoDisposeProvider<UserProfileRemoteDataSource>.internal(
-      userProfileRemoteDataSource,
-      name: r'userProfileRemoteDataSourceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$userProfileRemoteDataSourceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  userProfileRemoteDataSource,
+  name: r'userProfileRemoteDataSourceProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$userProfileRemoteDataSourceHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
-typedef UserProfileRemoteDataSourceRef =
-    AutoDisposeProviderRef<UserProfileRemoteDataSource>;
+typedef UserProfileRemoteDataSourceRef
+    = AutoDisposeProviderRef<UserProfileRemoteDataSource>;
 String _$userProfileRepositoryHash() =>
     r'5dbefcd8edc02414166589b4b737174f6a8ac243';
 
@@ -49,17 +49,17 @@ String _$userProfileRepositoryHash() =>
 @ProviderFor(userProfileRepository)
 final userProfileRepositoryProvider =
     AutoDisposeProvider<UserProfileRepository>.internal(
-      userProfileRepository,
-      name: r'userProfileRepositoryProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$userProfileRepositoryHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  userProfileRepository,
+  name: r'userProfileRepositoryProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$userProfileRepositoryHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
-typedef UserProfileRepositoryRef =
-    AutoDisposeProviderRef<UserProfileRepository>;
+typedef UserProfileRepositoryRef
+    = AutoDisposeProviderRef<UserProfileRepository>;
 String _$userProfileHash() => r'e768123558c40c927e310e2a6c601905dcdd71e8';
 
 /// Copied from Dart SDK
@@ -93,15 +93,21 @@ class UserProfileFamily extends Family<AsyncValue<UserProfile?>> {
   const UserProfileFamily();
 
   /// See also [userProfile].
-  UserProfileProvider call(String userId) {
-    return UserProfileProvider(userId);
+  UserProfileProvider call(
+    String userId,
+  ) {
+    return UserProfileProvider(
+      userId,
+    );
   }
 
   @override
   UserProfileProvider getProviderOverride(
     covariant UserProfileProvider provider,
   ) {
-    return call(provider.userId);
+    return call(
+      provider.userId,
+    );
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -122,18 +128,24 @@ class UserProfileFamily extends Family<AsyncValue<UserProfile?>> {
 /// See also [userProfile].
 class UserProfileProvider extends AutoDisposeFutureProvider<UserProfile?> {
   /// See also [userProfile].
-  UserProfileProvider(String userId)
-    : this._internal(
-        (ref) => userProfile(ref as UserProfileRef, userId),
-        from: userProfileProvider,
-        name: r'userProfileProvider',
-        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-            ? null
-            : _$userProfileHash,
-        dependencies: UserProfileFamily._dependencies,
-        allTransitiveDependencies: UserProfileFamily._allTransitiveDependencies,
-        userId: userId,
-      );
+  UserProfileProvider(
+    String userId,
+  ) : this._internal(
+          (ref) => userProfile(
+            ref as UserProfileRef,
+            userId,
+          ),
+          from: userProfileProvider,
+          name: r'userProfileProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$userProfileHash,
+          dependencies: UserProfileFamily._dependencies,
+          allTransitiveDependencies:
+              UserProfileFamily._allTransitiveDependencies,
+          userId: userId,
+        );
 
   UserProfileProvider._internal(
     super._createNotifier, {
@@ -190,8 +202,7 @@ mixin UserProfileRef on AutoDisposeFutureProviderRef<UserProfile?> {
 }
 
 class _UserProfileProviderElement
-    extends AutoDisposeFutureProviderElement<UserProfile?>
-    with UserProfileRef {
+    extends AutoDisposeFutureProviderElement<UserProfile?> with UserProfileRef {
   _UserProfileProviderElement(super.provider);
 
   @override
@@ -210,15 +221,21 @@ class HasUserProfileFamily extends Family<AsyncValue<bool>> {
   const HasUserProfileFamily();
 
   /// See also [hasUserProfile].
-  HasUserProfileProvider call(String userId) {
-    return HasUserProfileProvider(userId);
+  HasUserProfileProvider call(
+    String userId,
+  ) {
+    return HasUserProfileProvider(
+      userId,
+    );
   }
 
   @override
   HasUserProfileProvider getProviderOverride(
     covariant HasUserProfileProvider provider,
   ) {
-    return call(provider.userId);
+    return call(
+      provider.userId,
+    );
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -239,19 +256,24 @@ class HasUserProfileFamily extends Family<AsyncValue<bool>> {
 /// See also [hasUserProfile].
 class HasUserProfileProvider extends AutoDisposeFutureProvider<bool> {
   /// See also [hasUserProfile].
-  HasUserProfileProvider(String userId)
-    : this._internal(
-        (ref) => hasUserProfile(ref as HasUserProfileRef, userId),
-        from: hasUserProfileProvider,
-        name: r'hasUserProfileProvider',
-        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-            ? null
-            : _$hasUserProfileHash,
-        dependencies: HasUserProfileFamily._dependencies,
-        allTransitiveDependencies:
-            HasUserProfileFamily._allTransitiveDependencies,
-        userId: userId,
-      );
+  HasUserProfileProvider(
+    String userId,
+  ) : this._internal(
+          (ref) => hasUserProfile(
+            ref as HasUserProfileRef,
+            userId,
+          ),
+          from: hasUserProfileProvider,
+          name: r'hasUserProfileProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$hasUserProfileHash,
+          dependencies: HasUserProfileFamily._dependencies,
+          allTransitiveDependencies:
+              HasUserProfileFamily._allTransitiveDependencies,
+          userId: userId,
+        );
 
   HasUserProfileProvider._internal(
     super._createNotifier, {
@@ -308,13 +330,11 @@ mixin HasUserProfileRef on AutoDisposeFutureProviderRef<bool> {
 }
 
 class _HasUserProfileProviderElement
-    extends AutoDisposeFutureProviderElement<bool>
-    with HasUserProfileRef {
+    extends AutoDisposeFutureProviderElement<bool> with HasUserProfileRef {
   _HasUserProfileProviderElement(super.provider);
 
   @override
   String get userId => (origin as HasUserProfileProvider).userId;
 }
-
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

@@ -48,6 +48,7 @@ create table if not exists public.workout_sessions (
   -- Shared
   steps           int check (steps >= 0),
   calories_kcal   float8 check (calories_kcal >= 0),
+  lap_splits      jsonb not null default '[]'::jsonb,
 
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()

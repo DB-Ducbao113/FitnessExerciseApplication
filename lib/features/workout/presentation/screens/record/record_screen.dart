@@ -1,9 +1,11 @@
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_providers.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/locate_button.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
+import 'package:fitness_exercise_application/core/services/location_tracking_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,6 +54,17 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
 
   Future<void> _startWorkout() async {
     final notifier = ref.read(workoutSessionProvider.notifier);
+    try {
+      await ref
+          .read(locationTrackingServiceProvider)
+          .ensurePermissionsOrThrow();
+    } catch (e) {
+      if (mounted) {
+        _showStartError(e.toString().replaceAll('Exception: ', ''));
+      }
+      return;
+    }
+
     final userId = ref.read(currentUserIdProvider);
     if (userId != null) {
       try {
@@ -204,6 +217,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
               avgSpeedKmh: finalState.avgSpeedKmh,
               calories: finalState.caloriesBurned,
               routePoints: finalState.routePoints,
+              lapSplits: finalState.lapSplits,
             ),
           ),
         );
@@ -405,7 +419,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                       children: [
                         _MetricStat(
                           label: 'AVG SPEED',
-                          value: '${state.avgSpeedKmh.toStringAsFixed(1)} km/h',
+                          value: _formatSpeed(state.avgSpeedKmh),
                         ),
                         _MetricStat(
                           label: 'CALORIES',
@@ -413,6 +427,42 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
                         ),
                       ],
                     ),
+                    if (state.lapSplits.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _kPanelBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'LATEST SPLIT',
+                              style: TextStyle(
+                                color: _kMutedText,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              _formatSplit(state.lapSplits.last),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -514,6 +564,22 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
       return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
     }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _formatSpeed(double speedKmh) {
+    if (speedKmh < 0.1) return '--';
+    return '${speedKmh.toStringAsFixed(1)} km/h';
+  }
+
+  String _formatSplit(WorkoutLapSplit split) {
+    final paceMinutes = split.paceMinPerKm.floor();
+    var paceSeconds = ((split.paceMinPerKm - paceMinutes) * 60).round();
+    var minutes = paceMinutes;
+    if (paceSeconds == 60) {
+      minutes += 1;
+      paceSeconds = 0;
+    }
+    return 'KM ${split.index} · ${_formatDuration(split.durationSeconds)} · $minutes:${paceSeconds.toString().padLeft(2, '0')}/km';
   }
 
   String _modeBadgeText(String mode) {

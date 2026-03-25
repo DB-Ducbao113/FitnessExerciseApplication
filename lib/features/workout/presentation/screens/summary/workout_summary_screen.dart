@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -21,6 +22,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
   final double avgSpeedKmh;
   final int calories;
   final List<LatLng> routePoints;
+  final List<WorkoutLapSplit> lapSplits;
 
   const WorkoutSummaryScreen({
     super.key,
@@ -32,6 +34,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
     required this.avgSpeedKmh,
     required this.calories,
     this.routePoints = const [],
+    this.lapSplits = const [],
   });
 
   @override
@@ -164,6 +167,33 @@ class WorkoutSummaryScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 34),
                 child: Column(
                   children: [
+                    if (lapSplits.isNotEmpty) ...[
+                      _GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Lap Splits',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            for (final split in lapSplits) ...[
+                              _SplitRow(split: split),
+                              if (split != lapSplits.last)
+                                Divider(
+                                  height: 18,
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -399,6 +429,60 @@ class _GlassCard extends StatelessWidget {
       child: child,
     );
   }
+}
+
+class _SplitRow extends StatelessWidget {
+  final WorkoutLapSplit split;
+
+  const _SplitRow({required this.split});
+
+  @override
+  Widget build(BuildContext context) {
+    final paceMinutes = split.paceMinPerKm.floor();
+    var paceSeconds = ((split.paceMinPerKm - paceMinutes) * 60).round();
+    var minutes = paceMinutes;
+    if (paceSeconds == 60) {
+      minutes += 1;
+      paceSeconds = 0;
+    }
+
+    return Row(
+      children: [
+        Text(
+          'KM ${split.index}',
+          style: const TextStyle(
+            color: _kNeonCyan,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          _formatSplitDuration(split.durationSeconds),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Text(
+          '$minutes:${paceSeconds.toString().padLeft(2, '0')}/km',
+          style: const TextStyle(
+            color: _kMutedText,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatSplitDuration(int seconds) {
+  final minutes = seconds ~/ 60;
+  final remainingSeconds = seconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
 }
 
 IconData _activityIcon(String type) {

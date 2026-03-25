@@ -1,12 +1,18 @@
-import 'dart:math';
-
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class RecentActivities extends StatelessWidget {
+class RecentActivities extends ConsumerWidget {
   const RecentActivities({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final workouts =
+        ref.watch(workoutListProvider).valueOrNull ?? const <WorkoutSession>[];
+    final recent = workouts.take(10).toList();
+
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
@@ -19,10 +25,18 @@ class RecentActivities extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: ListView.builder(
-                itemCount: 10,
-                itemBuilder: (context, index) => const ActivityItem(),
-              ),
+              child: recent.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No activities yet',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: recent.length,
+                      itemBuilder: (context, index) =>
+                          ActivityItem(workout: recent[index]),
+                    ),
             ),
           ],
         ),
@@ -31,31 +45,10 @@ class RecentActivities extends StatelessWidget {
   }
 }
 
-class ActivityItem extends StatefulWidget {
-  const ActivityItem({super.key});
+class ActivityItem extends StatelessWidget {
+  final WorkoutSession workout;
 
-  static const activities = [
-    'Running',
-    'Cycling',
-    'Walking',
-    'Swimming',
-    'Weights',
-    'Yoga',
-  ];
-
-  @override
-  State<ActivityItem> createState() => _ActivityItemState();
-}
-
-class _ActivityItemState extends State<ActivityItem> {
-  late String activity;
-
-  @override
-  void initState() {
-    super.initState();
-    activity = ActivityItem
-        .activities[Random().nextInt(ActivityItem.activities.length)];
-  }
+  const ActivityItem({super.key, required this.workout});
 
   String _getActivityImage(String activityType) {
     switch (activityType.toLowerCase()) {
@@ -78,9 +71,11 @@ class _ActivityItemState extends State<ActivityItem> {
 
   @override
   Widget build(BuildContext context) {
+    final activity = WorkoutFormatters.formatActivityType(workout.activityType);
+
     return GestureDetector(
       onTap: () {
-        Navigator.of(context).pushNamed('/details');
+        // Legacy widget: keep passive until it is wired back into navigation.
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5),
@@ -110,26 +105,26 @@ class _ActivityItemState extends State<ActivityItem> {
                 ),
               ),
             ),
-            SizedBox(width: 20),
+            const SizedBox(width: 20),
             Text(
               activity,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
             ),
-            Expanded(child: SizedBox()),
-            SizedBox(width: 5),
-            Icon(Icons.timer, size: 12),
+            const Expanded(child: SizedBox()),
+            const SizedBox(width: 5),
+            const Icon(Icons.timer, size: 12),
             Text(
-              '30min',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w300),
+              WorkoutFormatters.formatDurationFromSeconds(workout.durationSec),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w300),
             ),
-            SizedBox(width: 10),
-            Icon(Icons.wb_sunny_outlined, size: 12),
-            SizedBox(width: 5),
+            const SizedBox(width: 10),
+            const Icon(Icons.wb_sunny_outlined, size: 12),
+            const SizedBox(width: 5),
             Text(
-              '55kcal',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w300),
+              WorkoutFormatters.formatCalories(workout.caloriesKcal.round()),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w300),
             ),
-            SizedBox(width: 20),
+            const SizedBox(width: 20),
           ],
         ),
       ),

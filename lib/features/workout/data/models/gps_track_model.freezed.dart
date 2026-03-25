@@ -12,8 +12,7 @@ part of 'gps_track_model.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 GPSTrackModel _$GPSTrackModelFromJson(Map<String, dynamic> json) {
   return _GPSTrackModel.fromJson(json);
@@ -37,18 +36,16 @@ mixin _$GPSTrackModel {
 /// @nodoc
 abstract class $GPSTrackModelCopyWith<$Res> {
   factory $GPSTrackModelCopyWith(
-    GPSTrackModel value,
-    $Res Function(GPSTrackModel) then,
-  ) = _$GPSTrackModelCopyWithImpl<$Res, GPSTrackModel>;
+          GPSTrackModel value, $Res Function(GPSTrackModel) then) =
+      _$GPSTrackModelCopyWithImpl<$Res, GPSTrackModel>;
   @useResult
-  $Res call({
-    int? id,
-    String workoutId,
-    double latitude,
-    double longitude,
-    DateTime recordedAt,
-    bool synced,
-  });
+  $Res call(
+      {int? id,
+      String workoutId,
+      double latitude,
+      double longitude,
+      DateTime recordedAt,
+      bool synced});
 }
 
 /// @nodoc
@@ -71,35 +68,32 @@ class _$GPSTrackModelCopyWithImpl<$Res, $Val extends GPSTrackModel>
     Object? recordedAt = null,
     Object? synced = null,
   }) {
-    return _then(
-      _value.copyWith(
-            id: freezed == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as int?,
-            workoutId: null == workoutId
-                ? _value.workoutId
-                : workoutId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            latitude: null == latitude
-                ? _value.latitude
-                : latitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            longitude: null == longitude
-                ? _value.longitude
-                : longitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            recordedAt: null == recordedAt
-                ? _value.recordedAt
-                : recordedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            synced: null == synced
-                ? _value.synced
-                : synced // ignore: cast_nullable_to_non_nullable
-                      as bool,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as int?,
+      workoutId: null == workoutId
+          ? _value.workoutId
+          : workoutId // ignore: cast_nullable_to_non_nullable
+              as String,
+      latitude: null == latitude
+          ? _value.latitude
+          : latitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      longitude: null == longitude
+          ? _value.longitude
+          : longitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      recordedAt: null == recordedAt
+          ? _value.recordedAt
+          : recordedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      synced: null == synced
+          ? _value.synced
+          : synced // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ) as $Val);
   }
 }
 
@@ -107,19 +101,17 @@ class _$GPSTrackModelCopyWithImpl<$Res, $Val extends GPSTrackModel>
 abstract class _$$GPSTrackModelImplCopyWith<$Res>
     implements $GPSTrackModelCopyWith<$Res> {
   factory _$$GPSTrackModelImplCopyWith(
-    _$GPSTrackModelImpl value,
-    $Res Function(_$GPSTrackModelImpl) then,
-  ) = __$$GPSTrackModelImplCopyWithImpl<$Res>;
+          _$GPSTrackModelImpl value, $Res Function(_$GPSTrackModelImpl) then) =
+      __$$GPSTrackModelImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    int? id,
-    String workoutId,
-    double latitude,
-    double longitude,
-    DateTime recordedAt,
-    bool synced,
-  });
+  $Res call(
+      {int? id,
+      String workoutId,
+      double latitude,
+      double longitude,
+      DateTime recordedAt,
+      bool synced});
 }
 
 /// @nodoc
@@ -127,9 +119,8 @@ class __$$GPSTrackModelImplCopyWithImpl<$Res>
     extends _$GPSTrackModelCopyWithImpl<$Res, _$GPSTrackModelImpl>
     implements _$$GPSTrackModelImplCopyWith<$Res> {
   __$$GPSTrackModelImplCopyWithImpl(
-    _$GPSTrackModelImpl _value,
-    $Res Function(_$GPSTrackModelImpl) _then,
-  ) : super(_value, _then);
+      _$GPSTrackModelImpl _value, $Res Function(_$GPSTrackModelImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -141,48 +132,46 @@ class __$$GPSTrackModelImplCopyWithImpl<$Res>
     Object? recordedAt = null,
     Object? synced = null,
   }) {
-    return _then(
-      _$GPSTrackModelImpl(
-        id: freezed == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as int?,
-        workoutId: null == workoutId
-            ? _value.workoutId
-            : workoutId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        latitude: null == latitude
-            ? _value.latitude
-            : latitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        longitude: null == longitude
-            ? _value.longitude
-            : longitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        recordedAt: null == recordedAt
-            ? _value.recordedAt
-            : recordedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        synced: null == synced
-            ? _value.synced
-            : synced // ignore: cast_nullable_to_non_nullable
-                  as bool,
-      ),
-    );
+    return _then(_$GPSTrackModelImpl(
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as int?,
+      workoutId: null == workoutId
+          ? _value.workoutId
+          : workoutId // ignore: cast_nullable_to_non_nullable
+              as String,
+      latitude: null == latitude
+          ? _value.latitude
+          : latitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      longitude: null == longitude
+          ? _value.longitude
+          : longitude // ignore: cast_nullable_to_non_nullable
+              as double,
+      recordedAt: null == recordedAt
+          ? _value.recordedAt
+          : recordedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      synced: null == synced
+          ? _value.synced
+          : synced // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$GPSTrackModelImpl extends _GPSTrackModel {
-  const _$GPSTrackModelImpl({
-    this.id,
-    required this.workoutId,
-    required this.latitude,
-    required this.longitude,
-    required this.recordedAt,
-    this.synced = false,
-  }) : super._();
+  const _$GPSTrackModelImpl(
+      {this.id,
+      required this.workoutId,
+      required this.latitude,
+      required this.longitude,
+      required this.recordedAt,
+      this.synced = false})
+      : super._();
 
   factory _$GPSTrackModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$GPSTrackModelImplFromJson(json);
@@ -226,14 +215,7 @@ class _$GPSTrackModelImpl extends _GPSTrackModel {
   @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    workoutId,
-    latitude,
-    longitude,
-    recordedAt,
-    synced,
-  );
+      runtimeType, id, workoutId, latitude, longitude, recordedAt, synced);
 
   @JsonKey(ignore: true)
   @override
@@ -243,19 +225,20 @@ class _$GPSTrackModelImpl extends _GPSTrackModel {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$GPSTrackModelImplToJson(this);
+    return _$$GPSTrackModelImplToJson(
+      this,
+    );
   }
 }
 
 abstract class _GPSTrackModel extends GPSTrackModel {
-  const factory _GPSTrackModel({
-    final int? id,
-    required final String workoutId,
-    required final double latitude,
-    required final double longitude,
-    required final DateTime recordedAt,
-    final bool synced,
-  }) = _$GPSTrackModelImpl;
+  const factory _GPSTrackModel(
+      {final int? id,
+      required final String workoutId,
+      required final double latitude,
+      required final double longitude,
+      required final DateTime recordedAt,
+      final bool synced}) = _$GPSTrackModelImpl;
   const _GPSTrackModel._() : super._();
 
   factory _GPSTrackModel.fromJson(Map<String, dynamic> json) =

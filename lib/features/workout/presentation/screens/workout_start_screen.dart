@@ -1,6 +1,7 @@
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 const _kBgTop = Color(0xff0a0e1a);
 const _kBgBottom = Color(0xff0d1b2a);
@@ -26,8 +27,47 @@ class WorkoutStartScreen extends ConsumerStatefulWidget {
   ConsumerState<WorkoutStartScreen> createState() => _WorkoutStartScreenState();
 }
 
-class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen> {
+class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
+    with WidgetsBindingObserver {
+  bool _gpsEnabled = false;
+  bool _checkingGps = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshGpsStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshGpsStatus();
+    }
+  }
+
+  Future<void> _refreshGpsStatus() async {
+    final enabled = await Geolocator.isLocationServiceEnabled();
+    if (!mounted) return;
+    setState(() {
+      _gpsEnabled = enabled;
+      _checkingGps = false;
+    });
+  }
+
+  Future<void> _openGpsSettings() async {
+    await Geolocator.openLocationSettings();
+    await _refreshGpsStatus();
+  }
+
   void _startWorkout() {
+    if (!_gpsEnabled) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => RecordScreen(activityType: widget.activityType),
@@ -66,133 +106,59 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen> {
                         widget.activityName.toUpperCase(),
                         style: const TextStyle(
                           color: _kMutedText,
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1.8,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Ready to start this session?',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
                         ),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'We will detect the environment and start tracking automatically.',
+                        'Ready to go?',
                         style: TextStyle(
-                          color: _kMutedText,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18),
                       _HeroImage(
                         tag: widget.activityType,
                         imagePath: widget.activityImagePath,
                         icon: _activityIcon(widget.activityType),
                       ),
-                      const SizedBox(height: 20),
-                      _GlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14),
-                                    gradient: const LinearGradient(
-                                      colors: [_kNeonBlue, _kNeonCyan],
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.sensors_rounded,
-                                    color: _kBgTop,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Text(
-                                    'Smart tracking mode',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            const Text(
-                              'Indoor or outdoor mode is chosen automatically, so distance, pace, steps, and calories come from the right sensors from the first minute.',
-                              style: TextStyle(
-                                color: _kMutedText,
-                                fontSize: 13,
-                                height: 1.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _InfoChip(
-                                    icon: Icons.gps_fixed_rounded,
-                                    label: 'GPS when needed',
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _InfoChip(
-                                    icon: Icons.local_fire_department_rounded,
-                                    label: 'Calories auto',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       _GlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            const Text(
-                              'What to expect',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
+                            Expanded(
+                              child: _GpsStatusBadge(
+                                isEnabled: _gpsEnabled,
+                                isChecking: _checkingGps,
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            _FeatureRow(
-                              icon: Icons.play_circle_outline_rounded,
-                              title: 'Start instantly',
-                              subtitle:
-                                  'Open the live session screen with timer, route and movement stats.',
-                            ),
-                            const SizedBox(height: 12),
-                            _FeatureRow(
-                              icon: Icons.route_rounded,
-                              title: 'Capture movement',
-                              subtitle:
-                                  'Track route, steps and distance depending on the workout mode.',
-                            ),
-                            const SizedBox(height: 12),
-                            _FeatureRow(
-                              icon: Icons.insights_rounded,
-                              title: 'Save to history',
-                              subtitle:
-                                  'The finished session will appear in History and Analytics automatically.',
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              onPressed: _openGpsSettings,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _gpsEnabled
+                                    ? Colors.white
+                                    : _kNeonCyan,
+                                side: const BorderSide(color: _kCardBorder),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.settings_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
+                                _gpsEnabled ? 'GPS Settings' : 'Turn On GPS',
+                              ),
                             ),
                           ],
                         ),
@@ -221,9 +187,13 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen> {
                       ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: _startWorkout,
+                      onPressed: _gpsEnabled ? _startWorkout : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
+                        disabledBackgroundColor: Colors.transparent,
+                        disabledForegroundColor: _kBgTop.withValues(
+                          alpha: 0.55,
+                        ),
                         foregroundColor: _kBgTop,
                         shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
@@ -246,6 +216,77 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _GpsStatusBadge extends StatelessWidget {
+  final bool isEnabled;
+  final bool isChecking;
+
+  const _GpsStatusBadge({required this.isEnabled, required this.isChecking});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isChecking
+        ? _kMutedText
+        : (isEnabled ? const Color(0xff2be38c) : const Color(0xffff6b6b));
+    final label = isChecking
+        ? 'Checking GPS...'
+        : (isEnabled ? 'GPS ON' : 'GPS OFF');
+    final subtitle = isChecking
+        ? 'Verifying location services'
+        : (isEnabled
+              ? 'Ready for outdoor tracking'
+              : 'Turn on location services to start');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xff101a29),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kCardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 8),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: _kMutedText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -318,97 +359,6 @@ class _HeroImage extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _FeatureRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _FeatureRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: const Color(0xff101a29),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: _kNeonCyan, size: 18),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: _kMutedText,
-                  fontSize: 12,
-                  height: 1.45,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xff101a29),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kCardBorder),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: _kNeonCyan, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

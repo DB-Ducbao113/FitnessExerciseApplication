@@ -21,6 +21,13 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
     @JsonKey(name: 'calories_kcal') required double caloriesKcal,
     required String mode,
     @JsonKey(name: 'created_at') required DateTime createdAt,
+    @JsonKey(
+      name: 'lap_splits',
+      fromJson: _lapSplitsFromJson,
+      toJson: _lapSplitsToJson,
+    )
+    @Default(<WorkoutLapSplit>[])
+    List<WorkoutLapSplit> lapSplits,
   }) = _WorkoutSessionModel;
 
   factory WorkoutSessionModel.fromJson(Map<String, dynamic> json) =>
@@ -40,6 +47,7 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       caloriesKcal: entity.caloriesKcal,
       mode: entity.mode,
       createdAt: entity.createdAt,
+      lapSplits: entity.lapSplits,
     );
   }
 
@@ -57,6 +65,21 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       caloriesKcal: caloriesKcal,
       mode: mode,
       createdAt: createdAt,
+      lapSplits: lapSplits,
     );
   }
+}
+
+List<WorkoutLapSplit> _lapSplitsFromJson(dynamic json) {
+  if (json is! List) return const <WorkoutLapSplit>[];
+  return json
+      .whereType<Map>()
+      .map(
+        (item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)),
+      )
+      .toList();
+}
+
+List<Map<String, dynamic>> _lapSplitsToJson(List<WorkoutLapSplit> splits) {
+  return splits.map((split) => split.toJson()).toList();
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
@@ -22,6 +23,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = Supabase.instance.client.auth.currentUser;
+    final userId = user?.id;
     final profileAsync = ref.watch(currentUserProfileProvider);
     final avatarState = ref.watch(avatarUploadProvider);
     final userGoalAsync = ref.watch(userGoalProvider);
@@ -103,11 +105,11 @@ class ProfileScreen extends ConsumerWidget {
                                 ProfileSetupScreen(existingProfile: profile),
                           ),
                         )
-                        .then(
-                          (_) => ref
-                              .read(currentUserProfileProvider.notifier)
-                              .invalidateAndRefresh(),
-                        ),
+                        .then((_) {
+                          if (userId != null) {
+                            ref.invalidate(userProfileProvider(userId));
+                          }
+                        }),
                   ),
 
                 if (profile == null)
@@ -118,11 +120,11 @@ class ProfileScreen extends ConsumerWidget {
                             builder: (_) => const ProfileSetupScreen(),
                           ),
                         )
-                        .then(
-                          (_) => ref
-                              .read(currentUserProfileProvider.notifier)
-                              .invalidateAndRefresh(),
-                        ),
+                        .then((_) {
+                          if (userId != null) {
+                            ref.invalidate(userProfileProvider(userId));
+                          }
+                        }),
                   ),
 
                 const SizedBox(height: 16),

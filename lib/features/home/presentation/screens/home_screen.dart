@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_start_screen.dart';
+import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
@@ -138,7 +140,10 @@ class HomeScreen extends ConsumerWidget {
             backgroundColor: _kCardBg,
             onRefresh: () async {
               await ref.read(workoutListProvider.notifier).refresh();
-              await ref.read(currentUserProfileProvider.notifier).refresh();
+              final userId = ref.read(currentUserIdProvider);
+              if (userId != null) {
+                ref.invalidate(userProfileProvider(userId));
+              }
               await ref.read(userGoalProvider.notifier).refresh();
             },
             child: DecoratedBox(
@@ -1332,10 +1337,10 @@ String _speedLabel(double distanceKm, int durationSec) {
 
 String _dayPartGreeting() {
   final hour = DateTime.now().hour;
-  if (hour >= 5 && hour < 11) return 'Morning';
-  if (hour >= 11 && hour < 14) return 'Noon';
-  if (hour >= 14 && hour < 18) return 'Afternoon';
-  return 'Evening';
+  if (hour >= 5 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 17) return 'Afternoon';
+  if (hour >= 17 && hour < 22) return 'Evening';
+  return 'Night';
 }
 
 String _initialsFromEmail(String? email) {

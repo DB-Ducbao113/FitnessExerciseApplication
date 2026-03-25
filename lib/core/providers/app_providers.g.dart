@@ -57,26 +57,6 @@ final currentUserIdProvider = AutoDisposeProvider<String?>.internal(
 );
 
 typedef CurrentUserIdRef = AutoDisposeProviderRef<String?>;
-String _$workoutLocalDataSourceHash() =>
-    r'959f52fd1cc2ce0e2310c352882e75c4b8a972ee';
-
-/// Workout Local DataSource Provider
-///
-/// Copied from [workoutLocalDataSource].
-@ProviderFor(workoutLocalDataSource)
-final workoutLocalDataSourceProvider =
-    AutoDisposeProvider<WorkoutLocalDataSource>.internal(
-      workoutLocalDataSource,
-      name: r'workoutLocalDataSourceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$workoutLocalDataSourceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
-
-typedef WorkoutLocalDataSourceRef =
-    AutoDisposeProviderRef<WorkoutLocalDataSource>;
 String _$workoutRemoteDataSourceHash() =>
     r'949afa259be2da35d76b898be98d89eac8e9a555';
 
@@ -86,17 +66,17 @@ String _$workoutRemoteDataSourceHash() =>
 @ProviderFor(workoutRemoteDataSource)
 final workoutRemoteDataSourceProvider =
     AutoDisposeProvider<WorkoutRemoteDataSource>.internal(
-      workoutRemoteDataSource,
-      name: r'workoutRemoteDataSourceProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$workoutRemoteDataSourceHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  workoutRemoteDataSource,
+  name: r'workoutRemoteDataSourceProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$workoutRemoteDataSourceHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
-typedef WorkoutRemoteDataSourceRef =
-    AutoDisposeProviderRef<WorkoutRemoteDataSource>;
+typedef WorkoutRemoteDataSourceRef
+    = AutoDisposeProviderRef<WorkoutRemoteDataSource>;
 String _$workoutRepositoryHash() => r'99fa6596407d7b616599656a9c5104525e446c97';
 
 /// Workout Repository Provider
@@ -105,14 +85,14 @@ String _$workoutRepositoryHash() => r'99fa6596407d7b616599656a9c5104525e446c97';
 @ProviderFor(workoutRepository)
 final workoutRepositoryProvider =
     AutoDisposeProvider<WorkoutRepository>.internal(
-      workoutRepository,
-      name: r'workoutRepositoryProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$workoutRepositoryHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  workoutRepository,
+  name: r'workoutRepositoryProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$workoutRepositoryHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 typedef WorkoutRepositoryRef = AutoDisposeProviderRef<WorkoutRepository>;
 // ignore_for_file: type=lint

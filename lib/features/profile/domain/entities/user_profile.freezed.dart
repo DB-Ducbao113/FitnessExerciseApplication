@@ -12,8 +12,7 @@ part of 'user_profile.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$UserProfile {
@@ -36,21 +35,19 @@ mixin _$UserProfile {
 /// @nodoc
 abstract class $UserProfileCopyWith<$Res> {
   factory $UserProfileCopyWith(
-    UserProfile value,
-    $Res Function(UserProfile) then,
-  ) = _$UserProfileCopyWithImpl<$Res, UserProfile>;
+          UserProfile value, $Res Function(UserProfile) then) =
+      _$UserProfileCopyWithImpl<$Res, UserProfile>;
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    double weightKg,
-    double heightM,
-    int age,
-    String gender,
-    DateTime createdAt,
-    DateTime updatedAt,
-    String? avatarUrl,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      double weightKg,
+      double heightM,
+      int age,
+      String gender,
+      DateTime createdAt,
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -76,47 +73,44 @@ class _$UserProfileCopyWithImpl<$Res, $Val extends UserProfile>
     Object? updatedAt = null,
     Object? avatarUrl = freezed,
   }) {
-    return _then(
-      _value.copyWith(
-            id: null == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as String,
-            userId: null == userId
-                ? _value.userId
-                : userId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            weightKg: null == weightKg
-                ? _value.weightKg
-                : weightKg // ignore: cast_nullable_to_non_nullable
-                      as double,
-            heightM: null == heightM
-                ? _value.heightM
-                : heightM // ignore: cast_nullable_to_non_nullable
-                      as double,
-            age: null == age
-                ? _value.age
-                : age // ignore: cast_nullable_to_non_nullable
-                      as int,
-            gender: null == gender
-                ? _value.gender
-                : gender // ignore: cast_nullable_to_non_nullable
-                      as String,
-            createdAt: null == createdAt
-                ? _value.createdAt
-                : createdAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            updatedAt: null == updatedAt
-                ? _value.updatedAt
-                : updatedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            avatarUrl: freezed == avatarUrl
-                ? _value.avatarUrl
-                : avatarUrl // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      weightKg: null == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double,
+      heightM: null == heightM
+          ? _value.heightM
+          : heightM // ignore: cast_nullable_to_non_nullable
+              as double,
+      age: null == age
+          ? _value.age
+          : age // ignore: cast_nullable_to_non_nullable
+              as int,
+      gender: null == gender
+          ? _value.gender
+          : gender // ignore: cast_nullable_to_non_nullable
+              as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      updatedAt: null == updatedAt
+          ? _value.updatedAt
+          : updatedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
   }
 }
 
@@ -124,22 +118,20 @@ class _$UserProfileCopyWithImpl<$Res, $Val extends UserProfile>
 abstract class _$$UserProfileImplCopyWith<$Res>
     implements $UserProfileCopyWith<$Res> {
   factory _$$UserProfileImplCopyWith(
-    _$UserProfileImpl value,
-    $Res Function(_$UserProfileImpl) then,
-  ) = __$$UserProfileImplCopyWithImpl<$Res>;
+          _$UserProfileImpl value, $Res Function(_$UserProfileImpl) then) =
+      __$$UserProfileImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    double weightKg,
-    double heightM,
-    int age,
-    String gender,
-    DateTime createdAt,
-    DateTime updatedAt,
-    String? avatarUrl,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      double weightKg,
+      double heightM,
+      int age,
+      String gender,
+      DateTime createdAt,
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -147,9 +139,8 @@ class __$$UserProfileImplCopyWithImpl<$Res>
     extends _$UserProfileCopyWithImpl<$Res, _$UserProfileImpl>
     implements _$$UserProfileImplCopyWith<$Res> {
   __$$UserProfileImplCopyWithImpl(
-    _$UserProfileImpl _value,
-    $Res Function(_$UserProfileImpl) _then,
-  ) : super(_value, _then);
+      _$UserProfileImpl _value, $Res Function(_$UserProfileImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -164,63 +155,61 @@ class __$$UserProfileImplCopyWithImpl<$Res>
     Object? updatedAt = null,
     Object? avatarUrl = freezed,
   }) {
-    return _then(
-      _$UserProfileImpl(
-        id: null == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as String,
-        userId: null == userId
-            ? _value.userId
-            : userId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        weightKg: null == weightKg
-            ? _value.weightKg
-            : weightKg // ignore: cast_nullable_to_non_nullable
-                  as double,
-        heightM: null == heightM
-            ? _value.heightM
-            : heightM // ignore: cast_nullable_to_non_nullable
-                  as double,
-        age: null == age
-            ? _value.age
-            : age // ignore: cast_nullable_to_non_nullable
-                  as int,
-        gender: null == gender
-            ? _value.gender
-            : gender // ignore: cast_nullable_to_non_nullable
-                  as String,
-        createdAt: null == createdAt
-            ? _value.createdAt
-            : createdAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        updatedAt: null == updatedAt
-            ? _value.updatedAt
-            : updatedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        avatarUrl: freezed == avatarUrl
-            ? _value.avatarUrl
-            : avatarUrl // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
+    return _then(_$UserProfileImpl(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      weightKg: null == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double,
+      heightM: null == heightM
+          ? _value.heightM
+          : heightM // ignore: cast_nullable_to_non_nullable
+              as double,
+      age: null == age
+          ? _value.age
+          : age // ignore: cast_nullable_to_non_nullable
+              as int,
+      gender: null == gender
+          ? _value.gender
+          : gender // ignore: cast_nullable_to_non_nullable
+              as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      updatedAt: null == updatedAt
+          ? _value.updatedAt
+          : updatedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$UserProfileImpl extends _UserProfile {
-  const _$UserProfileImpl({
-    required this.id,
-    required this.userId,
-    required this.weightKg,
-    required this.heightM,
-    required this.age,
-    required this.gender,
-    required this.createdAt,
-    required this.updatedAt,
-    this.avatarUrl,
-  }) : super._();
+  const _$UserProfileImpl(
+      {required this.id,
+      required this.userId,
+      required this.weightKg,
+      required this.heightM,
+      required this.age,
+      required this.gender,
+      required this.createdAt,
+      required this.updatedAt,
+      this.avatarUrl})
+      : super._();
 
   @override
   final String id;
@@ -230,12 +219,12 @@ class _$UserProfileImpl extends _UserProfile {
   final double weightKg;
   @override
   final double heightM;
-  // Changed from cm to meters
+// Changed from cm to meters
   @override
   final int age;
   @override
   final String gender;
-  // 'male' or 'female'
+// 'male' or 'female'
   @override
   final DateTime createdAt;
   @override
@@ -269,18 +258,8 @@ class _$UserProfileImpl extends _UserProfile {
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    userId,
-    weightKg,
-    heightM,
-    age,
-    gender,
-    createdAt,
-    updatedAt,
-    avatarUrl,
-  );
+  int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightM,
+      age, gender, createdAt, updatedAt, avatarUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -290,17 +269,16 @@ class _$UserProfileImpl extends _UserProfile {
 }
 
 abstract class _UserProfile extends UserProfile {
-  const factory _UserProfile({
-    required final String id,
-    required final String userId,
-    required final double weightKg,
-    required final double heightM,
-    required final int age,
-    required final String gender,
-    required final DateTime createdAt,
-    required final DateTime updatedAt,
-    final String? avatarUrl,
-  }) = _$UserProfileImpl;
+  const factory _UserProfile(
+      {required final String id,
+      required final String userId,
+      required final double weightKg,
+      required final double heightM,
+      required final int age,
+      required final String gender,
+      required final DateTime createdAt,
+      required final DateTime updatedAt,
+      final String? avatarUrl}) = _$UserProfileImpl;
   const _UserProfile._() : super._();
 
   @override

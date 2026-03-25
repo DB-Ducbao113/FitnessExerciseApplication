@@ -39,42 +39,44 @@ on conflict (user_id) do update set
 insert into public.workout_sessions (
   user_id, activity_type, mode,
   started_at, ended_at, duration_sec,
-  distance_km, avg_speed_kmh, calories_kcal
+  distance_km, avg_speed_kmh, calories_kcal, lap_splits
 ) values (
   '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
   'running', 'outdoor',
   now() - interval '1 day',
   now() - interval '1 day' + interval '30 minutes',
   1800,
-  5.2, 10.4, 320.0
+  5.2, 10.4, 320.0,
+  '[{"index":1,"distanceKm":1.0,"durationSeconds":330,"paceMinPerKm":5.5},{"index":2,"distanceKm":1.0,"durationSeconds":342,"paceMinPerKm":5.7}]'::jsonb
 );
 
 -- Outdoor cycling (4 hours ago, 60 min)
 insert into public.workout_sessions (
   user_id, activity_type, mode,
   started_at, ended_at, duration_sec,
-  distance_km, avg_speed_kmh, calories_kcal
+  distance_km, avg_speed_kmh, calories_kcal, lap_splits
 ) values (
   '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
   'cycling', 'outdoor',
   now() - interval '4 hours',
   now() - interval '3 hours',
   3600,
-  20.5, 20.5, 450.0
+  20.5, 20.5, 450.0,
+  '[]'::jsonb
 );
 
 -- Indoor walking (2 days ago, step-based)
 insert into public.workout_sessions (
   user_id, activity_type, mode,
   started_at, ended_at, duration_sec,
-  steps, calories_kcal
+  steps, calories_kcal, lap_splits
 ) values (
   '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
   'walking', 'indoor',
   now() - interval '2 days',
   now() - interval '2 days' + interval '45 minutes',
   2700,
-  5400, 200.0
+  5400, 200.0, '[]'::jsonb
 );
 
 -- ── Step 4: Sample gps_tracks for the running session ────────────

@@ -22,8 +22,8 @@ _$WorkoutModelImpl _$$WorkoutModelImplFromJson(Map<String, dynamic> json) =>
       mode: json['mode'] as String? ?? 'outdoor',
       stepCount: (json['stepCount'] as num?)?.toInt(),
       strideLength: (json['strideLength'] as num?)?.toDouble(),
-      estimatedDistanceMeters: (json['estimatedDistanceMeters'] as num?)
-          ?.toDouble(),
+      estimatedDistanceMeters:
+          (json['estimatedDistanceMeters'] as num?)?.toDouble(),
       synced: json['synced'] as bool? ?? false,
     );
 

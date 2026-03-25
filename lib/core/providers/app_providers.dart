@@ -1,7 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/core/storage/database_helper.dart';
-import 'package:fitness_exercise_application/features/workout/data/datasources/local/workout_local_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/repositories/workout_repository_impl.dart';
 import 'package:fitness_exercise_application/features/workout/domain/repositories/workout_repository.dart';
@@ -25,13 +24,6 @@ SupabaseClient supabaseClient(SupabaseClientRef ref) {
 String? currentUserId(CurrentUserIdRef ref) {
   final user = ref.watch(supabaseClientProvider).auth.currentUser;
   return user?.id;
-}
-
-/// Workout Local DataSource Provider
-@riverpod
-WorkoutLocalDataSource workoutLocalDataSource(WorkoutLocalDataSourceRef ref) {
-  final dbHelper = ref.watch(databaseHelperProvider);
-  return WorkoutLocalDataSource(dbHelper);
 }
 
 /// Workout Remote DataSource Provider

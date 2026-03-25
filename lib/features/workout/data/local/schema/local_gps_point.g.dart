@@ -27,8 +27,16 @@ const LocalGPSPointSchema = CollectionSchema(
       name: r'altitude',
       type: IsarType.double,
     ),
-    r'heading': PropertySchema(id: 2, name: r'heading', type: IsarType.double),
-    r'isSynced': PropertySchema(id: 3, name: r'isSynced', type: IsarType.bool),
+    r'heading': PropertySchema(
+      id: 2,
+      name: r'heading',
+      type: IsarType.double,
+    ),
+    r'isSynced': PropertySchema(
+      id: 3,
+      name: r'isSynced',
+      type: IsarType.bool,
+    ),
     r'latitude': PropertySchema(
       id: 4,
       name: r'latitude',
@@ -44,12 +52,16 @@ const LocalGPSPointSchema = CollectionSchema(
       name: r'longitude',
       type: IsarType.double,
     ),
-    r'speed': PropertySchema(id: 7, name: r'speed', type: IsarType.double),
+    r'speed': PropertySchema(
+      id: 7,
+      name: r'speed',
+      type: IsarType.double,
+    ),
     r'timestamp': PropertySchema(
       id: 8,
       name: r'timestamp',
       type: IsarType.dateTime,
-    ),
+    )
   },
   estimateSize: _localGPSPointEstimateSize,
   serialize: _localGPSPointSerialize,
@@ -67,9 +79,9 @@ const LocalGPSPointSchema = CollectionSchema(
           name: r'localWorkoutId',
           type: IndexType.value,
           caseSensitive: false,
-        ),
+        )
       ],
-    ),
+    )
   },
   links: {},
   embeddedSchemas: {},
@@ -164,10 +176,7 @@ List<IsarLinkBase<dynamic>> _localGPSPointGetLinks(LocalGPSPoint object) {
 }
 
 void _localGPSPointAttach(
-  IsarCollection<dynamic> col,
-  Id id,
-  LocalGPSPoint object,
-) {
+    IsarCollection<dynamic> col, Id id, LocalGPSPoint object) {
   object.id = id;
 }
 
@@ -191,16 +200,17 @@ extension LocalGPSPointQueryWhereSort
 extension LocalGPSPointQueryWhere
     on QueryBuilder<LocalGPSPoint, LocalGPSPoint, QWhereClause> {
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause> idEqualTo(
-    Id id,
-  ) {
+      Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause> idNotEqualTo(
-    Id id,
-  ) {
+      Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -223,9 +233,8 @@ extension LocalGPSPointQueryWhere
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause> idGreaterThan(
-    Id id, {
-    bool include = false,
-  }) {
+      Id id,
+      {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -234,9 +243,8 @@ extension LocalGPSPointQueryWhere
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause> idLessThan(
-    Id id, {
-    bool include = false,
-  }) {
+      Id id,
+      {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -251,117 +259,105 @@ extension LocalGPSPointQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IdWhereClause.between(
-          lower: lowerId,
-          includeLower: includeLower,
-          upper: upperId,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-  localWorkoutIdEqualTo(int localWorkoutId) {
+      localWorkoutIdEqualTo(int localWorkoutId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.equalTo(
-          indexName: r'localWorkoutId',
-          value: [localWorkoutId],
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'localWorkoutId',
+        value: [localWorkoutId],
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-  localWorkoutIdNotEqualTo(int localWorkoutId) {
+      localWorkoutIdNotEqualTo(int localWorkoutId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'localWorkoutId',
-                lower: [],
-                upper: [localWorkoutId],
-                includeUpper: false,
-              ),
-            )
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'localWorkoutId',
-                lower: [localWorkoutId],
-                includeLower: false,
-                upper: [],
-              ),
-            );
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'localWorkoutId',
+              lower: [],
+              upper: [localWorkoutId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'localWorkoutId',
+              lower: [localWorkoutId],
+              includeLower: false,
+              upper: [],
+            ));
       } else {
         return query
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'localWorkoutId',
-                lower: [localWorkoutId],
-                includeLower: false,
-                upper: [],
-              ),
-            )
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'localWorkoutId',
-                lower: [],
-                upper: [localWorkoutId],
-                includeUpper: false,
-              ),
-            );
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'localWorkoutId',
+              lower: [localWorkoutId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'localWorkoutId',
+              lower: [],
+              upper: [localWorkoutId],
+              includeUpper: false,
+            ));
       }
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-  localWorkoutIdGreaterThan(int localWorkoutId, {bool include = false}) {
+      localWorkoutIdGreaterThan(
+    int localWorkoutId, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.between(
-          indexName: r'localWorkoutId',
-          lower: [localWorkoutId],
-          includeLower: include,
-          upper: [],
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'localWorkoutId',
+        lower: [localWorkoutId],
+        includeLower: include,
+        upper: [],
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-  localWorkoutIdLessThan(int localWorkoutId, {bool include = false}) {
+      localWorkoutIdLessThan(
+    int localWorkoutId, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.between(
-          indexName: r'localWorkoutId',
-          lower: [],
-          upper: [localWorkoutId],
-          includeUpper: include,
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'localWorkoutId',
+        lower: [],
+        upper: [localWorkoutId],
+        includeUpper: include,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-  localWorkoutIdBetween(
+      localWorkoutIdBetween(
     int lowerLocalWorkoutId,
     int upperLocalWorkoutId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.between(
-          indexName: r'localWorkoutId',
-          lower: [lowerLocalWorkoutId],
-          includeLower: includeLower,
-          upper: [upperLocalWorkoutId],
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'localWorkoutId',
+        lower: [lowerLocalWorkoutId],
+        includeLower: includeLower,
+        upper: [upperLocalWorkoutId],
+        includeUpper: includeUpper,
+      ));
     });
   }
 }
@@ -369,56 +365,53 @@ extension LocalGPSPointQueryWhere
 extension LocalGPSPointQueryFilter
     on QueryBuilder<LocalGPSPoint, LocalGPSPoint, QFilterCondition> {
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  accuracyEqualTo(double value, {double epsilon = Query.epsilon}) {
+      accuracyEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'accuracy',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'accuracy',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  accuracyGreaterThan(
+      accuracyGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'accuracy',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'accuracy',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  accuracyLessThan(
+      accuracyLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'accuracy',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'accuracy',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  accuracyBetween(
+      accuracyBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -426,70 +419,65 @@ extension LocalGPSPointQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'accuracy',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'accuracy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  altitudeEqualTo(double value, {double epsilon = Query.epsilon}) {
+      altitudeEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'altitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'altitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  altitudeGreaterThan(
+      altitudeGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'altitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'altitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  altitudeLessThan(
+      altitudeLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'altitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'altitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  altitudeBetween(
+      altitudeBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -497,70 +485,65 @@ extension LocalGPSPointQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'altitude',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'altitude',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  headingEqualTo(double value, {double epsilon = Query.epsilon}) {
+      headingEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'heading',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'heading',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  headingGreaterThan(
+      headingGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'heading',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'heading',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  headingLessThan(
+      headingLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'heading',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'heading',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  headingBetween(
+      headingBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -568,39 +551,38 @@ extension LocalGPSPointQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'heading',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'heading',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition> idEqualTo(
-    Id value,
-  ) {
+      Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'id', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  idGreaterThan(Id value, {bool include = false}) {
+      idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
@@ -609,13 +591,11 @@ extension LocalGPSPointQueryFilter
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
@@ -626,78 +606,74 @@ extension LocalGPSPointQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'id',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  isSyncedEqualTo(bool value) {
+      isSyncedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'isSynced', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isSynced',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  latitudeEqualTo(double value, {double epsilon = Query.epsilon}) {
+      latitudeEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'latitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'latitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  latitudeGreaterThan(
+      latitudeGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'latitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'latitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  latitudeLessThan(
+      latitudeLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'latitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'latitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  latitudeBetween(
+      latitudeBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -705,125 +681,121 @@ extension LocalGPSPointQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'latitude',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'latitude',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  localWorkoutIdEqualTo(int value) {
+      localWorkoutIdEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'localWorkoutId', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'localWorkoutId',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  localWorkoutIdGreaterThan(int value, {bool include = false}) {
+      localWorkoutIdGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'localWorkoutId',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'localWorkoutId',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  localWorkoutIdLessThan(int value, {bool include = false}) {
+      localWorkoutIdLessThan(
+    int value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'localWorkoutId',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'localWorkoutId',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  localWorkoutIdBetween(
+      localWorkoutIdBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'localWorkoutId',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'localWorkoutId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  longitudeEqualTo(double value, {double epsilon = Query.epsilon}) {
+      longitudeEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'longitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'longitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  longitudeGreaterThan(
+      longitudeGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'longitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'longitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  longitudeLessThan(
+      longitudeLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'longitude',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'longitude',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  longitudeBetween(
+      longitudeBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -831,70 +803,65 @@ extension LocalGPSPointQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'longitude',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'longitude',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  speedEqualTo(double value, {double epsilon = Query.epsilon}) {
+      speedEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'speed',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'speed',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  speedGreaterThan(
+      speedGreaterThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'speed',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'speed',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  speedLessThan(
+      speedLessThan(
     double value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'speed',
-          value: value,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'speed',
+        value: value,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  speedBetween(
+      speedBetween(
     double lower,
     double upper, {
     bool includeLower = true,
@@ -902,71 +869,70 @@ extension LocalGPSPointQueryFilter
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'speed',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          epsilon: epsilon,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'speed',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  timestampEqualTo(DateTime value) {
+      timestampEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'timestamp', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'timestamp',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  timestampGreaterThan(DateTime value, {bool include = false}) {
+      timestampGreaterThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'timestamp',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'timestamp',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  timestampLessThan(DateTime value, {bool include = false}) {
+      timestampLessThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'timestamp',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'timestamp',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
-  timestampBetween(
+      timestampBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'timestamp',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'timestamp',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 }
@@ -986,7 +952,7 @@ extension LocalGPSPointQuerySortBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByAccuracyDesc() {
+      sortByAccuracyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'accuracy', Sort.desc);
     });
@@ -999,7 +965,7 @@ extension LocalGPSPointQuerySortBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByAltitudeDesc() {
+      sortByAltitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'altitude', Sort.desc);
     });
@@ -1024,7 +990,7 @@ extension LocalGPSPointQuerySortBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByIsSyncedDesc() {
+      sortByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
@@ -1037,21 +1003,21 @@ extension LocalGPSPointQuerySortBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByLatitudeDesc() {
+      sortByLatitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'latitude', Sort.desc);
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByLocalWorkoutId() {
+      sortByLocalWorkoutId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localWorkoutId', Sort.asc);
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByLocalWorkoutIdDesc() {
+      sortByLocalWorkoutIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localWorkoutId', Sort.desc);
     });
@@ -1064,7 +1030,7 @@ extension LocalGPSPointQuerySortBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByLongitudeDesc() {
+      sortByLongitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'longitude', Sort.desc);
     });
@@ -1089,7 +1055,7 @@ extension LocalGPSPointQuerySortBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  sortByTimestampDesc() {
+      sortByTimestampDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'timestamp', Sort.desc);
     });
@@ -1105,7 +1071,7 @@ extension LocalGPSPointQuerySortThenBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByAccuracyDesc() {
+      thenByAccuracyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'accuracy', Sort.desc);
     });
@@ -1118,7 +1084,7 @@ extension LocalGPSPointQuerySortThenBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByAltitudeDesc() {
+      thenByAltitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'altitude', Sort.desc);
     });
@@ -1155,7 +1121,7 @@ extension LocalGPSPointQuerySortThenBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByIsSyncedDesc() {
+      thenByIsSyncedDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.desc);
     });
@@ -1168,21 +1134,21 @@ extension LocalGPSPointQuerySortThenBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByLatitudeDesc() {
+      thenByLatitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'latitude', Sort.desc);
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByLocalWorkoutId() {
+      thenByLocalWorkoutId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localWorkoutId', Sort.asc);
     });
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByLocalWorkoutIdDesc() {
+      thenByLocalWorkoutIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localWorkoutId', Sort.desc);
     });
@@ -1195,7 +1161,7 @@ extension LocalGPSPointQuerySortThenBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByLongitudeDesc() {
+      thenByLongitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'longitude', Sort.desc);
     });
@@ -1220,7 +1186,7 @@ extension LocalGPSPointQuerySortThenBy
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
-  thenByTimestampDesc() {
+      thenByTimestampDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'timestamp', Sort.desc);
     });
@@ -1260,7 +1226,7 @@ extension LocalGPSPointQueryWhereDistinct
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct>
-  distinctByLocalWorkoutId() {
+      distinctByLocalWorkoutId() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'localWorkoutId');
     });

@@ -12,8 +12,7 @@ part of 'workout_session.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$WorkoutSession {
@@ -29,6 +28,7 @@ mixin _$WorkoutSession {
   double get caloriesKcal => throw _privateConstructorUsedError;
   String get mode => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
+  List<WorkoutLapSplit> get lapSplits => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $WorkoutSessionCopyWith<WorkoutSession> get copyWith =>
@@ -38,24 +38,23 @@ mixin _$WorkoutSession {
 /// @nodoc
 abstract class $WorkoutSessionCopyWith<$Res> {
   factory $WorkoutSessionCopyWith(
-    WorkoutSession value,
-    $Res Function(WorkoutSession) then,
-  ) = _$WorkoutSessionCopyWithImpl<$Res, WorkoutSession>;
+          WorkoutSession value, $Res Function(WorkoutSession) then) =
+      _$WorkoutSessionCopyWithImpl<$Res, WorkoutSession>;
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    String activityType,
-    DateTime startedAt,
-    DateTime endedAt,
-    int durationSec,
-    double distanceKm,
-    int steps,
-    double avgSpeedKmh,
-    double caloriesKcal,
-    String mode,
-    DateTime createdAt,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      String activityType,
+      DateTime startedAt,
+      DateTime endedAt,
+      int durationSec,
+      double distanceKm,
+      int steps,
+      double avgSpeedKmh,
+      double caloriesKcal,
+      String mode,
+      DateTime createdAt,
+      List<WorkoutLapSplit> lapSplits});
 }
 
 /// @nodoc
@@ -83,86 +82,87 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
     Object? caloriesKcal = null,
     Object? mode = null,
     Object? createdAt = null,
+    Object? lapSplits = null,
   }) {
-    return _then(
-      _value.copyWith(
-            id: null == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as String,
-            userId: null == userId
-                ? _value.userId
-                : userId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            activityType: null == activityType
-                ? _value.activityType
-                : activityType // ignore: cast_nullable_to_non_nullable
-                      as String,
-            startedAt: null == startedAt
-                ? _value.startedAt
-                : startedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            endedAt: null == endedAt
-                ? _value.endedAt
-                : endedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            durationSec: null == durationSec
-                ? _value.durationSec
-                : durationSec // ignore: cast_nullable_to_non_nullable
-                      as int,
-            distanceKm: null == distanceKm
-                ? _value.distanceKm
-                : distanceKm // ignore: cast_nullable_to_non_nullable
-                      as double,
-            steps: null == steps
-                ? _value.steps
-                : steps // ignore: cast_nullable_to_non_nullable
-                      as int,
-            avgSpeedKmh: null == avgSpeedKmh
-                ? _value.avgSpeedKmh
-                : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
-                      as double,
-            caloriesKcal: null == caloriesKcal
-                ? _value.caloriesKcal
-                : caloriesKcal // ignore: cast_nullable_to_non_nullable
-                      as double,
-            mode: null == mode
-                ? _value.mode
-                : mode // ignore: cast_nullable_to_non_nullable
-                      as String,
-            createdAt: null == createdAt
-                ? _value.createdAt
-                : createdAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      activityType: null == activityType
+          ? _value.activityType
+          : activityType // ignore: cast_nullable_to_non_nullable
+              as String,
+      startedAt: null == startedAt
+          ? _value.startedAt
+          : startedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      endedAt: null == endedAt
+          ? _value.endedAt
+          : endedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      durationSec: null == durationSec
+          ? _value.durationSec
+          : durationSec // ignore: cast_nullable_to_non_nullable
+              as int,
+      distanceKm: null == distanceKm
+          ? _value.distanceKm
+          : distanceKm // ignore: cast_nullable_to_non_nullable
+              as double,
+      steps: null == steps
+          ? _value.steps
+          : steps // ignore: cast_nullable_to_non_nullable
+              as int,
+      avgSpeedKmh: null == avgSpeedKmh
+          ? _value.avgSpeedKmh
+          : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+              as double,
+      caloriesKcal: null == caloriesKcal
+          ? _value.caloriesKcal
+          : caloriesKcal // ignore: cast_nullable_to_non_nullable
+              as double,
+      mode: null == mode
+          ? _value.mode
+          : mode // ignore: cast_nullable_to_non_nullable
+              as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      lapSplits: null == lapSplits
+          ? _value.lapSplits
+          : lapSplits // ignore: cast_nullable_to_non_nullable
+              as List<WorkoutLapSplit>,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$WorkoutSessionImplCopyWith<$Res>
     implements $WorkoutSessionCopyWith<$Res> {
-  factory _$$WorkoutSessionImplCopyWith(
-    _$WorkoutSessionImpl value,
-    $Res Function(_$WorkoutSessionImpl) then,
-  ) = __$$WorkoutSessionImplCopyWithImpl<$Res>;
+  factory _$$WorkoutSessionImplCopyWith(_$WorkoutSessionImpl value,
+          $Res Function(_$WorkoutSessionImpl) then) =
+      __$$WorkoutSessionImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    String activityType,
-    DateTime startedAt,
-    DateTime endedAt,
-    int durationSec,
-    double distanceKm,
-    int steps,
-    double avgSpeedKmh,
-    double caloriesKcal,
-    String mode,
-    DateTime createdAt,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      String activityType,
+      DateTime startedAt,
+      DateTime endedAt,
+      int durationSec,
+      double distanceKm,
+      int steps,
+      double avgSpeedKmh,
+      double caloriesKcal,
+      String mode,
+      DateTime createdAt,
+      List<WorkoutLapSplit> lapSplits});
 }
 
 /// @nodoc
@@ -170,9 +170,8 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
     extends _$WorkoutSessionCopyWithImpl<$Res, _$WorkoutSessionImpl>
     implements _$$WorkoutSessionImplCopyWith<$Res> {
   __$$WorkoutSessionImplCopyWithImpl(
-    _$WorkoutSessionImpl _value,
-    $Res Function(_$WorkoutSessionImpl) _then,
-  ) : super(_value, _then);
+      _$WorkoutSessionImpl _value, $Res Function(_$WorkoutSessionImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -189,79 +188,83 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
     Object? caloriesKcal = null,
     Object? mode = null,
     Object? createdAt = null,
+    Object? lapSplits = null,
   }) {
-    return _then(
-      _$WorkoutSessionImpl(
-        id: null == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as String,
-        userId: null == userId
-            ? _value.userId
-            : userId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        activityType: null == activityType
-            ? _value.activityType
-            : activityType // ignore: cast_nullable_to_non_nullable
-                  as String,
-        startedAt: null == startedAt
-            ? _value.startedAt
-            : startedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        endedAt: null == endedAt
-            ? _value.endedAt
-            : endedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        durationSec: null == durationSec
-            ? _value.durationSec
-            : durationSec // ignore: cast_nullable_to_non_nullable
-                  as int,
-        distanceKm: null == distanceKm
-            ? _value.distanceKm
-            : distanceKm // ignore: cast_nullable_to_non_nullable
-                  as double,
-        steps: null == steps
-            ? _value.steps
-            : steps // ignore: cast_nullable_to_non_nullable
-                  as int,
-        avgSpeedKmh: null == avgSpeedKmh
-            ? _value.avgSpeedKmh
-            : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
-                  as double,
-        caloriesKcal: null == caloriesKcal
-            ? _value.caloriesKcal
-            : caloriesKcal // ignore: cast_nullable_to_non_nullable
-                  as double,
-        mode: null == mode
-            ? _value.mode
-            : mode // ignore: cast_nullable_to_non_nullable
-                  as String,
-        createdAt: null == createdAt
-            ? _value.createdAt
-            : createdAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-      ),
-    );
+    return _then(_$WorkoutSessionImpl(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      activityType: null == activityType
+          ? _value.activityType
+          : activityType // ignore: cast_nullable_to_non_nullable
+              as String,
+      startedAt: null == startedAt
+          ? _value.startedAt
+          : startedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      endedAt: null == endedAt
+          ? _value.endedAt
+          : endedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      durationSec: null == durationSec
+          ? _value.durationSec
+          : durationSec // ignore: cast_nullable_to_non_nullable
+              as int,
+      distanceKm: null == distanceKm
+          ? _value.distanceKm
+          : distanceKm // ignore: cast_nullable_to_non_nullable
+              as double,
+      steps: null == steps
+          ? _value.steps
+          : steps // ignore: cast_nullable_to_non_nullable
+              as int,
+      avgSpeedKmh: null == avgSpeedKmh
+          ? _value.avgSpeedKmh
+          : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+              as double,
+      caloriesKcal: null == caloriesKcal
+          ? _value.caloriesKcal
+          : caloriesKcal // ignore: cast_nullable_to_non_nullable
+              as double,
+      mode: null == mode
+          ? _value.mode
+          : mode // ignore: cast_nullable_to_non_nullable
+              as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      lapSplits: null == lapSplits
+          ? _value._lapSplits
+          : lapSplits // ignore: cast_nullable_to_non_nullable
+              as List<WorkoutLapSplit>,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$WorkoutSessionImpl implements _WorkoutSession {
-  const _$WorkoutSessionImpl({
-    required this.id,
-    required this.userId,
-    required this.activityType,
-    required this.startedAt,
-    required this.endedAt,
-    required this.durationSec,
-    required this.distanceKm,
-    required this.steps,
-    required this.avgSpeedKmh,
-    required this.caloriesKcal,
-    required this.mode,
-    required this.createdAt,
-  });
+  const _$WorkoutSessionImpl(
+      {required this.id,
+      required this.userId,
+      required this.activityType,
+      required this.startedAt,
+      required this.endedAt,
+      required this.durationSec,
+      required this.distanceKm,
+      required this.steps,
+      required this.avgSpeedKmh,
+      required this.caloriesKcal,
+      required this.mode,
+      required this.createdAt,
+      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[]})
+      : _lapSplits = lapSplits;
 
   @override
   final String id;
@@ -287,10 +290,18 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
   final String mode;
   @override
   final DateTime createdAt;
+  final List<WorkoutLapSplit> _lapSplits;
+  @override
+  @JsonKey()
+  List<WorkoutLapSplit> get lapSplits {
+    if (_lapSplits is EqualUnmodifiableListView) return _lapSplits;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_lapSplits);
+  }
 
   @override
   String toString() {
-    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt)';
+    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits)';
   }
 
   @override
@@ -316,51 +327,51 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
                 other.caloriesKcal == caloriesKcal) &&
             (identical(other.mode, mode) || other.mode == mode) &&
             (identical(other.createdAt, createdAt) ||
-                other.createdAt == createdAt));
+                other.createdAt == createdAt) &&
+            const DeepCollectionEquality()
+                .equals(other._lapSplits, _lapSplits));
   }
 
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    userId,
-    activityType,
-    startedAt,
-    endedAt,
-    durationSec,
-    distanceKm,
-    steps,
-    avgSpeedKmh,
-    caloriesKcal,
-    mode,
-    createdAt,
-  );
+      runtimeType,
+      id,
+      userId,
+      activityType,
+      startedAt,
+      endedAt,
+      durationSec,
+      distanceKm,
+      steps,
+      avgSpeedKmh,
+      caloriesKcal,
+      mode,
+      createdAt,
+      const DeepCollectionEquality().hash(_lapSplits));
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$WorkoutSessionImplCopyWith<_$WorkoutSessionImpl> get copyWith =>
       __$$WorkoutSessionImplCopyWithImpl<_$WorkoutSessionImpl>(
-        this,
-        _$identity,
-      );
+          this, _$identity);
 }
 
 abstract class _WorkoutSession implements WorkoutSession {
-  const factory _WorkoutSession({
-    required final String id,
-    required final String userId,
-    required final String activityType,
-    required final DateTime startedAt,
-    required final DateTime endedAt,
-    required final int durationSec,
-    required final double distanceKm,
-    required final int steps,
-    required final double avgSpeedKmh,
-    required final double caloriesKcal,
-    required final String mode,
-    required final DateTime createdAt,
-  }) = _$WorkoutSessionImpl;
+  const factory _WorkoutSession(
+      {required final String id,
+      required final String userId,
+      required final String activityType,
+      required final DateTime startedAt,
+      required final DateTime endedAt,
+      required final int durationSec,
+      required final double distanceKm,
+      required final int steps,
+      required final double avgSpeedKmh,
+      required final double caloriesKcal,
+      required final String mode,
+      required final DateTime createdAt,
+      final List<WorkoutLapSplit> lapSplits}) = _$WorkoutSessionImpl;
 
   @override
   String get id;
@@ -386,6 +397,8 @@ abstract class _WorkoutSession implements WorkoutSession {
   String get mode;
   @override
   DateTime get createdAt;
+  @override
+  List<WorkoutLapSplit> get lapSplits;
   @override
   @JsonKey(ignore: true)
   _$$WorkoutSessionImplCopyWith<_$WorkoutSessionImpl> get copyWith =>

@@ -47,13 +47,21 @@ class WorkoutFamily extends Family<AsyncValue<WorkoutSession?>> {
   /// Single Workout Provider
   ///
   /// Copied from [workout].
-  WorkoutProvider call(String id) {
-    return WorkoutProvider(id);
+  WorkoutProvider call(
+    String id,
+  ) {
+    return WorkoutProvider(
+      id,
+    );
   }
 
   @override
-  WorkoutProvider getProviderOverride(covariant WorkoutProvider provider) {
-    return call(provider.id);
+  WorkoutProvider getProviderOverride(
+    covariant WorkoutProvider provider,
+  ) {
+    return call(
+      provider.id,
+    );
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -78,18 +86,23 @@ class WorkoutProvider extends AutoDisposeFutureProvider<WorkoutSession?> {
   /// Single Workout Provider
   ///
   /// Copied from [workout].
-  WorkoutProvider(String id)
-    : this._internal(
-        (ref) => workout(ref as WorkoutRef, id),
-        from: workoutProvider,
-        name: r'workoutProvider',
-        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-            ? null
-            : _$workoutHash,
-        dependencies: WorkoutFamily._dependencies,
-        allTransitiveDependencies: WorkoutFamily._allTransitiveDependencies,
-        id: id,
-      );
+  WorkoutProvider(
+    String id,
+  ) : this._internal(
+          (ref) => workout(
+            ref as WorkoutRef,
+            id,
+          ),
+          from: workoutProvider,
+          name: r'workoutProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$workoutHash,
+          dependencies: WorkoutFamily._dependencies,
+          allTransitiveDependencies: WorkoutFamily._allTransitiveDependencies,
+          id: id,
+        );
 
   WorkoutProvider._internal(
     super._createNotifier, {
@@ -146,33 +159,28 @@ mixin WorkoutRef on AutoDisposeFutureProviderRef<WorkoutSession?> {
 }
 
 class _WorkoutProviderElement
-    extends AutoDisposeFutureProviderElement<WorkoutSession?>
-    with WorkoutRef {
+    extends AutoDisposeFutureProviderElement<WorkoutSession?> with WorkoutRef {
   _WorkoutProviderElement(super.provider);
 
   @override
   String get id => (origin as WorkoutProvider).id;
 }
 
-String _$workoutListHash() => r'74a6c429ab9fb4851929db8d34c18d6355ff8e20';
+String _$workoutListHash() => r'b5f59660863b1b8ac293a09c14f0deb3845c601c';
 
 /// Workout List Provider
 ///
 /// Copied from [WorkoutList].
 @ProviderFor(WorkoutList)
-final workoutListProvider =
-    AutoDisposeAsyncNotifierProvider<
-      WorkoutList,
-      List<WorkoutSession>
-    >.internal(
-      WorkoutList.new,
-      name: r'workoutListProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$workoutListHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+final workoutListProvider = AutoDisposeAsyncNotifierProvider<WorkoutList,
+    List<WorkoutSession>>.internal(
+  WorkoutList.new,
+  name: r'workoutListProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$workoutListHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 typedef _$WorkoutList = AutoDisposeAsyncNotifier<List<WorkoutSession>>;
 String _$activeWorkoutHash() => r'26bf8da3f0954038dcf4ebeca436e8c08a90b154';
@@ -183,14 +191,14 @@ String _$activeWorkoutHash() => r'26bf8da3f0954038dcf4ebeca436e8c08a90b154';
 @ProviderFor(ActiveWorkout)
 final activeWorkoutProvider =
     AutoDisposeNotifierProvider<ActiveWorkout, String?>.internal(
-      ActiveWorkout.new,
-      name: r'activeWorkoutProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$activeWorkoutHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  ActiveWorkout.new,
+  name: r'activeWorkoutProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$activeWorkoutHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 typedef _$ActiveWorkout = AutoDisposeNotifier<String?>;
 // ignore_for_file: type=lint

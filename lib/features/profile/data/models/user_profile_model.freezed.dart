@@ -12,8 +12,7 @@ part of 'user_profile_model.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 UserProfileModel _$UserProfileModelFromJson(Map<String, dynamic> json) {
   return _UserProfileModel.fromJson(json);
@@ -40,21 +39,19 @@ mixin _$UserProfileModel {
 /// @nodoc
 abstract class $UserProfileModelCopyWith<$Res> {
   factory $UserProfileModelCopyWith(
-    UserProfileModel value,
-    $Res Function(UserProfileModel) then,
-  ) = _$UserProfileModelCopyWithImpl<$Res, UserProfileModel>;
+          UserProfileModel value, $Res Function(UserProfileModel) then) =
+      _$UserProfileModelCopyWithImpl<$Res, UserProfileModel>;
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    double weightKg,
-    double heightM,
-    int age,
-    String gender,
-    DateTime createdAt,
-    DateTime updatedAt,
-    String? avatarUrl,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      double weightKg,
+      double heightM,
+      int age,
+      String gender,
+      DateTime createdAt,
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
@@ -80,80 +77,74 @@ class _$UserProfileModelCopyWithImpl<$Res, $Val extends UserProfileModel>
     Object? updatedAt = null,
     Object? avatarUrl = freezed,
   }) {
-    return _then(
-      _value.copyWith(
-            id: null == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                      as String,
-            userId: null == userId
-                ? _value.userId
-                : userId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            weightKg: null == weightKg
-                ? _value.weightKg
-                : weightKg // ignore: cast_nullable_to_non_nullable
-                      as double,
-            heightM: null == heightM
-                ? _value.heightM
-                : heightM // ignore: cast_nullable_to_non_nullable
-                      as double,
-            age: null == age
-                ? _value.age
-                : age // ignore: cast_nullable_to_non_nullable
-                      as int,
-            gender: null == gender
-                ? _value.gender
-                : gender // ignore: cast_nullable_to_non_nullable
-                      as String,
-            createdAt: null == createdAt
-                ? _value.createdAt
-                : createdAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            updatedAt: null == updatedAt
-                ? _value.updatedAt
-                : updatedAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            avatarUrl: freezed == avatarUrl
-                ? _value.avatarUrl
-                : avatarUrl // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      weightKg: null == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double,
+      heightM: null == heightM
+          ? _value.heightM
+          : heightM // ignore: cast_nullable_to_non_nullable
+              as double,
+      age: null == age
+          ? _value.age
+          : age // ignore: cast_nullable_to_non_nullable
+              as int,
+      gender: null == gender
+          ? _value.gender
+          : gender // ignore: cast_nullable_to_non_nullable
+              as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      updatedAt: null == updatedAt
+          ? _value.updatedAt
+          : updatedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$UserProfileModelImplCopyWith<$Res>
     implements $UserProfileModelCopyWith<$Res> {
-  factory _$$UserProfileModelImplCopyWith(
-    _$UserProfileModelImpl value,
-    $Res Function(_$UserProfileModelImpl) then,
-  ) = __$$UserProfileModelImplCopyWithImpl<$Res>;
+  factory _$$UserProfileModelImplCopyWith(_$UserProfileModelImpl value,
+          $Res Function(_$UserProfileModelImpl) then) =
+      __$$UserProfileModelImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String id,
-    String userId,
-    double weightKg,
-    double heightM,
-    int age,
-    String gender,
-    DateTime createdAt,
-    DateTime updatedAt,
-    String? avatarUrl,
-  });
+  $Res call(
+      {String id,
+      String userId,
+      double weightKg,
+      double heightM,
+      int age,
+      String gender,
+      DateTime createdAt,
+      DateTime updatedAt,
+      String? avatarUrl});
 }
 
 /// @nodoc
 class __$$UserProfileModelImplCopyWithImpl<$Res>
     extends _$UserProfileModelCopyWithImpl<$Res, _$UserProfileModelImpl>
     implements _$$UserProfileModelImplCopyWith<$Res> {
-  __$$UserProfileModelImplCopyWithImpl(
-    _$UserProfileModelImpl _value,
-    $Res Function(_$UserProfileModelImpl) _then,
-  ) : super(_value, _then);
+  __$$UserProfileModelImplCopyWithImpl(_$UserProfileModelImpl _value,
+      $Res Function(_$UserProfileModelImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -168,63 +159,61 @@ class __$$UserProfileModelImplCopyWithImpl<$Res>
     Object? updatedAt = null,
     Object? avatarUrl = freezed,
   }) {
-    return _then(
-      _$UserProfileModelImpl(
-        id: null == id
-            ? _value.id
-            : id // ignore: cast_nullable_to_non_nullable
-                  as String,
-        userId: null == userId
-            ? _value.userId
-            : userId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        weightKg: null == weightKg
-            ? _value.weightKg
-            : weightKg // ignore: cast_nullable_to_non_nullable
-                  as double,
-        heightM: null == heightM
-            ? _value.heightM
-            : heightM // ignore: cast_nullable_to_non_nullable
-                  as double,
-        age: null == age
-            ? _value.age
-            : age // ignore: cast_nullable_to_non_nullable
-                  as int,
-        gender: null == gender
-            ? _value.gender
-            : gender // ignore: cast_nullable_to_non_nullable
-                  as String,
-        createdAt: null == createdAt
-            ? _value.createdAt
-            : createdAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        updatedAt: null == updatedAt
-            ? _value.updatedAt
-            : updatedAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        avatarUrl: freezed == avatarUrl
-            ? _value.avatarUrl
-            : avatarUrl // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
+    return _then(_$UserProfileModelImpl(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      userId: null == userId
+          ? _value.userId
+          : userId // ignore: cast_nullable_to_non_nullable
+              as String,
+      weightKg: null == weightKg
+          ? _value.weightKg
+          : weightKg // ignore: cast_nullable_to_non_nullable
+              as double,
+      heightM: null == heightM
+          ? _value.heightM
+          : heightM // ignore: cast_nullable_to_non_nullable
+              as double,
+      age: null == age
+          ? _value.age
+          : age // ignore: cast_nullable_to_non_nullable
+              as int,
+      gender: null == gender
+          ? _value.gender
+          : gender // ignore: cast_nullable_to_non_nullable
+              as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      updatedAt: null == updatedAt
+          ? _value.updatedAt
+          : updatedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$UserProfileModelImpl extends _UserProfileModel {
-  const _$UserProfileModelImpl({
-    required this.id,
-    required this.userId,
-    required this.weightKg,
-    required this.heightM,
-    required this.age,
-    required this.gender,
-    required this.createdAt,
-    required this.updatedAt,
-    this.avatarUrl,
-  }) : super._();
+  const _$UserProfileModelImpl(
+      {required this.id,
+      required this.userId,
+      required this.weightKg,
+      required this.heightM,
+      required this.age,
+      required this.gender,
+      required this.createdAt,
+      required this.updatedAt,
+      this.avatarUrl})
+      : super._();
 
   factory _$UserProfileModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserProfileModelImplFromJson(json);
@@ -275,46 +264,35 @@ class _$UserProfileModelImpl extends _UserProfileModel {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    userId,
-    weightKg,
-    heightM,
-    age,
-    gender,
-    createdAt,
-    updatedAt,
-    avatarUrl,
-  );
+  int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightM,
+      age, gender, createdAt, updatedAt, avatarUrl);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$UserProfileModelImplCopyWith<_$UserProfileModelImpl> get copyWith =>
       __$$UserProfileModelImplCopyWithImpl<_$UserProfileModelImpl>(
-        this,
-        _$identity,
-      );
+          this, _$identity);
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$UserProfileModelImplToJson(this);
+    return _$$UserProfileModelImplToJson(
+      this,
+    );
   }
 }
 
 abstract class _UserProfileModel extends UserProfileModel {
-  const factory _UserProfileModel({
-    required final String id,
-    required final String userId,
-    required final double weightKg,
-    required final double heightM,
-    required final int age,
-    required final String gender,
-    required final DateTime createdAt,
-    required final DateTime updatedAt,
-    final String? avatarUrl,
-  }) = _$UserProfileModelImpl;
+  const factory _UserProfileModel(
+      {required final String id,
+      required final String userId,
+      required final double weightKg,
+      required final double heightM,
+      required final int age,
+      required final String gender,
+      required final DateTime createdAt,
+      required final DateTime updatedAt,
+      final String? avatarUrl}) = _$UserProfileModelImpl;
   const _UserProfileModel._() : super._();
 
   factory _UserProfileModel.fromJson(Map<String, dynamic> json) =

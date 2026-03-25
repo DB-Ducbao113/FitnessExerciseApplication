@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 
@@ -23,6 +25,7 @@ class LocalWorkout {
   double caloriesKcal = 0;
   String mode = 'outdoor';
   late DateTime createdAt;
+  String lapSplitsJson = '[]';
 
   // Sync tracking
   bool isSynced = false;
@@ -41,6 +44,7 @@ class LocalWorkout {
       caloriesKcal: caloriesKcal,
       mode: mode,
       createdAt: createdAt,
+      lapSplits: _decodeLapSplits(lapSplitsJson),
     );
   }
 
@@ -58,6 +62,24 @@ class LocalWorkout {
       ..caloriesKcal = session.caloriesKcal
       ..mode = session.mode
       ..createdAt = session.createdAt.toUtc()
+      ..lapSplitsJson = jsonEncode(
+        session.lapSplits.map((split) => split.toJson()).toList(),
+      )
       ..isSynced = true;
+  }
+
+  static List<WorkoutLapSplit> _decodeLapSplits(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map>()
+          .map(
+            (item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 }

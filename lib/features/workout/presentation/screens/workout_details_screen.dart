@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
@@ -66,6 +67,10 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _StatsGrid(workout: workout),
                 const SizedBox(height: 16),
+                if (workout.lapSplits.isNotEmpty) ...[
+                  _LapSplitsCard(workout: workout),
+                  const SizedBox(height: 16),
+                ],
                 _TimelineCard(workout: workout),
                 const SizedBox(height: 16),
                 _SessionMetaCard(workout: workout),
@@ -279,6 +284,85 @@ class _TimelineCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _LapSplitsCard extends StatelessWidget {
+  final dynamic workout;
+
+  const _LapSplitsCard({required this.workout});
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Lap Splits',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final split in workout.lapSplits) ...[
+            _LapSplitRow(split: split),
+            if (split != workout.lapSplits.last)
+              Divider(height: 18, color: Colors.white.withValues(alpha: 0.06)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LapSplitRow extends StatelessWidget {
+  final WorkoutLapSplit split;
+
+  const _LapSplitRow({required this.split});
+
+  @override
+  Widget build(BuildContext context) {
+    final paceMinutes = split.paceMinPerKm.floor();
+    var paceSeconds = ((split.paceMinPerKm - paceMinutes) * 60).round();
+    var minutes = paceMinutes;
+    if (paceSeconds == 60) {
+      minutes += 1;
+      paceSeconds = 0;
+    }
+
+    return Row(
+      children: [
+        Text(
+          'KM ${split.index}',
+          style: const TextStyle(
+            color: _kNeonCyan,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          WorkoutFormatters.formatDurationFromSeconds(split.durationSeconds),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          '$minutes:${paceSeconds.toString().padLeft(2, '0')}/km',
+          style: const TextStyle(
+            color: _kMutedText,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

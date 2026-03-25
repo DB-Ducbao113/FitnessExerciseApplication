@@ -127,6 +127,9 @@ class LocationTrackingService {
     final settings = AndroidSettings(
       accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: distanceFilter,
+      intervalDuration: debugLocationMode
+          ? const Duration(milliseconds: 250)
+          : const Duration(milliseconds: 800),
       // forceLocationManager=true makes Android Emulator mock routes work correctly.
       // The FusedLocationProvider sometimes ignores emulator mock locations.
       forceLocationManager: debugLocationMode ? true : false,
@@ -253,7 +256,8 @@ class LocationTrackingService {
       position.longitude,
     );
 
-    if (distance < 0.3) {
+    final minDistance = debugLocationMode ? 0.05 : 0.3;
+    if (distance < minDistance) {
       return const _ValidationResult(false, 'duplicate_or_tiny_move');
     }
 
