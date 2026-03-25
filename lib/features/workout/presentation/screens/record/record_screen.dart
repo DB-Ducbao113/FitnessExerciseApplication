@@ -17,8 +17,13 @@ const _kNeonCyan = Color(0xff00e5ff);
 
 class RecordScreen extends ConsumerStatefulWidget {
   final String activityType;
+  final bool requireGps;
 
-  const RecordScreen({super.key, required this.activityType});
+  const RecordScreen({
+    super.key,
+    required this.activityType,
+    this.requireGps = true,
+  });
 
   @override
   ConsumerState<RecordScreen> createState() => _RecordScreenState();
@@ -54,15 +59,17 @@ class _RecordScreenState extends ConsumerState<RecordScreen>
 
   Future<void> _startWorkout() async {
     final notifier = ref.read(workoutSessionProvider.notifier);
-    try {
-      await ref
-          .read(locationTrackingServiceProvider)
-          .ensurePermissionsOrThrow();
-    } catch (e) {
-      if (mounted) {
-        _showStartError(e.toString().replaceAll('Exception: ', ''));
+    if (widget.requireGps) {
+      try {
+        await ref
+            .read(locationTrackingServiceProvider)
+            .ensurePermissionsOrThrow();
+      } catch (e) {
+        if (mounted) {
+          _showStartError(e.toString().replaceAll('Exception: ', ''));
+        }
+        return;
       }
-      return;
     }
 
     final userId = ref.read(currentUserIdProvider);

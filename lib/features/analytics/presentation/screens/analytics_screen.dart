@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
@@ -19,8 +20,6 @@ const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
 const _kNeonPurple = Color(0xff6a5cff);
-
-enum TimePeriod { week, month, year }
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});

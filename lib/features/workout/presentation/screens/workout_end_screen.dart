@@ -1,5 +1,6 @@
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,17 @@ const _kCardBorder = Color(0x2200e5ff);
 const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
+
+bool _usesDistanceBasedCalories(String activityType) {
+  switch (activityType.toLowerCase()) {
+    case 'running':
+    case 'walking':
+    case 'cycling':
+      return true;
+    default:
+      return false;
+  }
+}
 
 class WorkoutEndScreen extends ConsumerStatefulWidget {
   final String sessionId;
@@ -56,24 +68,38 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
     return k;
   }
 
-  ({double weightKg, String gender}) _getProfileData() {
+  UserProfile? _getProfile() {
     final userId = ref.read(currentUserIdProvider);
-    if (userId == null) return (weightKg: 60.0, gender: 'male');
+    if (userId == null) return null;
     final profileAsync = ref.read(userProfileProvider(userId));
-    final profile = profileAsync.valueOrNull;
-    return (
-      weightKg: profile?.weightKg ?? 60.0,
-      gender: profile?.gender.toLowerCase() ?? 'male',
-    );
+    return profileAsync.valueOrNull;
   }
 
   int? get _calories {
+    final profile = _getProfile();
     final distance = double.tryParse(_distanceController.text);
-    if (distance == null || distance <= 0) return null;
-    final k = _calorieK(_speed ?? 0);
-    final profile = _getProfileData();
-    final genderFactor = profile.gender == 'female' ? 0.95 : 1.0;
-    return (profile.weightKg * distance * k * genderFactor).round();
+
+    if (_usesDistanceBasedCalories(widget.activityType) &&
+        distance != null &&
+        distance > 0) {
+      final k = _calorieK(_speed ?? 0);
+      final weight = profile?.weightKg ?? 60.0;
+      final genderFactor = (profile?.gender.toLowerCase() == 'female')
+          ? 0.95
+          : 1.0;
+      return (weight * distance * k * genderFactor).round();
+    }
+
+    if (profile != null) {
+      return profile
+          .calculateCalories(
+            activityType: widget.activityType,
+            durationMinutes: _durationMinutes,
+          )
+          .round();
+    }
+
+    return null;
   }
 
   Future<void> _saveWorkout() async {

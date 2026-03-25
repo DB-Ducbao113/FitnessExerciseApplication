@@ -34,27 +34,28 @@ class ActivityScreen extends StatelessWidget {
       Icons.directions_walk,
       'Steps with optional GPS',
     ),
-    (
-      'swimming',
-      'Swimming',
-      'assets/swimming.jpg',
-      Icons.pool,
-      'Duration focus',
-    ),
-    (
-      'weights',
-      'Weights',
-      'assets/weights.jpg',
-      Icons.fitness_center,
-      'Indoor strength logging',
-    ),
-    (
-      'yoga',
-      'Yoga',
-      'assets/yoga.jpg',
-      Icons.self_improvement,
-      'Mobility and recovery',
-    ),
+    // Temporarily hidden while the app focuses on the 3 core activities.
+    // (
+    //   'swimming',
+    //   'Swimming',
+    //   'assets/swimming.jpg',
+    //   Icons.pool,
+    //   'Duration focus',
+    // ),
+    // (
+    //   'weights',
+    //   'Weights',
+    //   'assets/weights.jpg',
+    //   Icons.fitness_center,
+    //   'Indoor strength logging',
+    // ),
+    // (
+    //   'yoga',
+    //   'Yoga',
+    //   'assets/yoga.jpg',
+    //   Icons.self_improvement,
+    //   'Mobility and recovery',
+    // ),
   ];
 
   @override

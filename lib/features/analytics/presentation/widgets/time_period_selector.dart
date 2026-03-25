@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-enum TimePeriod { week, month, year }
+import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 
 class TimePeriodSelector extends StatelessWidget {
   final TimePeriod selectedPeriod;

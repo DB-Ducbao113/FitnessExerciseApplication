@@ -43,6 +43,8 @@ class AppBootstrapService {
   }
 }
 
-final appBootstrapServiceProvider = Provider<AppBootstrapService>((ref) {
+final appBootstrapServiceProvider = Provider.autoDispose<AppBootstrapService>((
+  ref,
+) {
   return AppBootstrapService(ref);
 });

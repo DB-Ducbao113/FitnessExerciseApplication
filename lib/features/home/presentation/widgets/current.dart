@@ -46,21 +46,22 @@ class CurrentPrograms extends StatelessWidget {
                 type: 'walking',
                 imagePath: 'assets/walking.jpg',
               ),
-              _ActivityCard(
-                name: 'Swimming',
-                type: 'swimming',
-                imagePath: 'assets/swimming.jpg',
-              ),
-              _ActivityCard(
-                name: 'Weights',
-                type: 'weights',
-                imagePath: 'assets/weights.jpg',
-              ),
-              _ActivityCard(
-                name: 'Yoga',
-                type: 'yoga',
-                imagePath: 'assets/yoga.jpg',
-              ),
+              // Temporarily hidden while the app focuses on the 3 core activities.
+              // _ActivityCard(
+              //   name: 'Swimming',
+              //   type: 'swimming',
+              //   imagePath: 'assets/swimming.jpg',
+              // ),
+              // _ActivityCard(
+              //   name: 'Weights',
+              //   type: 'weights',
+              //   imagePath: 'assets/weights.jpg',
+              // ),
+              // _ActivityCard(
+              //   name: 'Yoga',
+              //   type: 'yoga',
+              //   imagePath: 'assets/yoga.jpg',
+              // ),
             ],
           ),
         ),

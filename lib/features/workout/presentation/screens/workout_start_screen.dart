@@ -11,6 +11,17 @@ const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
 
+bool _requiresGpsTracking(String activityType) {
+  switch (activityType.toLowerCase()) {
+    case 'running':
+    case 'walking':
+    case 'cycling':
+      return true;
+    default:
+      return false;
+  }
+}
+
 class WorkoutStartScreen extends ConsumerStatefulWidget {
   final String activityType;
   final String activityName;
@@ -31,6 +42,8 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
     with WidgetsBindingObserver {
   bool _gpsEnabled = false;
   bool _checkingGps = true;
+
+  bool get _requiresGps => _requiresGpsTracking(widget.activityType);
 
   @override
   void initState() {
@@ -67,10 +80,13 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
   }
 
   void _startWorkout() {
-    if (!_gpsEnabled) return;
+    if (_requiresGps && !_gpsEnabled) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => RecordScreen(activityType: widget.activityType),
+        builder: (_) => RecordScreen(
+          activityType: widget.activityType,
+          requireGps: _requiresGps,
+        ),
       ),
     );
   }
@@ -134,6 +150,7 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                               child: _GpsStatusBadge(
                                 isEnabled: _gpsEnabled,
                                 isChecking: _checkingGps,
+                                isRequired: _requiresGps,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -157,7 +174,11 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                                 size: 18,
                               ),
                               label: Text(
-                                _gpsEnabled ? 'GPS Settings' : 'Turn On GPS',
+                                _requiresGps
+                                    ? (_gpsEnabled
+                                          ? 'GPS Settings'
+                                          : 'Turn On GPS')
+                                    : 'Location Settings',
                               ),
                             ),
                           ],
@@ -187,7 +208,9 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                       ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: _gpsEnabled ? _startWorkout : null,
+                      onPressed: (_requiresGps && !_gpsEnabled)
+                          ? null
+                          : _startWorkout,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         disabledBackgroundColor: Colors.transparent,
@@ -224,8 +247,13 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
 class _GpsStatusBadge extends StatelessWidget {
   final bool isEnabled;
   final bool isChecking;
+  final bool isRequired;
 
-  const _GpsStatusBadge({required this.isEnabled, required this.isChecking});
+  const _GpsStatusBadge({
+    required this.isEnabled,
+    required this.isChecking,
+    required this.isRequired,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -234,12 +262,16 @@ class _GpsStatusBadge extends StatelessWidget {
         : (isEnabled ? const Color(0xff2be38c) : const Color(0xffff6b6b));
     final label = isChecking
         ? 'Checking GPS...'
-        : (isEnabled ? 'GPS ON' : 'GPS OFF');
+        : isRequired
+        ? (isEnabled ? 'GPS ON' : 'GPS OFF')
+        : (isEnabled ? 'GPS READY' : 'GPS OPTIONAL');
     final subtitle = isChecking
         ? 'Verifying location services'
-        : (isEnabled
+        : isRequired
+        ? (isEnabled
               ? 'Ready for outdoor tracking'
-              : 'Turn on location services to start');
+              : 'Turn on location services to start')
+        : 'This activity can start without GPS';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

@@ -19,10 +19,7 @@ class WorkoutList extends _$WorkoutList {
     if (user == null) throw Exception('No user logged in');
 
     final repository = ref.watch(workoutRepositoryProvider);
-    // 1. Pull down any remote changes (syncId collision fixes, cross-device sync)
-    // We let the bootstrap handle immediate fetch, or we can keep syncFromCloud here.
-    await repository.syncFromCloud();
-    // 2. Load from local DB
+    // Bootstrap/login hydration owns the initial remote sync.
     return await repository.getSessionsLocal(user);
   }
 
@@ -95,19 +92,20 @@ class WorkoutList extends _$WorkoutList {
 
     // Quick Add -> Generate UUID -> Save immediately
     final durationSec = (durationMinutes * 60).round();
+    final endedAt = DateTime.now().toUtc();
     final session = WorkoutSession(
       id: const Uuid().v4(),
       userId: user,
       activityType: activityType,
-      startedAt: DateTime.now().subtract(Duration(seconds: durationSec)),
-      endedAt: DateTime.now(),
+      startedAt: endedAt.subtract(Duration(seconds: durationSec)),
+      endedAt: endedAt,
       durationSec: durationSec,
       distanceKm: distanceKm,
       steps: steps,
       avgSpeedKmh: avgSpeedKmh ?? 0.0,
       caloriesKcal: resolvedCalories,
       mode: mode,
-      createdAt: DateTime.now(),
+      createdAt: endedAt,
     );
 
     await saveSession(session);

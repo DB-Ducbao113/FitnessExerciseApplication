@@ -33,6 +33,36 @@ double _calorieK(String activityType, double speedKmh) {
   return k;
 }
 
+double _activityMet(String activityType) {
+  switch (activityType.toLowerCase()) {
+    case 'running':
+      return 8.0;
+    case 'cycling':
+      return 6.0;
+    case 'walking':
+      return 3.5;
+    case 'swimming':
+      return 7.0;
+    case 'weights':
+      return 5.0;
+    case 'yoga':
+      return 3.0;
+    default:
+      return 4.0;
+  }
+}
+
+bool _requiresGpsTracking(String activityType) {
+  switch (activityType.toLowerCase()) {
+    case 'running':
+    case 'walking':
+    case 'cycling':
+      return true;
+    default:
+      return false;
+  }
+}
+
 // ─── Stride length from activityType ───────────────
 
 String? _normalizeGender(String? gender) {
@@ -303,7 +333,14 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _classifierSub?.cancel();
     _classifierSub = _classifier!.stateStream.listen(_onEnvironmentChanged);
 
-    _startGpsBackground(activityType);
+    if (_requiresGpsTracking(activityType)) {
+      _startGpsBackground(activityType);
+    } else if (mounted) {
+      state = state.copyWith(
+        trackingMode: kIndoorMode,
+        modeDecisionLocked: true,
+      );
+    }
     _startStepCounterBackground();
 
     // NOTE: Removed `_createWorkoutRecord`. The session is only saved upon stop.
@@ -431,9 +468,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final userId = _ref.read(currentUserIdProvider);
     if (userId == null) throw Exception("Cannot save workout: No active user");
 
-    // Calculate final steps based on tracking mode
+    // Prefer the pedometer when it is available for both indoor and outdoor.
+    // Fall back to stride estimation only when the step sensor never reported.
     int finalSteps = state.stepCount;
-    if (state.trackingMode != kIndoorMode) {
+    if (finalSteps <= 0 && state.trackingMode != kIndoorMode) {
       final strideToUse = state.strideLengthMeters > 0
           ? state.strideLengthMeters
           : _defaultStrideLength(state.activityType, _gender);
@@ -456,6 +494,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       caloriesKcal: finalCalories.toDouble(),
       mode: state.trackingMode,
       createdAt: DateTime.now().toUtc(),
+      lapSplits: state.lapSplits,
     );
 
     if (mounted) {
@@ -476,10 +515,21 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   int _computeCalories() {
     final distKm = state.distanceMeters / 1000.0;
-    if (distKm <= 0) return 0;
-    final k = _calorieK(state.activityType, state.speedKmh);
     final genderFactor = _gender == 'female' ? 0.94 : 1.0;
-    return (_weightKg * distKm * k * genderFactor).round();
+
+    if (distKm > 0) {
+      final k = _calorieK(state.activityType, state.speedKmh);
+      return (_weightKg * distKm * k * genderFactor).round();
+    }
+
+    final activeSeconds = state.movingTimeSeconds > 0
+        ? state.movingTimeSeconds
+        : state.durationSeconds;
+    if (activeSeconds <= 0) return 0;
+
+    final durationHours = activeSeconds / 3600.0;
+    final met = _activityMet(state.activityType);
+    return (met * _weightKg * durationHours * genderFactor).round();
   }
 
   void _startCalorieTimer() {
@@ -775,7 +825,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
       final distKm = state.distanceMeters / 1000.0;
       final movingHours = movingTimeSec / 3600.0;
-      final avg = movingHours > 0 ? (distKm / movingHours) : 0.0;
+      final avg = movingHours > 0 && distKm > 0.01
+          ? (distKm / movingHours)
+          : 0.0;
 
       state = state.copyWith(
         durationSeconds: elapsedSec,
