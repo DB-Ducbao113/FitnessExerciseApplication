@@ -821,14 +821,10 @@ class _ActivityPickerSheet extends StatelessWidget {
   const _ActivityPickerSheet();
 
   static const _activities = [
-    ('running', 'Running', 'assets/running.jpg', Icons.directions_run),
-    ('cycling', 'Cycling', 'assets/cycling.jpg', Icons.directions_bike),
-    ('walking', 'Walking', 'assets/walking.jpg', Icons.directions_walk),
-    // Temporarily hidden while the app focuses on the 3 core activities.
-    // ('swimming', 'Swimming', 'assets/swimming.jpg', Icons.pool),
-    // ('weights', 'Weights', 'assets/weights.jpg', Icons.fitness_center),
-    // ('yoga', 'Yoga', 'assets/yoga.jpg', Icons.self_improvement),
-  ];
+      ('running', 'Running', 'assets/running.jpg', Icons.directions_run),
+      ('cycling', 'Cycling', 'assets/cycling.jpg', Icons.directions_bike),
+      ('walking', 'Walking', 'assets/walking.jpg', Icons.directions_walk),
+    ];
 
   @override
   Widget build(BuildContext context) {

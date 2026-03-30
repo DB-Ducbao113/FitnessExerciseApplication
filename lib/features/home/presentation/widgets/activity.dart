@@ -58,12 +58,6 @@ class ActivityItem extends StatelessWidget {
         return 'assets/cycling.jpg';
       case 'walking':
         return 'assets/walking.jpg';
-      case 'swimming':
-        return 'assets/swimming.jpg';
-      case 'weights':
-        return 'assets/weights.jpg';
-      case 'yoga':
-        return 'assets/yoga.jpg';
       default:
         return 'assets/running.jpg';
     }

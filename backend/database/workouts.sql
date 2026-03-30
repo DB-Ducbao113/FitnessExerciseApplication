@@ -2,10 +2,11 @@
 -- workouts.sql
 -- Main workout session table used by the Flutter app.
 -- Matches Supabase table: public.workout_sessions (primary)
--- Legacy table: public.workouts (kept for backward compat — see below)
+-- Legacy table: public.workouts (kept for backward compatibility)
+-- Current mobile app scope focuses on: running, walking, cycling.
 -- ================================================================
 
--- ── Trigger helper (shared, safe to run once) ─────────────────────
+-- Trigger helper (shared, safe to run once)
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -14,7 +15,7 @@ begin
 end;
 $$;
 
--- ── Enums ─────────────────────────────────────────────────────────
+-- Enums
 do $$ begin
   create type activity_type_enum as enum (
     'running', 'walking', 'cycling', 'hiking', 'indoor_workout', 'other'
@@ -29,12 +30,12 @@ do $$ begin
   create type workout_status_enum as enum ('completed', 'cancelled');
 exception when duplicate_object then null; end $$;
 
--- ── workout_sessions (primary table used by app) ──────────────────
+-- workout_sessions (primary table used by app)
 create table if not exists public.workout_sessions (
   id              uuid primary key default gen_random_uuid(),
   user_id         uuid not null references auth.users(id) on delete cascade,
 
-  activity_type   text not null,          -- matches screenshot: text column
+  activity_type   text not null, -- app currently writes running/walking/cycling
   mode            text not null default 'outdoor', -- 'outdoor' | 'indoor'
 
   started_at      timestamptz not null,
@@ -47,7 +48,7 @@ create table if not exists public.workout_sessions (
 
   -- Shared
   steps           int check (steps >= 0),
-  calories_kcal   float8 check (calories_kcal >= 0),
+  calories_kcal   float8 check (calories_kcal >= 0), -- persisted from client distance-based estimate
   lap_splits      jsonb not null default '[]'::jsonb,
 
   created_at      timestamptz not null default now(),
@@ -55,7 +56,7 @@ create table if not exists public.workout_sessions (
 );
 
 comment on table public.workout_sessions is
-  'One row per recorded workout. GPS metrics are null for indoor sessions.';
+  'One row per recorded workout. Calories are stored from the client distance-based estimate.';
 
 create trigger trg_workout_sessions_updated_at
   before update on public.workout_sessions
@@ -90,8 +91,7 @@ create policy "workout_sessions: delete own"
   to authenticated
   using (auth.uid() = user_id);
 
--- ── workouts (legacy table visible in screenshot) ─────────────────
--- This table exists in the DB. Kept for reference / backward compat.
+-- workouts (legacy table kept for reference / backward compatibility)
 -- New code should write to workout_sessions instead.
 create table if not exists public.workouts (
   id              uuid primary key default gen_random_uuid(),

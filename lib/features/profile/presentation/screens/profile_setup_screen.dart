@@ -155,7 +155,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'We use this to calculate calories and training estimates more accurately.',
+                  'We use this to improve distance-based calorie and pace estimates.',
                   style: TextStyle(
                     color: _kMutedText,
                     fontSize: 14,

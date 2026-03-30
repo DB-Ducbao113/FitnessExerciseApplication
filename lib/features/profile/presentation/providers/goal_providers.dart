@@ -5,7 +5,7 @@ import 'package:fitness_exercise_application/features/profile/domain/entities/us
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 
-// ─── Remote datasource (inline — no separate file needed at this scale) ───────
+// Remote helpers
 final _supabase = Supabase.instance.client;
 
 Future<UserGoal?> _fetchGoal(String userId) async {
@@ -20,15 +20,14 @@ Future<UserGoal?> _fetchGoal(String userId) async {
 
 Future<void> _upsertGoal(UserGoal goal) async {
   final data = <String, dynamic>{...goal.toMap()};
-  // Only include 'id' when updating an existing row.
-  // On first insert (id == ''), omit it so the DB generates a UUID.
+  // Only send id for updates.
   if (goal.id.isNotEmpty) {
     data['id'] = goal.id;
   }
   await _supabase.from(DbTables.userGoals).upsert(data, onConflict: 'user_id');
 }
 
-// ─── Current goal provider ─────────────────────────────────────────────────────
+// Goal state
 final userGoalProvider =
     StateNotifierProvider<UserGoalNotifier, AsyncValue<UserGoal?>>(
       (ref) => UserGoalNotifier(),
@@ -54,7 +53,7 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
 
   Future<void> refresh() => _load();
 
-  /// Save or update the goal and patch state optimistically.
+  /// Save or update the goal.
   Future<void> saveGoal(UserGoal goal) async {
     try {
       await _upsertGoal(goal);
@@ -73,7 +72,7 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
   }
 }
 
-// ─── Goal progress ─────────────────────────────────────────────────────────────
+// Goal progress
 class GoalProgress {
   final double current;
   final double target;
@@ -100,8 +99,7 @@ class GoalProgress {
   }
 }
 
-/// Computes progress for [goal] from the cached workout list.
-/// Returns null if no goal or no workouts loaded yet.
+/// Computes goal progress from cached workouts.
 final goalProgressProvider = Provider<GoalProgress?>((ref) {
   final goalAsync = ref.watch(userGoalProvider);
   final workoutsAsync = ref.watch(workoutListProvider);
@@ -111,7 +109,7 @@ final goalProgressProvider = Provider<GoalProgress?>((ref) {
 
   if (goal == null || workouts == null) return null;
 
-  // Determine the period start date
+  // Period start
   final now = DateTimeHelper.localDateOnly(DateTime.now());
   final periodStart = goal.period == GoalPeriod.weekly
       ? now.subtract(Duration(days: now.weekday - 1))

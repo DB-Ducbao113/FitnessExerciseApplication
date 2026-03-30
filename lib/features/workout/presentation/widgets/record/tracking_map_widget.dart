@@ -35,6 +35,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
 
   static const double _defaultZoom = 17.0;
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
+  static const _routeGlow = Color(0x6600F0FF);
+  static const _routeCore = Color(0xFF00E5FF);
+  static const _routeHighlight = Color(0xCCB4F7FF);
   static Duration get _cameraThrottle => kDebugLocationMode
       ? const Duration(milliseconds: 120)
       : const Duration(milliseconds: 300);
@@ -110,54 +113,105 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
       );
     }
 
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        initialCenter: _initialCenter,
-        initialZoom: _defaultZoom,
-        interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-        ),
-        onMapEvent: (event) {
-          if (event is MapEventMove &&
-              event.source != MapEventSource.mapController) {
-            widget.onUserGesturePan?.call();
-          }
-        },
-      ),
+    return Stack(
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.fitness_exercise_application',
-          maxZoom: 19,
-        ),
-        if (widget.showRoute && widget.routePoints.length >= 2)
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: widget.routePoints,
-                strokeWidth: 5,
-                color: const Color(0xff18b0e8),
-              ),
-            ],
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: _initialCenter,
+            initialZoom: _defaultZoom,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
+            onMapEvent: (event) {
+              if (event is MapEventMove &&
+                  event.source != MapEventSource.mapController) {
+                widget.onUserGesturePan?.call();
+              }
+            },
           ),
-        MarkerLayer(
-          markers: [
-            if (widget.showRoute && widget.routePoints.isNotEmpty)
-              Marker(
-                point: widget.routePoints.first,
-                width: 28,
-                height: 28,
-                child: const _StartMarker(),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.fitness_exercise_application',
+              maxZoom: 19,
+            ),
+            if (widget.showRoute && widget.routePoints.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: widget.routePoints,
+                    strokeWidth: 16,
+                    color: _routeGlow,
+                  ),
+                  Polyline(
+                    points: widget.routePoints,
+                    strokeWidth: 7,
+                    color: _routeCore,
+                  ),
+                  Polyline(
+                    points: widget.routePoints,
+                    strokeWidth: 2,
+                    color: _routeHighlight,
+                  ),
+                ],
               ),
-            if (_markerPosition != null)
-              Marker(
-                point: _markerPosition!,
-                width: 26,
-                height: 26,
-                child: const _CurrentLocationMarker(),
-              ),
+            MarkerLayer(
+              markers: [
+                if (widget.showRoute && widget.routePoints.isNotEmpty)
+                  Marker(
+                    point: widget.routePoints.first,
+                    width: 34,
+                    height: 34,
+                    child: const _StartMarker(),
+                  ),
+                if (_markerPosition != null)
+                  Marker(
+                    point: _markerPosition!,
+                    width: 42,
+                    height: 42,
+                    child: const _CurrentLocationMarker(),
+                  ),
+              ],
+            ),
           ],
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.26),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.32),
+                  ],
+                  stops: const [0.0, 0.18, 0.62, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.15),
+                  radius: 1.15,
+                  colors: [
+                    Colors.transparent,
+                    const Color(0xFF05111D).withValues(alpha: 0.18),
+                    const Color(0xFF02070D).withValues(alpha: 0.54),
+                  ],
+                  stops: const [0.0, 0.7, 1.0],
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -171,18 +225,22 @@ class _StartMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.green,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF2AF598), Color(0xFF12B886)],
+        ),
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 2.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withValues(alpha: 0.5),
-            blurRadius: 8,
+            color: const Color(0xFF2AF598).withValues(alpha: 0.45),
+            blurRadius: 14,
             spreadRadius: 2,
           ),
         ],
       ),
-      child: const Icon(Icons.flag, color: Colors.white, size: 18),
+      child: const Icon(Icons.flag_rounded, color: Colors.white, size: 18),
     );
   }
 }
@@ -195,28 +253,38 @@ class _CurrentLocationMarker extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Accuracy ring
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: const Color(0xFF00E5FF).withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+        ),
         Container(
           width: 26,
           height: 26,
           decoration: BoxDecoration(
-            color: const Color(0xff18b0e8).withValues(alpha: 0.15),
+            color: const Color(0xFF00E5FF).withValues(alpha: 0.18),
             shape: BoxShape.circle,
           ),
         ),
-        // Center blue dot
         Container(
-          width: 14,
-          height: 14,
+          width: 16,
+          height: 16,
           decoration: BoxDecoration(
-            color: const Color(0xff18b0e8),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFB5F8FF), Color(0xFF00D8FF)],
+            ),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xff18b0e8).withValues(alpha: 0.45),
-                blurRadius: 6,
-                spreadRadius: 1.5,
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.55),
+                blurRadius: 12,
+                spreadRadius: 2,
               ),
             ],
           ),

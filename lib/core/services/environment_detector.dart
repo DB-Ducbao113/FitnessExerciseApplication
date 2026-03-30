@@ -4,72 +4,63 @@ import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-// ─── Public types ────────────────────────────────────────────────────────────
+// State types
 
 enum TrackingEnvironment { detecting, outdoor, indoor }
 
-/// Emitted each time the classifier commits a new state.
+/// State change event.
 class ClassifierEvent {
   final TrackingEnvironment environment;
   final String reason;
   const ClassifierEvent(this.environment, this.reason);
 }
 
-// ─── Thresholds ──────────────────────────────────────────────────────────────
+// Thresholds
 
-/// Hard timeout: if no confident classification after this duration → Indoor.
+/// Detect timeout.
 const Duration _kMaxDetectDuration = Duration(seconds: 25);
 
-/// Minimum number of GPS points required before evaluating.
+/// Minimum samples before classification.
 const int _kMinWindowSize = 3;
 
 /// Sliding window size.
 const int _kWindowSize = 10;
 
-/// Outdoor: accuracy must be ≤ this.
-/// In debug mode we allow weaker accuracy (emulator GPS is simulated).
+/// Outdoor accuracy limit.
 double get _kOutdoorMaxAccuracy => kDebugLocationMode ? 50.0 : 20.0; // m
 
-/// Outdoor: net displacement must be ≥ this in the window.
-/// In debug (emulator) mode this is reduced to 3 m so the classifier fires
-/// quickly on short emulator routes.
+/// Outdoor displacement limit.
 double get _kOutdoorMinDisplacement => kDebugLocationMode ? 3.0 : 25.0; // m
 
-/// Outdoor: OR average GPS speed ≥ this (m/s).
+/// Outdoor speed limit.
 double get _kOutdoorMinSpeed => kDebugLocationMode ? 0.2 : 0.8; // m/s
 
-/// Outdoor: jitter ratio must be ≤ this (path is coherent).
+/// Outdoor jitter limit.
 const double _kOutdoorMaxJitterRatio = 4.0;
 
-/// Indoor (strong): accuracy ≥ this.
+/// Indoor accuracy limit.
 const double _kIndoorMinAccuracy = 35.0; // m
 
-/// Indoor (displacement): standing still = net displacement below this.
-const double _kIndoorMaxDisplacement =
-    20.0; // m (generous — covers slow walkers too)
+/// Indoor displacement limit.
+const double _kIndoorMaxDisplacement = 20.0; // m
 
-/// Indoor (jitter): GPS thrashing in place.
+/// Indoor jitter limit.
 const double _kIndoorMinJitterRatio = 8.0;
 
-/// Hysteresis: Outdoor → Indoor only after Indoor holds for this long.
+/// Hold time for outdoor -> indoor.
 const Duration _kOutdoorToIndoorHold = Duration(seconds: 30);
 
-/// Hysteresis: Indoor → Outdoor only after Outdoor holds for this long.
+/// Hold time for indoor -> outdoor.
 const Duration _kIndoorToOutdoorHold = Duration(seconds: 20);
 
-/// Debug logging every N seconds while detecting.
+/// Debug log interval.
 const Duration _kDebugInterval = Duration(seconds: 2);
 
-// ─── Classifier ──────────────────────────────────────────────────────────────
+// Classifier
 
-/// Continuous, stream-based Indoor/Outdoor state machine.
-///
-/// Call [addPosition] for every GPS update.
-/// Call [addStepDelta] whenever the pedometer fires.
-/// Listen to [stateStream] for [ClassifierEvent] transitions.
-/// Always call [dispose] when done.
+/// Stream-based indoor/outdoor classifier.
 class EnvironmentClassifier {
-  // ── State ─────────────────────────────────────────────────────────────────
+  // State
   final _window = Queue<Position>();
   int _stepsDeltaSinceLastEval = 0;
   TrackingEnvironment _committed = TrackingEnvironment.detecting;
@@ -86,12 +77,12 @@ class EnvironmentClassifier {
   Stream<ClassifierEvent> get stateStream => _controller.stream;
   TrackingEnvironment get currentState => _committed;
 
-  // ── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 
   void addPosition(Position p) {
     if (_controller.isClosed) return;
 
-    // Record when we first get GPS data (start the timeout clock)
+    // Start detect timeout on first GPS sample.
     _detectingStartTime ??= DateTime.now();
     _scheduleTimeoutIfNeeded();
 
@@ -112,16 +103,16 @@ class EnvironmentClassifier {
     if (!_controller.isClosed) _controller.close();
   }
 
-  // ── Timeout / Debug setup ─────────────────────────────────────────────────
+  // Timeout and debug
 
   void _scheduleTimeoutIfNeeded() {
     if (_committed != TrackingEnvironment.detecting) return;
-    if (_timeoutTimer != null) return; // already scheduled
+    if (_timeoutTimer != null) return;
 
-    // Hard timeout: force Indoor if still detecting after 25s
+    // Force indoor if detection takes too long.
     _timeoutTimer = Timer(_kMaxDetectDuration, _forceCommitOnTimeout);
 
-    // Debug log every 2s while detecting
+    // Periodic debug log while detecting.
     if (kDebugMode) {
       _debugTimer = Timer.periodic(_kDebugInterval, (_) {
         if (_committed != TrackingEnvironment.detecting) {
@@ -159,9 +150,9 @@ class EnvironmentClassifier {
     if (_controller.isClosed) return;
 
     final reason = StringBuffer('TIMEOUT(25s)');
-    TrackingEnvironment result = TrackingEnvironment.indoor; // safe fallback
+    TrackingEnvironment result = TrackingEnvironment.indoor;
 
-    // If window has data, do one last strict outdoor check
+    // Final outdoor check before fallback.
     if (_window.length >= _kMinWindowSize) {
       final m = _computeMetrics();
       reason.write(
@@ -183,21 +174,18 @@ class EnvironmentClassifier {
     _controller.add(ClassifierEvent(result, reason.toString()));
   }
 
-  // ── Evaluation ────────────────────────────────────────────────────────────
+  // Evaluation
 
   void _evaluate() {
     final metrics = _computeMetrics();
-    // Returns outdoor, indoor, or null (ambiguous)
     final candidateNow = _classify(metrics);
 
     if (candidateNow == null) {
-      // Ambiguous: during detecting, check if we've been ambiguous long enough
-      // to lean indoor (low displacement but accuracy in the grey zone 20–35m)
+      // During initial detection, ambiguous signals can still settle indoor.
       if (_committed == TrackingEnvironment.detecting) {
         final elapsed = _detectingStartTime == null
             ? Duration.zero
             : DateTime.now().difference(_detectingStartTime!);
-        // After 15s of ambiguous signals, commit indoor (better than staying stuck)
         if (elapsed >= const Duration(seconds: 15) &&
             metrics.netDisplacement < _kIndoorMaxDisplacement) {
           _commitDirect(
@@ -207,25 +195,23 @@ class EnvironmentClassifier {
           );
         }
       }
-      // For committed states, ambiguous = hold current state
       return;
     }
 
-    // Candidate is the same as committed (already in right state) — reset
+    // Reset when the candidate matches the committed state.
     if (candidateNow == _committed) {
       _candidate = null;
       _candidateStart = null;
       return;
     }
 
-    // New candidate or same candidate still holding?
+    // Start or continue hysteresis.
     if (_candidate != candidateNow) {
       _candidate = candidateNow;
       _candidateStart = DateTime.now();
       return;
     }
 
-    // Same candidate holding — check hysteresis duration
     final held = DateTime.now().difference(_candidateStart!);
     final required = _holdRequired(_committed, candidateNow);
     if (held >= required) {
@@ -237,12 +223,11 @@ class EnvironmentClassifier {
     }
   }
 
-  // ── Classification ────────────────────────────────────────────────────────
+  // Classification
 
-  /// Returns outdoor, indoor, or null (ambiguous — not enough evidence yet).
+  /// Returns outdoor, indoor, or null.
   TrackingEnvironment? _classify(_WindowMetrics m) {
-    // ── Emulator Debug Mode ──────────────────────────────────────────────────
-    // ── Outdoor ──────────────────────────────────────────────────────────────
+    // Outdoor rules
     if (m.avgAccuracy <= _kOutdoorMaxAccuracy &&
         (m.netDisplacement >= _kOutdoorMinDisplacement ||
             m.avgSpeed >= _kOutdoorMinSpeed) &&
@@ -251,29 +236,25 @@ class EnvironmentClassifier {
       return TrackingEnvironment.outdoor;
     }
 
-    // ── Indoor ───────────────────────────────────────────────────────────────
-    // Rule 1: poor accuracy — GPS unreliable indoors
+    // Indoor rules
     if (m.avgAccuracy >= _kIndoorMinAccuracy) {
       _stepsDeltaSinceLastEval = 0;
       return TrackingEnvironment.indoor;
     }
-    // Rule 2: not moving (displacement alone — no pedometer dependency)
     if (m.netDisplacement < _kIndoorMaxDisplacement) {
       _stepsDeltaSinceLastEval = 0;
       return TrackingEnvironment.indoor;
     }
-    // Rule 3: GPS thrashing (high jitter, not progressing)
     if (m.jitterRatio >= _kIndoorMinJitterRatio) {
       _stepsDeltaSinceLastEval = 0;
       return TrackingEnvironment.indoor;
     }
 
-    // ── Ambiguous ────────────────────────────────────────────────────────────
-    // accuracy between 20–35 m AND some displacement but not enough for outdoor
+    // Otherwise keep detecting.
     return null;
   }
 
-  // ── Metrics ───────────────────────────────────────────────────────────────
+  // Metrics
 
   _WindowMetrics _computeMetrics() {
     final pts = _window.toList();
@@ -311,7 +292,7 @@ class EnvironmentClassifier {
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // Helpers
 
   Duration _holdRequired(TrackingEnvironment from, TrackingEnvironment to) {
     if (from == TrackingEnvironment.outdoor &&
@@ -322,7 +303,6 @@ class EnvironmentClassifier {
         to == TrackingEnvironment.outdoor) {
       return _kIndoorToOutdoorHold;
     }
-    // detecting → outdoor/indoor: no hold, commit immediately
     return Duration.zero;
   }
 
@@ -344,7 +324,7 @@ class EnvironmentClassifier {
   }
 }
 
-// ─── Window metrics ───────────────────────────────────────────────────────────
+// Window metrics
 
 class _WindowMetrics {
   final double netDisplacement;

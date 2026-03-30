@@ -7,20 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ─── Public auth wrapper ──────────────────────────────────────────────────────
-//
-// Navigation is driven entirely by the Supabase auth-state stream — not by
-// manual Navigator.pushReplacement calls in individual screens.
-//
-// Every login / logout / token-refresh fires the StreamBuilder, and Riverpod
-// providers are invalidated so each account always sees only its own data.
-//
-// Screens import this widget and call:
-//   Navigator.of(context).pushAndRemoveUntil(
-//     MaterialPageRoute(builder: (_) => const AuthWrapper()),
-//     (_) => false,
-//   );
-// to reset the navigation stack to the root gate.
+// Root auth gate.
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
@@ -46,19 +33,18 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         final session = Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
 
-        // On sign-out: purge cached workout list so stale data is never shown
+        // Clear cached workouts on sign-out.
         if (event == AuthChangeEvent.signedOut) {
           Future.microtask(() {
             ref.invalidate(workoutListProvider);
           });
         }
 
-        // ── No session → Login ──────────────────────────────────────────────
         if (session == null) {
           return const LoginScreen();
         }
 
-        // ── Session → check profile ─────────────────────────────────────────
+        // Route signed-in users by profile state.
         final userId = session.user.id;
         final hasProfileAsync = ref.watch(hasUserProfileProvider(userId));
 
@@ -67,7 +53,6 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
               hasProfile ? const MainShell() : const ProfileSetupScreen(),
           loading: () =>
               const Scaffold(body: Center(child: CircularProgressIndicator())),
-          // Offline / Supabase error → fallback to profile setup (safe default)
           error: (error, stackTrace) => const ProfileSetupScreen(),
         );
       },

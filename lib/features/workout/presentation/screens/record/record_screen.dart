@@ -29,32 +29,11 @@ class RecordScreen extends ConsumerStatefulWidget {
   ConsumerState<RecordScreen> createState() => _RecordScreenState();
 }
 
-class _RecordScreenState extends ConsumerState<RecordScreen>
-    with WidgetsBindingObserver {
+class _RecordScreenState extends ConsumerState<RecordScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _startWorkout());
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
-    final status = ref.read(workoutSessionProvider).status;
-    final notifier = ref.read(workoutSessionProvider.notifier);
-    if (lifecycle == AppLifecycleState.paused &&
-        status == RecordingState.active) {
-      notifier.pauseWorkout();
-    } else if (lifecycle == AppLifecycleState.resumed &&
-        status == RecordingState.paused) {
-      notifier.resumeWorkout();
-    }
   }
 
   Future<void> _startWorkout() async {

@@ -56,6 +56,12 @@ Response
   "calories": 312
 }
 
+Notes
+
+- Current mobile app scope: `running`, `walking`, `cycling`
+- `calories` is a distance-based estimate persisted from the client workout flow
+- The backend should not recalculate calories using MET or duration-only formulas
+
 (D) GET HISTORY
 GET /workouts/{user_id}
 

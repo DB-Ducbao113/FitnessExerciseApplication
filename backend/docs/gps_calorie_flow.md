@@ -1,47 +1,70 @@
 [Mobile App]
-→ Collect GPS (lat, lon, timestamp)
-→ Send GPS batch to Backend
+-> Collect GPS and step data during the workout
+-> Compute distance, speed, and calories on device
+-> Send the finished workout session to Backend
 
 [Backend]
-→ Validate GPS data
-→ Calculate distance between points
-→ Calculate speed (km/h)
-→ Classify activity (walking / running)
-→ Calculate calories
-→ Store result
+-> Validate payload
+-> Persist workout session fields
+-> Keep calories as provided by the client
 
 [Database]
-→ gps_tracks
-→ workouts (type, duration, calories)
+-> workout_sessions
+-> gps_tracks
+
+1. Scope
+
+The current app flow is focused on:
+- running
+- walking
+- cycling
+
+Calories are distance-based and are calculated on the client, not on the backend.
+
+2. Client-side metrics
 
 2.1 Distance
 distance = sum(haversine(point[i], point[i+1]))
 
 2.2 Speed
-speed (km/h) = distance (km) / duration (hours)
+speed_kmh = distance_km / duration_hours
 
-2.3 Activity classification
-if speed < 6.0 → walking
-else → running
+2.3 Calories
 
-2.4 Calories
-MET_walking = 3.5
-MET_running = 7.0
+Base coefficient `k`:
+- running: 1.05
+- walking/cycling: 0.92
 
-calories = MET × weight_kg × duration_hours
+Speed bonus:
+- if speed_kmh > 10, add 0.05
+- if speed_kmh > 15, add another 0.05
 
-Input from mobile
+Formula:
+calories = weight_kg * distance_km * k * gender_factor
+
+Where:
+- gender_factor = 0.95 for female
+- gender_factor = 1.0 otherwise
+
+3. Backend expectation
+
+Input from mobile:
 {
-  workout_id,
-  latitude,
-  longitude,
-  timestamp
-}
-
-Output backend return
-{
-  total_distance_km,
-  avg_speed_kmh,
+  id,
+  user_id,
   activity_type,
-  calories
+  started_at,
+  ended_at,
+  duration_sec,
+  distance_km,
+  steps,
+  avg_speed_kmh,
+  calories_kcal,
+  mode,
+  lap_splits
 }
+
+Backend responsibility:
+- store the final workout session
+- preserve client-computed metrics
+- avoid recalculating calories with MET or duration-only formulas

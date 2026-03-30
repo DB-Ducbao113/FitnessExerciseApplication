@@ -14,17 +14,6 @@ const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
 
-bool _usesDistanceBasedCalories(String activityType) {
-  switch (activityType.toLowerCase()) {
-    case 'running':
-    case 'walking':
-    case 'cycling':
-      return true;
-    default:
-      return false;
-  }
-}
-
 class WorkoutEndScreen extends ConsumerStatefulWidget {
   final String sessionId;
   final String activityType;
@@ -55,6 +44,7 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
   double get _durationMinutes => widget.durationSeconds / 60;
 
   double? get _speed {
+    if (_durationMinutes <= 0) return null;
     final distance = double.tryParse(_distanceController.text);
     if (distance == null || distance == 0) return null;
     return distance / (_durationMinutes / 60);
@@ -78,28 +68,21 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
   int? get _calories {
     final profile = _getProfile();
     final distance = double.tryParse(_distanceController.text);
-
-    if (_usesDistanceBasedCalories(widget.activityType) &&
-        distance != null &&
-        distance > 0) {
-      final k = _calorieK(_speed ?? 0);
-      final weight = profile?.weightKg ?? 60.0;
-      final genderFactor = (profile?.gender.toLowerCase() == 'female')
-          ? 0.95
-          : 1.0;
-      return (weight * distance * k * genderFactor).round();
-    }
+    if (distance == null || distance <= 0) return null;
 
     if (profile != null) {
       return profile
           .calculateCalories(
             activityType: widget.activityType,
-            durationMinutes: _durationMinutes,
+            distanceKm: distance,
+            speedKmh: _speed ?? 0,
           )
           .round();
     }
 
-    return null;
+    final k = _calorieK(_speed ?? 0);
+    final weight = 60.0;
+    return (weight * distance * k).round();
   }
 
   Future<void> _saveWorkout() async {
@@ -224,7 +207,7 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'We will estimate speed and calories from your manual distance.',
+                        'We will estimate speed and distance-based calories from your manual distance.',
                         style: TextStyle(
                           color: _kMutedText,
                           fontSize: 13,
@@ -302,7 +285,7 @@ class _WorkoutEndScreenState extends ConsumerState<WorkoutEndScreen> {
                         const SizedBox(height: 12),
                         _MetricRow(
                           icon: Icons.local_fire_department_rounded,
-                          label: 'Estimated Calories',
+                          label: 'Distance-Based Calories',
                           value: '${_calories ?? 0} kcal',
                         ),
                       ],

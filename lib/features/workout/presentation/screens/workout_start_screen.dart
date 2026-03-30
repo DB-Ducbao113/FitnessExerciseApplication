@@ -424,12 +424,6 @@ IconData _activityIcon(String activityType) {
       return Icons.directions_bike_rounded;
     case 'walking':
       return Icons.directions_walk_rounded;
-    case 'swimming':
-      return Icons.pool_rounded;
-    case 'weights':
-      return Icons.fitness_center_rounded;
-    case 'yoga':
-      return Icons.self_improvement_rounded;
     default:
       return Icons.bolt_rounded;
   }

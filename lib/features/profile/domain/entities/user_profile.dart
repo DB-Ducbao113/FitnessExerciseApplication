@@ -31,34 +31,35 @@ class UserProfile with _$UserProfile {
     }
   }
 
-  // Calculate calories burned for an activity
-  // Formula: MET × weight (kg) × duration (hours)
+  // Calculate calories burned for distance-based activities.
   double calculateCalories({
     required String activityType,
-    required double durationMinutes,
+    required double distanceKm,
+    double speedKmh = 0,
   }) {
-    final met = _getMetValue(activityType);
-    final durationHours = durationMinutes / 60;
     final genderFactor = gender.toLowerCase() == 'female' ? 0.95 : 1.0;
-    return met * weightKg * durationHours * genderFactor;
+    if (distanceKm <= 0) return 0;
+    if (!_isDistanceBasedActivity(activityType)) return 0;
+    final k = _getDistanceCalorieFactor(activityType, speedKmh);
+    return weightKg * distanceKm * k * genderFactor;
   }
 
-  double _getMetValue(String activityType) {
+  bool _isDistanceBasedActivity(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'running':
-        return 8.0;
-      case 'cycling':
-        return 6.0;
       case 'walking':
-        return 3.5;
-      case 'swimming':
-        return 7.0;
-      case 'weights':
-        return 5.0;
-      case 'yoga':
-        return 3.0;
+      case 'cycling':
+        return true;
       default:
-        return 4.0;
+        return false;
     }
+  }
+
+  double _getDistanceCalorieFactor(String activityType, double speedKmh) {
+    final isRunning = activityType.toLowerCase().contains('run');
+    double k = isRunning ? 1.05 : 0.92;
+    if (speedKmh > 10) k += 0.05;
+    if (speedKmh > 15) k += 0.05;
+    return k;
   }
 }

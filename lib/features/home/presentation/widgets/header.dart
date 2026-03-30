@@ -3,10 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 
-/// AppHeader is now a [ConsumerWidget] so it can watch [currentUserProfileProvider]
-/// and display the real user avatar from Supabase Storage.
-/// Both ProfileScreen and AppHeader subscribe to [currentUserProfileProvider],
-/// so updating the avatar in Profile automatically refreshes the header on Home.
+/// Home header with live avatar data.
 class AppHeader extends ConsumerWidget {
   final VoidCallback? onMenuTap;
 
@@ -29,7 +26,7 @@ class AppHeader extends ConsumerWidget {
             painter: HeaderPainter(),
             size: const Size(double.infinity, 200),
           ),
-          // Menu button
+          // Menu
           Positioned(
             top: 20,
             left: 20,
@@ -38,12 +35,12 @@ class AppHeader extends ConsumerWidget {
               icon: const Icon(Icons.menu, color: Colors.white),
             ),
           ),
-          // Live avatar (top-right)
+          // Avatar
           Positioned(
             top: 25,
             right: 30,
             child: GestureDetector(
-              onTap: onMenuTap, // navigate to profile on avatar tap
+              onTap: onMenuTap,
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -73,7 +70,7 @@ class AppHeader extends ConsumerWidget {
               ),
             ),
           ),
-          // Greeting text
+          // Greeting
           Positioned(
             left: 33,
             bottom: 20,

@@ -15,41 +15,20 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-// kDebugLocationMode is defined in core/config/debug_config.dart
+// Constants
 
 const String kOutdoorMode = 'outdoor';
 const String kIndoorMode = 'indoor';
-const String kAutoTrackingMode = 'auto'; // detecting phase
+const String kAutoTrackingMode = 'auto'; // temporary mode before lock
 
-// ─── Calorie coefficients (k-factor per km, by activity + speed) ─────────────
+// Calories
 
 double _calorieK(String activityType, double speedKmh) {
   final isRunning = activityType.toLowerCase().contains('run');
-  double k = isRunning ? 1.05 : 0.92; // running / walking base
-  if (speedKmh > 10) k += 0.05; // fast run
-  if (speedKmh > 15) k += 0.05; // sprint
+  double k = isRunning ? 1.05 : 0.92;
+  if (speedKmh > 10) k += 0.05;
+  if (speedKmh > 15) k += 0.05;
   return k;
-}
-
-double _activityMet(String activityType) {
-  switch (activityType.toLowerCase()) {
-    case 'running':
-      return 8.0;
-    case 'cycling':
-      return 6.0;
-    case 'walking':
-      return 3.5;
-    case 'swimming':
-      return 7.0;
-    case 'weights':
-      return 5.0;
-    case 'yoga':
-      return 3.0;
-    default:
-      return 4.0;
-  }
 }
 
 bool _requiresGpsTracking(String activityType) {
@@ -63,7 +42,7 @@ bool _requiresGpsTracking(String activityType) {
   }
 }
 
-// ─── Stride length from activityType ───────────────
+// Stride
 
 String? _normalizeGender(String? gender) {
   final normalized = gender?.trim().toLowerCase();
@@ -95,16 +74,16 @@ double computeStrideLength({
       ? (normalizedGender == 'female' ? 0.62 : 0.67)
       : (normalizedGender == 'female' ? 0.40 : 0.43);
   final raw = heightCm * factor / 100;
-  return raw.clamp(0.50, 1.50); // sanity bounds in meters
+  return raw.clamp(0.50, 1.50);
 }
 
-// ─── State ────────────────────────────────────────────────────────────────────
+// State
 
 enum RecordingState { idle, initializing, active, paused, error }
 
 class WorkoutSessionState {
   final RecordingState status;
-  final String? sessionId; // The UUID generated at the END
+  final String? sessionId;
   final String activityType;
 
   final String trackingMode;
@@ -210,7 +189,7 @@ class WorkoutSessionState {
   }
 }
 
-// ─── Providers ────────────────────────────────────────────────────────────────
+// Providers
 
 final locationServiceProvider = Provider((ref) => LocationService());
 
@@ -220,12 +199,12 @@ final workoutSessionProvider =
       WorkoutSessionState
     >((ref) => WorkoutSessionNotifier(ref));
 
-// ─── Notifier ─────────────────────────────────────────────────────────────────
+// Notifier
 
 class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   final Ref _ref;
 
-  // Stream subscriptions
+  // Subscriptions
   StreamSubscription<Position>? _locationSub;
   StreamSubscription<int>? _stepSub;
   StreamSubscription<ClassifierEvent>? _classifierSub;
@@ -263,7 +242,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         ),
       );
 
-  // ─── Profile ──────────────────────────────────────────────────────────────
+  // Profile
 
   void setUserProfile({double? weightKg, double? heightCm, String? gender}) {
     if (weightKg != null && weightKg > 0) _weightKg = weightKg;
@@ -281,7 +260,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
   }
 
-  // ─── Public API ───────────────────────────────────────────────────────────
+  // Public API
 
   void startWorkout(String activityType) {
     final stride = computeStrideLength(
@@ -304,7 +283,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       trackingMode: kAutoTrackingMode,
       modeDecisionLocked: false,
       strideLengthMeters: stride,
-      startedAt: DateTime.now(), // Capture exact start time
+      startedAt: DateTime.now(),
     );
     debugPrint(
       '[Workout] startWorkout $activityType — stride=${stride.toStringAsFixed(2)}m',
@@ -343,8 +322,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
     _startStepCounterBackground();
 
-    // NOTE: Removed `_createWorkoutRecord`. The session is only saved upon stop.
-
     _stopwatch.reset();
     _startTicker();
     _startCalorieTimer();
@@ -365,7 +342,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
   }
 
-  // ─── GPS startup ──────────────────────────────────────────────────────────
+  // GPS
 
   Future<void> _startGpsBackground(String activityType) async {
     debugPrint('[Workout] GPS startup begin at ${DateTime.now()}');
@@ -395,7 +372,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
   }
 
-  // ─── Pedometer startup ────────────────────────────────────────────────────
+  // Steps
 
   Future<void> _startStepCounterBackground() async {
     debugPrint('[Workout] pedometer startup begin at ${DateTime.now()}');
@@ -410,7 +387,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
   }
 
-  // ─── Pause / Resume / Stop ────────────────────────────────────────────────
+  // Session control
 
   Future<void> pauseWorkout() async {
     _stopwatchAutoPaused = false;
@@ -455,7 +432,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _classifier?.dispose();
     _classifier = null;
 
-    // ── STEP 1: Final Metrics Snap ────────────────
+    // Final snapshot
     final finalCalories = _computeCalories();
     final finalDurationSec = state.durationSeconds;
     final finalMovingSec = state.movingTimeSeconds;
@@ -464,12 +441,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         ? finalDistKm / (finalMovingSec / 3600.0)
         : 0.0;
 
-    // ── STEP 2: Construct WorkoutSession with UUID ─────────────────────
     final userId = _ref.read(currentUserIdProvider);
     if (userId == null) throw Exception("Cannot save workout: No active user");
 
-    // Prefer the pedometer when it is available for both indoor and outdoor.
-    // Fall back to stride estimation only when the step sensor never reported.
+    // Prefer sensor steps, otherwise estimate from stride.
     int finalSteps = state.stepCount;
     if (finalSteps <= 0 && state.trackingMode != kIndoorMode) {
       final strideToUse = state.strideLengthMeters > 0
@@ -505,31 +480,20 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       );
     }
 
-    // ── STEP 3: Push to Persistence Layer ──────────────────────────────
     await _ref.read(workoutListProvider.notifier).saveSession(session);
 
     state = state.copyWith(status: RecordingState.idle);
   }
 
-  // ─── Calorie calculation ──────────────────────────────────────────────────
+  // Calories
 
   int _computeCalories() {
     final distKm = state.distanceMeters / 1000.0;
-    final genderFactor = _gender == 'female' ? 0.94 : 1.0;
+    if (distKm <= 0) return 0;
 
-    if (distKm > 0) {
-      final k = _calorieK(state.activityType, state.speedKmh);
-      return (_weightKg * distKm * k * genderFactor).round();
-    }
-
-    final activeSeconds = state.movingTimeSeconds > 0
-        ? state.movingTimeSeconds
-        : state.durationSeconds;
-    if (activeSeconds <= 0) return 0;
-
-    final durationHours = activeSeconds / 3600.0;
-    final met = _activityMet(state.activityType);
-    return (met * _weightKg * durationHours * genderFactor).round();
+    final genderFactor = _gender == 'female' ? 0.95 : 1.0;
+    final k = _calorieK(state.activityType, state.speedKmh);
+    return (_weightKg * distKm * k * genderFactor).round();
   }
 
   void _startCalorieTimer() {
@@ -545,7 +509,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     });
   }
 
-  // ─── Environment transitions ──────────────────────────────────────────────
+  // Mode changes
 
   void _onEnvironmentChanged(ClassifierEvent event) {
     if (!mounted) return;
@@ -566,7 +530,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _startCalorieTimer();
   }
 
-  // ─── GPS position handler ─────────────────────────────────────────────────
+  // GPS updates
 
   void _onPosition(Position position) {
     if (state.status != RecordingState.active) return;
@@ -582,7 +546,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       '[GPS] lat=${position.latitude}, lng=${position.longitude}, acc=${position.accuracy}, speed=${position.speed} | mode=${state.trackingMode}',
     );
 
-    // Indoor mode: update marker position and speed but skip route/distance.
+    // Indoor mode updates marker and speed only.
     if (state.trackingMode == kIndoorMode) {
       state = state.copyWith(
         currentLatLng: livePoint,
@@ -590,9 +554,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       );
       return;
     }
-    // Keep GPS rendering active during auto-detection so the start flag and
-    // current position appear immediately instead of waiting for classifier
-    // convergence.
+    // Keep rendering GPS while detection is still undecided.
     final effectivelyOutdoor = state.trackingMode != kIndoorMode;
     if (!effectivelyOutdoor) {
       state = state.copyWith(
@@ -602,7 +564,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       return;
     }
 
-    // ── First point: seed the route and return. ───────────────────────────────
+    // Seed the route with the first accepted point.
     if (state.routePoints.isEmpty) {
       _lastAcceptedPositionTime = position.timestamp;
       state = state.copyWith(
@@ -615,7 +577,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       return;
     }
 
-    // ── Subsequent points: apply light jitter filter. ─────────────────────────
+    // Filter noisy GPS segments.
     final lastPt = state.routePoints.last;
     final segmentMeters = Geolocator.distanceBetween(
       lastPt.latitude,
@@ -630,7 +592,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final maxAccuracy = kDebugLocationMode ? 100.0 : 30.0;
 
     if (segmentMeters < minSegmentMeters) {
-      // Position too close: still update marker but don't add segment.
+      // Ignore tiny segments.
       state = state.copyWith(
         currentLatLng: livePoint,
         speedKmh: state.speedKmh,
@@ -642,7 +604,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
 
     if (position.accuracy > maxAccuracy) {
-      // Accuracy too poor: still update marker but skip the route point.
+      // Ignore low-accuracy samples.
       state = state.copyWith(
         currentLatLng: livePoint,
         speedKmh: state.speedKmh,
@@ -756,7 +718,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     );
   }
 
-  // ─── Step handler ─────────────────────────────────────────────────────────
+  // Step updates
   void _onStep(int sessionSteps) {
     if (state.status != RecordingState.active) return;
 
@@ -770,7 +732,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
   }
 
-  // ─── Indoor distance (every 5s) ───────────────────────────────────────────
+  // Indoor distance
 
   void _updateIndoorDistanceFromSteps(int newSteps) {
     final addedDistM = newSteps * state.strideLengthMeters;
@@ -796,7 +758,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     );
   }
 
-  // ─── UI ticker (1s) ───────────────────────────────────────────────────────
+  // UI ticker
 
   void _startTicker() {
     _setAutoPauseState(false);
@@ -964,7 +926,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
   }
 
-  // ─── Dispose ─────────────────────────────────────────────────────────────
+  // Cleanup
 
   @override
   void dispose() {

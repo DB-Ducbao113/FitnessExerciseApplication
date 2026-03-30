@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -124,21 +125,38 @@ class LocationTrackingService {
     final distanceFilter = debugLocationMode
         ? 0
         : 3; // 0 = every point on emulator
-    final settings = AndroidSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: distanceFilter,
-      intervalDuration: debugLocationMode
-          ? const Duration(milliseconds: 250)
-          : const Duration(milliseconds: 800),
-      // forceLocationManager=true makes Android Emulator mock routes work correctly.
-      // The FusedLocationProvider sometimes ignores emulator mock locations.
-      forceLocationManager: debugLocationMode ? true : false,
-      foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationText: 'Tracking your workout',
-        notificationTitle: 'Fitness Tracker',
-        enableWakeLock: true,
-      ),
-    );
+    final LocationSettings settings;
+    if (Platform.isAndroid) {
+      settings = AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: distanceFilter,
+        intervalDuration: debugLocationMode
+            ? const Duration(milliseconds: 250)
+            : const Duration(milliseconds: 800),
+        // forceLocationManager=true makes Android Emulator mock routes work correctly.
+        // The FusedLocationProvider sometimes ignores emulator mock locations.
+        forceLocationManager: debugLocationMode ? true : false,
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: 'Tracking your workout',
+          notificationTitle: 'Fitness Tracker',
+          enableWakeLock: true,
+        ),
+      );
+    } else if (Platform.isIOS) {
+      settings = AppleSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: distanceFilter,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        allowBackgroundLocationUpdates: true,
+        showBackgroundLocationIndicator: true,
+      );
+    } else {
+      settings = LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: distanceFilter,
+      );
+    }
 
     debugPrint(
       '[GPS] startTracking activity=$activityType debug=$debugLocationMode mockPlayback=$debugMockPlaybackMode distanceFilter=$distanceFilter forceLocationManager=$debugLocationMode',

@@ -80,15 +80,15 @@ class WorkoutList extends _$WorkoutList {
     final user = ref.read(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
 
-    final profile = await ref.read(userProfileProvider(user).future);
-    if (profile == null) throw Exception('No user profile found');
-
-    final resolvedCalories =
-        caloriesKcal ??
-        profile.calculateCalories(
-          activityType: activityType,
-          durationMinutes: durationMinutes,
-        );
+    final resolvedCalories = caloriesKcal ?? await (() async {
+      final profile = await ref.read(userProfileProvider(user).future);
+      if (profile == null) return 0.0;
+      return profile.calculateCalories(
+        activityType: activityType,
+        distanceKm: distanceKm,
+        speedKmh: avgSpeedKmh ?? 0.0,
+      );
+    })();
 
     // Quick Add -> Generate UUID -> Save immediately
     final durationSec = (durationMinutes * 60).round();

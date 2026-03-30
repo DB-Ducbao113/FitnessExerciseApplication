@@ -6,54 +6,39 @@ import 'package:permission_handler/permission_handler.dart';
 
 final stepTrackingServiceProvider = Provider((ref) => StepTrackingService());
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// Constants
 
-/// Physiological ceiling: a very fast sprint = ~4.5 steps/sec.
-/// Any spike above this is sensor noise / vibration and is discarded.
+/// Max valid step rate.
 const double _kMaxStepsPerSec = 4.5;
 
-/// Minimum emit interval — throttle UI rebuilds.
+/// Emit throttle.
 const Duration _kEmitThrottle = Duration(milliseconds: 500);
 
-// ─── Service ──────────────────────────────────────────────────────────────────
+// Service
 
-/// Pedometer service that wraps the Android/iOS step detector.
-///
-/// Key design rules:
-///  1. BASELINE FIX — `Pedometer.stepCountStream` emits CUMULATIVE steps from
-///     device boot. We store `_baselineSteps` on the FIRST event of each
-///     session and compute `sessionSteps = event.steps - _baselineSteps`.
-///     We NEVER accumulate `event.steps` directly into a counter.
-///
-///  2. SUBSCRIPTION GUARD — `_isTracking` prevents double-start.
-///     `stopTracking()` must always be called before `startTracking()` again.
-///
-///  3. ANTI-SPIKE FILTER — events that imply > 4.5 steps/sec are discarded
-///     as vibration noise. The rate is computed from timestamps so it's
-///     immune to UI throttle delays.
+/// Session-based pedometer wrapper.
 class StepTrackingService {
-  // ── Subscriptions / stream ──────────────────────────────────────────────────
+  // Stream state
   StreamSubscription<StepCount>? _pedometerSub;
   final _outController = StreamController<int>.broadcast();
 
   Stream<int> get stepStream => _outController.stream;
 
-  // ── Session state ──────────────────────────────────────────────────────────
+  // Session state
   bool _isTracking = false;
 
-  /// Steps from device boot at the moment this session started.
-  /// -1 means "not yet set"  (first event pending).
+  /// First raw step count in the session.
   int _baselineSteps = -1;
 
-  /// The last VALID session step count emitted.
+  /// Last valid session step count.
   int _lastSessionSteps = 0;
 
-  // ── Spike filter state ─────────────────────────────────────────────────────
+  // Spike filter
   DateTime? _lastEventTime;
-  int _lastRawSteps = -1; // last raw event.steps (for rate calculation)
+  int _lastRawSteps = -1;
   DateTime? _lastEmit;
 
-  // ─── Permission ─────────────────────────────────────────────────────────────
+  // Permission
 
   Future<bool> _requestActivityPermission() async {
     debugPrint('[Steps] requesting ACTIVITY_RECOGNITION…');
@@ -62,19 +47,18 @@ class StepTrackingService {
     return status.isGranted || status.isLimited;
   }
 
-  // ─── Public API ─────────────────────────────────────────────────────────────
+  // Public API
 
-  /// Starts a fresh pedometer session.
-  /// Safe to call on any isolate — permission request is awaited first.
+  /// Starts a new pedometer session.
   Future<void> startTracking() async {
-    // ── Guard: one session at a time ──────────────────────────────────────────
+    // Ignore duplicate starts.
     if (_isTracking) {
       debugPrint('[Steps] startTracking ignored — already tracking');
       return;
     }
     _isTracking = true;
 
-    // ── Reset session state ───────────────────────────────────────────────────
+    // Reset session state.
     _baselineSteps = -1;
     _lastSessionSteps = 0;
     _lastEventTime = null;
@@ -90,7 +74,7 @@ class StepTrackingService {
       return;
     }
 
-    // Cancel any orphan subscription from previous session
+    // Cancel old subscription.
     await _pedometerSub?.cancel();
     _pedometerSub = null;
 
@@ -117,7 +101,7 @@ class StepTrackingService {
     _lastEmit = null;
   }
 
-  // ─── Event handler ───────────────────────────────────────────────────────────
+  // Events
 
   void _onStepCount(StepCount event) {
     if (!_isTracking) return;
@@ -125,22 +109,21 @@ class StepTrackingService {
     final rawSteps = event.steps;
     final now = DateTime.now();
 
-    // ── STEP 1: Set baseline on first event ────────────────────────────────────
+    // Capture baseline on the first sample.
     if (_baselineSteps == -1) {
       _baselineSteps = rawSteps;
       _lastRawSteps = rawSteps;
       _lastEventTime = now;
       debugPrint('[Steps] baseline=$_baselineSteps at $now');
-      // Emit 0 immediately so UI shows steps from session start
       _emit(0, now);
       return;
     }
 
-    // ── STEP 2: Compute raw delta since LAST event (for spike filter) ─────────
+    // Compute delta for spike filtering.
     final rawDelta = rawSteps - _lastRawSteps;
 
     if (rawDelta < 0) {
-      // Device rebooted mid-session — update baseline to absorb reset
+      // Handle counter reset.
       debugPrint(
         '[Steps] counter reset detected (rawDelta=$rawDelta), adjusting baseline',
       );
@@ -150,9 +133,9 @@ class StepTrackingService {
       return;
     }
 
-    if (rawDelta == 0) return; // no new steps
+    if (rawDelta == 0) return;
 
-    // ── STEP 3: Spike filter — discard physical impossibilities ───────────────
+    // Drop unrealistic spikes.
     if (_lastEventTime != null) {
       final elapsedSec =
           now.difference(_lastEventTime!).inMilliseconds / 1000.0;
@@ -164,7 +147,6 @@ class StepTrackingService {
             'in ${elapsedSec.toStringAsFixed(2)}s '
             '= ${stepsPerSec.toStringAsFixed(1)} steps/s > $_kMaxStepsPerSec',
           );
-          // Update tracking position but don't count these steps
           _lastRawSteps = rawSteps;
           _lastEventTime = now;
           return;
@@ -172,7 +154,7 @@ class StepTrackingService {
       }
     }
 
-    // ── STEP 4: Compute session steps from baseline ───────────────────────────
+    // Convert raw steps to session steps.
     final sessionSteps = rawSteps - _baselineSteps;
     _lastSessionSteps = sessionSteps;
     _lastRawSteps = rawSteps;
@@ -183,12 +165,11 @@ class StepTrackingService {
       'session=$sessionSteps delta=$rawDelta',
     );
 
-    // ── STEP 5: Emit (throttled) ──────────────────────────────────────────────
     _emit(sessionSteps, now);
   }
 
   void _emit(int sessionSteps, DateTime now) {
-    // Throttle: max one emit per _kEmitThrottle
+    // Throttle UI updates.
     if (_lastEmit != null && now.difference(_lastEmit!) < _kEmitThrottle) {
       return;
     }

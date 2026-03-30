@@ -13,12 +13,6 @@ class ActivityBreakdown extends StatelessWidget {
         return const Color(0xff4ECDC4);
       case 'walking':
         return const Color(0xff95E1D3);
-      case 'swimming':
-        return const Color(0xff3498DB);
-      case 'weights':
-        return const Color(0xff9B59B6);
-      case 'yoga':
-        return const Color(0xffF39C12);
       default:
         return const Color(0xff18b0e8);
     }
@@ -32,12 +26,6 @@ class ActivityBreakdown extends StatelessWidget {
         return Icons.directions_bike;
       case 'walking':
         return Icons.directions_walk;
-      case 'swimming':
-        return Icons.pool;
-      case 'weights':
-        return Icons.fitness_center;
-      case 'yoga':
-        return Icons.self_improvement;
       default:
         return Icons.fitness_center;
     }
