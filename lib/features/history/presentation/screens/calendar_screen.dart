@@ -1,40 +1,35 @@
+import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/daily_workout_list.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
-import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:table_calendar/table_calendar.dart';
 
-final selectedDateProvider = StateProvider<DateTime>(
-  (ref) => DateTimeHelper.localDateOnly(DateTime.now()),
+final historyRangeProvider = StateProvider<_HistoryRange>(
+  (ref) => _HistoryRange.all,
 );
 
-const _kBgTop = Color(0xff0a0e1a);
-const _kBgBottom = Color(0xff0d1b2a);
-const _kCardBg = Color(0xcc121b2c);
-const _kCardBorder = Color(0x2200e5ff);
-const _kMutedText = Color(0xff7d8da6);
-const _kNeonCyan = Color(0xff00e5ff);
-const _kNeonBlue = Color(0xff00bfff);
+const _kBgTop = Color(0xFF0A1320);
+const _kBgBottom = Color(0xFF08111B);
+const _kPanel = Color(0xFF102033);
+const _kPanelSoft = Color(0xFF12263C);
+const _kPanelBorder = Color(0x2200E5FF);
+const _kMutedText = Color(0xFF8A96A9);
+const _kMutedSoft = Color(0xFF627286);
+const _kNeonCyan = Color(0xFF19E2FF);
+const _kAmber = Color(0xFFFFB85C);
 
-class CalendarScreen extends ConsumerStatefulWidget {
+class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
 
   @override
-  ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
-}
-
-class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  DateTime _focusedDay = DateTimeHelper.localDateOnly(DateTime.now());
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final workoutsAsync = ref.watch(workoutListProvider);
-    final selectedDate = ref.watch(selectedDateProvider);
+    final range = ref.watch(historyRangeProvider);
 
     return Scaffold(
-      backgroundColor: _kBgTop,
+      backgroundColor: _kBgBottom,
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -46,159 +41,32 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         child: SafeArea(
           child: workoutsAsync.when(
             data: (workouts) {
-              final grouped = _groupWorkoutsByDate(workouts);
-              final selectedWorkouts = _workoutsForDate(selectedDate, workouts)
+              final filtered = _filterWorkouts(workouts, range)
                 ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
-              final summary = _DaySummary.fromWorkouts(selectedWorkouts);
+              final summary = _HistorySummary.fromWorkouts(filtered);
 
               return RefreshIndicator(
                 color: _kNeonCyan,
-                backgroundColor: _kCardBg,
+                backgroundColor: _kPanel,
                 onRefresh: () async {
                   await ref.read(workoutListProvider.notifier).refresh();
                 },
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 18),
                   children: [
-                    _HistoryHeader(
-                      selectedDate: selectedDate,
-                      onTodayTap: () {
-                        final today = DateTimeHelper.localDateOnly(
-                          DateTime.now(),
-                        );
-                        ref.read(selectedDateProvider.notifier).state = today;
-                        setState(() => _focusedDay = today);
+                    const _BrandHeader(),
+                    const SizedBox(height: 14),
+                    _HistoryOverview(summary: summary),
+                    const SizedBox(height: 12),
+                    _RangeTabs(
+                      selected: range,
+                      onChanged: (value) {
+                        ref.read(historyRangeProvider.notifier).state = value;
                       },
                     ),
-                    const SizedBox(height: 20),
-                    _GlassCard(
-                      child: TableCalendar<WorkoutSession>(
-                        firstDay: DateTime.utc(2020, 1, 1),
-                        lastDay: DateTime.utc(2035, 12, 31),
-                        focusedDay: _focusedDay,
-                        selectedDayPredicate: (day) =>
-                            isSameDay(selectedDate, day),
-                        onDaySelected: (selected, focused) {
-                          final normalized = DateTimeHelper.localDateOnly(
-                            selected,
-                          );
-                          ref.read(selectedDateProvider.notifier).state =
-                              normalized;
-                          setState(() => _focusedDay = focused);
-                        },
-                        eventLoader: (day) {
-                          final key = DateTimeHelper.localDateOnly(day);
-                          return grouped[key] ?? [];
-                        },
-                        startingDayOfWeek: StartingDayOfWeek.monday,
-                        calendarFormat: CalendarFormat.month,
-                        headerStyle: const HeaderStyle(
-                          formatButtonVisible: false,
-                          titleCentered: true,
-                          titleTextStyle: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          leftChevronIcon: Icon(
-                            Icons.chevron_left_rounded,
-                            color: Colors.white,
-                          ),
-                          rightChevronIcon: Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                        daysOfWeekStyle: const DaysOfWeekStyle(
-                          weekdayStyle: TextStyle(
-                            color: _kMutedText,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          weekendStyle: TextStyle(
-                            color: _kMutedText,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        calendarStyle: CalendarStyle(
-                          outsideTextStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.22),
-                          ),
-                          defaultTextStyle: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          weekendTextStyle: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          todayDecoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _kNeonBlue.withValues(alpha: 0.24),
-                            border: Border.all(
-                              color: _kNeonBlue.withValues(alpha: 0.50),
-                            ),
-                          ),
-                          selectedDecoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [_kNeonBlue, _kNeonCyan],
-                            ),
-                          ),
-                          markerDecoration: const BoxDecoration(
-                            color: _kNeonCyan,
-                            shape: BoxShape.circle,
-                          ),
-                          markersMaxCount: 3,
-                          cellMargin: const EdgeInsets.all(5),
-                        ),
-                        calendarBuilders: CalendarBuilders(
-                          markerBuilder: (_, _, events) {
-                            if (events.isEmpty) return null;
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 30),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: events.take(3).map((event) {
-                                  final workout = event;
-                                  return Container(
-                                    width: 5,
-                                    height: 5,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 1.5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: _activityColor(
-                                        workout.activityType,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: _activityColor(
-                                            workout.activityType,
-                                          ).withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _SelectedDaySummary(
-                      selectedDate: selectedDate,
-                      summary: summary,
-                    ),
-                    const SizedBox(height: 16),
-                    DailyWorkoutList(
-                      selectedDate: selectedDate,
-                      workouts: selectedWorkouts,
-                    ),
+                    const SizedBox(height: 12),
+                    DailyWorkoutList(workouts: filtered, range: range.label),
                   ],
                 ),
               );
@@ -221,158 +89,197 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       ),
     );
   }
+}
 
-  Map<DateTime, List<WorkoutSession>> _groupWorkoutsByDate(
-    List<WorkoutSession> workouts,
-  ) {
-    final map = <DateTime, List<WorkoutSession>>{};
-    for (final workout in workouts) {
-      final date = DateTimeHelper.localDateOnly(workout.startedAt);
-      map[date] = [...(map[date] ?? <WorkoutSession>[]), workout];
-    }
-    return map;
-  }
+class _BrandHeader extends ConsumerWidget {
+  const _BrandHeader();
 
-  List<WorkoutSession> _workoutsForDate(
-    DateTime date,
-    List<WorkoutSession> workouts,
-  ) {
-    final target = DateTimeHelper.localDateOnly(date);
-    return workouts.where((workout) {
-      return DateTimeHelper.localDateOnly(workout.startedAt) == target;
-    }).toList();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streak = ref.watch(streakProvider);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13263B),
+        border: Border(
+          bottom: BorderSide(color: _kNeonCyan.withValues(alpha: 0.18)),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Text(
+            'HISTORY',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.4,
+              color: Colors.white,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2B2A18),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _kAmber.withValues(alpha: 0.45)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.local_fire_department_rounded,
+                  color: Color(0xFFFFD364),
+                  size: 18,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '${streak.currentStreak}',
+                  style: TextStyle(
+                    color: Color(0xFFFFD364),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _HistoryHeader extends StatelessWidget {
-  final DateTime selectedDate;
-  final VoidCallback onTodayTap;
+class _HistoryOverview extends StatelessWidget {
+  const _HistoryOverview({required this.summary});
 
-  const _HistoryHeader({required this.selectedDate, required this.onTodayTap});
+  final _HistorySummary summary;
 
   @override
   Widget build(BuildContext context) {
+    final cards = [
+      _OverviewItem(
+        label: 'TOTAL KM',
+        value: summary.distanceKm.toStringAsFixed(1),
+        color: _kNeonCyan,
+        icon: Icons.place_outlined,
+      ),
+      _OverviewItem(
+        label: 'CALORIES',
+        value: '${summary.calories}',
+        color: _kAmber,
+        icon: Icons.local_fire_department_rounded,
+      ),
+      _OverviewItem(
+        label: 'SESSIONS',
+        value: '${summary.workouts}',
+        color: const Color(0xFF39F2B8),
+        icon: Icons.fitness_center_rounded,
+      ),
+    ];
+
     return Row(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'HISTORY',
-                style: TextStyle(
-                  color: _kMutedText,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Replay your training',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatHeaderDate(selectedDate),
-                style: const TextStyle(
-                  color: _kMutedText,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        TextButton.icon(
-          onPressed: onTodayTap,
-          style: TextButton.styleFrom(
-            foregroundColor: _kNeonCyan,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            backgroundColor: _kCardBg,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: const BorderSide(color: _kCardBorder),
-            ),
-          ),
-          icon: const Icon(Icons.today_rounded, size: 18),
-          label: const Text(
-            'Today',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
+        for (var i = 0; i < cards.length; i++) ...[
+          Expanded(child: _OverviewCard(item: cards[i])),
+          if (i != cards.length - 1) const SizedBox(width: 10),
+        ],
       ],
     );
   }
 }
 
-class _SelectedDaySummary extends StatelessWidget {
-  final DateTime selectedDate;
-  final _DaySummary summary;
+class _OverviewCard extends StatelessWidget {
+  const _OverviewCard({required this.item});
 
-  const _SelectedDaySummary({
-    required this.selectedDate,
-    required this.summary,
-  });
+  final _OverviewItem item;
 
   @override
   Widget build(BuildContext context) {
-    return _GlassCard(
+    return Container(
+      height: 74,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: _kPanelSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kPanelBorder),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(item.icon, color: item.color, size: 14),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: const TextStyle(
+                    color: _kMutedSoft,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
           Text(
-            _dayTitle(selectedDate),
+            item.value,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            summary.workouts == 0
-                ? 'No workouts logged for this day.'
-                : '${summary.workouts} workouts - ${summary.distanceKm.toStringAsFixed(1)} km - ${summary.calories} kcal',
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+        ],
+      ),
+    );
+  }
+}
+
+class _RangeTabs extends StatelessWidget {
+  const _RangeTabs({required this.selected, required this.onChanged});
+
+  final _HistoryRange selected;
+  final ValueChanged<_HistoryRange> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14304A),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          for (final value in _HistoryRange.values) ...[
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(value),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selected == value ? _kNeonCyan : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    value.label.toUpperCase(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected == value ? _kBgBottom : _kMutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          if (summary.workouts > 0) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryChip(
-                    icon: Icons.timer_outlined,
-                    label: 'Duration',
-                    value: '${(summary.durationSec / 60).round()} min',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SummaryChip(
-                    icon: Icons.local_fire_department_rounded,
-                    label: 'Calories',
-                    value: '${summary.calories}',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SummaryChip(
-                    icon: Icons.directions_walk_rounded,
-                    label: 'Steps',
-                    value: '${summary.steps}',
-                  ),
-                ),
-              ],
-            ),
+            if (value != _HistoryRange.values.last) const SizedBox(width: 4),
           ],
         ],
       ),
@@ -380,150 +287,85 @@ class _SelectedDaySummary extends StatelessWidget {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  final IconData icon;
+enum _HistoryRange { all, week, month, year }
+
+extension on _HistoryRange {
+  String get label {
+    switch (this) {
+      case _HistoryRange.all:
+        return 'All';
+      case _HistoryRange.week:
+        return 'Week';
+      case _HistoryRange.month:
+        return 'Month';
+      case _HistoryRange.year:
+        return 'Year';
+    }
+  }
+}
+
+class _OverviewItem {
   final String label;
   final String value;
+  final Color color;
+  final IconData icon;
 
-  const _SummaryChip({
-    required this.icon,
+  const _OverviewItem({
     required this.label,
     required this.value,
+    required this.color,
+    required this.icon,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xff101a29),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kCardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: _kNeonCyan, size: 18),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              color: _kMutedText,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _GlassCard extends StatelessWidget {
-  final Widget child;
-
-  const _GlassCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _kCardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: _kNeonCyan.withValues(alpha: 0.08),
-            blurRadius: 24,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-class _DaySummary {
+class _HistorySummary {
   final int workouts;
   final double distanceKm;
-  final int durationSec;
   final int calories;
-  final int steps;
 
-  const _DaySummary({
+  const _HistorySummary({
     required this.workouts,
     required this.distanceKm,
-    required this.durationSec,
     required this.calories,
-    required this.steps,
   });
 
-  factory _DaySummary.fromWorkouts(List<WorkoutSession> workouts) {
-    return _DaySummary(
+  factory _HistorySummary.fromWorkouts(List<WorkoutSession> workouts) {
+    return _HistorySummary(
       workouts: workouts.length,
       distanceKm: workouts.fold(0.0, (sum, item) => sum + item.distanceKm),
-      durationSec: workouts.fold(0, (sum, item) => sum + item.durationSec),
       calories: workouts.fold(
         0,
         (sum, item) => sum + item.caloriesKcal.round(),
       ),
-      steps: workouts.fold(0, (sum, item) => sum + item.steps),
     );
   }
 }
 
-String _formatHeaderDate(DateTime date) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${months[date.month - 1]} ${date.day}, ${date.year}';
-}
+List<WorkoutSession> _filterWorkouts(
+  List<WorkoutSession> workouts,
+  _HistoryRange range,
+) {
+  if (range == _HistoryRange.all) return List<WorkoutSession>.from(workouts);
 
-String _dayTitle(DateTime date) {
-  final today = DateTimeHelper.localDateOnly(DateTime.now());
-  final normalized = DateTimeHelper.localDateOnly(date);
-  if (normalized == today) return 'Today';
-  if (normalized == today.subtract(const Duration(days: 1))) return 'Yesterday';
-  return _formatHeaderDate(normalized);
-}
+  final now = DateTimeHelper.localDateOnly(DateTime.now());
+  late final DateTime start;
 
-Color _activityColor(String activity) {
-  switch (activity.toLowerCase()) {
-    case 'running':
-      return const Color(0xffFF6B6B);
-    case 'cycling':
-      return const Color(0xff4ECDC4);
-    case 'walking':
-      return const Color(0xff95E1D3);
-    case 'swimming':
-      return const Color(0xff3498DB);
-    case 'weights':
-      return const Color(0xff9B59B6);
-    case 'yoga':
-      return const Color(0xffF39C12);
-    default:
-      return _kNeonCyan;
+  switch (range) {
+    case _HistoryRange.week:
+      start = now.subtract(Duration(days: now.weekday - 1));
+      break;
+    case _HistoryRange.month:
+      start = DateTime(now.year, now.month, 1);
+      break;
+    case _HistoryRange.year:
+      start = DateTime(now.year, 1, 1);
+      break;
+    case _HistoryRange.all:
+      start = DateTime(2000);
+      break;
   }
+
+  return workouts.where((workout) {
+    return !DateTimeHelper.localDateOnly(workout.startedAt).isBefore(start);
+  }).toList();
 }

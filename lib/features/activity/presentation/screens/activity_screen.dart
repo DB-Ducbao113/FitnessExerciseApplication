@@ -34,28 +34,6 @@ class ActivityScreen extends StatelessWidget {
       Icons.directions_walk,
       'Steps with optional GPS',
     ),
-    // Temporarily hidden while the app focuses on the 3 core activities.
-    // (
-    //   'swimming',
-    //   'Swimming',
-    //   'assets/swimming.jpg',
-    //   Icons.pool,
-    //   'Duration focus',
-    // ),
-    // (
-    //   'weights',
-    //   'Weights',
-    //   'assets/weights.jpg',
-    //   Icons.fitness_center,
-    //   'Indoor strength logging',
-    // ),
-    // (
-    //   'yoga',
-    //   'Yoga',
-    //   'assets/yoga.jpg',
-    //   Icons.self_improvement,
-    //   'Mobility and recovery',
-    // ),
   ];
 
   @override
@@ -76,16 +54,6 @@ class ActivityScreen extends StatelessWidget {
             children: [
               const Text(
                 'ACTIVITY',
-                style: TextStyle(
-                  color: _kMutedText,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Choose activity',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 26,

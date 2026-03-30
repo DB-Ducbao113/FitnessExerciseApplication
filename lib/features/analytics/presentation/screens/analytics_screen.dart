@@ -1,8 +1,9 @@
-import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
-import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -12,14 +13,17 @@ final selectedPeriodProvider = StateProvider<TimePeriod>(
   (ref) => TimePeriod.week,
 );
 
-const _kBgTop = Color(0xff0a0e1a);
-const _kBgBottom = Color(0xff0d1b2a);
-const _kCardBg = Color(0xcc121b2c);
-const _kCardBorder = Color(0x2200e5ff);
-const _kMutedText = Color(0xff7d8da6);
-const _kNeonCyan = Color(0xff00e5ff);
-const _kNeonBlue = Color(0xff00bfff);
-const _kNeonPurple = Color(0xff6a5cff);
+const _kBg = Color(0xFF0B111D);
+const _kBgSoft = Color(0xFF121A27);
+const _kCard = Color(0xFF242C3A);
+const _kCardSoft = Color(0xFF1A212D);
+const _kTrack = Color(0xFF343B48);
+const _kMutedText = Color(0xFFB7C0CC);
+const _kMutedSoft = Color(0xFF7D8DA6);
+const _kNeonCyan = Color(0xFF21D9F8);
+const _kAmber = Color(0xFFFFB85C);
+const _kRed = Color(0xFFE02431);
+const _kSlate = Color(0xFF6F7F8F);
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
@@ -30,70 +34,72 @@ class StatsScreen extends ConsumerWidget {
     final period = ref.watch(selectedPeriodProvider);
 
     return Scaffold(
-      backgroundColor: _kBgTop,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_kBgTop, _kBgBottom],
-          ),
-        ),
-        child: SafeArea(
-          child: workoutsAsync.when(
-            data: (workouts) {
-              final filtered = _filterWorkouts(workouts, period);
-              final summary = _AnalyticsSummary.fromWorkouts(filtered);
-              final records = _PersonalRecords.fromWorkouts(workouts);
-              final chart = _chartData(filtered, period);
-              final breakdown = _activityBreakdown(filtered);
+      backgroundColor: _kBg,
+      body: SafeArea(
+        child: workoutsAsync.when(
+          data: (workouts) {
+            final filtered = _filterWorkouts(workouts, period);
+            final summary = _AnalyticsSummary.fromWorkouts(filtered);
+            final records = _PersonalRecords.fromWorkouts(workouts);
+            final chart = _chartData(filtered, period);
+            final breakdown = _activityBreakdown(filtered);
+            final average = chart.isEmpty
+                ? 0.0
+                : chart.values.fold<double>(0, (sum, v) => sum + v) /
+                      chart.length;
 
-              return RefreshIndicator(
-                color: _kNeonCyan,
-                backgroundColor: _kCardBg,
-                onRefresh: () async {
-                  await ref.read(workoutListProvider.notifier).refresh();
-                },
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                  children: [
-                    const _AnalyticsHeader(),
-                    const SizedBox(height: 18),
-                    _PeriodSelector(
-                      selectedPeriod: period,
-                      onChanged: (value) {
-                        ref.read(selectedPeriodProvider.notifier).state = value;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    _OverviewGrid(summary: summary),
-                    const SizedBox(height: 16),
-                    _GoalBanner(progress: ref.watch(goalProgressProvider)),
-                    const SizedBox(height: 16),
-                    _TrendCard(chartData: chart, period: period),
-                    const SizedBox(height: 16),
-                    _RecordsCard(records: records),
-                    const SizedBox(height: 16),
-                    _BreakdownCard(
-                      breakdown: breakdown,
-                      total: filtered.length,
-                    ),
-                  ],
-                ),
-              );
-            },
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: _kNeonCyan),
-            ),
-            error: (error, _) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Could not load analytics.\n$error',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white),
-                ),
+            return RefreshIndicator(
+              color: _kNeonCyan,
+              backgroundColor: _kCardSoft,
+              onRefresh: () async {
+                await ref.read(workoutListProvider.notifier).refresh();
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(24, 10, 24, 28),
+                children: [
+                  const _AnalyticsTopBar(),
+                  const SizedBox(height: 24),
+                  _PeriodSwitcher(
+                    selectedPeriod: period,
+                    onChanged: (value) {
+                      ref.read(selectedPeriodProvider.notifier).state = value;
+                    },
+                  ),
+                  const SizedBox(height: 22),
+                  _OverviewGrid(summary: summary),
+                  const SizedBox(height: 26),
+                  _GoalProgressSection(
+                    progress: ref.watch(goalProgressProvider),
+                  ),
+                  const SizedBox(height: 26),
+                  _WeekTrendCard(
+                    chartData: chart,
+                    period: period,
+                    average: average,
+                  ),
+                  const SizedBox(height: 28),
+                  const _SectionTitle(title: 'PERSONAL RECORDS'),
+                  const SizedBox(height: 14),
+                  _RecordsList(records: records),
+                  const SizedBox(height: 24),
+                  _ActivityDistributionCard(
+                    breakdown: breakdown,
+                    total: filtered.length,
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () =>
+              const Center(child: CircularProgressIndicator(color: _kNeonCyan)),
+          error: (error, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Could not load analytics.\n$error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
               ),
             ),
           ),
@@ -103,89 +109,108 @@ class StatsScreen extends ConsumerWidget {
   }
 }
 
-class _AnalyticsHeader extends StatelessWidget {
-  const _AnalyticsHeader();
+class _AnalyticsTopBar extends ConsumerWidget {
+  const _AnalyticsTopBar();
 
   @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final avatarUrl = ref
+        .watch(currentUserProfileProvider)
+        .valueOrNull
+        ?.avatarUrl;
+
+    return Row(
       children: [
-        Text(
+        const Text(
           'ANALYTICS',
           style: TextStyle(
-            color: _kMutedText,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.8,
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'Progress',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 26,
+            color: _kNeonCyan,
+            fontSize: 22,
             fontWeight: FontWeight.w900,
+            letterSpacing: 1.0,
           ),
         ),
-        SizedBox(height: 4),
-        Text(
-          'Trends and records.',
-          style: TextStyle(
-            color: _kMutedText,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+        const Spacer(),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: const Color(0xFF3A414D),
+            borderRadius: BorderRadius.circular(999),
+            image: avatarUrl != null && avatarUrl.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(avatarUrl),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
+          child: avatarUrl == null || avatarUrl.isEmpty
+              ? const Icon(
+                  Icons.person_outline_rounded,
+                  color: Color(0xFFD7E9F2),
+                  size: 22,
+                )
+              : null,
         ),
       ],
     );
   }
 }
 
-class _PeriodSelector extends StatelessWidget {
-  final TimePeriod selectedPeriod;
-  final ValueChanged<TimePeriod> onChanged;
-
-  const _PeriodSelector({
+class _PeriodSwitcher extends StatelessWidget {
+  const _PeriodSwitcher({
     required this.selectedPeriod,
     required this.onChanged,
   });
 
+  final TimePeriod selectedPeriod;
+  final ValueChanged<TimePeriod> onChanged;
+
   @override
   Widget build(BuildContext context) {
-    return _GlassCard(
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: _kBgSoft,
+        borderRadius: BorderRadius.circular(999),
+      ),
       child: Row(
         children: [
-          for (final period in TimePeriod.values) ...[
+          for (final period in TimePeriod.values)
             Expanded(
               child: GestureDetector(
                 onTap: () => onChanged(period),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    gradient: selectedPeriod == period
-                        ? const LinearGradient(colors: [_kNeonBlue, _kNeonCyan])
-                        : null,
+                    borderRadius: BorderRadius.circular(999),
                     color: selectedPeriod == period
-                        ? null
-                        : Colors.white.withValues(alpha: 0.03),
+                        ? _kNeonCyan
+                        : Colors.transparent,
+                    boxShadow: selectedPeriod == period
+                        ? [
+                            BoxShadow(
+                              color: _kNeonCyan.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Text(
                     _periodLabel(period),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: selectedPeriod == period ? _kBgTop : Colors.white,
-                      fontWeight: FontWeight.w800,
+                      color: selectedPeriod == period ? _kBg : _kMutedText,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ),
             ),
-            if (period != TimePeriod.values.last) const SizedBox(width: 8),
-          ],
         ],
       ),
     );
@@ -193,34 +218,40 @@ class _PeriodSelector extends StatelessWidget {
 }
 
 class _OverviewGrid extends StatelessWidget {
-  final _AnalyticsSummary summary;
-
   const _OverviewGrid({required this.summary});
+
+  final _AnalyticsSummary summary;
 
   @override
   Widget build(BuildContext context) {
     final cards = [
       _OverviewItem(
         icon: Icons.fitness_center_rounded,
-        label: 'Workouts',
+        label: 'WORKOUTS',
         value: '${summary.totalWorkouts}',
+        suffix: '',
+        color: _kNeonCyan,
       ),
       _OverviewItem(
-        icon: Icons.straighten_rounded,
-        label: 'Distance',
-        value: '${summary.totalDistanceKm.toStringAsFixed(1)} km',
+        icon: Icons.route_rounded,
+        label: 'DISTANCE',
+        value: summary.totalDistanceKm.toStringAsFixed(1),
+        suffix: ' km',
+        color: _kAmber,
       ),
       _OverviewItem(
-        icon: Icons.timer_outlined,
-        label: 'Active Time',
-        value: WorkoutFormatters.formatDurationFromSeconds(
-          summary.totalDurationSec,
-        ),
+        icon: Icons.timer_rounded,
+        label: 'ACTIVE TIME',
+        value: _minutesLabel(summary.totalDurationSec),
+        suffix: ' min',
+        color: _kNeonCyan,
       ),
       _OverviewItem(
         icon: Icons.local_fire_department_rounded,
-        label: 'Calories',
-        value: '${summary.totalCalories} kcal',
+        label: 'CALORIES',
+        value: '${summary.totalCalories}',
+        suffix: ' kcal',
+        color: _kRed,
       ),
     ];
 
@@ -230,52 +261,79 @@ class _OverviewGrid extends StatelessWidget {
       itemCount: cards.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
         childAspectRatio: 1.18,
       ),
-      itemBuilder: (_, index) => _OverviewCard(item: cards[index]),
+      itemBuilder: (_, index) => _StatOverviewCard(item: cards[index]),
     );
   }
 }
 
-class _OverviewCard extends StatelessWidget {
-  final _OverviewItem item;
+class _StatOverviewCard extends StatelessWidget {
+  const _StatOverviewCard({required this.item});
 
-  const _OverviewCard({required this.item});
+  final _OverviewItem item;
 
   @override
   Widget build(BuildContext context) {
-    return _GlassCard(
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: const Color(0xff101a29),
-            ),
-            child: Icon(item.icon, color: _kNeonCyan, size: 20),
+          Row(
+            children: [
+              Icon(item.icon, color: item.color, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: const TextStyle(
+                    color: _kMutedText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
           const Spacer(),
-          Text(
-            item.value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.label,
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  item.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFE8EDF5),
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1.4,
+                    height: 0.95,
+                  ),
+                ),
+              ),
+              if (item.suffix.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 4),
+                  child: Text(
+                    item.suffix.trim(),
+                    style: const TextStyle(
+                      color: _kMutedText,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -283,32 +341,25 @@ class _OverviewCard extends StatelessWidget {
   }
 }
 
-class _GoalBanner extends StatelessWidget {
-  final GoalProgress? progress;
+class _GoalProgressSection extends StatelessWidget {
+  const _GoalProgressSection({required this.progress});
 
-  const _GoalBanner({required this.progress});
+  final GoalProgress? progress;
 
   @override
   Widget build(BuildContext context) {
     if (progress == null) {
-      return _GlassCard(
-        child: const Column(
+      return const _CardShell(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Goal progress',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            _SectionTitle(title: 'GOAL PROGRESS'),
             SizedBox(height: 8),
             Text(
-              'Set a goal to see your weekly progress here.',
+              'Set a goal to see your progress here.',
               style: TextStyle(
-                color: _kMutedText,
-                fontSize: 13,
+                color: _kMutedSoft,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -319,114 +370,144 @@ class _GoalBanner extends StatelessWidget {
 
     final goal = progress!;
 
-    return _GlassCard(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(title: 'GOAL PROGRESS'),
+        const SizedBox(height: 2),
+        Text(
+          goal.unit == 'km' ? 'MONTHLY DISTANCE' : 'CURRENT GOAL',
+          style: const TextStyle(
+            color: _kMutedText,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            '${goal.percent}%',
+            style: const TextStyle(
+              color: _kNeonCyan,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: goal.ratio,
+            minHeight: 15,
+            backgroundColor: _kTrack,
+            valueColor: const AlwaysStoppedAnimation<Color>(_kNeonCyan),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Text(
+              '${goal.currentLabel} ${goal.unit}'.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${goal.targetLabel} ${goal.unit} TARGET'.toUpperCase(),
+              style: const TextStyle(
+                color: _kMutedText,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _WeekTrendCard extends StatelessWidget {
+  const _WeekTrendCard({
+    required this.chartData,
+    required this.period,
+    required this.average,
+  });
+
+  final Map<String, double> chartData;
+  final TimePeriod period;
+  final double average;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = chartData.keys.toList();
+    final values = chartData.values.toList();
+    final maxY = values.isEmpty
+        ? 1.0
+        : values.reduce((a, b) => a > b ? a : b) + 1;
+    final selectedIndex = values.isEmpty
+        ? -1
+        : values.indexOf(values.reduce((a, b) => a >= b ? a : b));
+
+    return _CardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(
+              Text(
+                '${_periodLabel(period).toUpperCase()} TREND',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF133444),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: Text(
-                  'Goal progress',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
+                  'Avg: ${average.toStringAsFixed(1)}',
+                  style: const TextStyle(
+                    color: _kNeonCyan,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              Text(
-                '${goal.percent}%',
-                style: const TextStyle(
-                  color: _kNeonCyan,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: goal.ratio,
-              minHeight: 10,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
-              valueColor: const AlwaysStoppedAnimation<Color>(_kNeonCyan),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '${goal.currentLabel} / ${goal.targetLabel} ${goal.unit}',
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TrendCard extends StatelessWidget {
-  final Map<String, double> chartData;
-  final TimePeriod period;
-
-  const _TrendCard({required this.chartData, required this.period});
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${_periodLabel(period)} trend',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Workout count across the selected period.',
-            style: TextStyle(
-              color: _kMutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
           ),
           const SizedBox(height: 18),
           SizedBox(
-            height: 220,
-            child: chartData.values.every((value) => value == 0)
+            height: 210,
+            child: values.every((value) => value == 0)
                 ? const Center(
                     child: Text(
                       'No activity in this period',
-                      style: TextStyle(color: _kMutedText),
+                      style: TextStyle(color: _kMutedSoft),
                     ),
                   )
                 : BarChart(
                     BarChartData(
+                      maxY: maxY,
                       alignment: BarChartAlignment.spaceAround,
-                      maxY:
-                          chartData.values.reduce((a, b) => a > b ? a : b) + 1,
                       barTouchData: BarTouchData(enabled: false),
                       borderData: FlBorderData(show: false),
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                        horizontalInterval: 1,
-                        getDrawingHorizontalLine: (_) {
-                          return FlLine(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            strokeWidth: 1,
-                          );
-                        },
-                      ),
+                      gridData: const FlGridData(show: false),
                       titlesData: FlTitlesData(
                         topTitles: const AxisTitles(
                           sideTitles: SideTitles(showTitles: false),
@@ -434,36 +515,26 @@ class _TrendCard extends StatelessWidget {
                         rightTitles: const AxisTitles(
                           sideTitles: SideTitles(showTitles: false),
                         ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 28,
-                            getTitlesWidget: (value, _) => Text(
-                              value.toInt().toString(),
-                              style: const TextStyle(
-                                color: _kMutedText,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
+                        leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
                         ),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
                             getTitlesWidget: (value, _) {
-                              final labels = chartData.keys.toList();
                               final index = value.toInt();
                               if (index < 0 || index >= labels.length) {
                                 return const SizedBox.shrink();
                               }
+                              final selected = index == selectedIndex;
                               return Padding(
-                                padding: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.only(top: 10),
                                 child: Text(
                                   labels[index],
-                                  style: const TextStyle(
-                                    color: _kMutedText,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
+                                  style: TextStyle(
+                                    color: selected ? _kNeonCyan : _kMutedText,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               );
@@ -472,22 +543,38 @@ class _TrendCard extends StatelessWidget {
                         ),
                       ),
                       barGroups: [
-                        for (var i = 0; i < chartData.length; i++)
+                        for (var i = 0; i < values.length; i++)
                           BarChartGroupData(
                             x: i,
                             barRods: [
                               BarChartRodData(
-                                toY: chartData.values.elementAt(i),
-                                width: 16,
+                                toY: values[i],
+                                width: 36,
                                 borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(6),
-                                  topRight: Radius.circular(6),
+                                  topLeft: Radius.circular(10),
+                                  topRight: Radius.circular(10),
                                 ),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [_kNeonBlue, _kNeonCyan],
-                                ),
+                                gradient: i == selectedIndex
+                                    ? LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          _kNeonCyan.withValues(alpha: 0.55),
+                                          _kNeonCyan,
+                                        ],
+                                      )
+                                    : LinearGradient(
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                        colors: [
+                                          const Color(
+                                            0xFF173140,
+                                          ).withValues(alpha: 0.55),
+                                          const Color(
+                                            0xFF1F7D90,
+                                          ).withValues(alpha: 0.85),
+                                        ],
+                                      ),
                               ),
                             ],
                           ),
@@ -501,82 +588,125 @@ class _TrendCard extends StatelessWidget {
   }
 }
 
-class _RecordsCard extends StatelessWidget {
-  final _PersonalRecords records;
+class _RecordsList extends StatelessWidget {
+  const _RecordsList({required this.records});
 
-  const _RecordsCard({required this.records});
+  final _PersonalRecords records;
 
   @override
   Widget build(BuildContext context) {
-    return _GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Personal records',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _RecordRow(
-            label: 'Longest distance',
-            value: '${records.longestDistance.toStringAsFixed(1)} km',
-          ),
-          const SizedBox(height: 10),
-          _RecordRow(
-            label: 'Longest duration',
-            value: WorkoutFormatters.formatDurationFromSeconds(
-              records.longestDurationSec,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _RecordRow(
-            label: 'Most calories',
-            value: '${records.highestCalories} kcal',
-          ),
-          const SizedBox(height: 10),
-          _RecordRow(label: 'Top activity', value: records.topActivity),
-        ],
+    final items = [
+      _RecordItem(
+        label: 'LONGEST DISTANCE',
+        title: 'Marathon Run',
+        value: '${records.longestDistance.toStringAsFixed(1)} km',
+        date: 'Best record',
+        icon: Icons.emoji_events_rounded,
+        color: _kAmber,
       ),
+      _RecordItem(
+        label: 'LONGEST DURATION',
+        title: 'Endurance Session',
+        value: WorkoutFormatters.formatDurationFromSeconds(
+          records.longestDurationSec,
+        ),
+        date: 'Best record',
+        icon: Icons.timer_rounded,
+        color: _kNeonCyan,
+      ),
+      _RecordItem(
+        label: 'MOST CALORIES',
+        title: 'High Burn Session',
+        value: '${records.highestCalories} kcal',
+        date: records.topActivity,
+        icon: Icons.local_fire_department_rounded,
+        color: _kRed,
+      ),
+    ];
+
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          _RecordCard(item: items[i]),
+          if (i != items.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }
 
-class _RecordRow extends StatelessWidget {
-  final String label;
-  final String value;
+class _RecordCard extends StatelessWidget {
+  const _RecordCard({required this.item});
 
-  const _RecordRow({required this.label, required this.value});
+  final _RecordItem item;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xff101a29),
-        borderRadius: BorderRadius.circular(16),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Icon(item.icon, color: item.color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.label,
+                  style: const TextStyle(
+                    color: _kMutedText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                item.value,
+                style: TextStyle(
+                  color: item.color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.date,
+                style: const TextStyle(
+                  color: _kMutedText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -584,73 +714,74 @@ class _RecordRow extends StatelessWidget {
   }
 }
 
-class _BreakdownCard extends StatelessWidget {
+class _ActivityDistributionCard extends StatelessWidget {
+  const _ActivityDistributionCard({
+    required this.breakdown,
+    required this.total,
+  });
+
   final Map<String, int> breakdown;
   final int total;
 
-  const _BreakdownCard({required this.breakdown, required this.total});
-
   @override
   Widget build(BuildContext context) {
-    return _GlassCard(
+    return _CardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Activity breakdown',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
+          const Center(
+            child: Text(
+              'ACTIVITY DISTRIBUTION',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+              ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 22),
           if (breakdown.isEmpty)
             const Text(
               'No activity data in this period.',
-              style: TextStyle(color: _kMutedText),
+              style: TextStyle(color: _kMutedSoft),
             )
           else
             ...breakdown.entries.map((entry) {
               final ratio = total == 0 ? 0.0 : entry.value / total;
+              final percent = (ratio * 100).round();
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 18),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          _activityIcon(entry.key),
-                          color: _activityColor(entry.key),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            entry.key,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        Text(
+                          entry.key,
+                          style: TextStyle(
+                            color: _activityColor(entry.key),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
+                        const Spacer(),
                         Text(
-                          '${entry.value}',
+                          '$percent%',
                           style: const TextStyle(
-                            color: _kMutedText,
+                            color: Colors.white,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: LinearProgressIndicator(
                         value: ratio,
                         minHeight: 8,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        backgroundColor: _kTrack,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           _activityColor(entry.key),
                         ),
@@ -666,10 +797,10 @@ class _BreakdownCard extends StatelessWidget {
   }
 }
 
-class _GlassCard extends StatelessWidget {
-  final Widget child;
+class _CardShell extends StatelessWidget {
+  const _CardShell({required this.child});
 
-  const _GlassCard({required this.child});
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -677,18 +808,28 @@ class _GlassCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _kCardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: _kNeonCyan.withValues(alpha: 0.08),
-            blurRadius: 24,
-            spreadRadius: 1,
-          ),
-        ],
+        color: _kCardSoft,
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Color(0xFFE8EDF5),
+        fontSize: 17,
+        fontWeight: FontWeight.w900,
+      ),
     );
   }
 }
@@ -697,11 +838,33 @@ class _OverviewItem {
   final IconData icon;
   final String label;
   final String value;
+  final String suffix;
+  final Color color;
 
   const _OverviewItem({
     required this.icon,
     required this.label,
     required this.value,
+    required this.suffix,
+    required this.color,
+  });
+}
+
+class _RecordItem {
+  final String label;
+  final String title;
+  final String value;
+  final String date;
+  final IconData icon;
+  final Color color;
+
+  const _RecordItem({
+    required this.label,
+    required this.title,
+    required this.value,
+    required this.date,
+    required this.icon,
+    required this.color,
   });
 }
 
@@ -895,40 +1058,20 @@ String _weekdayLabel(DateTime day) {
   return labels[day.weekday - 1];
 }
 
+String _minutesLabel(int seconds) {
+  final minutes = (seconds / 60).floor();
+  return '$minutes';
+}
+
 Color _activityColor(String activity) {
   switch (activity.toLowerCase()) {
     case 'running':
-      return const Color(0xffFF6B6B);
+      return _kNeonCyan;
     case 'cycling':
-      return const Color(0xff4ECDC4);
+      return _kAmber;
     case 'walking':
-      return const Color(0xff95E1D3);
-    case 'swimming':
-      return const Color(0xff3498DB);
-    case 'weights':
-      return const Color(0xff9B59B6);
-    case 'yoga':
-      return const Color(0xffF39C12);
+      return Colors.white;
     default:
-      return _kNeonPurple;
-  }
-}
-
-IconData _activityIcon(String activity) {
-  switch (activity.toLowerCase()) {
-    case 'running':
-      return Icons.directions_run;
-    case 'cycling':
-      return Icons.directions_bike;
-    case 'walking':
-      return Icons.directions_walk;
-    case 'swimming':
-      return Icons.pool;
-    case 'weights':
-      return Icons.fitness_center;
-    case 'yoga':
-      return Icons.self_improvement;
-    default:
-      return Icons.bolt_rounded;
+      return _kSlate;
   }
 }
