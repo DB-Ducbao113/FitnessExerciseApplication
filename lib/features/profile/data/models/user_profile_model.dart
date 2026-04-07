@@ -8,14 +8,14 @@ part 'user_profile_model.g.dart';
 class UserProfileModel with _$UserProfileModel {
   const factory UserProfileModel({
     required String id,
-    required String userId,
-    required double weightKg,
-    required double heightM,
+    @JsonKey(name: 'user_id') required String userId,
+    @JsonKey(name: 'weight_kg') required double weightKg,
+    @JsonKey(name: 'height_m') required double heightM,
     required int age,
     required String gender,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    String? avatarUrl,
+    @JsonKey(name: 'created_at') required DateTime createdAt,
+    @JsonKey(name: 'updated_at') required DateTime updatedAt,
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
   }) = _UserProfileModel;
 
   const UserProfileModel._();

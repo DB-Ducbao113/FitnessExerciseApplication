@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
-import 'package:fitness_exercise_application/core/services/location_service.dart';
 import 'package:fitness_exercise_application/core/services/environment_detector.dart';
+import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
@@ -20,16 +20,6 @@ import 'package:uuid/uuid.dart';
 const String kOutdoorMode = 'outdoor';
 const String kIndoorMode = 'indoor';
 const String kAutoTrackingMode = 'auto'; // temporary mode before lock
-
-// Calories
-
-double _calorieK(String activityType, double speedKmh) {
-  final isRunning = activityType.toLowerCase().contains('run');
-  double k = isRunning ? 1.05 : 0.92;
-  if (speedKmh > 10) k += 0.05;
-  if (speedKmh > 15) k += 0.05;
-  return k;
-}
 
 bool _requiresGpsTracking(String activityType) {
   switch (activityType.toLowerCase()) {
@@ -191,8 +181,6 @@ class WorkoutSessionState {
 
 // Providers
 
-final locationServiceProvider = Provider((ref) => LocationService());
-
 final workoutSessionProvider =
     StateNotifierProvider.autoDispose<
       WorkoutSessionNotifier,
@@ -226,7 +214,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   DateTime? _lastAcceptedPositionTime;
   DateTime? _lastStepTime;
   int _lowSpeedGpsSamples = 0;
-  bool _stopwatchAutoPaused = false;
   int _lastSplitElapsedSec = 0;
   double _lastSplitDistanceMeters = 0;
   int _nextLapIndex = 1;
@@ -272,7 +259,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _lastAcceptedPositionTime = null;
     _lastStepTime = null;
     _lowSpeedGpsSamples = 0;
-    _stopwatchAutoPaused = false;
     _lastSplitElapsedSec = 0;
     _lastSplitDistanceMeters = 0;
     _nextLapIndex = 1;
@@ -323,6 +309,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _startStepCounterBackground();
 
     _stopwatch.reset();
+    _stopwatch.start();
     _startTicker();
     _startCalorieTimer();
 
@@ -390,7 +377,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   // Session control
 
   Future<void> pauseWorkout() async {
-    _stopwatchAutoPaused = false;
     _stopwatch.stop();
     _uiTicker?.cancel();
     _indoorDistanceTimer?.cancel();
@@ -401,7 +387,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   Future<void> resumeWorkout() async {
-    _stopwatchAutoPaused = false;
+    _stopwatch.start();
     _locationSub?.resume();
     _stepSub?.resume();
     _startTicker();
@@ -410,7 +396,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   Future<void> stopWorkout() async {
-    _stopwatchAutoPaused = false;
     _stopwatch.stop();
     _uiTicker?.cancel();
     _indoorDistanceTimer?.cancel();
@@ -491,9 +476,23 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final distKm = state.distanceMeters / 1000.0;
     if (distKm <= 0) return 0;
 
-    final genderFactor = _gender == 'female' ? 0.95 : 1.0;
-    final k = _calorieK(state.activityType, state.speedKmh);
-    return (_weightKg * distKm * k * genderFactor).round();
+    final profile = UserProfile(
+      id: 'active-session',
+      userId: _ref.read(currentUserIdProvider) ?? 'active-session',
+      weightKg: _weightKg,
+      heightM: ((_heightCm ?? 170) / 100).clamp(0.5, 2.5),
+      age: 0,
+      gender: _gender ?? 'male',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    );
+    return profile
+        .calculateCalories(
+          activityType: state.activityType,
+          distanceKm: distKm,
+          speedKmh: state.speedKmh,
+        )
+        .round();
   }
 
   void _startCalorieTimer() {
@@ -912,17 +911,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   void _setAutoPauseState(bool isPaused) {
-    if (isPaused) {
-      if (!_stopwatchAutoPaused) {
-        _stopwatch.stop();
-        _stopwatchAutoPaused = true;
-      }
-      return;
-    }
-
-    if (_stopwatchAutoPaused || !_stopwatch.isRunning) {
+    if (state.status == RecordingState.active && !_stopwatch.isRunning) {
       _stopwatch.start();
-      _stopwatchAutoPaused = false;
     }
   }
 
@@ -930,7 +920,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   @override
   void dispose() {
-    _stopwatchAutoPaused = false;
     _stopwatch.stop();
     _uiTicker?.cancel();
     _indoorDistanceTimer?.cancel();

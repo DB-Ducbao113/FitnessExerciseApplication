@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';

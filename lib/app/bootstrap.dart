@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
-import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 
 class AppBootstrapService {

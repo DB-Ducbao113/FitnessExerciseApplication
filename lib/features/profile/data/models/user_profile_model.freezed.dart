@@ -21,13 +21,19 @@ UserProfileModel _$UserProfileModelFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$UserProfileModel {
   String get id => throw _privateConstructorUsedError;
+  @JsonKey(name: 'user_id')
   String get userId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'weight_kg')
   double get weightKg => throw _privateConstructorUsedError;
+  @JsonKey(name: 'height_m')
   double get heightM => throw _privateConstructorUsedError;
   int get age => throw _privateConstructorUsedError;
   String get gender => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'updated_at')
   DateTime get updatedAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'avatar_url')
   String? get avatarUrl => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -44,14 +50,14 @@ abstract class $UserProfileModelCopyWith<$Res> {
   @useResult
   $Res call(
       {String id,
-      String userId,
-      double weightKg,
-      double heightM,
+      @JsonKey(name: 'user_id') String userId,
+      @JsonKey(name: 'weight_kg') double weightKg,
+      @JsonKey(name: 'height_m') double heightM,
       int age,
       String gender,
-      DateTime createdAt,
-      DateTime updatedAt,
-      String? avatarUrl});
+      @JsonKey(name: 'created_at') DateTime createdAt,
+      @JsonKey(name: 'updated_at') DateTime updatedAt,
+      @JsonKey(name: 'avatar_url') String? avatarUrl});
 }
 
 /// @nodoc
@@ -128,14 +134,14 @@ abstract class _$$UserProfileModelImplCopyWith<$Res>
   @useResult
   $Res call(
       {String id,
-      String userId,
-      double weightKg,
-      double heightM,
+      @JsonKey(name: 'user_id') String userId,
+      @JsonKey(name: 'weight_kg') double weightKg,
+      @JsonKey(name: 'height_m') double heightM,
       int age,
       String gender,
-      DateTime createdAt,
-      DateTime updatedAt,
-      String? avatarUrl});
+      @JsonKey(name: 'created_at') DateTime createdAt,
+      @JsonKey(name: 'updated_at') DateTime updatedAt,
+      @JsonKey(name: 'avatar_url') String? avatarUrl});
 }
 
 /// @nodoc
@@ -205,14 +211,14 @@ class __$$UserProfileModelImplCopyWithImpl<$Res>
 class _$UserProfileModelImpl extends _UserProfileModel {
   const _$UserProfileModelImpl(
       {required this.id,
-      required this.userId,
-      required this.weightKg,
-      required this.heightM,
+      @JsonKey(name: 'user_id') required this.userId,
+      @JsonKey(name: 'weight_kg') required this.weightKg,
+      @JsonKey(name: 'height_m') required this.heightM,
       required this.age,
       required this.gender,
-      required this.createdAt,
-      required this.updatedAt,
-      this.avatarUrl})
+      @JsonKey(name: 'created_at') required this.createdAt,
+      @JsonKey(name: 'updated_at') required this.updatedAt,
+      @JsonKey(name: 'avatar_url') this.avatarUrl})
       : super._();
 
   factory _$UserProfileModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -221,20 +227,26 @@ class _$UserProfileModelImpl extends _UserProfileModel {
   @override
   final String id;
   @override
+  @JsonKey(name: 'user_id')
   final String userId;
   @override
+  @JsonKey(name: 'weight_kg')
   final double weightKg;
   @override
+  @JsonKey(name: 'height_m')
   final double heightM;
   @override
   final int age;
   @override
   final String gender;
   @override
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
   @override
+  @JsonKey(name: 'updated_at')
   final DateTime updatedAt;
   @override
+  @JsonKey(name: 'avatar_url')
   final String? avatarUrl;
 
   @override
@@ -284,15 +296,16 @@ class _$UserProfileModelImpl extends _UserProfileModel {
 
 abstract class _UserProfileModel extends UserProfileModel {
   const factory _UserProfileModel(
-      {required final String id,
-      required final String userId,
-      required final double weightKg,
-      required final double heightM,
-      required final int age,
-      required final String gender,
-      required final DateTime createdAt,
-      required final DateTime updatedAt,
-      final String? avatarUrl}) = _$UserProfileModelImpl;
+          {required final String id,
+          @JsonKey(name: 'user_id') required final String userId,
+          @JsonKey(name: 'weight_kg') required final double weightKg,
+          @JsonKey(name: 'height_m') required final double heightM,
+          required final int age,
+          required final String gender,
+          @JsonKey(name: 'created_at') required final DateTime createdAt,
+          @JsonKey(name: 'updated_at') required final DateTime updatedAt,
+          @JsonKey(name: 'avatar_url') final String? avatarUrl}) =
+      _$UserProfileModelImpl;
   const _UserProfileModel._() : super._();
 
   factory _UserProfileModel.fromJson(Map<String, dynamic> json) =
@@ -301,20 +314,26 @@ abstract class _UserProfileModel extends UserProfileModel {
   @override
   String get id;
   @override
+  @JsonKey(name: 'user_id')
   String get userId;
   @override
+  @JsonKey(name: 'weight_kg')
   double get weightKg;
   @override
+  @JsonKey(name: 'height_m')
   double get heightM;
   @override
   int get age;
   @override
   String get gender;
   @override
+  @JsonKey(name: 'created_at')
   DateTime get createdAt;
   @override
+  @JsonKey(name: 'updated_at')
   DateTime get updatedAt;
   @override
+  @JsonKey(name: 'avatar_url')
   String? get avatarUrl;
   @override
   @JsonKey(ignore: true)

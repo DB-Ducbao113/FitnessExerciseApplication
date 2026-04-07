@@ -1,41 +1,43 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 
-// Remote helpers
-final _supabase = Supabase.instance.client;
-
-Future<UserGoal?> _fetchGoal(String userId) async {
-  final row = await _supabase
-      .from(DbTables.userGoals)
-      .select()
-      .eq('user_id', userId)
-      .maybeSingle();
-  if (row == null) return null;
-  return UserGoal.fromMap(row);
-}
-
-Future<void> _upsertGoal(UserGoal goal) async {
-  final data = <String, dynamic>{...goal.toMap()};
-  // Only send id for updates.
-  if (goal.id.isNotEmpty) {
-    data['id'] = goal.id;
-  }
-  await _supabase.from(DbTables.userGoals).upsert(data, onConflict: 'user_id');
-}
-
 // Goal state
 final userGoalProvider =
     StateNotifierProvider<UserGoalNotifier, AsyncValue<UserGoal?>>(
-      (ref) => UserGoalNotifier(),
+      (ref) => UserGoalNotifier(ref.watch(supabaseClientProvider)),
     );
 
 class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
-  UserGoalNotifier() : super(const AsyncValue.loading()) {
+  UserGoalNotifier(this._supabase) : super(const AsyncValue.loading()) {
     _load();
+  }
+
+  final SupabaseClient _supabase;
+
+  Future<UserGoal?> _fetchGoal(String userId) async {
+    final row = await _supabase
+        .from(DbTables.userGoals)
+        .select()
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (row == null) return null;
+    return UserGoal.fromMap(row);
+  }
+
+  Future<void> _upsertGoal(UserGoal goal) async {
+    final data = <String, dynamic>{...goal.toMap()};
+    if (goal.id.isNotEmpty) {
+      data['id'] = goal.id;
+    }
+    await _supabase.from(DbTables.userGoals).upsert(
+      data,
+      onConflict: 'user_id',
+    );
   }
 
   Future<void> _load() async {

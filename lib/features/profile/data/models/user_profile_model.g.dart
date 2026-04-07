@@ -10,26 +10,26 @@ _$UserProfileModelImpl _$$UserProfileModelImplFromJson(
         Map<String, dynamic> json) =>
     _$UserProfileModelImpl(
       id: json['id'] as String,
-      userId: json['userId'] as String,
-      weightKg: (json['weightKg'] as num).toDouble(),
-      heightM: (json['heightM'] as num).toDouble(),
+      userId: json['user_id'] as String,
+      weightKg: (json['weight_kg'] as num).toDouble(),
+      heightM: (json['height_m'] as num).toDouble(),
       age: (json['age'] as num).toInt(),
       gender: json['gender'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      avatarUrl: json['avatarUrl'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+      avatarUrl: json['avatar_url'] as String?,
     );
 
 Map<String, dynamic> _$$UserProfileModelImplToJson(
         _$UserProfileModelImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'userId': instance.userId,
-      'weightKg': instance.weightKg,
-      'heightM': instance.heightM,
+      'user_id': instance.userId,
+      'weight_kg': instance.weightKg,
+      'height_m': instance.heightM,
       'age': instance.age,
       'gender': instance.gender,
-      'createdAt': instance.createdAt.toIso8601String(),
-      'updatedAt': instance.updatedAt.toIso8601String(),
-      'avatarUrl': instance.avatarUrl,
+      'created_at': instance.createdAt.toIso8601String(),
+      'updated_at': instance.updatedAt.toIso8601String(),
+      'avatar_url': instance.avatarUrl,
     };
