@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pedometer/pedometer.dart';
@@ -41,9 +42,12 @@ class StepTrackingService {
   // Permission
 
   Future<bool> _requestActivityPermission() async {
-    debugPrint('[Steps] requesting ACTIVITY_RECOGNITION…');
-    final status = await Permission.activityRecognition.request();
-    debugPrint('[Steps] ACTIVITY_RECOGNITION: $status');
+    final permission = Platform.isIOS
+        ? Permission.sensors
+        : Permission.activityRecognition;
+    debugPrint('[Steps] requesting $permission...');
+    final status = await permission.request();
+    debugPrint('[Steps] $permission: $status');
     return status.isGranted || status.isLimited;
   }
 

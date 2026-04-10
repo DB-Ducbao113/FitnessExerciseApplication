@@ -8,16 +8,24 @@ import 'package:fitness_exercise_application/features/workout/data/local/local_d
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+  debugPrint('[Startup] begin');
 
-  await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL', defaultValue: ''),
-    anonKey: const String.fromEnvironment(
-      'SUPABASE_ANON_KEY',
-      defaultValue: '',
-    ),
+  final supabaseUrl = const String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
   );
+  final supabaseAnonKey = const String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
+  debugPrint('[Startup] supabase config present=${supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty}');
+
+  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  debugPrint('[Startup] supabase initialized');
 
   await LocalDB.init();
+  debugPrint('[Startup] local db initialized');
 
   runApp(const ProviderScope(child: MyApp()));
+  debugPrint('[Startup] runApp');
 }

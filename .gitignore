@@ -52,6 +52,7 @@ app.*.map.json
 # Ignore scripts with credentials
 run.bat
 build_release.bat
+build_ios_release.sh
 backend/deploy_functions.bat
 
 # Local tooling / editor files
