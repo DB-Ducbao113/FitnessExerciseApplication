@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pedometer/pedometer.dart';
@@ -40,11 +41,28 @@ class StepTrackingService {
 
   // Permission
 
-  Future<bool> _requestActivityPermission() async {
-    debugPrint('[Steps] requesting ACTIVITY_RECOGNITION…');
-    final status = await Permission.activityRecognition.request();
-    debugPrint('[Steps] ACTIVITY_RECOGNITION: $status');
-    return status.isGranted || status.isLimited;
+  Future<void> ensurePermissionsOrThrow() async {
+    final permission = Platform.isIOS
+        ? Permission.sensors
+        : Permission.activityRecognition;
+    debugPrint('[Steps] ensurePermissions start');
+    var status = await permission.status;
+    if (status.isDenied) {
+      debugPrint('[Steps] requesting $permission...');
+      status = await permission.request();
+    }
+
+    debugPrint('[Steps] $permission: $status');
+
+    if (status.isGranted || status.isLimited) {
+      return;
+    }
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      throw Exception('activity_permission_denied_forever');
+    }
+
+    throw Exception('activity_permission_denied');
   }
 
   // Public API
@@ -67,11 +85,12 @@ class StepTrackingService {
 
     debugPrint('[Steps] startTracking at ${DateTime.now()}');
 
-    final hasPermission = await _requestActivityPermission();
-    if (!hasPermission) {
-      debugPrint('[Steps] permission denied — steps will remain 0');
+    try {
+      await ensurePermissionsOrThrow();
+    } catch (e) {
+      debugPrint('[Steps] permission error: $e');
       _isTracking = false;
-      return;
+      rethrow;
     }
 
     // Cancel old subscription.

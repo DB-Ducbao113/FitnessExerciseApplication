@@ -892,9 +892,16 @@ class _AnalyticsSummary {
         0,
         (sum, item) => sum + item.caloriesKcal.round(),
       ),
-      totalSteps: workouts.fold(0, (sum, item) => sum + item.steps),
+      totalSteps: workouts.fold(
+        0,
+        (sum, item) => sum + (_supportsStepAnalytics(item) ? item.steps : 0),
+      ),
     );
   }
+}
+
+bool _supportsStepAnalytics(WorkoutSession workout) {
+  return workout.activityType.toLowerCase() != 'cycling';
 }
 
 class _PersonalRecords {

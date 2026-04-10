@@ -18,7 +18,7 @@ class ClassifierEvent {
 // Thresholds
 
 /// Detect timeout.
-const Duration _kMaxDetectDuration = Duration(seconds: 25);
+const Duration _kMaxDetectDuration = Duration(seconds: 12);
 
 /// Minimum samples before classification.
 const int _kMinWindowSize = 3;
@@ -27,31 +27,31 @@ const int _kMinWindowSize = 3;
 const int _kWindowSize = 10;
 
 /// Outdoor accuracy limit.
-double get _kOutdoorMaxAccuracy => kDebugLocationMode ? 50.0 : 20.0; // m
+double get _kOutdoorMaxAccuracy => kDebugLocationMode ? 50.0 : 35.0; // m
 
 /// Outdoor displacement limit.
-double get _kOutdoorMinDisplacement => kDebugLocationMode ? 3.0 : 25.0; // m
+double get _kOutdoorMinDisplacement => kDebugLocationMode ? 3.0 : 8.0; // m
 
 /// Outdoor speed limit.
-double get _kOutdoorMinSpeed => kDebugLocationMode ? 0.2 : 0.8; // m/s
+double get _kOutdoorMinSpeed => kDebugLocationMode ? 0.2 : 0.6; // m/s
 
 /// Outdoor jitter limit.
 const double _kOutdoorMaxJitterRatio = 4.0;
 
 /// Indoor accuracy limit.
-const double _kIndoorMinAccuracy = 35.0; // m
+const double _kIndoorMinAccuracy = 25.0; // m
 
 /// Indoor displacement limit.
-const double _kIndoorMaxDisplacement = 20.0; // m
+const double _kIndoorMaxDisplacement = 10.0; // m
 
 /// Indoor jitter limit.
 const double _kIndoorMinJitterRatio = 8.0;
 
 /// Hold time for outdoor -> indoor.
-const Duration _kOutdoorToIndoorHold = Duration(seconds: 30);
+const Duration _kOutdoorToIndoorHold = Duration(seconds: 8);
 
 /// Hold time for indoor -> outdoor.
-const Duration _kIndoorToOutdoorHold = Duration(seconds: 20);
+const Duration _kIndoorToOutdoorHold = Duration(seconds: 6);
 
 /// Debug log interval.
 const Duration _kDebugInterval = Duration(seconds: 2);
@@ -186,12 +186,12 @@ class EnvironmentClassifier {
         final elapsed = _detectingStartTime == null
             ? Duration.zero
             : DateTime.now().difference(_detectingStartTime!);
-        if (elapsed >= const Duration(seconds: 15) &&
+        if (elapsed >= const Duration(seconds: 6) &&
             metrics.netDisplacement < _kIndoorMaxDisplacement) {
           _commitDirect(
             TrackingEnvironment.indoor,
             metrics,
-            'ambiguous→indoor after 15s low-displacement',
+            'ambiguous→indoor after 6s low-displacement',
           );
         }
       }
@@ -227,30 +227,30 @@ class EnvironmentClassifier {
 
   /// Returns outdoor, indoor, or null.
   TrackingEnvironment? _classify(_WindowMetrics m) {
-    // Outdoor rules
-    if (m.avgAccuracy <= _kOutdoorMaxAccuracy &&
+    final hasOutdoorSignal =
+        m.avgAccuracy <= _kOutdoorMaxAccuracy &&
         (m.netDisplacement >= _kOutdoorMinDisplacement ||
             m.avgSpeed >= _kOutdoorMinSpeed) &&
-        m.jitterRatio <= _kOutdoorMaxJitterRatio) {
+        m.jitterRatio <= _kOutdoorMaxJitterRatio;
+
+    if (hasOutdoorSignal) {
       _stepsDeltaSinceLastEval = 0;
       return TrackingEnvironment.outdoor;
     }
 
-    // Indoor rules
-    if (m.avgAccuracy >= _kIndoorMinAccuracy) {
-      _stepsDeltaSinceLastEval = 0;
-      return TrackingEnvironment.indoor;
-    }
-    if (m.netDisplacement < _kIndoorMaxDisplacement) {
-      _stepsDeltaSinceLastEval = 0;
-      return TrackingEnvironment.indoor;
-    }
-    if (m.jitterRatio >= _kIndoorMinJitterRatio) {
+    final hasIndoorSignal =
+        m.avgAccuracy >= _kIndoorMinAccuracy ||
+        m.netDisplacement < _kIndoorMaxDisplacement ||
+        m.jitterRatio >= _kIndoorMinJitterRatio ||
+        (m.stepsIncreasing &&
+            m.netDisplacement < _kOutdoorMinDisplacement &&
+            m.avgAccuracy >= 18.0);
+
+    if (hasIndoorSignal) {
       _stepsDeltaSinceLastEval = 0;
       return TrackingEnvironment.indoor;
     }
 
-    // Otherwise keep detecting.
     return null;
   }
 

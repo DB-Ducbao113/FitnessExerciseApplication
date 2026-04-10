@@ -59,7 +59,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               children: [
                 _HeroCard(
-                  activityType: workout.activityType,
+                  workout: workout,
                   dateLabel: DateFormat(
                     'EEEE, MMM dd, yyyy',
                   ).format(workout.startedAt.toLocal()),
@@ -92,10 +92,10 @@ class WorkoutDetailsScreen extends ConsumerWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  final String activityType;
+  final dynamic workout;
   final String dateLabel;
 
-  const _HeroCard({required this.activityType, required this.dateLabel});
+  const _HeroCard({required this.workout, required this.dateLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +115,11 @@ class _HeroCard extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(_activityIcon(activityType), color: _kBgTop, size: 34),
+            child: Icon(
+              _activityIcon(workout.activityType),
+              color: _kBgTop,
+              size: 34,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -124,7 +128,7 @@ class _HeroCard extends StatelessWidget {
               children: [
                 Text(
                   WorkoutFormatters.formatActivityType(
-                    activityType,
+                    workout.activityType,
                   ).toUpperCase(),
                   style: const TextStyle(
                     color: Colors.white,
@@ -139,6 +143,15 @@ class _HeroCard extends StatelessWidget {
                     color: _kMutedText,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${workout.distanceKm.toStringAsFixed(2)} km  •  ${WorkoutFormatters.formatDurationFromSeconds(workout.durationSec)}  •  ${workout.caloriesKcal.round()} kcal',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -157,6 +170,9 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final supportsSteps =
+        '${workout.activityType}'.toLowerCase() != 'cycling';
+
     final items = [
       _DetailItem(
         icon: Icons.straighten_rounded,
@@ -178,16 +194,12 @@ class _StatsGrid extends StatelessWidget {
         label: 'Calories',
         value: '${workout.caloriesKcal.round()} kcal',
       ),
-      _DetailItem(
-        icon: Icons.directions_walk_rounded,
-        label: 'Steps',
-        value: '${workout.steps}',
-      ),
-      _DetailItem(
-        icon: Icons.explore_rounded,
-        label: 'Mode',
-        value: '${workout.mode}'.toUpperCase(),
-      ),
+      if (supportsSteps)
+        _DetailItem(
+          icon: Icons.directions_walk_rounded,
+          label: 'Steps',
+          value: '${workout.steps}',
+        ),
     ];
 
     return GridView.builder(
@@ -435,6 +447,11 @@ class _SessionMetaCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          _MetaRow(
+            label: 'Activity',
+            value: WorkoutFormatters.formatActivityType(workout.activityType),
+          ),
+          const SizedBox(height: 10),
           _MetaRow(label: 'Workout ID', value: workout.id),
           const SizedBox(height: 10),
           _MetaRow(

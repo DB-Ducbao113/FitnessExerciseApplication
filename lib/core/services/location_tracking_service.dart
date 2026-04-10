@@ -124,7 +124,7 @@ class LocationTrackingService {
 
     final distanceFilter = debugLocationMode
         ? 0
-        : 3; // 0 = every point on emulator
+        : (Platform.isIOS ? 1 : 3); // let iOS deliver denser samples; screen-level filters handle noise
     final LocationSettings settings;
     if (Platform.isAndroid) {
       settings = AndroidSettings(
@@ -254,7 +254,7 @@ class LocationTrackingService {
   }
 
   _ValidationResult _validatePosition(Position position, String activityType) {
-    final maxAccuracy = debugLocationMode ? 80.0 : 35.0;
+    final maxAccuracy = debugLocationMode ? 80.0 : (Platform.isIOS ? 65.0 : 50.0);
     if (position.accuracy > maxAccuracy) {
       return _ValidationResult(
         false,
@@ -274,27 +274,29 @@ class LocationTrackingService {
       position.longitude,
     );
 
-    final minDistance = debugLocationMode ? 0.05 : 0.3;
+    final minDistance = debugLocationMode ? 0.05 : (Platform.isIOS ? 0.03 : 0.15);
     if (distance < minDistance) {
       return const _ValidationResult(false, 'duplicate_or_tiny_move');
     }
 
-    final sec =
-        position.timestamp.difference(prev.timestamp).inMilliseconds / 1000;
-    if (sec > 0) {
-      final speed = distance / sec;
-      final maxSpeed = debugLocationMode
-          ? 40.0
-          : (activityType.toLowerCase() == 'cycling'
-                ? 25.0
-                : activityType.toLowerCase() == 'walking'
-                ? 6.0
-                : 15.0);
-      if (speed > maxSpeed) {
-        return _ValidationResult(
-          false,
-          'unrealistic_speed=${speed.toStringAsFixed(2)}m/s',
-        );
+    if (!Platform.isIOS) {
+      final sec =
+          position.timestamp.difference(prev.timestamp).inMilliseconds / 1000;
+      if (sec > 0) {
+        final speed = distance / sec;
+        final maxSpeed = debugLocationMode
+            ? 40.0
+            : (activityType.toLowerCase() == 'cycling'
+                  ? 25.0
+                  : activityType.toLowerCase() == 'walking'
+                  ? 6.0
+                  : 15.0);
+        if (speed > maxSpeed) {
+          return _ValidationResult(
+            false,
+            'unrealistic_speed=${speed.toStringAsFixed(2)}m/s',
+          );
+        }
       }
     }
 
