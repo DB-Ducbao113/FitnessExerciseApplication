@@ -6,7 +6,6 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
 import 'package:fitness_exercise_application/core/services/location_tracking_service.dart';
-import 'package:fitness_exercise_application/core/services/step_tracking_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -54,7 +53,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         await ref
             .read(locationTrackingServiceProvider)
             .ensurePermissionsOrThrow();
-        await ref.read(stepTrackingServiceProvider).ensurePermissionsOrThrow();
+        await _ensureMotionPermissionOrThrow();
       } catch (e) {
         if (mounted) {
           _showStartError(e.toString().replaceAll('Exception: ', ''));
@@ -79,6 +78,21 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       }
     }
     notifier.startWorkout(widget.activityType);
+  }
+
+  Future<void> _ensureMotionPermissionOrThrow() async {
+    final permission = Theme.of(context).platform == TargetPlatform.iOS
+        ? Permission.sensors
+        : Permission.activityRecognition;
+    final status = await permission.status;
+    if (status.isGranted || status.isLimited) return;
+
+    final requested = await permission.request();
+    if (requested.isGranted || requested.isLimited) return;
+    if (requested.isPermanentlyDenied || requested.isRestricted) {
+      throw Exception('activity_permission_denied_forever');
+    }
+    throw Exception('activity_permission_denied');
   }
 
   void _showStartError(String code) {
@@ -494,8 +508,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         children: [
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'AVG SPEED',
-                              value: _formatSpeed(state.avgSpeedKmh),
+                              label: 'AVG PACE',
+                              value: _formatPace(state.avgSpeedKmh),
                               accent: const Color(0xfff8c15c),
                             ),
                           ),
@@ -680,9 +694,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  String _formatSpeed(double speedKmh) {
+  String _formatPace(double speedKmh) {
     if (speedKmh < 0.1) return '--';
-    return '${speedKmh.toStringAsFixed(1)} km/h';
+    final totalSeconds = (3600 / speedKmh).round();
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}/km';
   }
 
   String _formatSplit(WorkoutLapSplit split) {

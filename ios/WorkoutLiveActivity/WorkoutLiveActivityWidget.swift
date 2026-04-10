@@ -23,10 +23,10 @@ struct WorkoutLiveActivityWidget: Widget {
         DynamicIslandExpandedRegion(.trailing) {
           VStack(alignment: .trailing, spacing: 6) {
             _AppLogoBadge()
-            Text("AVG")
+            Text("PACE")
               .font(.caption2.weight(.bold))
               .foregroundStyle(.white.opacity(0.55))
-            Text(_speedText(context.state.avgSpeedKmh))
+            Text(_paceText(context.state.avgSpeedKmh))
               .font(.caption.monospacedDigit().weight(.semibold))
               .foregroundStyle(.white)
           }
@@ -76,7 +76,7 @@ private struct WorkoutLiveActivityLockScreenView: View {
 
       HStack(spacing: 10) {
         _MetricCard(title: "Time", value: _durationText(context.state.durationSeconds))
-        _MetricCard(title: "Avg", value: _speedText(context.state.avgSpeedKmh))
+        _MetricCard(title: "Pace", value: _paceText(context.state.avgSpeedKmh))
         _MetricCard(title: "Distance", value: _distanceText(context.state.distanceMeters))
         _MetricCard(title: "Calories", value: "\(context.state.caloriesBurned)")
       }
@@ -184,9 +184,12 @@ private func _distanceCompactText(_ meters: Double) -> String {
   return String(format: "%.1fkm", distanceKm)
 }
 
-private func _speedText(_ kmh: Double) -> String {
+private func _paceText(_ kmh: Double) -> String {
   if kmh <= 0.05 {
     return "--"
   }
-  return String(format: "%.1f km/h", kmh)
+  let totalSeconds = Int((3600.0 / kmh).rounded())
+  let minutes = totalSeconds / 60
+  let seconds = totalSeconds % 60
+  return String(format: "%d:%02d/km", minutes, seconds)
 }

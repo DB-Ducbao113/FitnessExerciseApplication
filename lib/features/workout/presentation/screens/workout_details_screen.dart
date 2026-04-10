@@ -186,8 +186,8 @@ class _StatsGrid extends StatelessWidget {
       ),
       _DetailItem(
         icon: Icons.speed_rounded,
-        label: 'Avg Speed',
-        value: '${workout.avgSpeedKmh.toStringAsFixed(1)} km/h',
+        label: 'Avg Pace',
+        value: _formatPace(workout.avgSpeedKmh),
       ),
       _DetailItem(
         icon: Icons.local_fire_department_rounded,
@@ -215,6 +215,14 @@ class _StatsGrid extends StatelessWidget {
       itemBuilder: (_, index) => _DetailCard(item: items[index]),
     );
   }
+}
+
+String _formatPace(double speedKmh) {
+  if (speedKmh < 0.1) return '--';
+  final totalSeconds = (3600 / speedKmh).round();
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+  return '$minutes:${seconds.toString().padLeft(2, '0')}/km';
 }
 
 class _DetailCard extends StatelessWidget {
