@@ -1,0 +1,69 @@
+#!/bin/zsh
+set -euo pipefail
+
+SUPABASE_URL="YOUR_SUPABASE_URL_HERE"
+SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY_HERE"
+FLUTTER_BIN="/ABSOLUTE/PATH/TO/flutter/bin/flutter"
+POD_BIN="$HOME/.gem/ruby/2.6.0/bin/pod"
+POD_WRAPPER_DIR="/tmp/codex-bin"
+BUNDLE_ID="com.example.fitnessExerciseApplication"
+APP_PATH_SUFFIX="build/ios/iphoneos/Runner.app"
+DEVICE_ID="YOUR_DEVICE_ID_HERE"
+
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLEAN_IOS_PROJECT_DIR="/ABSOLUTE/PATH/TO/CLEAN/IOS/PROJECT"
+
+if [[ -d "$CLEAN_IOS_PROJECT_DIR" && "$PROJECT_DIR" != "$CLEAN_IOS_PROJECT_DIR" ]]; then
+  echo "Using clean iOS project copy to avoid File Provider / codesign issues:"
+  echo "  $CLEAN_IOS_PROJECT_DIR"
+  PROJECT_DIR="$CLEAN_IOS_PROJECT_DIR"
+fi
+
+mkdir -p "$POD_WRAPPER_DIR"
+cat > "$POD_WRAPPER_DIR/pod" <<'EOF'
+#!/bin/zsh
+exec ruby -rlogger "$HOME/.gem/ruby/2.6.0/bin/pod" "$@"
+EOF
+chmod +x "$POD_WRAPPER_DIR/pod"
+
+export PATH="$POD_WRAPPER_DIR:$PATH"
+
+cd "$PROJECT_DIR"
+
+echo "============================================"
+echo " Building iOS Release with Supabase config"
+echo "============================================"
+echo "Project: $PROJECT_DIR"
+
+rm -rf "$PROJECT_DIR/build/ios"
+"$FLUTTER_BIN" pub get
+"$FLUTTER_BIN" clean
+"$FLUTTER_BIN" pub get
+cd ios
+ruby -rlogger "$POD_BIN" install
+cd ..
+
+"$FLUTTER_BIN" build ios --release \
+  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+APP_PATH="$PROJECT_DIR/$APP_PATH_SUFFIX"
+
+if [[ -d "$APP_PATH/Frameworks/objective_c.framework" ]]; then
+  echo
+  echo "[ERROR] objective_c.framework is still present in the built app."
+  echo "The iOS package is not safe to install on device."
+  exit 1
+fi
+
+echo
+echo "Installing on device: $DEVICE_ID"
+xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
+
+echo
+echo "Launching app: $BUNDLE_ID"
+xcrun devicectl device process launch --device "$DEVICE_ID" "$BUNDLE_ID"
+
+echo
+echo "[OK] iOS release build complete"
+echo "App: $APP_PATH"

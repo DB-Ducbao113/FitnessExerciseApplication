@@ -49,11 +49,11 @@ app.*.map.json
 /android/.kotlin/
 /android/build/
 
-# Ignore scripts with credentials
-run.bat
-build_release.bat
+# Ignore local scripts with credentials / machine-specific paths
+*.bat
+!*.bat.example
 build_ios_release.sh
-backend/deploy_functions.bat
+!build_ios_release.sh.example
 
 # Local tooling / editor files
 .metadata
