@@ -6,8 +6,11 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
 import 'package:fitness_exercise_application/core/services/location_tracking_service.dart';
+import 'package:fitness_exercise_application/core/services/step_tracking_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 const _kBgTop = Color(0xff0a0e1a);
 const _kPanelBg = Color(0xee121b2c);
@@ -30,6 +33,14 @@ class RecordScreen extends ConsumerStatefulWidget {
 }
 
 class _RecordScreenState extends ConsumerState<RecordScreen> {
+  String? _navigatedSessionId;
+  static const double _kSheetMinSize = 0.22;
+  static const double _kSheetInitialSize = 0.28;
+  static const double _kSheetMaxSize = 1.0;
+  static const double _kLocateHideThreshold = 0.7;
+  static const double _kExpandedSheetThreshold = 0.84;
+  double _sheetExtent = _kSheetInitialSize;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +54,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         await ref
             .read(locationTrackingServiceProvider)
             .ensurePermissionsOrThrow();
+        await ref.read(stepTrackingServiceProvider).ensurePermissionsOrThrow();
       } catch (e) {
         if (mounted) {
           _showStartError(e.toString().replaceAll('Exception: ', ''));
@@ -73,43 +85,73 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     String title;
     String message;
     String actionLabel;
-    VoidCallback onAction;
+    Future<void> Function() onAction;
 
     switch (code) {
       case 'location_disabled':
         title = 'GPS is Off';
         message =
             'Location services are disabled. Please enable GPS and try again.';
-        actionLabel = 'Try Again';
-        onAction = () {
-          Navigator.of(context).pop();
-          _startWorkout();
+        actionLabel = 'Open Settings';
+        onAction = () async {
+          await Geolocator.openLocationSettings();
+          if (!mounted) return;
+          await _startWorkout();
         };
+        break;
       case 'permission_denied':
-        title = 'Permission Denied';
-        message = 'Location permission is required to track your workout.';
-        actionLabel = 'Try Again';
-        onAction = () {
-          Navigator.of(context).pop();
-          _startWorkout();
+        title = 'Location Permission Needed';
+        message =
+            'Location permission is required to track your workout. Open Settings and allow location access.';
+        actionLabel = 'Open Settings';
+        onAction = () async {
+          await Geolocator.openAppSettings();
+          if (!mounted) return;
+          await _startWorkout();
         };
+        break;
       case 'permission_denied_forever':
         title = 'Permission Blocked';
         message =
             'Location is permanently blocked. Open App Settings > Permissions > Location.';
-        actionLabel = 'Close';
-        onAction = () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
+        actionLabel = 'Open Settings';
+        onAction = () async {
+          await Geolocator.openAppSettings();
+          if (!mounted) return;
+          await _startWorkout();
         };
+        break;
+      case 'activity_permission_denied':
+        title = 'Motion Permission Needed';
+        message =
+            'Motion access is needed so indoor fallback can count your steps when GPS is weak.';
+        actionLabel = 'Open Settings';
+        onAction = () async {
+          await openAppSettings();
+          if (!mounted) return;
+          await _startWorkout();
+        };
+        break;
+      case 'activity_permission_denied_forever':
+        title = 'Motion Permission Blocked';
+        message =
+            'Motion access is blocked. Open Settings and allow Motion & Fitness so indoor tracking can update in real time.';
+        actionLabel = 'Open Settings';
+        onAction = () async {
+          await openAppSettings();
+          if (!mounted) return;
+          await _startWorkout();
+        };
+        break;
       default:
         title = 'Could Not Start';
         message = code;
         actionLabel = 'Back';
-        onAction = () {
+        onAction = () async {
           Navigator.of(context).pop();
           Navigator.of(context).pop();
         };
+        break;
     }
 
     showDialog(
@@ -128,9 +170,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
             child: const Text('Cancel', style: TextStyle(color: _kMutedText)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              onAction();
+              await onAction();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _kNeonCyan,
@@ -180,35 +222,29 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
     if (confirmed == true && mounted) {
       await ref.read(workoutSessionProvider.notifier).stopWorkout();
-      final finalState = ref.read(workoutSessionProvider);
-      if ((finalState.sessionId ?? '').isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Could not load the saved workout summary.'),
-            ),
-          );
-        }
-        return;
-      }
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => WorkoutSummaryScreen(
-              sessionId: finalState.sessionId!,
-              activityType: finalState.activityType,
-              trackingMode: finalState.trackingMode,
-              durationSeconds: finalState.durationSeconds,
-              distanceMeters: finalState.distanceMeters,
-              avgSpeedKmh: finalState.avgSpeedKmh,
-              calories: finalState.caloriesBurned,
-              routePoints: finalState.routePoints,
-              lapSplits: finalState.lapSplits,
-            ),
-          ),
-        );
-      }
     }
+  }
+
+  void _openSummary(WorkoutSessionState finalState) {
+    final sessionId = finalState.sessionId;
+    if (!mounted || sessionId == null || sessionId.isEmpty) return;
+    if (_navigatedSessionId == sessionId) return;
+    _navigatedSessionId = sessionId;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => WorkoutSummaryScreen(
+          sessionId: sessionId,
+          activityType: finalState.activityType,
+          trackingMode: finalState.trackingMode,
+          durationSeconds: finalState.durationSeconds,
+          distanceMeters: finalState.distanceMeters,
+          avgSpeedKmh: finalState.avgSpeedKmh,
+          calories: finalState.caloriesBurned,
+          routePoints: finalState.routePoints,
+          lapSplits: finalState.lapSplits,
+        ),
+      ),
+    );
   }
 
   @override
@@ -220,246 +256,309 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           next.errorMessage != prev?.errorMessage) {
         _showStartError(next.errorMessage!);
       }
+      final didFinishSession =
+          next.status == RecordingState.finished &&
+          (next.sessionId ?? '').isNotEmpty &&
+          prev?.status != RecordingState.finished;
+      if (didFinishSession) {
+        _openSummary(next);
+      }
     });
 
-    final isOutdoor = state.trackingMode == kOutdoorMode;
     final shouldShowGpsRoute = state.trackingMode != kIndoorMode;
+    final isExpandedSheet = _sheetExtent >= _kExpandedSheetThreshold;
 
     return Scaffold(
       backgroundColor: _kBgTop,
-      body: Column(
+      body: Stack(
         children: [
-          // MAP AREA ~70-75%
-          Expanded(
-            flex: 7,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: TrackingMapWidget(
-                    routePoints: state.routePoints,
-                    initialPosition: state.initialPosition,
-                    currentLocation: state.currentLatLng,
-                    followUser: state.followUser,
-                    recenterRequestId: state.recenterRequestId,
-                    showRoute: shouldShowGpsRoute,
-                    onUserGesturePan: () {
-                      ref
-                          .read(workoutSessionProvider.notifier)
-                          .onUserDraggedMap();
-                    },
-                  ),
-                ),
-                Positioned(
-                  right: 16,
-                  bottom: 16,
-                  child: LocateButton(
-                    isFollowEnabled: state.followUser,
-                    onPressed: _onLocatePressed,
-                  ),
-                ),
-                if (state.modeDecisionLocked && !isOutdoor)
-                  Positioned(
-                    bottom: 16,
-                    left: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.directions_walk,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Indoor - Step tracking',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: SafeArea(
-                    child: Padding(
+          Positioned.fill(
+            child: TrackingMapWidget(
+              routePoints: state.routePoints,
+              activityType: widget.activityType,
+              initialPosition: state.initialPosition,
+              currentLocation: state.currentLatLng,
+              followUser: state.followUser,
+              recenterRequestId: state.recenterRequestId,
+              showRoute: shouldShowGpsRoute,
+              onUserGesturePan: () {
+                ref.read(workoutSessionProvider.notifier).onUserDraggedMap();
+              },
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _kPanelBg,
-                              border: Border.all(color: _kPanelBorder),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 6,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _activityIcon(widget.activityType),
-                                  size: 20,
-                                  color: _kNeonCyan,
-                                ),
-                                const SizedBox(width: 8),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      widget.activityType.toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    Text(
-                                      _modeBadgeText(state.trackingMode),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: _kMutedText,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                      decoration: BoxDecoration(
+                        color: _kPanelBg,
+                        border: Border.all(color: _kPanelBorder),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 6,
                           ),
-                          const SizedBox.shrink(),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _activityIcon(widget.activityType),
+                            size: 20,
+                            color: _kNeonCyan,
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.activityType.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                _modeBadgeText(state.trackingMode),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _kMutedText,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // METRICS PANEL ~20-25%
-          Expanded(
-            flex: 2,
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: _kPanelBg,
-                border: const Border(top: BorderSide(color: _kPanelBorder)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        _BigStat(
-                          label: 'TIME',
-                          value: _formatDuration(state.durationSeconds),
-                        ),
-                        _BigStat(
-                          label: 'DISTANCE',
-                          value:
-                              '${(state.distanceMeters / 1000).toStringAsFixed(2)} km',
-                          align: TextAlign.right,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _MetricStat(
-                          label: 'AVG SPEED',
-                          value: _formatSpeed(state.avgSpeedKmh),
-                        ),
-                        _MetricStat(
-                          label: 'CALORIES',
-                          value: '${state.caloriesBurned} kcal',
-                        ),
-                      ],
-                    ),
-                    if (state.lapSplits.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: _kPanelBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            const Text(
-                              'LATEST SPLIT',
-                              style: TextStyle(
-                                color: _kMutedText,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              _formatSplit(state.lapSplits.last),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    const SizedBox.shrink(),
                   ],
                 ),
               ),
             ),
           ),
-          // CONTROL BUTTONS ~5-10%
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-              child: _buildControls(state.status),
+          if (_sheetExtent < _kLocateHideThreshold)
+            Positioned(
+              right: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 220,
+              child: LocateButton(
+                isFollowEnabled: state.followUser,
+                onPressed: _onLocatePressed,
+              ),
+            ),
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              final extent = notification.extent;
+              if ((extent - _sheetExtent).abs() > 0.01 && mounted) {
+                setState(() => _sheetExtent = extent);
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              minChildSize: _kSheetMinSize,
+              initialChildSize: _kSheetInitialSize,
+              maxChildSize: _kSheetMaxSize,
+              snap: true,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: _kPanelBg,
+                    border: const Border(top: BorderSide(color: _kPanelBorder)),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(isExpandedSheet ? 0 : 28),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 18,
+                        offset: const Offset(0, -6),
+                      ),
+                    ],
+                  ),
+                  child: ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      isExpandedSheet
+                          ? MediaQuery.of(context).padding.top + 12
+                          : 12,
+                      20,
+                      20,
+                    ),
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                      _SectionLabel('Session'),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.activityType.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _modeBadgeText(state.trackingMode),
+                                  style: const TextStyle(
+                                    color: _kMutedText,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: _kPanelBorder),
+                            ),
+                            child: Text(
+                              _statusText(state),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _SectionLabel('Core Stats'),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FeatureStatCard(
+                              label: 'TIME',
+                              value: _formatDuration(state.durationSeconds),
+                              accent: _kNeonCyan,
+                              isHero: true,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _FeatureStatCard(
+                              label: 'DISTANCE',
+                              value:
+                                  '${(state.distanceMeters / 1000).toStringAsFixed(2)} km',
+                              accent: const Color(0xff7df9a8),
+                              isHero: true,
+                              align: CrossAxisAlignment.end,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _SectionLabel('Performance'),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FeatureStatCard(
+                              label: 'AVG SPEED',
+                              value: _formatSpeed(state.avgSpeedKmh),
+                              accent: const Color(0xfff8c15c),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _FeatureStatCard(
+                              label: 'CALORIES',
+                              value: '${state.caloriesBurned} kcal',
+                              accent: const Color(0xffff8ca1),
+                              align: CrossAxisAlignment.end,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (state.lapSplits.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        _SectionLabel('Latest Split'),
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _kPanelBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              const Text(
+                                'LATEST SPLIT',
+                                style: TextStyle(
+                                  color: _kMutedText,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                _formatSplit(state.lapSplits.last),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      _SectionLabel('Controls'),
+                      const SizedBox(height: 10),
+                      _buildControls(state.status),
+                      SizedBox(
+                        height: MediaQuery.of(context).padding.bottom + 8,
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -475,6 +574,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           child: Text(
             'Initializing...',
             style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+
+    if (status == RecordingState.stopping) {
+      return const SizedBox(
+        height: 64,
+        child: Center(
+          child: Text(
+            'Saving workout...',
+            style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
           ),
         ),
       );
@@ -514,29 +625,46 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
             ),
           );
 
-    return Row(
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Expanded(child: SizedBox(height: 60, child: pauseOrResume)),
-        const SizedBox(width: 16),
-        Expanded(
-          child: SizedBox(
-            height: 60,
-            child: ElevatedButton.icon(
-              onPressed: _confirmStop,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(32),
-                ),
-              ),
-              icon: const Icon(Icons.stop, size: 26),
-              label: const Text(
-                'STOP',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+        if (status == RecordingState.paused)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Auto finish in ${_formatDuration(ref.watch(workoutSessionProvider).pausedAutoStopRemainingSeconds)}',
+              style: const TextStyle(
+                color: _kMutedText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
+        Row(
+          children: [
+            Expanded(child: SizedBox(height: 60, child: pauseOrResume)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: SizedBox(
+                height: 60,
+                child: ElevatedButton.icon(
+                  onPressed: _confirmStop,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(32),
+                    ),
+                  ),
+                  icon: const Icon(Icons.stop, size: 26),
+                  label: const Text(
+                    'STOP',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -579,6 +707,16 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     }
   }
 
+  String _statusText(WorkoutSessionState state) {
+    if (state.status == RecordingState.paused) return 'Paused';
+    if (state.status == RecordingState.stopping) return 'Saving';
+    if (state.status == RecordingState.finished) return 'Finished';
+    if (state.isAutoPaused) return 'Auto Pause';
+    if (state.trackingMode == kIndoorMode) return 'Indoor';
+    if (state.trackingMode == kOutdoorMode) return 'Outdoor';
+    return 'Tracking';
+  }
+
   IconData _activityIcon(String type) {
     switch (type.toLowerCase()) {
       case 'running':
@@ -593,77 +731,81 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   }
 }
 
-class _BigStat extends StatelessWidget {
+class _FeatureStatCard extends StatelessWidget {
   final String label;
   final String value;
-  final TextAlign align;
+  final Color accent;
+  final bool isHero;
+  final CrossAxisAlignment align;
 
-  const _BigStat({
+  const _FeatureStatCard({
     required this.label,
     required this.value,
-    this.align = TextAlign.left,
+    required this.accent,
+    this.isHero = false,
+    this.align = CrossAxisAlignment.start,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: align == TextAlign.right
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          textAlign: align,
-          style: const TextStyle(
-            color: _kMutedText,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _kPanelBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: align,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
           ),
-        ),
-        Text(
-          value,
-          textAlign: align,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 26,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.2,
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kMutedText,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          Text(
+            value,
+            textAlign: align == CrossAxisAlignment.end
+                ? TextAlign.right
+                : TextAlign.left,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isHero ? 24 : 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: isHero ? -1.0 : -0.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _MetricStat extends StatelessWidget {
-  final String label;
-  final String value;
+class _SectionLabel extends StatelessWidget {
+  final String text;
 
-  const _MetricStat({required this.label, required this.value});
+  const _SectionLabel(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: _kMutedText,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
-        ),
-      ],
+    return Text(
+      text.toUpperCase(),
+      style: const TextStyle(
+        color: _kMutedText,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.0,
+      ),
     );
   }
 }

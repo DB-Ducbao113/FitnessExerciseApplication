@@ -1,0 +1,189 @@
+import ActivityKit
+import SwiftUI
+import WidgetKit
+
+struct WorkoutLiveActivityWidget: Widget {
+  var body: some WidgetConfiguration {
+    ActivityConfiguration(for: WorkoutLiveActivityAttributes.self) { context in
+      WorkoutLiveActivityLockScreenView(context: context)
+        .activityBackgroundTint(Color.black.opacity(0.88))
+        .activitySystemActionForegroundColor(.white)
+    } dynamicIsland: { context in
+      DynamicIsland {
+        DynamicIslandExpandedRegion(.leading) {
+          VStack(alignment: .leading, spacing: 4) {
+            Text(context.attributes.workoutName.uppercased())
+              .font(.caption2.weight(.bold))
+              .foregroundStyle(.cyan)
+            Text(_statusTitle(context.state.status))
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(.white)
+          }
+        }
+        DynamicIslandExpandedRegion(.trailing) {
+          VStack(alignment: .trailing, spacing: 4) {
+            Text(_distanceText(context.state.distanceMeters))
+              .font(.headline.monospacedDigit().weight(.bold))
+              .foregroundStyle(.white)
+            Text(_speedText(context.state.speedKmh))
+              .font(.caption.monospacedDigit())
+              .foregroundStyle(.white.opacity(0.8))
+          }
+        }
+        DynamicIslandExpandedRegion(.bottom) {
+          HStack(spacing: 16) {
+            _MetricChip(title: "TIME", value: _durationText(context.state.durationSeconds))
+            _MetricChip(title: "AVG", value: _speedText(context.state.avgSpeedKmh))
+            _MetricChip(title: "CAL", value: "\(context.state.caloriesBurned)")
+          }
+        }
+      } compactLeading: {
+        Image(systemName: _statusSymbol(context.state.status))
+          .foregroundStyle(.cyan)
+      } compactTrailing: {
+        Text(_distanceCompactText(context.state.distanceMeters))
+          .font(.caption2.monospacedDigit().weight(.bold))
+          .foregroundStyle(.white)
+      } minimal: {
+        Image(systemName: _statusSymbol(context.state.status))
+          .foregroundStyle(.cyan)
+      }
+    }
+  }
+}
+
+private struct WorkoutLiveActivityLockScreenView: View {
+  let context: ActivityViewContext<WorkoutLiveActivityAttributes>
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(context.attributes.workoutName.uppercased())
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.cyan)
+          Text(_statusTitle(context.state.status))
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(.white)
+        }
+        Spacer()
+        VStack(alignment: .trailing, spacing: 4) {
+          Text(_durationText(context.state.durationSeconds))
+            .font(.title3.monospacedDigit().weight(.bold))
+            .foregroundStyle(.white)
+          Text(_trackingModeText(context.state.trackingMode))
+            .font(.caption)
+            .foregroundStyle(.white.opacity(0.75))
+        }
+      }
+
+      HStack(spacing: 10) {
+        _MetricCard(title: "Distance", value: _distanceText(context.state.distanceMeters))
+        _MetricCard(title: "Speed", value: _speedText(context.state.speedKmh))
+        _MetricCard(title: "Avg", value: _speedText(context.state.avgSpeedKmh))
+        _MetricCard(title: "Calories", value: "\(context.state.caloriesBurned)")
+      }
+    }
+    .padding(.vertical, 8)
+    .padding(.horizontal, 4)
+  }
+}
+
+private struct _MetricCard: View {
+  let title: String
+  let value: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title.uppercased())
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(.white.opacity(0.55))
+      Text(value)
+        .font(.subheadline.monospacedDigit().weight(.semibold))
+        .foregroundStyle(.white)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.horizontal, 10)
+    .padding(.vertical, 8)
+    .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+  }
+}
+
+private struct _MetricChip: View {
+  let title: String
+  let value: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(title)
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(.white.opacity(0.6))
+      Text(value)
+        .font(.footnote.monospacedDigit().weight(.semibold))
+        .foregroundStyle(.white)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+private func _trackingModeText(_ mode: String) -> String {
+  switch mode.lowercased() {
+  case "indoor":
+    return "Indoor"
+  case "outdoor":
+    return "Outdoor"
+  default:
+    return "Tracking"
+  }
+}
+
+private func _statusTitle(_ status: String) -> String {
+  switch status.lowercased() {
+  case "paused":
+    return "Paused"
+  case "ended":
+    return "Finished"
+  default:
+    return "Recording"
+  }
+}
+
+private func _statusSymbol(_ status: String) -> String {
+  switch status.lowercased() {
+  case "paused":
+    return "pause.circle.fill"
+  case "ended":
+    return "checkmark.circle.fill"
+  default:
+    return "figure.run.circle.fill"
+  }
+}
+
+private func _durationText(_ seconds: Int) -> String {
+  let hours = seconds / 3600
+  let minutes = (seconds % 3600) / 60
+  let remainingSeconds = seconds % 60
+  if hours > 0 {
+    return String(format: "%d:%02d:%02d", hours, minutes, remainingSeconds)
+  }
+  return String(format: "%02d:%02d", minutes, remainingSeconds)
+}
+
+private func _distanceText(_ meters: Double) -> String {
+  let distanceKm = meters / 1000.0
+  return String(format: "%.2f km", distanceKm)
+}
+
+private func _distanceCompactText(_ meters: Double) -> String {
+  let distanceKm = meters / 1000.0
+  return String(format: "%.1fkm", distanceKm)
+}
+
+private func _speedText(_ kmh: Double) -> String {
+  if kmh <= 0.05 {
+    return "--"
+  }
+  return String(format: "%.1f km/h", kmh)
+}

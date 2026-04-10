@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/utils/route_display_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -75,6 +77,62 @@ class WorkoutSummaryScreen extends StatelessWidget {
                 calories: calories,
                 showRouteMap: isOutdoor && routePoints.length >= 2,
                 routePoints: routePoints,
+              ),
+              const SizedBox(height: 16),
+              _SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Overview',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SummaryStatCard(
+                            label: 'Distance',
+                            value: '${distanceKm.toStringAsFixed(2)} km',
+                            accent: _kNeonCyan,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SummaryStatCard(
+                            label: 'Duration',
+                            value: _formatDuration(durationSeconds),
+                            accent: _kNeonBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SummaryStatCard(
+                            label: 'Avg Speed',
+                            value: '${avgSpeedKmh.toStringAsFixed(1)} km/h',
+                            accent: const Color(0xFFF8C15C),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SummaryStatCard(
+                            label: 'Calories',
+                            value: '$calories kcal',
+                            accent: const Color(0xFFFF8CA1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               if (lapSplits.isNotEmpty) ...[
                 const SizedBox(height: 16),
@@ -220,10 +278,10 @@ class _SummaryHeroCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: SizedBox(
-                height: 220,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: SizedBox(
+                height: 286,
                 width: double.infinity,
                 child: showRouteMap
                     ? _RouteMap(
@@ -242,48 +300,52 @@ class _SummaryHeroCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: _kNeonCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        _activityIcon(activityType),
+                        color: _kNeonCyan,
+                        size: 24,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _kNeonCyan.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Icon(
-                          _activityIcon(activityType),
-                          color: _kNeonCyan,
-                          size: 18,
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activityType.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            showRouteMap
+                                ? 'Session captured with route map'
+                                : 'Session captured with indoor motion view',
+                            style: const TextStyle(
+                              color: _kMutedText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        activityType.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -313,39 +375,17 @@ class _SummaryHeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  showRouteMap
-                      ? 'Outdoor route captured successfully'
-                      : 'Indoor movement shown as an abstract trail',
+                  _summarySubtitle(
+                    distanceKm: distanceKm,
+                    durationSeconds: durationSeconds,
+                    avgSpeedKmh: avgSpeedKmh,
+                  ),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: _kMutedText,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MetricChip(
-                        label: 'TIME',
-                        value: _formatDuration(durationSeconds),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _MetricChip(
-                        label: 'AVG SPEED',
-                        value: '${avgSpeedKmh.toStringAsFixed(1)} km/h',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _MetricChip(
-                        label: 'CALORIES',
-                        value: '$calories kcal',
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -356,41 +396,50 @@ class _SummaryHeroCard extends StatelessWidget {
   }
 }
 
-class _MetricChip extends StatelessWidget {
-  const _MetricChip({required this.label, required this.value});
+class _SummaryStatCard extends StatelessWidget {
+  const _SummaryStatCard({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
 
   final String label;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+          ),
+          const SizedBox(height: 12),
           Text(
             label,
-            textAlign: TextAlign.center,
             style: const TextStyle(
+              color: _kMutedText,
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: _kMutedText,
-              letterSpacing: 0.6,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             value,
-            textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
               color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -580,21 +629,23 @@ class _RouteMap extends StatelessWidget {
 
   const _RouteMap({required this.routePoints, required this.activityType});
 
-  LatLngBounds _computeBounds() {
-    double minLat = routePoints.first.latitude;
-    double maxLat = routePoints.first.latitude;
-    double minLng = routePoints.first.longitude;
-    double maxLng = routePoints.first.longitude;
+  LatLngBounds _computeBounds(List<LatLng> points) {
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
 
-    for (final pt in routePoints) {
+    for (final pt in points) {
       if (pt.latitude < minLat) minLat = pt.latitude;
       if (pt.latitude > maxLat) maxLat = pt.latitude;
       if (pt.longitude < minLng) minLng = pt.longitude;
       if (pt.longitude > maxLng) maxLng = pt.longitude;
     }
 
-    final latPad = (maxLat - minLat) * 0.15 + 0.0005;
-    final lngPad = (maxLng - minLng) * 0.15 + 0.0005;
+    final latSpan = maxLat - minLat;
+    final lngSpan = maxLng - minLng;
+    final latPad = math.max(latSpan * 0.12, 0.00028);
+    final lngPad = math.max(lngSpan * 0.12, 0.00028);
 
     return LatLngBounds(
       LatLng(minLat - latPad, minLng - lngPad),
@@ -604,7 +655,11 @@ class _RouteMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bounds = _computeBounds();
+    final displayRoute = sanitizeRouteForDisplay(
+      routePoints,
+      activityType: activityType,
+    );
+    final bounds = _computeBounds(displayRoute);
 
     return Stack(
       children: [
@@ -612,7 +667,7 @@ class _RouteMap extends StatelessWidget {
           options: MapOptions(
             initialCameraFit: CameraFit.bounds(
               bounds: bounds,
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 42),
+              padding: const EdgeInsets.fromLTRB(6, 10, 6, 16),
             ),
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.none,
@@ -622,22 +677,22 @@ class _RouteMap extends StatelessWidget {
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.fitness_exercise_application',
-              maxZoom: 19,
+              maxZoom: 20,
             ),
             PolylineLayer(
               polylines: [
                 Polyline(
-                  points: routePoints,
-                  strokeWidth: 16,
+                  points: displayRoute,
+                  strokeWidth: 18,
                   color: _kMapGlow,
                 ),
                 Polyline(
-                  points: routePoints,
-                  strokeWidth: 7,
+                  points: displayRoute,
+                  strokeWidth: 8,
                   color: _kNeonCyan,
                 ),
                 Polyline(
-                  points: routePoints,
+                  points: displayRoute,
                   strokeWidth: 2,
                   color: _kMapHighlight,
                 ),
@@ -646,13 +701,13 @@ class _RouteMap extends StatelessWidget {
             MarkerLayer(
               markers: [
                 Marker(
-                  point: routePoints.first,
+                  point: displayRoute.first,
                   width: 42,
                   height: 42,
                   child: const _RouteStartMarker(),
                 ),
                 Marker(
-                  point: routePoints.last,
+                  point: displayRoute.last,
                   width: 42,
                   height: 42,
                   child: const _RouteFinishMarker(),
@@ -919,6 +974,16 @@ String _formatDuration(int seconds) {
     return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
   return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+}
+
+String _summarySubtitle({
+  required double distanceKm,
+  required int durationSeconds,
+  required double avgSpeedKmh,
+}) {
+  final duration = _formatDuration(durationSeconds);
+  final speed = avgSpeedKmh <= 0 ? '--' : '${avgSpeedKmh.toStringAsFixed(1)} km/h';
+  return '$duration total  •  $speed average  •  ${distanceKm.toStringAsFixed(2)} km';
 }
 
 String _formatSplitDuration(int seconds) {

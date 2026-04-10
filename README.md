@@ -111,6 +111,12 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
+### 5. Local helper scripts
+
+- Windows run app: copy `run.bat.example` to `run.bat`, then run `.\run.bat`
+- Windows build release APK: copy `build_release.bat.example` to `build_release.bat`, then run `.\build_release.bat`
+- macOS build iOS release: copy `build_ios_release.sh.example` to `build_ios_release.sh`, then run `zsh ./build_ios_release.sh`
+
 ## Development Notes
 
 - Keep feature-specific code inside its own module under `lib/features/`
