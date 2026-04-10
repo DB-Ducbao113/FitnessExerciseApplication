@@ -33,6 +33,10 @@ bool _requiresGpsTracking(String activityType) {
   }
 }
 
+String _defaultRecordingSource(String activityType) {
+  return _requiresGpsTracking(activityType) ? 'gps' : 'step_fallback';
+}
+
 // Stride
 
 String? _normalizeGender(String? gender) {
@@ -78,6 +82,9 @@ class WorkoutSessionState {
   final String activityType;
 
   final String trackingMode;
+  final String environmentHint;
+  final String recordingSource;
+  final bool gpsFallbackActive;
   final bool modeDecisionLocked;
 
   final int durationSeconds;
@@ -110,6 +117,9 @@ class WorkoutSessionState {
     this.sessionId,
     required this.activityType,
     required this.trackingMode,
+    this.environmentHint = 'detecting',
+    this.recordingSource = 'gps',
+    this.gpsFallbackActive = false,
     this.modeDecisionLocked = false,
     this.durationSeconds = 0,
     this.movingTimeSeconds = 0,
@@ -136,6 +146,9 @@ class WorkoutSessionState {
     String? sessionId,
     String? activityType,
     String? trackingMode,
+    String? environmentHint,
+    String? recordingSource,
+    bool? gpsFallbackActive,
     bool? modeDecisionLocked,
     int? durationSeconds,
     int? movingTimeSeconds,
@@ -161,6 +174,9 @@ class WorkoutSessionState {
       sessionId: sessionId ?? this.sessionId,
       activityType: activityType ?? this.activityType,
       trackingMode: trackingMode ?? this.trackingMode,
+      environmentHint: environmentHint ?? this.environmentHint,
+      recordingSource: recordingSource ?? this.recordingSource,
+      gpsFallbackActive: gpsFallbackActive ?? this.gpsFallbackActive,
       modeDecisionLocked: modeDecisionLocked ?? this.modeDecisionLocked,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       movingTimeSeconds: movingTimeSeconds ?? this.movingTimeSeconds,
@@ -241,6 +257,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
           status: RecordingState.idle,
           activityType: 'Running',
           trackingMode: kAutoTrackingMode,
+          environmentHint: 'detecting',
+          recordingSource: 'gps',
         ),
       );
 
@@ -289,6 +307,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       trackingMode: _requiresGpsTracking(activityType)
           ? kOutdoorMode
           : kIndoorMode,
+      environmentHint: _requiresGpsTracking(activityType) ? 'detecting' : 'indoor',
+      recordingSource: _defaultRecordingSource(activityType),
+      gpsFallbackActive: false,
       modeDecisionLocked: _requiresGpsTracking(activityType),
       strideLengthMeters: stride,
       startedAt: DateTime.now(),
@@ -319,11 +340,14 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     if (_requiresGpsTracking(activityType)) {
       _classifierSub?.cancel();
       _classifier?.dispose();
-      _classifier = null;
-      _classifierSub = null;
+      _classifier = EnvironmentClassifier(activityType: activityType);
+      _classifierSub = _classifier!.stateStream.listen(_onEnvironmentChanged);
       if (mounted) {
         state = state.copyWith(
           trackingMode: kOutdoorMode,
+          environmentHint: 'detecting',
+          recordingSource: 'gps',
+          gpsFallbackActive: false,
           modeDecisionLocked: true,
         );
       }
@@ -335,6 +359,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       _classifierSub = null;
       state = state.copyWith(
         trackingMode: kIndoorMode,
+        environmentHint: 'indoor',
+        recordingSource: 'step_fallback',
+        gpsFallbackActive: true,
         modeDecisionLocked: true,
       );
       _refreshIndoorWatchdog();
@@ -358,6 +385,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         caloriesBurned: 0,
         lapSplits: const [],
         isAutoPaused: false,
+        recordingSource: _defaultRecordingSource(activityType),
       );
       debugPrint('[Workout] status=active, sensors starting in background');
       _syncLiveActivityState();
@@ -386,6 +414,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       if (mounted) {
         state = state.copyWith(
           trackingMode: kIndoorMode,
+          environmentHint: 'indoor',
+          recordingSource: 'step_fallback',
+          gpsFallbackActive: true,
           modeDecisionLocked: true,
           errorMessage: e.toString().replaceAll('Exception: ', ''),
         );
@@ -503,7 +534,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     // Prefer sensor steps, otherwise estimate from stride.
     int finalSteps = state.stepCount;
-    if (finalSteps <= 0 && state.trackingMode != kIndoorMode) {
+    if (finalSteps <= 0 && state.recordingSource != 'step_fallback') {
       final strideToUse = state.strideLengthMeters > 0
           ? state.strideLengthMeters
           : _defaultStrideLength(state.activityType, _gender);
@@ -648,38 +679,55 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   // ignore: unused_element
   void _onEnvironmentChanged(ClassifierEvent event) {
     if (!mounted) return;
-    if (state.status != RecordingState.active) return;
+    final nextHint = switch (event.environment) {
+      TrackingEnvironment.outdoor => 'outdoor',
+      TrackingEnvironment.indoor => 'indoor',
+      TrackingEnvironment.detecting => 'detecting',
+    };
+
+    if (_requiresGpsTracking(state.activityType)) {
+      state = state.copyWith(environmentHint: nextHint);
+      debugPrint(
+        '[Workout][ENV] hint=$nextHint fallbackSuggested=${event.fallbackSuggested} '
+        'confidence=${event.confidence.toStringAsFixed(2)} reason=${event.reason}',
+      );
+      return;
+    }
 
     final newMode = event.environment == TrackingEnvironment.outdoor
         ? kOutdoorMode
-        : kIndoorMode;
-
-    if (state.trackingMode == newMode && state.modeDecisionLocked) return;
-    if (newMode == kOutdoorMode) {
-      _shouldResetGpsAnchorOnResume = true;
-      _speedSamples.clear();
-    }
+        : event.environment == TrackingEnvironment.indoor
+        ? kIndoorMode
+        : state.trackingMode;
     state = state.copyWith(
       trackingMode: newMode,
+      environmentHint: nextHint,
+      recordingSource: newMode == kOutdoorMode ? 'gps' : 'step_fallback',
+      gpsFallbackActive: newMode == kIndoorMode,
       modeDecisionLocked: true,
       isAutoPaused: false,
     );
-
     _refreshIndoorWatchdog();
-    _startCalorieTimer();
-    debugPrint('[Workout] trackingMode -> $newMode (${event.reason})');
+    debugPrint(
+      '[Workout][ENV] mode=$newMode recordingSource=${state.recordingSource} '
+      'confidence=${event.confidence.toStringAsFixed(2)} reason=${event.reason}',
+    );
   }
 
   // GPS updates
 
   void _onPosition(Position position) {
+    final isGpsPrimary = _requiresGpsTracking(state.activityType);
     final livePoint = LatLng(position.latitude, position.longitude);
     final sensorSpeedKmh = position.speed > 0
         ? position.speed.clamp(0.0, 50.0) * 3.6
         : 0.0;
 
     debugPrint(
-      '[GPS] lat=${position.latitude}, lng=${position.longitude}, acc=${position.accuracy}, speed=${position.speed} | mode=${state.trackingMode}',
+      '[Workout][GPS] lat=${position.latitude}, lng=${position.longitude}, '
+      'acc=${position.accuracy}, speed=${position.speed} '
+      '| mode=${state.trackingMode} env=${state.environmentHint} '
+      'source=${state.recordingSource} fallback=${state.gpsFallbackActive}',
     );
 
     if (state.status == RecordingState.paused) {
@@ -694,24 +742,28 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       return;
     }
 
-    if (state.status != RecordingState.active) return;
+    if (state.status != RecordingState.active) {
+      debugPrint('[Workout][GPS] ignore reason=status_${state.status.name}');
+      return;
+    }
 
     _classifier?.addPosition(position);
 
-    // Indoor mode updates marker and speed only.
-    if (state.trackingMode == kIndoorMode) {
+    if (!isGpsPrimary && state.trackingMode == kIndoorMode) {
       state = state.copyWith(
         currentLatLng: livePoint,
         speedKmh: _computeSmoothedSpeed(),
       );
+      debugPrint('[Workout][GPS] indoor-only activity marker update');
       return;
     }
-    // While auto-detecting, keep the marker live but do not record GPS route yet.
+
     if (state.trackingMode == kAutoTrackingMode && !state.modeDecisionLocked) {
       state = state.copyWith(
         currentLatLng: livePoint,
         speedKmh: _computeSmoothedSpeed(),
       );
+      debugPrint('[Workout][GPS] ignore reason=auto_detecting_without_lock');
       return;
     }
 
@@ -743,10 +795,14 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       state = state.copyWith(
         initialPosition: state.initialPosition ?? livePoint,
         currentLatLng: livePoint,
+        trackingMode: kOutdoorMode,
+        environmentHint: 'outdoor',
+        recordingSource: 'gps',
+        gpsFallbackActive: false,
         routePoints: [livePoint],
         speedKmh: 0,
       );
-      debugPrint('[GPS-ACCEPT] first route point seeded');
+      debugPrint('[Workout][GPS-ACCEPT] first route point seeded; gps pipeline active');
       return;
     }
 
@@ -905,6 +961,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _setAutoPauseState(false);
 
     state = state.copyWith(
+      trackingMode: kOutdoorMode,
+      environmentHint: 'outdoor',
+      recordingSource: 'gps',
+      gpsFallbackActive: false,
       currentLatLng: livePoint,
       routePoints: updatedRoute,
       distanceMeters: newDistanceM,
@@ -915,7 +975,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     );
 
     debugPrint(
-      '[GPS-ACCEPT] segment=${segmentMeters.toStringAsFixed(2)}m raw=${rawSegmentMeters.toStringAsFixed(2)}m route=${routeSegmentMeters.toStringAsFixed(2)}m total=${newDistanceM.toStringAsFixed(2)}m routePoints=${updatedRoute.length}',
+      '[Workout][GPS-ACCEPT] segment=${segmentMeters.toStringAsFixed(2)}m '
+      'raw=${rawSegmentMeters.toStringAsFixed(2)}m '
+      'route=${routeSegmentMeters.toStringAsFixed(2)}m '
+      'total=${newDistanceM.toStringAsFixed(2)}m routePoints=${updatedRoute.length} '
+      'source=gps',
     );
   }
 
@@ -929,21 +993,27 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _classifier?.addStepDelta(delta);
     state = state.copyWith(stepCount: sessionSteps);
 
-    if (state.trackingMode == kOutdoorMode) {
+    if (_requiresGpsTracking(state.activityType) &&
+        !state.gpsFallbackActive &&
+        state.recordingSource == 'gps') {
       final secondsSinceGps = _lastAcceptedPositionTime == null
           ? 999
           : DateTime.now().difference(_lastAcceptedPositionTime!).inSeconds;
       if (sessionSteps >= 8 && secondsSinceGps >= 12) {
         state = state.copyWith(
           trackingMode: kIndoorMode,
+          recordingSource: 'step_fallback',
+          gpsFallbackActive: true,
           modeDecisionLocked: true,
         );
         _refreshIndoorWatchdog();
-        debugPrint('[Workout] outdoor fallback -> indoor from step tracking');
+        debugPrint(
+          '[Workout][FALLBACK] gps weak for ${secondsSinceGps}s -> step_fallback active',
+        );
       }
     }
 
-    if (state.trackingMode == kIndoorMode) {
+    if (!_requiresGpsTracking(state.activityType) || state.gpsFallbackActive) {
       _updateIndoorDistanceFromSteps(delta);
     }
   }
@@ -986,13 +1056,21 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _indoorDistanceTimer?.cancel();
     _indoorDistanceTimer = null;
 
-    if (state.status != RecordingState.active || state.trackingMode != kIndoorMode) {
+    final isIndoorFallbackActive =
+        !_requiresGpsTracking(state.activityType)
+            ? state.trackingMode == kIndoorMode
+            : state.gpsFallbackActive;
+    if (state.status != RecordingState.active || !isIndoorFallbackActive) {
       return;
     }
 
     _indoorDistanceTimer = Timer.periodic(_kIndoorWatchdogTick, (_) {
       if (!mounted) return;
-      if (state.status != RecordingState.active || state.trackingMode != kIndoorMode) {
+      final stillIndoorFallbackActive =
+          !_requiresGpsTracking(state.activityType)
+              ? state.trackingMode == kIndoorMode
+              : state.gpsFallbackActive;
+      if (state.status != RecordingState.active || !stillIndoorFallbackActive) {
         _indoorDistanceTimer?.cancel();
         _indoorDistanceTimer = null;
         return;
@@ -1015,14 +1093,16 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         _speedSamples.clear();
         state = state.copyWith(
           trackingMode: kOutdoorMode,
+          recordingSource: 'gps',
+          gpsFallbackActive: false,
           modeDecisionLocked: true,
           isAutoPaused: false,
           speedKmh: 0,
         );
         _refreshIndoorWatchdog();
         debugPrint(
-          '[Workout] indoor watchdog -> outdoor '
-          '(gps recovered, step stall ${secondsSinceStep}s)',
+          '[Workout][FALLBACK] gps recovered after fallback '
+          '(step stall ${secondsSinceStep}s)',
         );
         return;
       }
@@ -1030,7 +1110,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       if (secondsSinceStep >= _kIndoorStallAutoPause.inSeconds) {
         state = state.copyWith(speedKmh: 0, isAutoPaused: true);
         debugPrint(
-          '[Workout] indoor watchdog stall '
+          '[Workout][FALLBACK] indoor watchdog stall '
           '(steps=${secondsSinceStep}s gps=${secondsSinceGps}s)',
         );
       }
@@ -1050,7 +1130,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       var movingTimeSec = state.movingTimeSeconds;
       var isAutoPaused = state.isAutoPaused;
 
-      if (state.trackingMode == kIndoorMode &&
+      if (state.recordingSource == 'step_fallback' &&
           _lastStepTime != null &&
           DateTime.now().difference(_lastStepTime!).inSeconds >= 3) {
         liveSpeedKmh = 0;
@@ -1058,7 +1138,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         _setAutoPauseState(true);
       }
 
-      if (state.trackingMode != kIndoorMode &&
+      if (state.recordingSource == 'gps' &&
           _lastAcceptedPositionTime != null &&
           DateTime.now().difference(_lastAcceptedPositionTime!).inSeconds >=
               5) {
@@ -1128,11 +1208,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   double _getMaxSpeedMs(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'walking':
-        return 3.5;
+        return 4.5;
       case 'cycling':
-        return 20.0;
+        return 22.0;
       case 'running':
-        return 12.0;
+        return 10.0;
       default:
         return 15.0;
     }
@@ -1141,24 +1221,24 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   double _getMinSegmentMeters(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'walking':
-        return 0.8;
+        return 0.35;
       case 'cycling':
-        return 2.0;
+        return 1.5;
       case 'running':
-        return 0.5;
+        return 0.30;
       default:
-        return 0.4;
+        return 0.30;
     }
   }
 
   double _getMaxRouteAccuracy(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'cycling':
-        return 25.0;
+        return 32.0;
       case 'running':
-        return 35.0;
+        return 42.0;
       case 'walking':
-        return 35.0;
+        return 50.0;
       default:
         return 35.0;
     }
@@ -1167,11 +1247,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   double _getPreviewAccuracy(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'cycling':
-        return 25.0;
+        return 32.0;
       case 'running':
-        return 35.0;
+        return 42.0;
       case 'walking':
-        return 35.0;
+        return 55.0;
       default:
         return 35.0;
     }

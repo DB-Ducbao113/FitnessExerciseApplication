@@ -1,95 +1,56 @@
 import 'dart:async';
 import 'dart:collection';
+
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-// State types
-
 enum TrackingEnvironment { detecting, outdoor, indoor }
 
-/// State change event.
 class ClassifierEvent {
   final TrackingEnvironment environment;
   final String reason;
-  const ClassifierEvent(this.environment, this.reason);
+  final double confidence;
+  final bool fallbackSuggested;
+
+  const ClassifierEvent(
+    this.environment,
+    this.reason, {
+    this.confidence = 0.0,
+    this.fallbackSuggested = false,
+  });
 }
 
-// Thresholds
-
-/// Detect timeout.
-const Duration _kMaxDetectDuration = Duration(seconds: 12);
-
-/// Minimum samples before classification.
 const int _kMinWindowSize = 3;
-
-/// Sliding window size.
 const int _kWindowSize = 10;
 
-/// Outdoor accuracy limit.
-double get _kOutdoorMaxAccuracy => kDebugLocationMode ? 50.0 : 35.0; // m
-
-/// Outdoor displacement limit.
-double get _kOutdoorMinDisplacement => kDebugLocationMode ? 3.0 : 8.0; // m
-
-/// Outdoor speed limit.
-double get _kOutdoorMinSpeed => kDebugLocationMode ? 0.2 : 0.6; // m/s
-
-/// Outdoor jitter limit.
-const double _kOutdoorMaxJitterRatio = 4.0;
-
-/// Indoor accuracy limit.
-const double _kIndoorMinAccuracy = 25.0; // m
-
-/// Indoor displacement limit.
-const double _kIndoorMaxDisplacement = 10.0; // m
-
-/// Indoor jitter limit.
-const double _kIndoorMinJitterRatio = 8.0;
-
-/// Hold time for outdoor -> indoor.
-const Duration _kOutdoorToIndoorHold = Duration(seconds: 8);
-
-/// Hold time for indoor -> outdoor.
-const Duration _kIndoorToOutdoorHold = Duration(seconds: 6);
-
-/// Debug log interval.
-const Duration _kDebugInterval = Duration(seconds: 2);
-
-// Classifier
-
-/// Stream-based indoor/outdoor classifier.
 class EnvironmentClassifier {
-  // State
+  EnvironmentClassifier({required this.activityType});
+
+  final String activityType;
   final _window = Queue<Position>();
   int _stepsDeltaSinceLastEval = 0;
-  TrackingEnvironment _committed = TrackingEnvironment.detecting;
-  TrackingEnvironment? _candidate;
-  DateTime? _candidateStart;
-  DateTime? _detectingStartTime;
-
-  // Timers
-  Timer? _timeoutTimer;
-  Timer? _debugTimer;
-
-  // Stream
+  TrackingEnvironment _hint = TrackingEnvironment.detecting;
   final _controller = StreamController<ClassifierEvent>.broadcast();
-  Stream<ClassifierEvent> get stateStream => _controller.stream;
-  TrackingEnvironment get currentState => _committed;
 
-  // Public API
+  Stream<ClassifierEvent> get stateStream => _controller.stream;
+  TrackingEnvironment get currentState => _hint;
 
   void addPosition(Position p) {
     if (_controller.isClosed) return;
 
-    // Start detect timeout on first GPS sample.
-    _detectingStartTime ??= DateTime.now();
-    _scheduleTimeoutIfNeeded();
-
     _window.addLast(p);
     if (_window.length > _kWindowSize) _window.removeFirst();
 
-    if (_window.length < _kMinWindowSize) return;
+    if (_window.length < _kMinWindowSize) {
+      _emit(
+        TrackingEnvironment.detecting,
+        'warming_up samples=${_window.length}',
+        confidence: 0.0,
+      );
+      return;
+    }
+
     _evaluate();
   }
 
@@ -98,163 +59,92 @@ class EnvironmentClassifier {
   }
 
   void dispose() {
-    _timeoutTimer?.cancel();
-    _debugTimer?.cancel();
     if (!_controller.isClosed) _controller.close();
   }
 
-  // Timeout and debug
-
-  void _scheduleTimeoutIfNeeded() {
-    if (_committed != TrackingEnvironment.detecting) return;
-    if (_timeoutTimer != null) return;
-
-    // Force indoor if detection takes too long.
-    _timeoutTimer = Timer(_kMaxDetectDuration, _forceCommitOnTimeout);
-
-    // Periodic debug log while detecting.
-    if (kDebugMode) {
-      _debugTimer = Timer.periodic(_kDebugInterval, (_) {
-        if (_committed != TrackingEnvironment.detecting) {
-          _debugTimer?.cancel();
-          return;
-        }
-        if (_window.length >= _kMinWindowSize) {
-          final m = _computeMetrics();
-          final elapsed = _detectingStartTime == null
-              ? 0
-              : DateTime.now().difference(_detectingStartTime!).inSeconds;
-          debugPrint(
-            '[Classifier] t=${elapsed}s '
-            'samples=${_window.length} '
-            'accuracy=${m.avgAccuracy.toStringAsFixed(1)}m '
-            'disp=${m.netDisplacement.toStringAsFixed(1)}m '
-            'jitter=${m.jitterRatio.toStringAsFixed(2)} '
-            'speed=${m.avgSpeed.toStringAsFixed(2)}m/s '
-            'steps=$_stepsDeltaSinceLastEval',
-          );
-        } else {
-          final elapsed = _detectingStartTime == null
-              ? 0
-              : DateTime.now().difference(_detectingStartTime!).inSeconds;
-          debugPrint(
-            '[Classifier] t=${elapsed}s samples=${_window.length} — waiting for data',
-          );
-        }
-      });
-    }
-  }
-
-  void _forceCommitOnTimeout() {
-    if (_committed != TrackingEnvironment.detecting) return;
-    if (_controller.isClosed) return;
-
-    final reason = StringBuffer('TIMEOUT(25s)');
-    TrackingEnvironment result = TrackingEnvironment.indoor;
-
-    // Final outdoor check before fallback.
-    if (_window.length >= _kMinWindowSize) {
-      final m = _computeMetrics();
-      reason.write(
-        ' accuracy=${m.avgAccuracy.toStringAsFixed(1)}m'
-        ' disp=${m.netDisplacement.toStringAsFixed(1)}m'
-        ' jitter=${m.jitterRatio.toStringAsFixed(2)}',
-      );
-      if (m.avgAccuracy <= _kOutdoorMaxAccuracy &&
-          m.netDisplacement >= _kOutdoorMinDisplacement &&
-          m.jitterRatio <= _kOutdoorMaxJitterRatio) {
-        result = TrackingEnvironment.outdoor;
-      }
-    }
-
-    debugPrint('[Classifier] forced → $result ($reason)');
-    _committed = result;
-    _candidate = null;
-    _candidateStart = null;
-    _controller.add(ClassifierEvent(result, reason.toString()));
-  }
-
-  // Evaluation
-
   void _evaluate() {
     final metrics = _computeMetrics();
-    final candidateNow = _classify(metrics);
+    final activity = activityType.toLowerCase();
 
-    if (candidateNow == null) {
-      // During initial detection, ambiguous signals can still settle indoor.
-      if (_committed == TrackingEnvironment.detecting) {
-        final elapsed = _detectingStartTime == null
-            ? Duration.zero
-            : DateTime.now().difference(_detectingStartTime!);
-        if (elapsed >= const Duration(seconds: 6) &&
-            metrics.netDisplacement < _kIndoorMaxDisplacement) {
-          _commitDirect(
-            TrackingEnvironment.indoor,
-            metrics,
-            'ambiguous→indoor after 6s low-displacement',
-          );
-        }
-      }
-      return;
-    }
+    final outdoorAccuracy = _outdoorMaxAccuracy(activity);
+    final outdoorDisplacement = _outdoorMinDisplacement(activity);
+    final outdoorSpeed = _outdoorMinSpeed(activity);
+    final indoorAccuracy = _indoorMinAccuracy(activity);
+    final indoorDisplacement = _indoorMaxDisplacement(activity);
 
-    // Reset when the candidate matches the committed state.
-    if (candidateNow == _committed) {
-      _candidate = null;
-      _candidateStart = null;
-      return;
-    }
+    final outdoorScore = _score(
+      accuracyScore: metrics.avgAccuracy <= outdoorAccuracy ? 0.45 : 0.10,
+      displacementScore: metrics.netDisplacement >= outdoorDisplacement
+          ? 0.30
+          : (metrics.netDisplacement / outdoorDisplacement).clamp(0.0, 1.0) * 0.30,
+      speedScore: metrics.avgSpeed >= outdoorSpeed
+          ? 0.15
+          : (metrics.avgSpeed / outdoorSpeed).clamp(0.0, 1.0) * 0.15,
+      jitterScore: metrics.jitterRatio <= _outdoorMaxJitterRatio(activity)
+          ? 0.10
+          : 0.02,
+    );
 
-    // Start or continue hysteresis.
-    if (_candidate != candidateNow) {
-      _candidate = candidateNow;
-      _candidateStart = DateTime.now();
-      return;
-    }
+    final fallbackSuggested =
+        metrics.avgAccuracy >= indoorAccuracy &&
+        metrics.netDisplacement <= indoorDisplacement &&
+        metrics.stepsIncreasing;
 
-    final held = DateTime.now().difference(_candidateStart!);
-    final required = _holdRequired(_committed, candidateNow);
-    if (held >= required) {
-      _commitDirect(
-        candidateNow,
-        metrics,
-        'hysteresis satisfied ${held.inSeconds}s',
+    final indoorScore = _score(
+      accuracyScore: metrics.avgAccuracy >= indoorAccuracy ? 0.40 : 0.10,
+      displacementScore: metrics.netDisplacement <= indoorDisplacement
+          ? 0.30
+          : 0.05,
+      speedScore: metrics.avgSpeed <= _indoorMaxSpeed(activity) ? 0.15 : 0.03,
+      jitterScore: metrics.jitterRatio >= _indoorMinJitterRatio(activity)
+          ? 0.15
+          : 0.05,
+    );
+
+    final nextHint = outdoorScore >= indoorScore
+        ? TrackingEnvironment.outdoor
+        : TrackingEnvironment.indoor;
+    final confidence = (outdoorScore - indoorScore).abs().clamp(0.0, 1.0);
+    final reason =
+        'acc=${metrics.avgAccuracy.toStringAsFixed(1)}m '
+        'disp=${metrics.netDisplacement.toStringAsFixed(1)}m '
+        'speed=${metrics.avgSpeed.toStringAsFixed(2)}m/s '
+        'jitter=${metrics.jitterRatio.toStringAsFixed(2)} '
+        'steps=$_stepsDeltaSinceLastEval';
+
+    _emit(
+      nextHint,
+      reason,
+      confidence: confidence,
+      fallbackSuggested: fallbackSuggested,
+    );
+    _stepsDeltaSinceLastEval = 0;
+  }
+
+  void _emit(
+    TrackingEnvironment environment,
+    String reason, {
+    required double confidence,
+    bool fallbackSuggested = false,
+  }) {
+    if (_controller.isClosed) return;
+    final changed = environment != _hint;
+    _hint = environment;
+    if (changed || kDebugMode) {
+      debugPrint(
+        '[Classifier] hint=$environment confidence=${confidence.toStringAsFixed(2)} '
+        'fallbackSuggested=$fallbackSuggested $reason',
       );
     }
+    _controller.add(
+      ClassifierEvent(
+        environment,
+        reason,
+        confidence: confidence,
+        fallbackSuggested: fallbackSuggested,
+      ),
+    );
   }
-
-  // Classification
-
-  /// Returns outdoor, indoor, or null.
-  TrackingEnvironment? _classify(_WindowMetrics m) {
-    final hasOutdoorSignal =
-        m.avgAccuracy <= _kOutdoorMaxAccuracy &&
-        (m.netDisplacement >= _kOutdoorMinDisplacement ||
-            m.avgSpeed >= _kOutdoorMinSpeed) &&
-        m.jitterRatio <= _kOutdoorMaxJitterRatio;
-
-    if (hasOutdoorSignal) {
-      _stepsDeltaSinceLastEval = 0;
-      return TrackingEnvironment.outdoor;
-    }
-
-    final hasIndoorSignal =
-        m.avgAccuracy >= _kIndoorMinAccuracy ||
-        m.netDisplacement < _kIndoorMaxDisplacement ||
-        m.jitterRatio >= _kIndoorMinJitterRatio ||
-        (m.stepsIncreasing &&
-            m.netDisplacement < _kOutdoorMinDisplacement &&
-            m.avgAccuracy >= 18.0);
-
-    if (hasIndoorSignal) {
-      _stepsDeltaSinceLastEval = 0;
-      return TrackingEnvironment.indoor;
-    }
-
-    return null;
-  }
-
-  // Metrics
 
   _WindowMetrics _computeMetrics() {
     final pts = _window.toList();
@@ -292,39 +182,123 @@ class EnvironmentClassifier {
     );
   }
 
-  // Helpers
-
-  Duration _holdRequired(TrackingEnvironment from, TrackingEnvironment to) {
-    if (from == TrackingEnvironment.outdoor &&
-        to == TrackingEnvironment.indoor) {
-      return _kOutdoorToIndoorHold;
+  double _outdoorMaxAccuracy(String activity) {
+    if (kDebugLocationMode) return 60.0;
+    switch (activity) {
+      case 'walking':
+        return 40.0;
+      case 'running':
+        return 35.0;
+      case 'cycling':
+        return 28.0;
+      default:
+        return 35.0;
     }
-    if (from == TrackingEnvironment.indoor &&
-        to == TrackingEnvironment.outdoor) {
-      return _kIndoorToOutdoorHold;
-    }
-    return Duration.zero;
   }
 
-  void _commitDirect(TrackingEnvironment env, _WindowMetrics m, String reason) {
-    if (_controller.isClosed) return;
-    _committed = env;
-    _candidate = null;
-    _candidateStart = null;
-    _timeoutTimer?.cancel();
-    _debugTimer?.cancel();
+  double _outdoorMinDisplacement(String activity) {
+    if (kDebugLocationMode) return 2.0;
+    switch (activity) {
+      case 'walking':
+        return 6.0;
+      case 'running':
+        return 10.0;
+      case 'cycling':
+        return 18.0;
+      default:
+        return 8.0;
+    }
+  }
 
-    final msg =
-        '$reason | acc=${m.avgAccuracy.toStringAsFixed(1)}m '
-        'disp=${m.netDisplacement.toStringAsFixed(1)}m '
-        'jitter=${m.jitterRatio.toStringAsFixed(2)} '
-        'speed=${m.avgSpeed.toStringAsFixed(2)}m/s';
-    debugPrint('[Classifier] committed → $env ($msg)');
-    _controller.add(ClassifierEvent(env, msg));
+  double _outdoorMinSpeed(String activity) {
+    if (kDebugLocationMode) return 0.15;
+    switch (activity) {
+      case 'walking':
+        return 0.35;
+      case 'running':
+        return 0.85;
+      case 'cycling':
+        return 1.8;
+      default:
+        return 0.5;
+    }
+  }
+
+  double _outdoorMaxJitterRatio(String activity) {
+    switch (activity) {
+      case 'walking':
+        return 7.0;
+      case 'running':
+        return 6.0;
+      case 'cycling':
+        return 5.0;
+      default:
+        return 6.0;
+    }
+  }
+
+  double _indoorMinAccuracy(String activity) {
+    switch (activity) {
+      case 'walking':
+        return 45.0;
+      case 'running':
+        return 40.0;
+      case 'cycling':
+        return 35.0;
+      default:
+        return 40.0;
+    }
+  }
+
+  double _indoorMaxDisplacement(String activity) {
+    switch (activity) {
+      case 'walking':
+        return 5.0;
+      case 'running':
+        return 6.5;
+      case 'cycling':
+        return 10.0;
+      default:
+        return 6.0;
+    }
+  }
+
+  double _indoorMaxSpeed(String activity) {
+    switch (activity) {
+      case 'walking':
+        return 1.8;
+      case 'running':
+        return 2.5;
+      case 'cycling':
+        return 4.0;
+      default:
+        return 2.0;
+    }
+  }
+
+  double _indoorMinJitterRatio(String activity) {
+    switch (activity) {
+      case 'walking':
+        return 8.0;
+      case 'running':
+        return 7.0;
+      case 'cycling':
+        return 6.0;
+      default:
+        return 7.0;
+    }
+  }
+
+  double _score({
+    required double accuracyScore,
+    required double displacementScore,
+    required double speedScore,
+    required double jitterScore,
+  }) {
+    return (accuracyScore + displacementScore + speedScore + jitterScore)
+        .clamp(0.0, 1.0);
   }
 }
-
-// Window metrics
 
 class _WindowMetrics {
   final double netDisplacement;
