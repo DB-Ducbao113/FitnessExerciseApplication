@@ -57,13 +57,15 @@ void main() {
     }
 
     test(
-      'debug classifier no longer forces outdoor on clearly indoor signal',
+      'classifier emits indoor hint and fallback suggestion on clearly weak GPS walking signal',
       () async {
-        final classifier = EnvironmentClassifier();
+        final classifier = EnvironmentClassifier(activityType: 'walking');
         addTearDown(classifier.dispose);
 
         final now = DateTime.now();
-        final eventFuture = classifier.stateStream.first.timeout(
+        final eventFuture = classifier.stateStream
+            .firstWhere((event) => event.environment != TrackingEnvironment.detecting)
+            .timeout(
           const Duration(seconds: 2),
         );
 
@@ -72,7 +74,7 @@ void main() {
             latitude: 10.0,
             longitude: 106.0,
             timestamp: now,
-            accuracy: 40,
+            accuracy: 55,
             speed: 0.05,
           ),
         );
@@ -81,31 +83,35 @@ void main() {
             latitude: 10.000001,
             longitude: 106.000001,
             timestamp: now.add(const Duration(seconds: 1)),
-            accuracy: 40,
+            accuracy: 55,
             speed: 0.05,
           ),
         );
+        classifier.addStepDelta(5);
         classifier.addPosition(
           makePosition(
             latitude: 10.000002,
             longitude: 106.000002,
             timestamp: now.add(const Duration(seconds: 2)),
-            accuracy: 40,
+            accuracy: 55,
             speed: 0.05,
           ),
         );
+        classifier.addStepDelta(4);
         classifier.addPosition(
           makePosition(
             latitude: 10.000003,
             longitude: 106.000003,
             timestamp: now.add(const Duration(seconds: 3)),
-            accuracy: 40,
+            accuracy: 55,
             speed: 0.05,
           ),
         );
 
         final event = await eventFuture;
         expect(event.environment, TrackingEnvironment.indoor);
+        expect(event.fallbackSuggested, isTrue);
+        expect(event.confidence, greaterThan(0));
       },
     );
   });

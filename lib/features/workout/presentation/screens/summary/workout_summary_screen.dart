@@ -116,8 +116,8 @@ class WorkoutSummaryScreen extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _SummaryStatCard(
-                            label: 'Avg Speed',
-                            value: '${avgSpeedKmh.toStringAsFixed(1)} km/h',
+                            label: 'Avg Pace',
+                            value: _formatPace(avgSpeedKmh),
                             accent: const Color(0xFFF8C15C),
                           ),
                         ),
@@ -278,9 +278,9 @@ class _SummaryHeroCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: SizedBox(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: SizedBox(
                 height: 286,
                 width: double.infinity,
                 child: showRouteMap
@@ -982,8 +982,16 @@ String _summarySubtitle({
   required double avgSpeedKmh,
 }) {
   final duration = _formatDuration(durationSeconds);
-  final speed = avgSpeedKmh <= 0 ? '--' : '${avgSpeedKmh.toStringAsFixed(1)} km/h';
-  return '$duration total  •  $speed average  •  ${distanceKm.toStringAsFixed(2)} km';
+  final pace = _formatPace(avgSpeedKmh);
+  return '$duration total  •  $pace average  •  ${distanceKm.toStringAsFixed(2)} km';
+}
+
+String _formatPace(double speedKmh) {
+  if (speedKmh < 0.1) return '--';
+  final totalSeconds = (3600 / speedKmh).round();
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+  return '$minutes:${seconds.toString().padLeft(2, '0')}/km';
 }
 
 String _formatSplitDuration(int seconds) {

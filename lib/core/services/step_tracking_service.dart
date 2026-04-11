@@ -41,14 +41,28 @@ class StepTrackingService {
 
   // Permission
 
-  Future<bool> _requestActivityPermission() async {
+  Future<void> ensurePermissionsOrThrow() async {
     final permission = Platform.isIOS
         ? Permission.sensors
         : Permission.activityRecognition;
-    debugPrint('[Steps] requesting $permission...');
-    final status = await permission.request();
+    debugPrint('[Steps] ensurePermissions start');
+    var status = await permission.status;
+    if (status.isDenied) {
+      debugPrint('[Steps] requesting $permission...');
+      status = await permission.request();
+    }
+
     debugPrint('[Steps] $permission: $status');
-    return status.isGranted || status.isLimited;
+
+    if (status.isGranted || status.isLimited) {
+      return;
+    }
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      throw Exception('activity_permission_denied_forever');
+    }
+
+    throw Exception('activity_permission_denied');
   }
 
   // Public API
@@ -71,11 +85,12 @@ class StepTrackingService {
 
     debugPrint('[Steps] startTracking at ${DateTime.now()}');
 
-    final hasPermission = await _requestActivityPermission();
-    if (!hasPermission) {
-      debugPrint('[Steps] permission denied — steps will remain 0');
+    try {
+      await ensurePermissionsOrThrow();
+    } catch (e) {
+      debugPrint('[Steps] permission error: $e');
       _isTracking = false;
-      return;
+      rethrow;
     }
 
     // Cancel old subscription.

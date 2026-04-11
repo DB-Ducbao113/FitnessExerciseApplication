@@ -21,7 +21,6 @@ class IosLiveActivityService {
     required String status,
     required int durationSeconds,
     required double distanceMeters,
-    required double speedKmh,
     required double avgSpeedKmh,
     required int caloriesBurned,
   }) async {
@@ -33,7 +32,6 @@ class IosLiveActivityService {
         'status': status,
         'durationSeconds': durationSeconds,
         'distanceMeters': distanceMeters,
-        'speedKmh': speedKmh,
         'avgSpeedKmh': avgSpeedKmh,
         'caloriesBurned': caloriesBurned,
       });
@@ -58,7 +56,6 @@ class IosLiveActivityService {
         'status': 'ended',
         'durationSeconds': durationSeconds,
         'distanceMeters': distanceMeters,
-        'speedKmh': 0.0,
         'avgSpeedKmh': avgSpeedKmh,
         'caloriesBurned': caloriesBurned,
       });

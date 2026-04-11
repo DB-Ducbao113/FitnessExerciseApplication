@@ -41,6 +41,8 @@ class WorkoutStartScreen extends ConsumerStatefulWidget {
 class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
     with WidgetsBindingObserver {
   bool _gpsEnabled = false;
+  bool _locationPermissionGranted = false;
+  bool _locationPermissionBlocked = false;
   bool _checkingGps = true;
 
   bool get _requiresGps => _requiresGpsTracking(widget.activityType);
@@ -67,20 +69,41 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
 
   Future<void> _refreshGpsStatus() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
+    final permission = await Geolocator.checkPermission();
     if (!mounted) return;
     setState(() {
       _gpsEnabled = enabled;
+      _locationPermissionGranted =
+          permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+      _locationPermissionBlocked =
+          permission == LocationPermission.deniedForever;
       _checkingGps = false;
     });
   }
 
   Future<void> _openGpsSettings() async {
-    await Geolocator.openLocationSettings();
+    if (!_gpsEnabled) {
+      await Geolocator.openLocationSettings();
+      await _refreshGpsStatus();
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+    }
+
     await _refreshGpsStatus();
   }
 
   void _startWorkout() {
-    if (_requiresGps && !_gpsEnabled) return;
+    if (_requiresGps && (!_gpsEnabled || !_locationPermissionGranted)) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => RecordScreen(
@@ -89,6 +112,14 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
         ),
       ),
     );
+  }
+
+  void _handlePrimaryAction() {
+    if (_requiresGps && (!_gpsEnabled || !_locationPermissionGranted)) {
+      _openGpsSettings();
+      return;
+    }
+    _startWorkout();
   }
 
   @override
@@ -149,6 +180,10 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                             Expanded(
                               child: _GpsStatusBadge(
                                 isEnabled: _gpsEnabled,
+                                hasLocationPermission:
+                                    _locationPermissionGranted,
+                                isPermissionBlocked:
+                                    _locationPermissionBlocked,
                                 isChecking: _checkingGps,
                                 isRequired: _requiresGps,
                               ),
@@ -158,7 +193,9 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                               onPressed: _openGpsSettings,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: _gpsEnabled
-                                    ? Colors.white
+                                    ? (_locationPermissionGranted
+                                          ? Colors.white
+                                          : _kNeonCyan)
                                     : _kNeonCyan,
                                 side: const BorderSide(color: _kCardBorder),
                                 padding: const EdgeInsets.symmetric(
@@ -175,9 +212,11 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                               ),
                               label: Text(
                                 _requiresGps
-                                    ? (_gpsEnabled
+                                    ? (!_gpsEnabled
+                                          ? 'Turn On GPS'
+                                          : _locationPermissionGranted
                                           ? 'GPS Settings'
-                                          : 'Turn On GPS')
+                                          : 'Allow Location')
                                     : 'Location Settings',
                               ),
                             ),
@@ -208,15 +247,9 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                       ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: (_requiresGps && !_gpsEnabled)
-                          ? null
-                          : _startWorkout,
+                      onPressed: _handlePrimaryAction,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
-                        disabledBackgroundColor: Colors.transparent,
-                        disabledForegroundColor: _kBgTop.withValues(
-                          alpha: 0.55,
-                        ),
                         foregroundColor: _kBgTop,
                         shadowColor: Colors.transparent,
                         shape: RoundedRectangleBorder(
@@ -246,11 +279,15 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
 
 class _GpsStatusBadge extends StatelessWidget {
   final bool isEnabled;
+  final bool hasLocationPermission;
+  final bool isPermissionBlocked;
   final bool isChecking;
   final bool isRequired;
 
   const _GpsStatusBadge({
     required this.isEnabled,
+    required this.hasLocationPermission,
+    required this.isPermissionBlocked,
     required this.isChecking,
     required this.isRequired,
   });
@@ -259,18 +296,28 @@ class _GpsStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isChecking
         ? _kMutedText
-        : (isEnabled ? const Color(0xff2be38c) : const Color(0xffff6b6b));
+        : (!isEnabled || !hasLocationPermission
+              ? const Color(0xffff6b6b)
+              : const Color(0xff2be38c));
     final label = isChecking
         ? 'Checking GPS...'
         : isRequired
-        ? (isEnabled ? 'GPS ON' : 'GPS OFF')
+        ? (!isEnabled
+              ? 'GPS OFF'
+              : hasLocationPermission
+              ? 'GPS ON'
+              : 'LOCATION BLOCKED')
         : (isEnabled ? 'GPS READY' : 'GPS OPTIONAL');
     final subtitle = isChecking
         ? 'Verifying location services'
         : isRequired
-        ? (isEnabled
+        ? (!isEnabled
+              ? 'Turn on location services to start'
+              : hasLocationPermission
               ? 'Ready for outdoor tracking'
-              : 'Turn on location services to start')
+              : isPermissionBlocked
+              ? 'Open Settings and allow location access'
+              : 'Allow location access to start')
         : 'This activity can start without GPS';
 
     return Container(

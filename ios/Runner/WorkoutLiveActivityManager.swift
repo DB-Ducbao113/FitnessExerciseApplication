@@ -88,7 +88,6 @@ final class WorkoutLiveActivityManager {
       status: stringValue(payload["status"], fallback: "active"),
       durationSeconds: intValue(payload["durationSeconds"]),
       distanceMeters: doubleValue(payload["distanceMeters"]),
-      speedKmh: doubleValue(payload["speedKmh"]),
       avgSpeedKmh: doubleValue(payload["avgSpeedKmh"]),
       caloriesBurned: intValue(payload["caloriesBurned"]),
       updatedAt: Date()

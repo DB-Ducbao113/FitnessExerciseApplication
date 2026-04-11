@@ -8,7 +8,6 @@ struct WorkoutLiveActivityAttributes: ActivityAttributes {
     var status: String
     var durationSeconds: Int
     var distanceMeters: Double
-    var speedKmh: Double
     var avgSpeedKmh: Double
     var caloriesBurned: Int
     var updatedAt: Date

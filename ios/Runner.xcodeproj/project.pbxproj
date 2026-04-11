@@ -7,27 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0397C5EB5C0DB9A764164828 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 17150D3B6C2D6297426DADBA /* ActivityKit.framework */; };
+		0F44402A4251C68C363D3118 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC652ABDFFF505431922B3F3 /* Foundation.framework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
-		239F0A648AE42282B681EE37 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B6A41F27CF4B21ECC0366C1 /* ActivityKit.framework */; };
-		31E10F1A46CCE77E488A709E /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B6A41F27CF4B21ECC0366C1 /* ActivityKit.framework */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
+		34CD4ECCAE4D6BAE1F67BA40 /* WorkoutLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 525B8228519EC1C1F1D3ADA0 /* WorkoutLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
-		4F91E5035F123DB3ACDDE4CB /* libPods-Runner.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 22369BFB79F2C1309CA13873 /* libPods-Runner.a */; };
-		5D28D029BCD227215C60A098 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0FCE7A6F0A0582CB02D05B97 /* SwiftUI.framework */; };
-		63142FD59C35A1743D3240CD /* WorkoutLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C254C8FDEF334ED2567B8C9 /* WorkoutLiveActivityPlugin.swift */; };
+		4146B292BEDA468AE613776E /* WorkoutLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9082F11BB6B169F3F4B3306 /* WorkoutLiveActivityManager.swift */; };
+		5311B739EF2F8A8F1CA7C87C /* WorkoutLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0FDED947CDE4391BACDAC3 /* WorkoutLiveActivityAttributes.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
-		7505AE588E4DAFDA3292B206 /* WorkoutLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFAE0309AA335AEBC02A3109 /* WorkoutLiveActivityWidget.swift */; };
-		76FF32EAF33446623691F7BB /* libPods-RunnerTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 62B829A2B78DE1432A7E137B /* libPods-RunnerTests.a */; };
-		7DB63D63B81AE24D32891831 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0149A393AF012EC64386A23 /* WidgetKit.framework */; };
+		7490F07100DC6A40499DFD6B /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27BD8E1D18A24992F0A138DC /* Pods_Runner.framework */; };
+		770FEEE973F486AB949FBD67 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C22B279899C9D7B537DB922D /* Pods_RunnerTests.framework */; };
+		7A5FCB92ABB0AFD96438FC29 /* WorkoutLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D0FDED947CDE4391BACDAC3 /* WorkoutLiveActivityAttributes.swift */; };
+		8F56B240C8134E7A8F99D101 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
-		98C10E457DDFA35250CFEB43 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A0EAE3D23DC5899E4AB80AD /* Foundation.framework */; };
-		C55E745172E34214EE16AB6E /* WorkoutLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A28BBF21D43DEE1B6DC1DD9 /* WorkoutLiveActivityBundle.swift */; };
-		CC6D39C454A32E7B22016A08 /* WorkoutLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E59F06FF6D3C4C21B2A41DD /* WorkoutLiveActivityAttributes.swift */; };
-		E0EBA71D6239AB64055CE127 /* WorkoutLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E59F06FF6D3C4C21B2A41DD /* WorkoutLiveActivityAttributes.swift */; };
-		E3AE74536DC30D098480B9B3 /* WorkoutLiveActivityExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F890928CBFD969823B85AFF9 /* WorkoutLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
-		FA407E39AE8A2508F15998CC /* WorkoutLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139D660B614692E50E18215D /* WorkoutLiveActivityManager.swift */; };
+		A45FA7B3A34F45A89CD4C5B6 /* WorkoutLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30386E66E7E94F1998C85FD5 /* WorkoutLiveActivityBundle.swift */; };
+		ACBF20344AA9CFE0801B7239 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AF6A5EBE99D83F04EDCEE9A /* ActivityKit.framework */; };
+		C9DEA4B691F278DE1D30B724 /* WorkoutLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20651C61A517E9A12EC80828 /* WorkoutLiveActivityWidget.swift */; };
+		DF84888B3DC572D9C8C2134D /* WorkoutLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631E8EB9B0380A4F8B0D8541 /* WorkoutLiveActivityPlugin.swift */; };
+		ED845983CC7D1F5123125396 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F3486F49A9D1B4C1D6FEB895 /* WidgetKit.framework */; };
+		FD09BC2CCD8991D908B4B783 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 487BEFFFE2B27BE3C5FF67F1 /* SwiftUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,13 +52,13 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F0E296232B19863F6B1266FF /* Embed App Extensions */ = {
+		D2E7E6DFE7249D6A9D6BA048 /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				E3AE74536DC30D098480B9B3 /* WorkoutLiveActivityExtension.appex in Embed App Extensions */,
+				34CD4ECCAE4D6BAE1F67BA40 /* WorkoutLiveActivityExtension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -65,29 +66,31 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0A0EAE3D23DC5899E4AB80AD /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		0C254C8FDEF334ED2567B8C9 /* WorkoutLiveActivityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutLiveActivityPlugin.swift; sourceTree = "<group>"; };
-		0E59F06FF6D3C4C21B2A41DD /* WorkoutLiveActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutLiveActivityAttributes.swift; sourceTree = "<group>"; };
-		0FCE7A6F0A0582CB02D05B97 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		139D660B614692E50E18215D /* WorkoutLiveActivityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutLiveActivityManager.swift; sourceTree = "<group>"; };
+		0AF6A5EBE99D83F04EDCEE9A /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
-		1A9425CF41F81CF301F437DD /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
-		22369BFB79F2C1309CA13873 /* libPods-Runner.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Runner.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		14A9E5EB3C3F055A661E0246 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		17150D3B6C2D6297426DADBA /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		20651C61A517E9A12EC80828 /* WorkoutLiveActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkoutLiveActivityWidget.swift; path = WorkoutLiveActivityWidget.swift; sourceTree = "<group>"; };
+		27BD8E1D18A24992F0A138DC /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		30386E66E7E94F1998C85FD5 /* WorkoutLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkoutLiveActivityBundle.swift; path = WorkoutLiveActivityBundle.swift; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		359EC6738B48087335EBCA15 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3A28BBF21D43DEE1B6DC1DD9 /* WorkoutLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutLiveActivityBundle.swift; sourceTree = "<group>"; };
-		3ADBD97DC2981D6DBFCDE794 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		383C2A81ABADA7D967EAD15B /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
-		4BF9BA7E4C9A41316438CA8A /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
-		62B829A2B78DE1432A7E137B /* libPods-RunnerTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-RunnerTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		661474114F2831F1483E8945 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
+		478A153FD86C8F13E4764853 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		487BEFFFE2B27BE3C5FF67F1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		4C2C9EA92EE8B7B707BCBA38 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
+		514D28A6CD798505103684FD /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		525B8228519EC1C1F1D3ADA0 /* WorkoutLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = WorkoutLiveActivityExtension.appex; path = WorkoutLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		55938FBCA97ABCDADCC88524 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		631E8EB9B0380A4F8B0D8541 /* WorkoutLiveActivityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkoutLiveActivityPlugin.swift; path = WorkoutLiveActivityPlugin.swift; sourceTree = "<group>"; };
+		6D0FDED947CDE4391BACDAC3 /* WorkoutLiveActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkoutLiveActivityAttributes.swift; path = WorkoutLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		7616504854521020F9A9A6B4 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
-		7B6A41F27CF4B21ECC0366C1 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		7FAF10A13D5E1000AABBCCDD /* Profile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Profile.xcconfig; path = Flutter/Profile.xcconfig; sourceTree = "<group>"; };
+		8A4B03A484D6D0F6270E5AB7 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,21 +98,22 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A0149A393AF012EC64386A23 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		DFAE0309AA335AEBC02A3109 /* WorkoutLiveActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutLiveActivityWidget.swift; sourceTree = "<group>"; };
-		EFE5355719E966C85DDF1930 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
-		F890928CBFD969823B85AFF9 /* WorkoutLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = WorkoutLiveActivityExtension.appex; path = WorkoutLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		99DC13B328A2241DE407111A /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		AB437F9F400CFBFE8712DCDE /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
+		B6BF97E6088BE5CD6E4E490A /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		C22B279899C9D7B537DB922D /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC652ABDFFF505431922B3F3 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		F3486F49A9D1B4C1D6FEB895 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		F9082F11BB6B169F3F4B3306 /* WorkoutLiveActivityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkoutLiveActivityManager.swift; path = WorkoutLiveActivityManager.swift; sourceTree = "<group>"; };
+		FD83CE58DFE8D8822318D6DF /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		131434DB79E460B9FF9924A3 /* Frameworks */ = {
+		3B05986C233C2B405F926A21 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				98C10E457DDFA35250CFEB43 /* Foundation.framework in Frameworks */,
-				31E10F1A46CCE77E488A709E /* ActivityKit.framework in Frameworks */,
-				7DB63D63B81AE24D32891831 /* WidgetKit.framework in Frameworks */,
-				5D28D029BCD227215C60A098 /* SwiftUI.framework in Frameworks */,
+				770FEEE973F486AB949FBD67 /* Pods_RunnerTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,47 +121,34 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4F91E5035F123DB3ACDDE4CB /* libPods-Runner.a in Frameworks */,
-				239F0A648AE42282B681EE37 /* ActivityKit.framework in Frameworks */,
+				7490F07100DC6A40499DFD6B /* Pods_Runner.framework in Frameworks */,
+				0397C5EB5C0DB9A764164828 /* ActivityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C767D8ECE96A366CAEE89856 /* Frameworks */ = {
+		BBDC410E23ABDA92B575B575 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				76FF32EAF33446623691F7BB /* libPods-RunnerTests.a in Frameworks */,
+				0F44402A4251C68C363D3118 /* Foundation.framework in Frameworks */,
+				ACBF20344AA9CFE0801B7239 /* ActivityKit.framework in Frameworks */,
+				ED845983CC7D1F5123125396 /* WidgetKit.framework in Frameworks */,
+				FD09BC2CCD8991D908B4B783 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0DE259E3FDB7C112EF55909A /* Pods */ = {
+		33048A725C0146550E5554A1 /* WorkoutLiveActivity */ = {
 			isa = PBXGroup;
 			children = (
-				661474114F2831F1483E8945 /* Pods-Runner.debug.xcconfig */,
-				7616504854521020F9A9A6B4 /* Pods-Runner.release.xcconfig */,
-				3ADBD97DC2981D6DBFCDE794 /* Pods-Runner.profile.xcconfig */,
-				1A9425CF41F81CF301F437DD /* Pods-RunnerTests.debug.xcconfig */,
-				4BF9BA7E4C9A41316438CA8A /* Pods-RunnerTests.release.xcconfig */,
-				EFE5355719E966C85DDF1930 /* Pods-RunnerTests.profile.xcconfig */,
+				30386E66E7E94F1998C85FD5 /* WorkoutLiveActivityBundle.swift */,
+				20651C61A517E9A12EC80828 /* WorkoutLiveActivityWidget.swift */,
+				4C2C9EA92EE8B7B707BCBA38 /* Info.plist */,
 			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
-		17D577213DB264BBCCD8805F /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				22369BFB79F2C1309CA13873 /* libPods-Runner.a */,
-				62B829A2B78DE1432A7E137B /* libPods-RunnerTests.a */,
-				7B6A41F27CF4B21ECC0366C1 /* ActivityKit.framework */,
-				C8F7AF749FD21E9CFB78E812 /* iOS */,
-				A0149A393AF012EC64386A23 /* WidgetKit.framework */,
-				0FCE7A6F0A0582CB02D05B97 /* SwiftUI.framework */,
-			);
-			name = Frameworks;
+			name = WorkoutLiveActivity;
+			path = WorkoutLiveActivity;
 			sourceTree = "<group>";
 		};
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
@@ -168,24 +159,26 @@
 			path = RunnerTests;
 			sourceTree = "<group>";
 		};
-		3431C9EE96F20FBFD0C38F91 /* WorkoutLiveActivity */ = {
+		4EF17B4AED953AC79FD522F3 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				3A28BBF21D43DEE1B6DC1DD9 /* WorkoutLiveActivityBundle.swift */,
-				DFAE0309AA335AEBC02A3109 /* WorkoutLiveActivityWidget.swift */,
-				359EC6738B48087335EBCA15 /* Info.plist */,
-			);
-			name = WorkoutLiveActivity;
-			path = WorkoutLiveActivity;
-			sourceTree = "<group>";
-		};
-		8C325546ACBC6260A0FA9DA3 /* Shared */ = {
-			isa = PBXGroup;
-			children = (
-				0E59F06FF6D3C4C21B2A41DD /* WorkoutLiveActivityAttributes.swift */,
+				6D0FDED947CDE4391BACDAC3 /* WorkoutLiveActivityAttributes.swift */,
 			);
 			name = Shared;
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		63BA76334108DDD214A50A7B /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				8A4B03A484D6D0F6270E5AB7 /* Pods-Runner.debug.xcconfig */,
+				99DC13B328A2241DE407111A /* Pods-Runner.release.xcconfig */,
+				AB437F9F400CFBFE8712DCDE /* Pods-Runner.profile.xcconfig */,
+				14A9E5EB3C3F055A661E0246 /* Pods-RunnerTests.debug.xcconfig */,
+				B6BF97E6088BE5CD6E4E490A /* Pods-RunnerTests.release.xcconfig */,
+				FD83CE58DFE8D8822318D6DF /* Pods-RunnerTests.profile.xcconfig */,
+			);
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		9740EEB11CF90186004384FC /* Flutter */ = {
@@ -193,6 +186,7 @@
 			children = (
 				3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */,
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
+				7FAF10A13D5E1000AABBCCDD /* Profile.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
 			);
@@ -206,10 +200,10 @@
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
-				0DE259E3FDB7C112EF55909A /* Pods */,
-				17D577213DB264BBCCD8805F /* Frameworks */,
-				8C325546ACBC6260A0FA9DA3 /* Shared */,
-				3431C9EE96F20FBFD0C38F91 /* WorkoutLiveActivity */,
+				63BA76334108DDD214A50A7B /* Pods */,
+				E7AE4D45EA439C2C45EA34DA /* Frameworks */,
+				4EF17B4AED953AC79FD522F3 /* Shared */,
+				33048A725C0146550E5554A1 /* WorkoutLiveActivity */,
 			);
 			sourceTree = "<group>";
 		};
@@ -218,7 +212,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
-				F890928CBFD969823B85AFF9 /* WorkoutLiveActivityExtension.appex */,
+				525B8228519EC1C1F1D3ADA0 /* WorkoutLiveActivityExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -234,18 +228,36 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
-				0C254C8FDEF334ED2567B8C9 /* WorkoutLiveActivityPlugin.swift */,
-				139D660B614692E50E18215D /* WorkoutLiveActivityManager.swift */,
+				631E8EB9B0380A4F8B0D8541 /* WorkoutLiveActivityPlugin.swift */,
+				F9082F11BB6B169F3F4B3306 /* WorkoutLiveActivityManager.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
 		};
-		C8F7AF749FD21E9CFB78E812 /* iOS */ = {
+		C55F91FEBE49A21DDAD38723 /* iOS */ = {
 			isa = PBXGroup;
 			children = (
-				0A0EAE3D23DC5899E4AB80AD /* Foundation.framework */,
+				CC652ABDFFF505431922B3F3 /* Foundation.framework */,
 			);
 			name = iOS;
+			sourceTree = "<group>";
+		};
+		E7AE4D45EA439C2C45EA34DA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				27BD8E1D18A24992F0A138DC /* Pods_Runner.framework */,
+				C22B279899C9D7B537DB922D /* Pods_RunnerTests.framework */,
+				17150D3B6C2D6297426DADBA /* ActivityKit.framework */,
+				C55F91FEBE49A21DDAD38723 /* iOS */,
+				0AF6A5EBE99D83F04EDCEE9A /* ActivityKit.framework */,
+				F3486F49A9D1B4C1D6FEB895 /* WidgetKit.framework */,
+				487BEFFFE2B27BE3C5FF67F1 /* SwiftUI.framework */,
+				514D28A6CD798505103684FD /* ActivityKit.framework */,
+				55938FBCA97ABCDADCC88524 /* ActivityKit.framework */,
+				383C2A81ABADA7D967EAD15B /* WidgetKit.framework */,
+				478A153FD86C8F13E4764853 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -255,10 +267,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
 			buildPhases = (
-				27AA67628010B72A5CB8E6C8 /* [CP] Check Pods Manifest.lock */,
+				B3D5C7812AED68CCB6A9D643 /* [CP] Check Pods Manifest.lock */,
 				331C807D294A63A400263BE5 /* Sources */,
 				331C807F294A63A400263BE5 /* Resources */,
-				C767D8ECE96A366CAEE89856 /* Frameworks */,
+				3B05986C233C2B405F926A21 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -270,19 +282,37 @@
 			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		5C17043F6B0376AF483C980B /* WorkoutLiveActivityExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3CD71792805F8E01C5DE365D /* Build configuration list for PBXNativeTarget "WorkoutLiveActivityExtension" */;
+			buildPhases = (
+				FA8F7EFC90979BFCB15408CF /* Sources */,
+				BBDC410E23ABDA92B575B575 /* Frameworks */,
+				0277A89CAF2447C0B62CDB86 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WorkoutLiveActivityExtension;
+			productName = WorkoutLiveActivityExtension;
+			productReference = 525B8228519EC1C1F1D3ADA0 /* WorkoutLiveActivityExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		97C146ED1CF9000F007C117D /* Runner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
-				09B4126069CDA20041D60B0A /* [CP] Check Pods Manifest.lock */,
+				BF30D63CDACB2D2B868223C7 /* [CP] Check Pods Manifest.lock */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
-				F0E296232B19863F6B1266FF /* Embed App Extensions */,
+				D2E7E6DFE7249D6A9D6BA048 /* Embed App Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
-				46591892874A3D216BC8A7E8 /* [CP] Copy Pods Resources */,
+				3AE58D97F5ACD50CB2DEAF38 /* [CP] Embed Pods Frameworks */,
+				D43F90474EED428C23F17A76 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -292,23 +322,6 @@
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
-		};
-		E8571E464ACA66E4B9576A42 /* WorkoutLiveActivityExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 0F08A56EC89EE19E1E02A5A2 /* Build configuration list for PBXNativeTarget "WorkoutLiveActivityExtension" */;
-			buildPhases = (
-				7379114B6702E3471030D00C /* Sources */,
-				131434DB79E460B9FF9924A3 /* Frameworks */,
-				8A1504D23ACD73A27962F095 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = WorkoutLiveActivityExtension;
-			productName = WorkoutLiveActivityExtension;
-			productReference = F890928CBFD969823B85AFF9 /* WorkoutLiveActivityExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -345,20 +358,21 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
-				E8571E464ACA66E4B9576A42 /* WorkoutLiveActivityExtension */,
+				5C17043F6B0376AF483C980B /* WorkoutLiveActivityExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		331C807F294A63A400263BE5 /* Resources */ = {
+		0277A89CAF2447C0B62CDB86 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8F56B240C8134E7A8F99D101 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8A1504D23ACD73A27962F095 /* Resources */ = {
+		331C807F294A63A400263BE5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -379,29 +393,55 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		09B4126069CDA20041D60B0A /* [CP] Check Pods Manifest.lock */ = {
+		3AE58D97F5ACD50CB2DEAF38 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
+			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		27AA67628010B72A5CB8E6C8 /* [CP] Check Pods Manifest.lock */ = {
+		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}",
+			);
+			name = "Thin Binary";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		9740EEB61CF901F6004384FC /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		B3D5C7812AED68CCB6A9D643 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -423,23 +463,29 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
+		BF30D63CDACB2D2B868223C7 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-				"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}",
+			inputFileListPaths = (
 			);
-			name = "Thin Binary";
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
 			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Runner-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
 		};
-		46591892874A3D216BC8A7E8 /* [CP] Copy Pods Resources */ = {
+		D43F90474EED428C23F17A76 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -456,21 +502,6 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		9740EEB61CF901F6004384FC /* Run Script */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Run Script";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
-		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -482,25 +513,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7379114B6702E3471030D00C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				E0EBA71D6239AB64055CE127 /* WorkoutLiveActivityAttributes.swift in Sources */,
-				C55E745172E34214EE16AB6E /* WorkoutLiveActivityBundle.swift in Sources */,
-				7505AE588E4DAFDA3292B206 /* WorkoutLiveActivityWidget.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		97C146EA1CF9000F007C117D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
-				63142FD59C35A1743D3240CD /* WorkoutLiveActivityPlugin.swift in Sources */,
-				FA407E39AE8A2508F15998CC /* WorkoutLiveActivityManager.swift in Sources */,
-				CC6D39C454A32E7B22016A08 /* WorkoutLiveActivityAttributes.swift in Sources */,
+				DF84888B3DC572D9C8C2134D /* WorkoutLiveActivityPlugin.swift in Sources */,
+				4146B292BEDA468AE613776E /* WorkoutLiveActivityManager.swift in Sources */,
+				5311B739EF2F8A8F1CA7C87C /* WorkoutLiveActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FA8F7EFC90979BFCB15408CF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A5FCB92ABB0AFD96438FC29 /* WorkoutLiveActivityAttributes.swift in Sources */,
+				A45FA7B3A34F45A89CD4C5B6 /* WorkoutLiveActivityBundle.swift in Sources */,
+				C9DEA4B691F278DE1D30B724 /* WorkoutLiveActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -534,28 +565,6 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		15EF1BFA50D044A944908AC4 /* Profile */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZDR9AX4U8V;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Profile;
-		};
 		249021D3217E4FDB00AE95B9 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -610,7 +619,7 @@
 		};
 		249021D4217E4FDB00AE95B9 /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 7FAF10A13D5E1000AABBCCDD /* Profile.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -620,10 +629,12 @@
 				DEVELOPMENT_TEAM = ZDR9AX4U8V;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				"PODS_CONFIGURATION_BUILD_DIR[arch=*]" = "${PODS_BUILD_DIR}/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -635,7 +646,7 @@
 		};
 		331C8088294A63A400263BE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 1A9425CF41F81CF301F437DD /* Pods-RunnerTests.debug.xcconfig */;
+			baseConfigurationReference = 14A9E5EB3C3F055A661E0246 /* Pods-RunnerTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -653,7 +664,7 @@
 		};
 		331C8089294A63A400263BE5 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4BF9BA7E4C9A41316438CA8A /* Pods-RunnerTests.release.xcconfig */;
+			baseConfigurationReference = B6BF97E6088BE5CD6E4E490A /* Pods-RunnerTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -669,7 +680,7 @@
 		};
 		331C808A294A63A400263BE5 /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EFE5355719E966C85DDF1930 /* Pods-RunnerTests.profile.xcconfig */;
+			baseConfigurationReference = FD83CE58DFE8D8822318D6DF /* Pods-RunnerTests.profile.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -683,28 +694,7 @@
 			};
 			name = Profile;
 		};
-		5B8CD0B1B3632CEDD8EBA919 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZDR9AX4U8V;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		8B7E007F7E13212C8FAF3E00 /* Release */ = {
+		527B51C7831A74456C3EC84C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
@@ -844,11 +834,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = ZDR9AX4U8V;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -865,7 +856,7 @@
 		};
 		97C147071CF9000F007C117D /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			baseConfigurationReference = 7FAF10A13D5E1000AABBCCDD /* Profile.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -875,6 +866,7 @@
 				DEVELOPMENT_TEAM = ZDR9AX4U8V;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -888,25 +880,68 @@
 			};
 			name = Release;
 		};
+		D6B557AFA572DFA22C514E46 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZDR9AX4U8V;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		FDE5F0209126F1098157D6A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZDR9AX4U8V;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0F08A56EC89EE19E1E02A5A2 /* Build configuration list for PBXNativeTarget "WorkoutLiveActivityExtension" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				8B7E007F7E13212C8FAF3E00 /* Release */,
-				5B8CD0B1B3632CEDD8EBA919 /* Debug */,
-				15EF1BFA50D044A944908AC4 /* Profile */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				331C8088294A63A400263BE5 /* Debug */,
 				331C8089294A63A400263BE5 /* Release */,
 				331C808A294A63A400263BE5 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3CD71792805F8E01C5DE365D /* Build configuration list for PBXNativeTarget "WorkoutLiveActivityExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				527B51C7831A74456C3EC84C /* Release */,
+				FDE5F0209126F1098157D6A3 /* Debug */,
+				D6B557AFA572DFA22C514E46 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

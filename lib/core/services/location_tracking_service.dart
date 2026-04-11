@@ -124,7 +124,7 @@ class LocationTrackingService {
 
     final distanceFilter = debugLocationMode
         ? 0
-        : 3; // 0 = every point on emulator
+        : (Platform.isIOS ? 1 : 3); // keep iPhone updates responsive outdoors
     final LocationSettings settings;
     if (Platform.isAndroid) {
       settings = AndroidSettings(
@@ -186,15 +186,21 @@ class LocationTrackingService {
             : _applyKalmanFilter(raw, activityType);
         final validation = _validatePosition(smoothed, activityType);
 
-        if (debugLocationMode) {
+        if (debugLocationMode || kDebugMode) {
           debugPrint(
-            '[GPS-VAL] accepted=${validation.accepted} reason=${validation.reason}',
+            '[GPS-VAL] accepted=${validation.accepted} reason=${validation.reason} '
+            'acc=${smoothed.accuracy.toStringAsFixed(1)} '
+            'speed=${smoothed.speed.toStringAsFixed(2)}',
           );
         }
 
-        if (!validation.accepted) return;
+        if (!validation.accepted) {
+          debugPrint('[GPS-REJECT] reason=${validation.reason}');
+          return;
+        }
 
         _lastValidPosition = smoothed;
+        debugPrint('[GPS-ACCEPT] reason=${validation.reason}');
         _positionController.add(smoothed);
       },
       onError: (e) {
@@ -254,7 +260,9 @@ class LocationTrackingService {
   }
 
   _ValidationResult _validatePosition(Position position, String activityType) {
-    final maxAccuracy = debugLocationMode ? 80.0 : 35.0;
+    final maxAccuracy = debugLocationMode
+        ? 80.0
+        : _maxAccuracyFor(activityType);
     if (position.accuracy > maxAccuracy) {
       return _ValidationResult(
         false,
@@ -274,22 +282,19 @@ class LocationTrackingService {
       position.longitude,
     );
 
-    final minDistance = debugLocationMode ? 0.05 : 0.3;
+    final minDistance = debugLocationMode ? 0.05 : _minDistanceFor(activityType);
     if (distance < minDistance) {
-      return const _ValidationResult(false, 'duplicate_or_tiny_move');
+      return _ValidationResult(
+        false,
+        'duplicate_or_tiny_move<${minDistance.toStringAsFixed(2)}m',
+      );
     }
 
     final sec =
         position.timestamp.difference(prev.timestamp).inMilliseconds / 1000;
     if (sec > 0) {
       final speed = distance / sec;
-      final maxSpeed = debugLocationMode
-          ? 40.0
-          : (activityType.toLowerCase() == 'cycling'
-                ? 25.0
-                : activityType.toLowerCase() == 'walking'
-                ? 6.0
-                : 15.0);
+      final maxSpeed = debugLocationMode ? 40.0 : _maxSpeedFor(activityType);
       if (speed > maxSpeed) {
         return _ValidationResult(
           false,
@@ -299,6 +304,45 @@ class LocationTrackingService {
     }
 
     return const _ValidationResult(true, 'ok');
+  }
+
+  double _maxAccuracyFor(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 55.0;
+      case 'running':
+        return 50.0;
+      case 'cycling':
+        return 35.0;
+      default:
+        return 45.0;
+    }
+  }
+
+  double _minDistanceFor(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 0.12;
+      case 'running':
+        return 0.18;
+      case 'cycling':
+        return 0.50;
+      default:
+        return 0.25;
+    }
+  }
+
+  double _maxSpeedFor(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return 4.5;
+      case 'running':
+        return 10.0;
+      case 'cycling':
+        return 22.0;
+      default:
+        return 15.0;
+    }
   }
 }
 

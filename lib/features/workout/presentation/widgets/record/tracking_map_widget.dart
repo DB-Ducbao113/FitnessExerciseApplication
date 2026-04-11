@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/utils/route_display_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 class TrackingMapWidget extends StatefulWidget {
   final List<LatLng> routePoints;
+  final String activityType;
   final LatLng? initialPosition;
   final LatLng? currentLocation;
   final bool followUser;
@@ -16,6 +18,7 @@ class TrackingMapWidget extends StatefulWidget {
   const TrackingMapWidget({
     super.key,
     required this.routePoints,
+    required this.activityType,
     this.initialPosition,
     this.currentLocation,
     this.followUser = true,
@@ -33,7 +36,6 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   DateTime? _lastCameraMove;
   bool _initialCameraSet = false;
 
-  static const double _defaultZoom = 17.0;
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
   static const _routeGlow = Color(0x6600F0FF);
   static const _routeCore = Color(0xFF00E5FF);
@@ -92,7 +94,22 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
     }
 
     _lastCameraMove = now;
-    _mapController.move(target, _defaultZoom);
+    _mapController.move(target, _targetZoom);
+  }
+
+  double get _targetZoom {
+    final activity = widget.activityType.toLowerCase();
+    final hasRoute = widget.showRoute && widget.routePoints.length > 2;
+
+    switch (activity) {
+      case 'walking':
+        return hasRoute ? 18.7 : 18.95;
+      case 'cycling':
+        return hasRoute ? 17.75 : 18.05;
+      case 'running':
+      default:
+        return hasRoute ? 18.3 : 18.6;
+    }
   }
 
   LatLng get _initialCenter =>
@@ -107,6 +124,13 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final displayRoute = widget.showRoute
+        ? sanitizeRouteForDisplay(
+            widget.routePoints,
+            activityType: widget.activityType,
+          )
+        : const <LatLng>[];
+
     if (kDebugMode) {
       debugPrint(
         '[Map] rebuild marker=${_markerPosition != null} routePoints=${widget.routePoints.length} showRoute=${widget.showRoute} follow=${widget.followUser}',
@@ -119,7 +143,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
           mapController: _mapController,
           options: MapOptions(
             initialCenter: _initialCenter,
-            initialZoom: _defaultZoom,
+            initialZoom: _targetZoom,
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
             ),
@@ -134,23 +158,23 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.fitness_exercise_application',
-              maxZoom: 19,
+              maxZoom: 20,
             ),
-            if (widget.showRoute && widget.routePoints.length >= 2)
+            if (widget.showRoute && displayRoute.length >= 2)
               PolylineLayer(
                 polylines: [
                   Polyline(
-                    points: widget.routePoints,
+                    points: displayRoute,
                     strokeWidth: 16,
                     color: _routeGlow,
                   ),
                   Polyline(
-                    points: widget.routePoints,
+                    points: displayRoute,
                     strokeWidth: 7,
                     color: _routeCore,
                   ),
                   Polyline(
-                    points: widget.routePoints,
+                    points: displayRoute,
                     strokeWidth: 2,
                     color: _routeHighlight,
                   ),
@@ -158,9 +182,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
               ),
             MarkerLayer(
               markers: [
-                if (widget.showRoute && widget.routePoints.isNotEmpty)
+                if (widget.showRoute && displayRoute.isNotEmpty)
                   Marker(
-                    point: widget.routePoints.first,
+                    point: displayRoute.first,
                     width: 34,
                     height: 34,
                     child: const _StartMarker(),
