@@ -5,6 +5,7 @@ import 'package:fitness_exercise_application/features/shell/presentation/screens
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/utils/route_display_sanitizer.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -105,7 +106,9 @@ class WorkoutSummaryScreen extends StatelessWidget {
                         Expanded(
                           child: _SummaryStatCard(
                             label: 'Duration',
-                            value: _formatDuration(durationSeconds),
+                            value: WorkoutFormatters.formatElapsedClock(
+                              durationSeconds,
+                            ),
                             accent: _kNeonBlue,
                           ),
                         ),
@@ -117,7 +120,9 @@ class WorkoutSummaryScreen extends StatelessWidget {
                         Expanded(
                           child: _SummaryStatCard(
                             label: 'Avg Pace',
-                            value: _formatPace(avgSpeedKmh),
+                            value: WorkoutFormatters.formatPaceFromSpeedKmh(
+                              avgSpeedKmh,
+                            ),
                             accent: const Color(0xFFF8C15C),
                           ),
                         ),
@@ -607,7 +612,7 @@ class _IndoorTrailPreview extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  '${distanceKm.toStringAsFixed(2)} km  |  ${_formatDuration(durationSeconds)}',
+                  '${distanceKm.toStringAsFixed(2)} km  |  ${WorkoutFormatters.formatElapsedClock(durationSeconds)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -966,32 +971,14 @@ class _SplitRow extends StatelessWidget {
   }
 }
 
-String _formatDuration(int seconds) {
-  final h = seconds ~/ 3600;
-  final m = (seconds % 3600) ~/ 60;
-  final s = seconds % 60;
-  if (h > 0) {
-    return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-  return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-}
-
 String _summarySubtitle({
   required double distanceKm,
   required int durationSeconds,
   required double avgSpeedKmh,
 }) {
-  final duration = _formatDuration(durationSeconds);
-  final pace = _formatPace(avgSpeedKmh);
+  final duration = WorkoutFormatters.formatElapsedClock(durationSeconds);
+  final pace = WorkoutFormatters.formatPaceFromSpeedKmh(avgSpeedKmh);
   return '$duration total  •  $pace average  •  ${distanceKm.toStringAsFixed(2)} km';
-}
-
-String _formatPace(double speedKmh) {
-  if (speedKmh < 0.1) return '--';
-  final totalSeconds = (3600 / speedKmh).round();
-  final minutes = totalSeconds ~/ 60;
-  final seconds = totalSeconds % 60;
-  return '$minutes:${seconds.toString().padLeft(2, '0')}/km';
 }
 
 String _formatSplitDuration(int seconds) {

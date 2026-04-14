@@ -1,5 +1,9 @@
 // Tests for workout metric consistency.
 
+import 'package:fitness_exercise_application/features/workout/domain/constants/workout_processing_contract.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/workout_metrics_calculator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -204,6 +208,83 @@ void main() {
         equals(expectedDistKm),
         reason: 'distanceKm must survive round-trip unchanged',
       );
+    });
+
+    test('average speed must be derived from total duration and distance', () {
+      const durationSec = 1800;
+      const distanceMeters = 5000.0;
+
+      final distKm = distanceMeters / 1000.0;
+      final expectedAvgSpeed = distKm / (durationSec / 3600.0);
+
+      expect(expectedAvgSpeed, closeTo(10.0, 0.0001));
+    });
+  });
+
+  group('DurationFormatting', () {
+    test('formatDurationFromSeconds keeps second-level precision', () {
+      expect(WorkoutFormatters.formatDurationFromSeconds(59), '59s');
+      expect(WorkoutFormatters.formatDurationFromSeconds(60), '1m');
+      expect(WorkoutFormatters.formatDurationFromSeconds(89), '1m 29s');
+      expect(WorkoutFormatters.formatDurationFromSeconds(3661), '1h 1m 1s');
+    });
+  });
+
+  group('BackendAlignedMetrics', () {
+    test('client metric constants match backend processing defaults', () {
+      expect(kClientMetricsVersion, 1);
+      expect(kClientRecordingStatus, 'client_recording');
+      expect(
+        kClientPendingProcessingStatus,
+        'client_finished_pending_processing',
+      );
+      expect(kClientFinalizedStatus, 'client_finalized');
+      expect(kClientProcessingStatus, kClientPendingProcessingStatus);
+      expect(kDeterministicFinalizeJobType, 'deterministic_finalize');
+      expect(kQueuedJobStatus, 'queued');
+      expect(kClientFinishEnqueuedEvent, 'client_finish_enqueued');
+    });
+
+    test('calculator computes speed from canonical distance and duration', () {
+      final speed = WorkoutMetricsCalculator.computeAverageSpeedKmh(
+        distanceKm: 5.0,
+        durationSec: 1800,
+      );
+      expect(speed, closeTo(10.0, 0.0001));
+    });
+
+    test('raw GPS payload serializes to backend column names', () {
+      final payload = RawGpsPointPayload(
+        workoutId: 'session-1',
+        timestamp: DateTime.utc(2026, 4, 14, 10, 0, 0),
+        latitude: 10.123,
+        longitude: 106.456,
+        accuracy: 4.2,
+        deviceSource: 'geolocator_position_stream',
+      ).toJson();
+
+      expect(payload['workout_id'], 'session-1');
+      expect(payload['timestamp'], '2026-04-14T10:00:00.000Z');
+      expect(payload['latitude'], closeTo(10.123, 0.0001));
+      expect(payload['longitude'], closeTo(106.456, 0.0001));
+      expect(payload['accuracy'], closeTo(4.2, 0.0001));
+      expect(payload['device_source'], 'geolocator_position_stream');
+    });
+
+    test('raw step interval payload serializes to backend column names', () {
+      final payload = RawStepIntervalPayload(
+        workoutId: 'session-1',
+        intervalStart: DateTime.utc(2026, 4, 14, 10, 0, 0),
+        intervalEnd: DateTime.utc(2026, 4, 14, 10, 0, 5),
+        stepsCount: 12,
+        deviceSource: 'pedometer_step_count_stream',
+      ).toJson();
+
+      expect(payload['workout_id'], 'session-1');
+      expect(payload['interval_start'], '2026-04-14T10:00:00.000Z');
+      expect(payload['interval_end'], '2026-04-14T10:00:05.000Z');
+      expect(payload['steps_count'], 12);
+      expect(payload['device_source'], 'pedometer_step_count_stream');
     });
   });
 }

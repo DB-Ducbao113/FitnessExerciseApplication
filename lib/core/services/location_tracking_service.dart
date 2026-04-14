@@ -12,33 +12,6 @@ final locationTrackingServiceProvider = Provider(
   ),
 );
 
-class _KalmanAxis {
-  double estimate;
-  double errorEstimate;
-
-  _KalmanAxis({required this.estimate, required this.errorEstimate});
-
-  static double processNoise(String activityType) {
-    switch (activityType.toLowerCase()) {
-      case 'walking':
-        return 0.005;
-      case 'cycling':
-        return 0.008;
-      case 'running':
-      default:
-        return 0.01;
-    }
-  }
-
-  double update(double measured, double measuredNoise, String activityType) {
-    errorEstimate += processNoise(activityType);
-    final k = errorEstimate / (errorEstimate + measuredNoise);
-    estimate = estimate + k * (measured - estimate);
-    errorEstimate = (1 - k) * errorEstimate;
-    return estimate;
-  }
-}
-
 class LocationTrackingService {
   final bool debugLocationMode;
   final bool debugMockPlaybackMode;
@@ -50,10 +23,6 @@ class LocationTrackingService {
 
   StreamSubscription<Position>? _positionStream;
   final _positionController = StreamController<Position>.broadcast();
-
-  Position? _lastValidPosition;
-  _KalmanAxis? _latFilter;
-  _KalmanAxis? _lngFilter;
 
   Stream<Position> get positionStream => _positionController.stream;
 
@@ -162,46 +131,17 @@ class LocationTrackingService {
       '[GPS] startTracking activity=$activityType debug=$debugLocationMode mockPlayback=$debugMockPlaybackMode distanceFilter=$distanceFilter forceLocationManager=$debugLocationMode',
     );
 
-    _lastValidPosition = null;
-    _latFilter = null;
-    _lngFilter = null;
-
     if (_positionStream != null) {
       await _positionStream!.cancel();
     }
     _positionStream = Geolocator.getPositionStream(locationSettings: settings).listen(
       (raw) {
-        // Always log raw incoming position in debug mode.
         if (debugLocationMode) {
           debugPrint(
             '[GPS-RAW] lat=${raw.latitude}, lng=${raw.longitude}, acc=${raw.accuracy}, speed=${raw.speed}',
           );
         }
-
-        // Keep normal debug on a real device accurate. Only bypass Kalman when
-        // mock playback is explicitly enabled for emulator route testing.
-        final shouldBypassKalman = debugLocationMode && debugMockPlaybackMode;
-        final smoothed = shouldBypassKalman
-            ? raw
-            : _applyKalmanFilter(raw, activityType);
-        final validation = _validatePosition(smoothed, activityType);
-
-        if (debugLocationMode || kDebugMode) {
-          debugPrint(
-            '[GPS-VAL] accepted=${validation.accepted} reason=${validation.reason} '
-            'acc=${smoothed.accuracy.toStringAsFixed(1)} '
-            'speed=${smoothed.speed.toStringAsFixed(2)}',
-          );
-        }
-
-        if (!validation.accepted) {
-          debugPrint('[GPS-REJECT] reason=${validation.reason}');
-          return;
-        }
-
-        _lastValidPosition = smoothed;
-        debugPrint('[GPS-ACCEPT] reason=${validation.reason}');
-        _positionController.add(smoothed);
+        _positionController.add(raw);
       },
       onError: (e) {
         debugPrint('[GPS] stream error: $e');
@@ -216,139 +156,5 @@ class LocationTrackingService {
     debugPrint('[GPS] stopTracking');
     _positionStream?.cancel();
     _positionStream = null;
-    _lastValidPosition = null;
-    _latFilter = null;
-    _lngFilter = null;
   }
-
-  Position _applyKalmanFilter(Position raw, String activityType) {
-    final safeAccuracy = raw.accuracy <= 0 ? 1.0 : raw.accuracy;
-    final measuredNoise = safeAccuracy * safeAccuracy;
-
-    _latFilter ??= _KalmanAxis(
-      estimate: raw.latitude,
-      errorEstimate: measuredNoise,
-    );
-    _lngFilter ??= _KalmanAxis(
-      estimate: raw.longitude,
-      errorEstimate: measuredNoise,
-    );
-
-    final smoothLat = _latFilter!.update(
-      raw.latitude,
-      measuredNoise,
-      activityType,
-    );
-    final smoothLng = _lngFilter!.update(
-      raw.longitude,
-      measuredNoise,
-      activityType,
-    );
-
-    return Position(
-      latitude: smoothLat,
-      longitude: smoothLng,
-      timestamp: raw.timestamp,
-      accuracy: raw.accuracy,
-      altitude: raw.altitude,
-      altitudeAccuracy: raw.altitudeAccuracy,
-      heading: raw.heading,
-      headingAccuracy: raw.headingAccuracy,
-      speed: raw.speed,
-      speedAccuracy: raw.speedAccuracy,
-    );
-  }
-
-  _ValidationResult _validatePosition(Position position, String activityType) {
-    final maxAccuracy = debugLocationMode
-        ? 80.0
-        : _maxAccuracyFor(activityType);
-    if (position.accuracy > maxAccuracy) {
-      return _ValidationResult(
-        false,
-        'accuracy>${maxAccuracy.toStringAsFixed(0)}m',
-      );
-    }
-
-    if (_lastValidPosition == null) {
-      return const _ValidationResult(true, 'first_point');
-    }
-
-    final prev = _lastValidPosition!;
-    final distance = Geolocator.distanceBetween(
-      prev.latitude,
-      prev.longitude,
-      position.latitude,
-      position.longitude,
-    );
-
-    final minDistance = debugLocationMode ? 0.05 : _minDistanceFor(activityType);
-    if (distance < minDistance) {
-      return _ValidationResult(
-        false,
-        'duplicate_or_tiny_move<${minDistance.toStringAsFixed(2)}m',
-      );
-    }
-
-    final sec =
-        position.timestamp.difference(prev.timestamp).inMilliseconds / 1000;
-    if (sec > 0) {
-      final speed = distance / sec;
-      final maxSpeed = debugLocationMode ? 40.0 : _maxSpeedFor(activityType);
-      if (speed > maxSpeed) {
-        return _ValidationResult(
-          false,
-          'unrealistic_speed=${speed.toStringAsFixed(2)}m/s',
-        );
-      }
-    }
-
-    return const _ValidationResult(true, 'ok');
-  }
-
-  double _maxAccuracyFor(String activityType) {
-    switch (activityType.toLowerCase()) {
-      case 'walking':
-        return 55.0;
-      case 'running':
-        return 50.0;
-      case 'cycling':
-        return 35.0;
-      default:
-        return 45.0;
-    }
-  }
-
-  double _minDistanceFor(String activityType) {
-    switch (activityType.toLowerCase()) {
-      case 'walking':
-        return 0.12;
-      case 'running':
-        return 0.18;
-      case 'cycling':
-        return 0.50;
-      default:
-        return 0.25;
-    }
-  }
-
-  double _maxSpeedFor(String activityType) {
-    switch (activityType.toLowerCase()) {
-      case 'walking':
-        return 4.5;
-      case 'running':
-        return 10.0;
-      case 'cycling':
-        return 22.0;
-      default:
-        return 15.0;
-    }
-  }
-}
-
-class _ValidationResult {
-  final bool accepted;
-  final String reason;
-
-  const _ValidationResult(this.accepted, this.reason);
 }

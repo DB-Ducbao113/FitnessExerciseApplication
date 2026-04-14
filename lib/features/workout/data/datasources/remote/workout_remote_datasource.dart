@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/features/workout/data/models/workout_session_model.dart';
+import 'package:fitness_exercise_application/features/workout/domain/constants/workout_processing_contract.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
 import 'package:flutter/foundation.dart';
@@ -9,10 +10,34 @@ class WorkoutRemoteDataSource {
 
   WorkoutRemoteDataSource(this._supabase);
 
+  Future<void> createSessionShell({
+    required String id,
+    required String userId,
+    required String activityType,
+    required String mode,
+    required DateTime startedAt,
+    required DateTime createdAt,
+  }) async {
+    await _supabase.from(DbTables.workoutSessions).upsert({
+      'id': id,
+      'user_id': userId,
+      'activity_type': activityType,
+      'mode': mode,
+      'started_at': startedAt.toUtc().toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'processing_status': kClientRecordingStatus,
+      'metrics_version': kClientMetricsVersion,
+    });
+  }
+
   /// Saves the complete session to the cloud database
   Future<void> saveSession(WorkoutSession session) async {
     final model = WorkoutSessionModel.fromEntity(session);
-    await _supabase.from(DbTables.workoutSessions).insert(model.toJson());
+    await _supabase.from(DbTables.workoutSessions).upsert({
+      ...model.toJson(),
+      'processing_status': kClientProcessingStatus,
+      'metrics_version': kClientMetricsVersion,
+    });
   }
 
   /// Fetch workouts from Supabase for a specific user

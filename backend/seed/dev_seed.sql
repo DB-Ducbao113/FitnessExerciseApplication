@@ -1,99 +1,179 @@
 -- ================================================================
--- insert_sample.sql  ──  DEV SEED DATA
--- Run AFTER all schema files. Replace the user UUID below with
--- a real auth.users ID from your Supabase project.
+-- dev_seed.sql
+-- Development seed data.
+-- Safe behavior:
+--   - uses the first available auth.users row
+--   - skips cleanly if no auth user exists yet
 -- ================================================================
 
--- ── Step 1: Upsert user row ───────────────────────────────────────
--- Replace the UUID with your own from Supabase Auth > Users tab.
-insert into public.users (id, name, gender, age, weight_kg, height_cm)
-values (
-  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
-  'Duc Bao',
-  'male',
-  22,
-  65.0,
-  175.0
-)
-on conflict (id) do update set
-  name   = excluded.name,
-  gender = excluded.gender,
-  age    = excluded.age;
+do $$
+declare
+  seed_user_id uuid;
+  running_workout_id uuid;
+begin
+  select id
+  into seed_user_id
+  from auth.users
+  order by created_at asc
+  limit 1;
 
--- ── Step 2: Upsert user_profile row ──────────────────────────────
-insert into public.user_profiles (user_id, weight_kg, height_m, age, gender)
-values (
-  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
-  65.0,
-  1.75,
-  22,
-  'male'
-)
-on conflict (user_id) do update set
-  weight_kg = excluded.weight_kg,
-  height_m  = excluded.height_m;
+  if seed_user_id is null then
+    raise notice 'dev_seed.sql skipped: no rows found in auth.users.';
+    return;
+  end if;
 
--- ── Step 3: Sample workout_sessions ──────────────────────────────
+  insert into public.users (id, name, gender, age, weight_kg, height_cm)
+  values (
+    seed_user_id,
+    'Dev User',
+    'male',
+    22,
+    65.0,
+    175.0
+  )
+  on conflict (id) do update set
+    name = excluded.name,
+    gender = excluded.gender,
+    age = excluded.age,
+    weight_kg = excluded.weight_kg,
+    height_cm = excluded.height_cm;
 
--- Outdoor running (yesterday, 30 min)
-insert into public.workout_sessions (
-  user_id, activity_type, mode,
-  started_at, ended_at, duration_sec,
-  distance_km, avg_speed_kmh, calories_kcal, lap_splits
-) values (
-  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
-  'running', 'outdoor',
-  now() - interval '1 day',
-  now() - interval '1 day' + interval '30 minutes',
-  1800,
-  5.2, 10.4, 320.0,
-  '[{"index":1,"distanceKm":1.0,"durationSeconds":330,"paceMinPerKm":5.5},{"index":2,"distanceKm":1.0,"durationSeconds":342,"paceMinPerKm":5.7}]'::jsonb
-);
+  insert into public.user_profiles (
+    user_id,
+    weight_kg,
+    height_cm,
+    date_of_birth,
+    height_m,
+    age,
+    gender
+  )
+  values (
+    seed_user_id,
+    65.0,
+    175.0,
+    date '2004-01-01',
+    1.75,
+    22,
+    'male'
+  )
+  on conflict (user_id) do update set
+    weight_kg = excluded.weight_kg,
+    height_cm = excluded.height_cm,
+    date_of_birth = excluded.date_of_birth,
+    height_m = excluded.height_m,
+    age = excluded.age,
+    gender = excluded.gender,
+    updated_at = now();
 
--- Outdoor cycling (4 hours ago, 60 min)
-insert into public.workout_sessions (
-  user_id, activity_type, mode,
-  started_at, ended_at, duration_sec,
-  distance_km, avg_speed_kmh, calories_kcal, lap_splits
-) values (
-  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
-  'cycling', 'outdoor',
-  now() - interval '4 hours',
-  now() - interval '3 hours',
-  3600,
-  20.5, 20.5, 450.0,
-  '[]'::jsonb
-);
+  insert into public.user_goals (user_id, goal_type, target_value, period)
+  values (
+    seed_user_id,
+    'distance',
+    25.0,
+    'weekly'
+  )
+  on conflict (user_id) do update set
+    goal_type = excluded.goal_type,
+    target_value = excluded.target_value,
+    period = excluded.period,
+    updated_at = now();
 
--- Indoor walking (2 days ago, step-based)
-insert into public.workout_sessions (
-  user_id, activity_type, mode,
-  started_at, ended_at, duration_sec,
-  steps, calories_kcal, lap_splits
-) values (
-  '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d',
-  'walking', 'indoor',
-  now() - interval '2 days',
-  now() - interval '2 days' + interval '45 minutes',
-  2700,
-  5400, 200.0, '[]'::jsonb
-);
+  insert into public.workout_sessions (
+    user_id,
+    activity_type,
+    mode,
+    started_at,
+    ended_at,
+    duration_sec,
+    distance_km,
+    avg_speed_kmh,
+    calories_kcal,
+    lap_splits
+  )
+  values (
+    seed_user_id,
+    'running',
+    'outdoor',
+    now() - interval '1 day',
+    now() - interval '1 day' + interval '30 minutes',
+    1800,
+    5.2,
+    10.4,
+    320.0,
+    '[{"index":1,"distanceKm":1.0,"durationSeconds":330,"paceMinPerKm":5.5},{"index":2,"distanceKm":1.0,"durationSeconds":342,"paceMinPerKm":5.7}]'::jsonb
+  )
+  returning id into running_workout_id;
 
--- ── Step 4: Sample gps_tracks for the running session ────────────
--- Get the running session id first:
---   select id from workout_sessions where activity_type='running' limit 1;
--- Then replace <RUNNING_SESSION_UUID> below.
+  insert into public.workout_sessions (
+    user_id,
+    activity_type,
+    mode,
+    started_at,
+    ended_at,
+    duration_sec,
+    distance_km,
+    avg_speed_kmh,
+    calories_kcal,
+    lap_splits
+  )
+  values (
+    seed_user_id,
+    'cycling',
+    'outdoor',
+    now() - interval '4 hours',
+    now() - interval '3 hours',
+    3600,
+    20.5,
+    20.5,
+    450.0,
+    '[]'::jsonb
+  );
 
-/*
-insert into public.gps_tracks (workout_id, latitude, longitude, recorded_at)
-values
-  ('<RUNNING_SESSION_UUID>', 10.77690, 106.70090, now() - interval '1 day'),
-  ('<RUNNING_SESSION_UUID>', 10.77710, 106.70120, now() - interval '1 day' + interval '30 seconds'),
-  ('<RUNNING_SESSION_UUID>', 10.77740, 106.70150, now() - interval '1 day' + interval '60 seconds');
-*/
+  insert into public.workout_sessions (
+    user_id,
+    activity_type,
+    mode,
+    started_at,
+    ended_at,
+    duration_sec,
+    steps,
+    calories_kcal,
+    lap_splits
+  )
+  values (
+    seed_user_id,
+    'walking',
+    'indoor',
+    now() - interval '2 days',
+    now() - interval '2 days' + interval '45 minutes',
+    2700,
+    5400,
+    200.0,
+    '[]'::jsonb
+  );
 
--- ── Step 5: Verify ────────────────────────────────────────────────
+  if running_workout_id is not null then
+    insert into public.gps_tracks (workout_id, latitude, longitude, recorded_at)
+    values
+      (running_workout_id, 10.77690, 106.70090, now() - interval '1 day'),
+      (
+        running_workout_id,
+        10.77710,
+        106.70120,
+        now() - interval '1 day' + interval '30 seconds'
+      ),
+      (
+        running_workout_id,
+        10.77740,
+        106.70150,
+        now() - interval '1 day' + interval '60 seconds'
+      );
+  end if;
+
+  raise notice 'dev_seed.sql completed for auth user %', seed_user_id;
+end $$;
+
 select activity_type, mode, duration_sec, distance_km, calories_kcal, started_at
 from public.workout_sessions
-where user_id = '6e2f84d1-e16c-4ab4-bd89-1688aea5a37d'
-order by started_at desc;
+order by started_at desc
+limit 10;

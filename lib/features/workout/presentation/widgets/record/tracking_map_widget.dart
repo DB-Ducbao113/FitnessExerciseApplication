@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/utils/route_display_sanitizer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -125,10 +124,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   @override
   Widget build(BuildContext context) {
     final displayRoute = widget.showRoute
-        ? sanitizeRouteForDisplay(
-            widget.routePoints,
-            activityType: widget.activityType,
-          )
+        ? List<LatLng>.from(widget.routePoints)
         : const <LatLng>[];
 
     if (kDebugMode) {
