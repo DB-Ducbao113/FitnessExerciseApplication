@@ -1,0 +1,94 @@
+import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
+
+class WorkoutSessionLifecycle {
+  const WorkoutSessionLifecycle();
+
+  WorkoutSessionState createInitializingState({
+    required String sessionId,
+    required String activityType,
+    required String trackingMode,
+    required String environmentHint,
+    required String recordingSource,
+    required bool modeDecisionLocked,
+    required double strideLengthMeters,
+    required DateTime startedAt,
+  }) {
+    return WorkoutSessionState(
+      status: RecordingState.initializing,
+      sessionId: sessionId,
+      activityType: activityType,
+      trackingMode: trackingMode,
+      environmentHint: environmentHint,
+      recordingSource: recordingSource,
+      gpsFallbackActive: false,
+      modeDecisionLocked: modeDecisionLocked,
+      strideLengthMeters: strideLengthMeters,
+      startedAt: startedAt,
+      pausedAutoStopRemainingSeconds: 0,
+    );
+  }
+
+  WorkoutSessionState activate({
+    required WorkoutSessionState current,
+    required String recordingSource,
+  }) {
+    return current.copyWith(
+      status: RecordingState.active,
+      durationSeconds: 0,
+      movingTimeSeconds: 0,
+      distanceMeters: 0,
+      speedKmh: 0,
+      stepCount: 0,
+      caloriesBurned: 0,
+      lapSplits: const [],
+      isAutoPaused: false,
+      pausedAutoStopRemainingSeconds: 0,
+      recordingSource: recordingSource,
+    );
+  }
+
+  WorkoutSessionState pause({
+    required WorkoutSessionState current,
+    required int pauseAutoStopRemainingSeconds,
+  }) {
+    return current.copyWith(
+      status: RecordingState.paused,
+      speedKmh: 0,
+      isAutoPaused: false,
+      pausedAutoStopRemainingSeconds: pauseAutoStopRemainingSeconds,
+    );
+  }
+
+  WorkoutSessionState resume(WorkoutSessionState current) {
+    return current.copyWith(
+      status: RecordingState.active,
+      speedKmh: 0,
+      isAutoPaused: false,
+      pausedAutoStopRemainingSeconds: 0,
+    );
+  }
+
+  WorkoutSessionState stopping(WorkoutSessionState current) {
+    return current.copyWith(
+      status: RecordingState.stopping,
+      speedKmh: 0,
+      isAutoPaused: false,
+      pausedAutoStopRemainingSeconds: 0,
+    );
+  }
+
+  WorkoutSessionState finish({
+    required WorkoutSessionState current,
+    required int caloriesBurned,
+    required double avgSpeedKmh,
+    required String sessionId,
+  }) {
+    return current.copyWith(
+      status: RecordingState.finished,
+      caloriesBurned: caloriesBurned,
+      avgSpeedKmh: avgSpeedKmh,
+      sessionId: sessionId,
+      pausedAutoStopRemainingSeconds: 0,
+    );
+  }
+}

@@ -54,6 +54,10 @@ Use a lighter structure only when a feature is genuinely small.
 - `home`
   Owns home-specific providers and widgets, but reads profile/workout data through their feature providers.
 
+For a concrete example of the newer MVVM-style split used in the workout recording flow, see:
+
+- `docs/architecture/MVVM_WORKOUT_RECORDING.md`
+
 ## Practical Guidance
 
 - Add new screens under the feature that owns the use case.

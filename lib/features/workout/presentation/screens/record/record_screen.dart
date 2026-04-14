@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_providers.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
@@ -6,6 +7,7 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
 import 'package:fitness_exercise_application/core/services/location_tracking_service.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -69,7 +71,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         if (profile != null) {
           notifier.setUserProfile(
             weightKg: profile.weightKg,
-            heightCm: profile.heightM * 100,
+            heightCm: profile.heightCm,
             gender: profile.gender,
           );
         }
@@ -486,7 +488,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           Expanded(
                             child: _FeatureStatCard(
                               label: 'TIME',
-                              value: _formatDuration(state.durationSeconds),
+                              value: WorkoutFormatters.formatElapsedClock(
+                                state.durationSeconds,
+                              ),
                               accent: _kNeonCyan,
                               isHero: true,
                             ),
@@ -512,7 +516,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           Expanded(
                             child: _FeatureStatCard(
                               label: 'AVG PACE',
-                              value: _formatPace(state.avgSpeedKmh),
+                              value: WorkoutFormatters.formatPaceFromSpeedKmh(
+                                state.avgSpeedKmh,
+                              ),
                               accent: const Color(0xfff8c15c),
                             ),
                           ),
@@ -652,7 +658,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              'Auto finish in ${_formatDuration(ref.watch(workoutSessionProvider).pausedAutoStopRemainingSeconds)}',
+              'Auto finish in ${WorkoutFormatters.formatElapsedClock(ref.watch(workoutSessionProvider).pausedAutoStopRemainingSeconds)}',
               style: const TextStyle(
                 color: _kMutedText,
                 fontSize: 12,
@@ -690,24 +696,6 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     );
   }
 
-  String _formatDuration(int seconds) {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) {
-      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  String _formatPace(double speedKmh) {
-    if (speedKmh < 0.1) return '--';
-    final totalSeconds = (3600 / speedKmh).round();
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}/km';
-  }
-
   String _formatSplit(WorkoutLapSplit split) {
     final paceMinutes = split.paceMinPerKm.floor();
     var paceSeconds = ((split.paceMinPerKm - paceMinutes) * 60).round();
@@ -716,7 +704,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       minutes += 1;
       paceSeconds = 0;
     }
-    return 'KM ${split.index} · ${_formatDuration(split.durationSeconds)} · $minutes:${paceSeconds.toString().padLeft(2, '0')}/km';
+    return 'KM ${split.index} · ${WorkoutFormatters.formatElapsedClock(split.durationSeconds)} · $minutes:${paceSeconds.toString().padLeft(2, '0')}/km';
   }
 
   String _modeBadgeText(String mode) {
