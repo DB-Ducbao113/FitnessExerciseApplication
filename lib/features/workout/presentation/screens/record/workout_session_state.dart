@@ -11,6 +11,18 @@ enum RecordingState {
   error,
 }
 
+class GpsGapSegment {
+  final LatLng start;
+  final LatLng end;
+  final double durationSec;
+
+  const GpsGapSegment({
+    required this.start,
+    required this.end,
+    required this.durationSec,
+  });
+}
+
 class WorkoutSessionState {
   final RecordingState status;
   final String? sessionId;
@@ -32,11 +44,18 @@ class WorkoutSessionState {
   final int caloriesBurned;
   final List<LatLng> routePoints;
   final List<WorkoutLapSplit> lapSplits;
+  final WorkoutGpsAnalysis gpsAnalysis;
 
   final LatLng? initialPosition;
   final LatLng? currentLatLng;
+  final bool isIndoorSyntheticRoute;
+  final double indoorSyntheticHeadingDeg;
+  final LatLng? gpsGapMarker;
+  final List<GpsGapSegment> gpsGapSegments;
   final bool followUser;
   final bool isAutoPaused;
+  final bool isGpsSignalWeak;
+  final double lastGpsGapDurationSec;
   final int pausedAutoStopRemainingSeconds;
   final int recenterRequestId;
   final String? errorMessage;
@@ -66,10 +85,17 @@ class WorkoutSessionState {
     this.caloriesBurned = 0,
     this.routePoints = const [],
     this.lapSplits = const [],
+    this.gpsAnalysis = const WorkoutGpsAnalysis(),
     this.initialPosition,
     this.currentLatLng,
+    this.isIndoorSyntheticRoute = false,
+    this.indoorSyntheticHeadingDeg = 0,
+    this.gpsGapMarker,
+    this.gpsGapSegments = const [],
     this.followUser = true,
     this.isAutoPaused = false,
+    this.isGpsSignalWeak = false,
+    this.lastGpsGapDurationSec = 0,
     this.pausedAutoStopRemainingSeconds = 0,
     this.recenterRequestId = 0,
     this.errorMessage,
@@ -95,10 +121,17 @@ class WorkoutSessionState {
     int? caloriesBurned,
     List<LatLng>? routePoints,
     List<WorkoutLapSplit>? lapSplits,
+    WorkoutGpsAnalysis? gpsAnalysis,
     LatLng? initialPosition,
     LatLng? currentLatLng,
+    bool? isIndoorSyntheticRoute,
+    double? indoorSyntheticHeadingDeg,
+    LatLng? gpsGapMarker,
+    List<GpsGapSegment>? gpsGapSegments,
     bool? followUser,
     bool? isAutoPaused,
+    bool? isGpsSignalWeak,
+    double? lastGpsGapDurationSec,
     int? pausedAutoStopRemainingSeconds,
     int? recenterRequestId,
     String? errorMessage,
@@ -123,10 +156,20 @@ class WorkoutSessionState {
       caloriesBurned: caloriesBurned ?? this.caloriesBurned,
       routePoints: routePoints ?? this.routePoints,
       lapSplits: lapSplits ?? this.lapSplits,
+      gpsAnalysis: gpsAnalysis ?? this.gpsAnalysis,
       initialPosition: initialPosition ?? this.initialPosition,
       currentLatLng: currentLatLng ?? this.currentLatLng,
+      isIndoorSyntheticRoute:
+          isIndoorSyntheticRoute ?? this.isIndoorSyntheticRoute,
+      indoorSyntheticHeadingDeg:
+          indoorSyntheticHeadingDeg ?? this.indoorSyntheticHeadingDeg,
+      gpsGapMarker: gpsGapMarker ?? this.gpsGapMarker,
+      gpsGapSegments: gpsGapSegments ?? this.gpsGapSegments,
       followUser: followUser ?? this.followUser,
       isAutoPaused: isAutoPaused ?? this.isAutoPaused,
+      isGpsSignalWeak: isGpsSignalWeak ?? this.isGpsSignalWeak,
+      lastGpsGapDurationSec:
+          lastGpsGapDurationSec ?? this.lastGpsGapDurationSec,
       pausedAutoStopRemainingSeconds:
           pausedAutoStopRemainingSeconds ?? this.pausedAutoStopRemainingSeconds,
       recenterRequestId: recenterRequestId ?? this.recenterRequestId,

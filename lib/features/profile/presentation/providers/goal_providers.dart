@@ -4,6 +4,7 @@ import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 
 // Goal state
@@ -34,10 +35,9 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
     if (goal.id.isNotEmpty) {
       data['id'] = goal.id;
     }
-    await _supabase.from(DbTables.userGoals).upsert(
-      data,
-      onConflict: 'user_id',
-    );
+    await _supabase
+        .from(DbTables.userGoals)
+        .upsert(data, onConflict: 'user_id');
   }
 
   Future<void> _load() async {
@@ -121,12 +121,13 @@ final goalProgressProvider = Provider<GoalProgress?>((ref) {
       .where(
         (w) => !DateTimeHelper.localDateOnly(w.startedAt).isBefore(periodStart),
       )
+      .where((w) => !assessWorkoutSession(w).shouldInvalidateResult)
       .toList();
 
   double current;
   switch (goal.goalType) {
     case GoalType.distance:
-      current = relevant.fold(0.0, (s, w) => s + w.distanceKm);
+      current = relevant.fold(0.0, (s, w) => s + w.gpsAnalysis.validDistanceKm);
       break;
     case GoalType.workouts:
       current = relevant.length.toDouble();

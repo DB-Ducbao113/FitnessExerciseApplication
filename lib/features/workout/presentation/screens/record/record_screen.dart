@@ -50,18 +50,20 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
   Future<void> _startWorkout() async {
     final notifier = ref.read(workoutSessionProvider.notifier);
-    if (widget.requireGps) {
-      try {
+    try {
+      if (widget.requireGps) {
         await ref
             .read(locationTrackingServiceProvider)
             .ensurePermissionsOrThrow();
-        await _ensureMotionPermissionOrThrow();
-      } catch (e) {
-        if (mounted) {
-          _showStartError(e.toString().replaceAll('Exception: ', ''));
-        }
-        return;
       }
+      // Motion permission is required for both indoor workouts and
+      // GPS activities that may fall back to step tracking.
+      await _ensureMotionPermissionOrThrow();
+    } catch (e) {
+      if (mounted) {
+        _showStartError(e.toString().replaceAll('Exception: ', ''));
+      }
+      return;
     }
 
     final userId = ref.read(currentUserIdProvider);
@@ -71,7 +73,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         if (profile != null) {
           notifier.setUserProfile(
             weightKg: profile.weightKg,
-            heightCm: profile.heightCm,
+            heightCm: profile.heightM * 100,
             gender: profile.gender,
           );
         }
@@ -256,6 +258,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           distanceMeters: finalState.distanceMeters,
           avgSpeedKmh: finalState.avgSpeedKmh,
           calories: finalState.caloriesBurned,
+          gpsAnalysis: finalState.gpsAnalysis,
           routePoints: finalState.routePoints,
           lapSplits: finalState.lapSplits,
         ),
@@ -281,7 +284,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       }
     });
 
-    final shouldShowGpsRoute = state.trackingMode != kIndoorMode;
+    final shouldShowGpsRoute =
+        state.routePoints.length >= 2 || state.trackingMode != kIndoorMode;
     final isExpandedSheet = _sheetExtent >= _kExpandedSheetThreshold;
 
     return Scaffold(
@@ -294,6 +298,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               activityType: widget.activityType,
               initialPosition: state.initialPosition,
               currentLocation: state.currentLatLng,
+              gpsGapMarker: state.gpsGapMarker,
+              gpsGapSegments: state.gpsGapSegments,
+              isGpsSignalWeak: state.isGpsSignalWeak,
               followUser: state.followUser,
               recenterRequestId: state.recenterRequestId,
               showRoute: shouldShowGpsRoute,

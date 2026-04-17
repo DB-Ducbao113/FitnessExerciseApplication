@@ -52,38 +52,43 @@ const LocalWorkoutSchema = CollectionSchema(
       name: r'endedAt',
       type: IsarType.dateTime,
     ),
-    r'isSynced': PropertySchema(
+    r'gpsAnalysisJson': PropertySchema(
       id: 7,
+      name: r'gpsAnalysisJson',
+      type: IsarType.string,
+    ),
+    r'isSynced': PropertySchema(
+      id: 8,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lapSplitsJson': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'lapSplitsJson',
       type: IsarType.string,
     ),
     r'mode': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'mode',
       type: IsarType.string,
     ),
     r'sessionId': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'sessionId',
       type: IsarType.string,
     ),
     r'startedAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'startedAt',
       type: IsarType.dateTime,
     ),
     r'steps': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'steps',
       type: IsarType.long,
     ),
     r'userId': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'userId',
       type: IsarType.string,
     )
@@ -123,6 +128,7 @@ int _localWorkoutEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.activityType.length * 3;
+  bytesCount += 3 + object.gpsAnalysisJson.length * 3;
   bytesCount += 3 + object.lapSplitsJson.length * 3;
   bytesCount += 3 + object.mode.length * 3;
   bytesCount += 3 + object.sessionId.length * 3;
@@ -143,13 +149,14 @@ void _localWorkoutSerialize(
   writer.writeDouble(offsets[4], object.distanceKm);
   writer.writeLong(offsets[5], object.durationSec);
   writer.writeDateTime(offsets[6], object.endedAt);
-  writer.writeBool(offsets[7], object.isSynced);
-  writer.writeString(offsets[8], object.lapSplitsJson);
-  writer.writeString(offsets[9], object.mode);
-  writer.writeString(offsets[10], object.sessionId);
-  writer.writeDateTime(offsets[11], object.startedAt);
-  writer.writeLong(offsets[12], object.steps);
-  writer.writeString(offsets[13], object.userId);
+  writer.writeString(offsets[7], object.gpsAnalysisJson);
+  writer.writeBool(offsets[8], object.isSynced);
+  writer.writeString(offsets[9], object.lapSplitsJson);
+  writer.writeString(offsets[10], object.mode);
+  writer.writeString(offsets[11], object.sessionId);
+  writer.writeDateTime(offsets[12], object.startedAt);
+  writer.writeLong(offsets[13], object.steps);
+  writer.writeString(offsets[14], object.userId);
 }
 
 LocalWorkout _localWorkoutDeserialize(
@@ -166,14 +173,15 @@ LocalWorkout _localWorkoutDeserialize(
   object.distanceKm = reader.readDouble(offsets[4]);
   object.durationSec = reader.readLong(offsets[5]);
   object.endedAt = reader.readDateTime(offsets[6]);
+  object.gpsAnalysisJson = reader.readString(offsets[7]);
   object.id = id;
-  object.isSynced = reader.readBool(offsets[7]);
-  object.lapSplitsJson = reader.readString(offsets[8]);
-  object.mode = reader.readString(offsets[9]);
-  object.sessionId = reader.readString(offsets[10]);
-  object.startedAt = reader.readDateTime(offsets[11]);
-  object.steps = reader.readLong(offsets[12]);
-  object.userId = reader.readString(offsets[13]);
+  object.isSynced = reader.readBool(offsets[8]);
+  object.lapSplitsJson = reader.readString(offsets[9]);
+  object.mode = reader.readString(offsets[10]);
+  object.sessionId = reader.readString(offsets[11]);
+  object.startedAt = reader.readDateTime(offsets[12]);
+  object.steps = reader.readLong(offsets[13]);
+  object.userId = reader.readString(offsets[14]);
   return object;
 }
 
@@ -199,18 +207,20 @@ P _localWorkoutDeserializeProp<P>(
     case 6:
       return (reader.readDateTime(offset)) as P;
     case 7:
-      return (reader.readBool(offset)) as P;
-    case 8:
       return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readBool(offset)) as P;
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
       return (reader.readString(offset)) as P;
     case 11:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 12:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 13:
+      return (reader.readLong(offset)) as P;
+    case 14:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -909,6 +919,142 @@ extension LocalWorkoutQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'gpsAnalysisJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'gpsAnalysisJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'gpsAnalysisJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'gpsAnalysisJson',
+        value: '',
       ));
     });
   }
@@ -1725,6 +1871,20 @@ extension LocalWorkoutQuerySortBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByGpsAnalysisJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByGpsAnalysisJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
@@ -1902,6 +2062,20 @@ extension LocalWorkoutQuerySortThenBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByGpsAnalysisJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByGpsAnalysisJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2045,6 +2219,14 @@ extension LocalWorkoutQueryWhereDistinct
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct> distinctByGpsAnalysisJson(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'gpsAnalysisJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QDistinct> distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
@@ -2140,6 +2322,13 @@ extension LocalWorkoutQueryProperty
   QueryBuilder<LocalWorkout, DateTime, QQueryOperations> endedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'endedAt');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      gpsAnalysisJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'gpsAnalysisJson');
     });
   }
 

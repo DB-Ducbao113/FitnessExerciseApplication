@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,6 +10,9 @@ class TrackingMapWidget extends StatefulWidget {
   final String activityType;
   final LatLng? initialPosition;
   final LatLng? currentLocation;
+  final LatLng? gpsGapMarker;
+  final List<GpsGapSegment> gpsGapSegments;
+  final bool isGpsSignalWeak;
   final bool followUser;
   final int recenterRequestId;
   final bool showRoute;
@@ -20,6 +24,9 @@ class TrackingMapWidget extends StatefulWidget {
     required this.activityType,
     this.initialPosition,
     this.currentLocation,
+    this.gpsGapMarker,
+    this.gpsGapSegments = const [],
+    this.isGpsSignalWeak = false,
     this.followUser = true,
     this.recenterRequestId = 0,
     this.showRoute = true,
@@ -34,19 +41,24 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   late final MapController _mapController;
   DateTime? _lastCameraMove;
   bool _initialCameraSet = false;
+  List<LatLng> _cachedDisplayRoute = const <LatLng>[];
+  int? _zoomBucket;
 
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
   static const _routeGlow = Color(0x6600F0FF);
   static const _routeCore = Color(0xFF00E5FF);
   static const _routeHighlight = Color(0xCCB4F7FF);
+  static const _gapRoute = Color(0x99C7D0DB);
+  static const _gapRouteHighlight = Color(0xCCEEF2F7);
   static Duration get _cameraThrottle => kDebugLocationMode
       ? const Duration(milliseconds: 120)
-      : const Duration(milliseconds: 300);
+      : const Duration(milliseconds: 160);
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _refreshDisplayRoute();
   }
 
   @override
@@ -58,6 +70,12 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   @override
   void didUpdateWidget(TrackingMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (widget.showRoute != oldWidget.showRoute ||
+        widget.activityType != oldWidget.activityType ||
+        !listEquals(widget.routePoints, oldWidget.routePoints)) {
+      _refreshDisplayRoute();
+    }
 
     if (!_initialCameraSet &&
         widget.initialPosition != null &&
@@ -121,15 +139,86 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   LatLng? get _markerPosition =>
       widget.currentLocation ?? widget.initialPosition;
 
+  void _refreshDisplayRoute() {
+    if (!widget.showRoute || widget.routePoints.length < 2) {
+      _cachedDisplayRoute = widget.routePoints;
+      return;
+    }
+
+    final liveRoute = List<LatLng>.from(widget.routePoints);
+    _cachedDisplayRoute = _downsampleForRender(
+      liveRoute,
+      zoomBucket: _zoomBucket ?? _zoomBucketFor(_targetZoom),
+    );
+  }
+
+  int _zoomBucketFor(double zoom) {
+    if (zoom >= 18.5) return 4;
+    if (zoom >= 17.0) return 3;
+    if (zoom >= 15.0) return 2;
+    if (zoom >= 13.0) return 1;
+    return 0;
+  }
+
+  List<LatLng> _downsampleForRender(
+    List<LatLng> points, {
+    required int zoomBucket,
+  }) {
+    if (points.length <= 1400) return List<LatLng>.from(points);
+
+    final targetCount = switch (zoomBucket) {
+      4 =>
+        points.length > 1600
+            ? 160
+            : points.length > 900
+            ? 200
+            : 260,
+      3 =>
+        points.length > 1600
+            ? 220
+            : points.length > 900
+            ? 280
+            : 340,
+      2 =>
+        points.length > 1600
+            ? 300
+            : points.length > 900
+            ? 360
+            : 430,
+      1 =>
+        points.length > 1600
+            ? 380
+            : points.length > 900
+            ? 460
+            : 560,
+      _ =>
+        points.length > 1600
+            ? 480
+            : points.length > 900
+            ? 560
+            : 680,
+    };
+    final stride = (points.length / targetCount).ceil();
+    final reduced = <LatLng>[];
+    for (var i = 0; i < points.length; i += stride) {
+      reduced.add(points[i]);
+    }
+    if (reduced.last != points.last) {
+      reduced.add(points.last);
+    }
+    return reduced;
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayRoute = widget.showRoute
-        ? List<LatLng>.from(widget.routePoints)
+        ? _cachedDisplayRoute
         : const <LatLng>[];
+    final useLitePolyline = displayRoute.length > 450;
 
     if (kDebugMode) {
       debugPrint(
-        '[Map] rebuild marker=${_markerPosition != null} routePoints=${widget.routePoints.length} showRoute=${widget.showRoute} follow=${widget.followUser}',
+        '[Map] rebuild marker=${_markerPosition != null} routePoints=${widget.routePoints.length} displayRoute=${displayRoute.length} showRoute=${widget.showRoute} follow=${widget.followUser}',
       );
     }
 
@@ -141,9 +230,16 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
             initialCenter: _initialCenter,
             initialZoom: _targetZoom,
             interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              flags: InteractiveFlag.all,
             ),
             onMapEvent: (event) {
+              final nextZoomBucket = _zoomBucketFor(event.camera.zoom);
+              if (nextZoomBucket != _zoomBucket) {
+                setState(() {
+                  _zoomBucket = nextZoomBucket;
+                  _refreshDisplayRoute();
+                });
+              }
               if (event is MapEventMove &&
                   event.source != MapEventSource.mapController) {
                 widget.onUserGesturePan?.call();
@@ -159,21 +255,36 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
             if (widget.showRoute && displayRoute.length >= 2)
               PolylineLayer(
                 polylines: [
+                  if (!useLitePolyline)
+                    Polyline(
+                      points: displayRoute,
+                      strokeWidth: 16,
+                      color: _routeGlow,
+                    ),
                   Polyline(
                     points: displayRoute,
-                    strokeWidth: 16,
-                    color: _routeGlow,
-                  ),
-                  Polyline(
-                    points: displayRoute,
-                    strokeWidth: 7,
+                    strokeWidth: useLitePolyline ? 5 : 7,
                     color: _routeCore,
                   ),
-                  Polyline(
-                    points: displayRoute,
-                    strokeWidth: 2,
-                    color: _routeHighlight,
-                  ),
+                  if (!useLitePolyline)
+                    Polyline(
+                      points: displayRoute,
+                      strokeWidth: 2,
+                      color: _routeHighlight,
+                    ),
+                  for (final gap in widget.gpsGapSegments) ...[
+                    Polyline(
+                      points: [gap.start, gap.end],
+                      strokeWidth: 5,
+                      color: _gapRoute,
+                    ),
+                    if (!useLitePolyline)
+                      Polyline(
+                        points: [gap.start, gap.end],
+                        strokeWidth: 1.6,
+                        color: _gapRouteHighlight,
+                      ),
+                  ],
                 ],
               ),
             MarkerLayer(
@@ -192,10 +303,19 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
                     height: 42,
                     child: const _CurrentLocationMarker(),
                   ),
+                if (widget.gpsGapMarker != null)
+                  Marker(
+                    point: widget.gpsGapMarker!,
+                    width: 38,
+                    height: 38,
+                    child: const _GpsGapMarker(),
+                  ),
               ],
             ),
           ],
         ),
+        if (widget.isGpsSignalWeak)
+          const Positioned(top: 18, right: 18, child: _GpsWeakBadge()),
         Positioned.fill(
           child: IgnorePointer(
             child: DecoratedBox(
@@ -234,6 +354,68 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GpsGapMarker extends StatelessWidget {
+  const _GpsGapMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9EEF5).withValues(alpha: 0.94),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFCFD8E3).withValues(alpha: 0.35),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: const Icon(Icons.bolt_rounded, color: Color(0xFF6C7A89), size: 18),
+    );
+  }
+}
+
+class _GpsWeakBadge extends StatelessWidget {
+  const _GpsWeakBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xE61E2834),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0x55FFB85C)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.gps_off_rounded, size: 14, color: Color(0xFFFFB85C)),
+            SizedBox(width: 6),
+            Text(
+              'Weak GPS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

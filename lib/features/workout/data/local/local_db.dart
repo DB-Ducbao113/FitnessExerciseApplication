@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_workout.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
@@ -22,10 +24,11 @@ class LocalDB {
 
   static Future<void> _open() async {
     final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open([
-      LocalWorkoutSchema,
-      LocalGPSPointSchema,
-    ], directory: dir.path, inspector: false);
+    _isar = await Isar.open(
+      [LocalWorkoutSchema, LocalGPSPointSchema],
+      directory: dir.path,
+      inspector: false,
+    );
   }
 
   static Isar get instance {
@@ -147,6 +150,17 @@ class LocalDB {
           existing.caloriesKcal = remote.caloriesKcal;
           existing.mode = remote.mode;
           existing.createdAt = remote.createdAt;
+          existing.lapSplitsJson = jsonEncode(
+            remote.lapSplits.map((split) => split.toJson()).toList(),
+          );
+          final shouldPreserveLocalAnalysis =
+              remote.gpsAnalysis.totalDistanceKm <= 0 &&
+              remote.gpsAnalysis.validDistanceKm <= 0 &&
+              existing.gpsAnalysisJson.isNotEmpty &&
+              existing.gpsAnalysisJson != '{}';
+          if (!shouldPreserveLocalAnalysis) {
+            existing.gpsAnalysisJson = jsonEncode(remote.gpsAnalysis.toJson());
+          }
           existing.isSynced = true;
 
           await isar.localWorkouts.put(existing);
@@ -161,6 +175,14 @@ class LocalDB {
     final isar = instance;
     await isar.writeTxn(() async {
       await isar.localGPSPoints.putAll(points);
+    });
+  }
+
+  static Future<void> saveRawGpsPoint(LocalGPSPoint point) async {
+    await init();
+    final isar = instance;
+    await isar.writeTxn(() async {
+      await isar.localGPSPoints.put(point);
     });
   }
 
@@ -181,6 +203,18 @@ class LocalDB {
         .filter()
         .localWorkoutIdEqualTo(workoutId)
         .isSyncedEqualTo(false)
+        .sortByTimestamp()
+        .findAll();
+  }
+
+  static Future<List<LocalGPSPoint>> getPointsForSession(
+    String sessionId,
+  ) async {
+    await init();
+    final isar = instance;
+    return await isar.localGPSPoints
+        .filter()
+        .sessionIdEqualTo(sessionId)
         .sortByTimestamp()
         .findAll();
   }

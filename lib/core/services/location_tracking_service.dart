@@ -91,9 +91,7 @@ class LocationTrackingService {
   Future<void> startTracking(String activityType) async {
     await ensurePermissionsOrThrow();
 
-    final distanceFilter = debugLocationMode
-        ? 0
-        : (Platform.isIOS ? 1 : 3); // keep iPhone updates responsive outdoors
+    const distanceFilter = 0;
     final LocationSettings settings;
     if (Platform.isAndroid) {
       settings = AndroidSettings(
@@ -101,7 +99,7 @@ class LocationTrackingService {
         distanceFilter: distanceFilter,
         intervalDuration: debugLocationMode
             ? const Duration(milliseconds: 250)
-            : const Duration(milliseconds: 800),
+            : const Duration(milliseconds: 500),
         // forceLocationManager=true makes Android Emulator mock routes work correctly.
         // The FusedLocationProvider sometimes ignores emulator mock locations.
         forceLocationManager: debugLocationMode ? true : false,
@@ -134,20 +132,21 @@ class LocationTrackingService {
     if (_positionStream != null) {
       await _positionStream!.cancel();
     }
-    _positionStream = Geolocator.getPositionStream(locationSettings: settings).listen(
-      (raw) {
-        if (debugLocationMode) {
-          debugPrint(
-            '[GPS-RAW] lat=${raw.latitude}, lng=${raw.longitude}, acc=${raw.accuracy}, speed=${raw.speed}',
-          );
-        }
-        _positionController.add(raw);
-      },
-      onError: (e) {
-        debugPrint('[GPS] stream error: $e');
-        _positionController.addError(e);
-      },
-    );
+    _positionStream = Geolocator.getPositionStream(locationSettings: settings)
+        .listen(
+          (raw) {
+            if (debugLocationMode) {
+              debugPrint(
+                '[GPS-RAW] lat=${raw.latitude}, lng=${raw.longitude}, acc=${raw.accuracy}, speed=${raw.speed}',
+              );
+            }
+            _positionController.add(raw);
+          },
+          onError: (e) {
+            debugPrint('[GPS] stream error: $e');
+            _positionController.addError(e);
+          },
+        );
 
     debugPrint('[GPS] stream subscription started OK');
   }

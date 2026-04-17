@@ -1,9 +1,12 @@
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 const _kBgTop = Color(0xff0a0e1a);
 const _kBgBottom = Color(0xff0d1b2a);
@@ -12,6 +15,9 @@ const _kCardBorder = Color(0x2200e5ff);
 const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
+const _kValidGreen = Color(0xFF6BE39B);
+const _kWarningAmber = Color(0xFFFFB85C);
+const _kDangerRed = Color(0xFFFF7A8A);
 
 class WorkoutDetailsScreen extends ConsumerWidget {
   final String workoutId;
@@ -58,17 +64,33 @@ class WorkoutDetailsScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               children: [
-                _HeroCard(
+                if (assessWorkoutSession(workout).validityFlag !=
+                    WorkoutValidityFlag.verified) ...[
+                  _WarningCard(
+                    message: activityConsistencyWarningText(
+                      assessWorkoutSession(workout),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                _WorkoutHeroSection(
+                  workoutId: workout.id,
                   workout: workout,
                   dateLabel: DateFormat(
                     'EEEE, MMM dd, yyyy',
                   ).format(workout.startedAt.toLocal()),
                 ),
                 const SizedBox(height: 16),
-                _StatsGrid(workout: workout),
+                _PerformanceSnapshot(workout: workout),
+                const SizedBox(height: 16),
+                _GpsAnalysisCard(workout: workout),
                 const SizedBox(height: 16),
                 if (workout.lapSplits.isNotEmpty) ...[
                   _LapSplitsCard(workout: workout),
+                  const SizedBox(height: 16),
+                ],
+                if (workout.gpsAnalysis.flaggedSegments.isNotEmpty) ...[
+                  _FlaggedSegmentsCard(workout: workout),
                   const SizedBox(height: 16),
                 ],
                 _TimelineCard(workout: workout),
@@ -91,68 +113,241 @@ class WorkoutDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  final dynamic workout;
-  final String dateLabel;
+class _WarningCard extends StatelessWidget {
+  final String message;
 
-  const _HeroCard({required this.workout, required this.dateLabel});
+  const _WarningCard({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    return _GlassCard(
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x26FFB85C),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x66FFB85C)),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(colors: [_kNeonBlue, _kNeonCyan]),
-              boxShadow: [
-                BoxShadow(
-                  color: _kNeonCyan.withValues(alpha: 0.20),
-                  blurRadius: 22,
-                ),
-              ],
-            ),
-            child: Icon(
-              _activityIcon(workout.activityType),
-              color: _kBgTop,
-              size: 34,
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.warning_amber_rounded, color: Color(0xFFFFB85C)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFFFFD39A),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutHeroSection extends ConsumerWidget {
+  final String workoutId;
+  final WorkoutSession workout;
+  final String dateLabel;
+
+  const _WorkoutHeroSection({
+    required this.workoutId,
+    required this.workout,
+    required this.dateLabel,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final routeAsync = ref.watch(workoutRouteProvider(workoutId));
+    final validDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
+        ? workout.gpsAnalysis.validDistanceKm
+        : workout.distanceKm;
+    final rawDistanceKm = workout.gpsAnalysis.totalDistanceKm > 0
+        ? workout.gpsAnalysis.totalDistanceKm
+        : workout.distanceKm;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _kCardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.26),
+            blurRadius: 30,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: SizedBox(
+                height: 300,
+                width: double.infinity,
+                child: routeAsync.when(
+                  data: (routePoints) => routePoints.length >= 2
+                      ? _DetailsRouteMapHero(
+                          routePoints: routePoints,
+                          activityType: workout.activityType,
+                        )
+                      : _DetailsRouteUnavailableState(
+                          activityType: workout.activityType,
+                          durationSec: workout.durationSec,
+                          distanceKm: rawDistanceKm,
+                        ),
+                  loading: () => const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF122437), Color(0xFF0B1522)],
+                      ),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(color: _kNeonCyan),
+                    ),
+                  ),
+                  error: (_, _) => _DetailsRouteUnavailableState(
+                    activityType: workout.activityType,
+                    durationSec: workout.durationSec,
+                    distanceKm: rawDistanceKm,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  WorkoutFormatters.formatActivityType(
-                    workout.activityType,
-                  ).toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: _kNeonCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        _activityIcon(workout.activityType),
+                        color: _kNeonCyan,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            WorkoutFormatters.formatActivityType(
+                              workout.activityType,
+                            ).toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            dateLabel,
+                            style: const TextStyle(
+                              color: _kMutedText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    WorkoutValidityBadge(
+                      flag: workout.gpsAnalysis.validityFlag,
+                      verifiedColor: _kValidGreen,
+                      warningColor: _kWarningAmber,
+                      dangerColor: _kDangerRed,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  dateLabel,
-                  style: const TextStyle(
+                const SizedBox(height: 18),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      validDistanceKm.toStringAsFixed(2),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 56,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -2.6,
+                        height: 0.95,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8, bottom: 10),
+                      child: Text(
+                        'km',
+                        style: TextStyle(
+                          color: _kMutedText,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'validated distance',
+                  style: TextStyle(
                     color: _kMutedText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${workout.distanceKm.toStringAsFixed(2)} km  •  ${WorkoutFormatters.formatDurationFromSeconds(workout.durationSec)}  •  ${workout.caloriesKcal.round()} kcal',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '${WorkoutFormatters.formatDurationFromSeconds(workout.durationSec)}  •  ${WorkoutFormatters.formatPaceFromDistanceAndDuration(distanceKm: validDistanceKm, durationSec: workout.durationSec)}  •  ${workout.caloriesKcal.round()} kcal',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    WorkoutHeroMetricChip(
+                      label: 'Raw',
+                      value: '${rawDistanceKm.toStringAsFixed(2)} km',
+                    ),
+                    WorkoutHeroMetricChip(
+                      label: 'Excluded',
+                      value:
+                          '${(workout.gpsAnalysis.suspiciousDistanceKm + workout.gpsAnalysis.invalidDistanceKm).toStringAsFixed(2)} km',
+                    ),
+                    WorkoutHeroMetricChip(
+                      label: 'GPS gaps',
+                      value:
+                          '${workout.gpsAnalysis.gpsGapCount} · ${WorkoutFormatters.formatElapsedClock(workout.gpsAnalysis.gpsGapDurationSec)}',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -163,21 +358,26 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _StatsGrid extends StatelessWidget {
-  final dynamic workout;
+class _PerformanceSnapshot extends StatelessWidget {
+  final WorkoutSession workout;
 
-  const _StatsGrid({required this.workout});
+  const _PerformanceSnapshot({required this.workout});
 
   @override
   Widget build(BuildContext context) {
-    final supportsSteps =
-        '${workout.activityType}'.toLowerCase() != 'cycling';
+    final supportsSteps = workout.activityType.toLowerCase() != 'cycling';
+    final validDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
+        ? workout.gpsAnalysis.validDistanceKm
+        : workout.distanceKm;
+    final excludedKm =
+        workout.gpsAnalysis.suspiciousDistanceKm +
+        workout.gpsAnalysis.invalidDistanceKm;
 
     final items = [
       _DetailItem(
         icon: Icons.straighten_rounded,
-        label: 'Distance',
-        value: '${workout.distanceKm.toStringAsFixed(2)} km',
+        label: 'Valid distance',
+        value: '${validDistanceKm.toStringAsFixed(2)} km',
       ),
       _DetailItem(
         icon: Icons.timer_outlined,
@@ -186,9 +386,9 @@ class _StatsGrid extends StatelessWidget {
       ),
       _DetailItem(
         icon: Icons.speed_rounded,
-        label: 'Avg Pace',
+        label: 'Avg pace',
         value: WorkoutFormatters.formatPaceFromDistanceAndDuration(
-          distanceKm: workout.distanceKm,
+          distanceKm: validDistanceKm,
           durationSec: workout.durationSec,
         ),
       ),
@@ -196,6 +396,16 @@ class _StatsGrid extends StatelessWidget {
         icon: Icons.local_fire_department_rounded,
         label: 'Calories',
         value: '${workout.caloriesKcal.round()} kcal',
+      ),
+      _DetailItem(
+        icon: Icons.shield_outlined,
+        label: 'Status',
+        value: workoutValidityLabel(workout.gpsAnalysis.validityFlag),
+      ),
+      _DetailItem(
+        icon: Icons.remove_circle_outline_rounded,
+        label: 'Excluded',
+        value: '${excludedKm.toStringAsFixed(2)} km',
       ),
       if (supportsSteps)
         _DetailItem(
@@ -205,17 +415,227 @@ class _StatsGrid extends StatelessWidget {
         ),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.2,
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Performance Snapshot',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'The key numbers from this session, arranged around the route you just reviewed.',
+            style: TextStyle(
+              color: _kMutedText,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: items.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.22,
+            ),
+            itemBuilder: (_, index) => _DetailCard(item: items[index]),
+          ),
+        ],
       ),
-      itemBuilder: (_, index) => _DetailCard(item: items[index]),
+    );
+  }
+}
+
+class _GpsAnalysisCard extends StatelessWidget {
+  const _GpsAnalysisCard({required this.workout});
+
+  final WorkoutSession workout;
+
+  @override
+  Widget build(BuildContext context) {
+    final excludedKm =
+        workout.gpsAnalysis.suspiciousDistanceKm +
+        workout.gpsAnalysis.invalidDistanceKm;
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'GPS Analysis',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _MetaStat(
+                  label: 'Raw',
+                  value:
+                      '${workout.gpsAnalysis.totalDistanceKm.toStringAsFixed(2)} km',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetaStat(
+                  label: 'Valid',
+                  value:
+                      '${workout.gpsAnalysis.validDistanceKm.toStringAsFixed(2)} km',
+                  accent: _kValidGreen,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetaStat(
+                  label: 'Excluded',
+                  value: '${excludedKm.toStringAsFixed(2)} km',
+                  accent: excludedKm > 0 ? _kWarningAmber : _kMutedText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MetaStat(
+                  label: 'GPS gaps',
+                  value:
+                      '${workout.gpsAnalysis.gpsGapCount} · ${WorkoutFormatters.formatElapsedClock(workout.gpsAnalysis.gpsGapDurationSec)}',
+                  accent: _kNeonBlue,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MetaStat(
+                  label: 'Rest',
+                  value: WorkoutFormatters.formatElapsedClock(
+                    workout.gpsAnalysis.restDurationSec,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailsRouteMapHero extends StatelessWidget {
+  const _DetailsRouteMapHero({
+    required this.routePoints,
+    required this.activityType,
+  });
+
+  final List<LatLng> routePoints;
+  final String activityType;
+
+  @override
+  Widget build(BuildContext context) {
+    return WorkoutRoutePreviewMap(
+      routePoints: routePoints,
+      activityType: activityType,
+      icon: _activityIcon(activityType),
+      accentColor: _kNeonCyan,
+      glowColor: _kNeonCyan.withValues(alpha: 0.22),
+      highlightColor: Colors.white.withValues(alpha: 0.74),
+      startColor: _kValidGreen,
+      endColor: _kDangerRed,
+      badgeText: 'ROUTE RECAP',
+      footerText: '${routePoints.length} points recorded',
+    );
+  }
+}
+
+class _DetailsRouteUnavailableState extends StatelessWidget {
+  const _DetailsRouteUnavailableState({
+    required this.activityType,
+    required this.durationSec,
+    required this.distanceKm,
+  });
+
+  final String activityType;
+  final int durationSec;
+  final double distanceKm;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF13263A), Color(0xFF0B1725)],
+        ),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.07),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Icon(
+                  _activityIcon(activityType),
+                  color: _kNeonCyan,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Route unavailable on this device',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This workout still keeps its performance data, but detailed route history was not stored locally.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _kMutedText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '${distanceKm.toStringAsFixed(2)} km  •  ${WorkoutFormatters.formatElapsedClock(durationSec)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -265,7 +685,7 @@ class _DetailCard extends StatelessWidget {
 }
 
 class _TimelineCard extends StatelessWidget {
-  final dynamic workout;
+  final WorkoutSession workout;
 
   const _TimelineCard({required this.workout});
 
@@ -289,14 +709,12 @@ class _TimelineCard extends StatelessWidget {
             label: 'Started',
             time: DateFormat('HH:mm:ss').format(workout.startedAt.toLocal()),
           ),
-          if (workout.endedAt != null) ...[
-            const SizedBox(height: 12),
-            _TimelineItem(
-              icon: Icons.stop_circle_outlined,
-              label: 'Ended',
-              time: DateFormat('HH:mm:ss').format(workout.endedAt.toLocal()),
-            ),
-          ],
+          const SizedBox(height: 12),
+          _TimelineItem(
+            icon: Icons.stop_circle_outlined,
+            label: 'Ended',
+            time: DateFormat('HH:mm:ss').format(workout.endedAt.toLocal()),
+          ),
         ],
       ),
     );
@@ -304,7 +722,7 @@ class _TimelineCard extends StatelessWidget {
 }
 
 class _LapSplitsCard extends StatelessWidget {
-  final dynamic workout;
+  final WorkoutSession workout;
 
   const _LapSplitsCard({required this.workout});
 
@@ -431,7 +849,7 @@ class _TimelineItem extends StatelessWidget {
 }
 
 class _SessionMetaCard extends StatelessWidget {
-  final dynamic workout;
+  final WorkoutSession workout;
 
   const _SessionMetaCard({required this.workout});
 
@@ -465,6 +883,143 @@ class _SessionMetaCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FlaggedSegmentsCard extends StatelessWidget {
+  const _FlaggedSegmentsCard({required this.workout});
+
+  final WorkoutSession workout;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Flagged Segments',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (final segment in workout.gpsAnalysis.flaggedSegments) ...[
+            _FlaggedSegmentRow(segment: segment),
+            if (segment != workout.gpsAnalysis.flaggedSegments.last)
+              Divider(height: 18, color: Colors.white.withValues(alpha: 0.06)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaStat extends StatelessWidget {
+  const _MetaStat({
+    required this.label,
+    required this.value,
+    this.accent = _kNeonCyan,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kMutedText,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FlaggedSegmentRow extends StatelessWidget {
+  const _FlaggedSegmentRow({required this.segment});
+
+  final WorkoutFlaggedSegment segment;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (segment.status) {
+      WorkoutSegmentStatus.valid => _kValidGreen,
+      WorkoutSegmentStatus.suspicious => _kWarningAmber,
+      WorkoutSegmentStatus.invalid => _kDangerRed,
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          margin: const EdgeInsets.only(top: 4),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                workoutSegmentReasonLabel(segment.reason),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_segmentClock(segment.startTimestamp)} - ${_segmentClock(segment.endTimestamp)}  •  ${_segmentDistance(segment.distanceM)}  •  ${_segmentPace(segment.paceSecPerKm)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Accuracy ${segment.avgAccuracy.toStringAsFixed(0)} m',
+                style: const TextStyle(
+                  color: _kMutedText,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -512,15 +1067,15 @@ class _GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _kCardBg,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         border: Border.all(color: _kCardBorder),
         boxShadow: [
           BoxShadow(
             color: _kNeonCyan.withValues(alpha: 0.08),
-            blurRadius: 24,
+            blurRadius: 26,
             spreadRadius: 1,
           ),
         ],
@@ -553,6 +1108,30 @@ IconData _activityIcon(String activityType) {
     default:
       return Icons.bolt_rounded;
   }
+}
+
+String _segmentClock(DateTime value) {
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  final second = local.second.toString().padLeft(2, '0');
+  return '$hour:$minute:$second';
+}
+
+String _segmentDistance(double distanceM) {
+  if (distanceM >= 1000) {
+    return '${(distanceM / 1000).toStringAsFixed(2)} km';
+  }
+  return '${distanceM.toStringAsFixed(0)} m';
+}
+
+String _segmentPace(double paceSecPerKm) {
+  if (paceSecPerKm <= 0 || paceSecPerKm.isInfinite || paceSecPerKm.isNaN) {
+    return '--';
+  }
+  final minutes = (paceSecPerKm ~/ 60).toInt();
+  final seconds = (paceSecPerKm.round() % 60).toString().padLeft(2, '0');
+  return '$minutes:$seconds/km';
 }
 
 void _showDeleteConfirmation(

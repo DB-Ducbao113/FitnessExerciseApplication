@@ -26,6 +26,7 @@ class LocalWorkout {
   String mode = 'outdoor';
   late DateTime createdAt;
   String lapSplitsJson = '[]';
+  String gpsAnalysisJson = '{}';
 
   // Sync tracking
   bool isSynced = false;
@@ -45,6 +46,7 @@ class LocalWorkout {
       mode: mode,
       createdAt: createdAt,
       lapSplits: _decodeLapSplits(lapSplitsJson),
+      gpsAnalysis: _decodeGpsAnalysis(gpsAnalysisJson),
     );
   }
 
@@ -65,6 +67,7 @@ class LocalWorkout {
       ..lapSplitsJson = jsonEncode(
         session.lapSplits.map((split) => split.toJson()).toList(),
       )
+      ..gpsAnalysisJson = jsonEncode(session.gpsAnalysis.toJson())
       ..isSynced = true;
   }
 
@@ -80,6 +83,16 @@ class LocalWorkout {
           .toList();
     } catch (_) {
       return const [];
+    }
+  }
+
+  static WorkoutGpsAnalysis _decodeGpsAnalysis(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const WorkoutGpsAnalysis();
+      return WorkoutGpsAnalysis.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (_) {
+      return const WorkoutGpsAnalysis();
     }
   }
 }

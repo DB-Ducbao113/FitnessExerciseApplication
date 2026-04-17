@@ -33,8 +33,9 @@ class WorkoutRemoteDataSource {
   /// Saves the complete session to the cloud database
   Future<void> saveSession(WorkoutSession session) async {
     final model = WorkoutSessionModel.fromEntity(session);
+    final payload = model.toJson()..remove('gps_analysis');
     await _supabase.from(DbTables.workoutSessions).upsert({
-      ...model.toJson(),
+      ...payload,
       'processing_status': kClientProcessingStatus,
       'metrics_version': kClientMetricsVersion,
     });

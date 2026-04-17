@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_tracking_engine.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_environment_controller.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_finalizer.dart';
@@ -96,6 +97,68 @@ void main() {
       expect(decision.segmentMeters, greaterThan(0.3));
       expect(decision.candidateSpeedKmh, greaterThan(0));
     });
+
+    test(
+      'accepts GPS recovery route without adding distance after a stale gap',
+      () {
+        final t0 = DateTime.utc(2026, 4, 14, 10);
+        final decision = engine.evaluateGpsUpdate(
+          position: buildPosition(
+            latitude: 10.0002,
+            longitude: 106.0,
+            timestamp: t0.add(const Duration(seconds: 8)),
+            accuracy: 4,
+          ),
+          activityType: 'running',
+          routePoints: const [LatLng(10.0, 106.0)],
+          currentLatLng: const LatLng(10.0, 106.0),
+          distanceAnchorPoint: const LatLng(10.0, 106.0),
+          lastAcceptedPositionTime: t0,
+          shouldResetAnchorOnResume: false,
+        );
+
+        expect(decision.type, TrackingGpsDecisionType.acceptRoute);
+        expect(decision.shouldAddDistance, isFalse);
+        expect(decision.segmentMeters, 0);
+        expect(decision.gpsGapDurationSec, greaterThan(5));
+      },
+    );
+
+    test(
+      'does not freeze GPS route just because walking speed looks like running',
+      () {
+        final t0 = DateTime.utc(2026, 4, 14, 10);
+        final decision = engine.evaluateGpsUpdate(
+          position: buildPosition(
+            latitude: 10.00018,
+            longitude: 106.0,
+            timestamp: t0.add(const Duration(seconds: 5)),
+            accuracy: 4,
+          ),
+          activityType: 'walking',
+          routePoints: const [LatLng(10.0, 106.0)],
+          currentLatLng: const LatLng(10.0, 106.0),
+          distanceAnchorPoint: const LatLng(10.0, 106.0),
+          lastAcceptedPositionTime: t0,
+          shouldResetAnchorOnResume: false,
+        );
+
+        expect(decision.type, TrackingGpsDecisionType.acceptRoute);
+        expect(decision.candidateSpeedKmh, greaterThan(10));
+      },
+    );
+
+    test('flags walking result as invalid when average speed is too high', () {
+      final assessment = engine.assessActivityConsistency(
+        activityType: 'walking',
+        avgSpeedKmh: 12.5,
+        distanceKm: 2.0,
+        durationSec: 600,
+      );
+
+      expect(assessment.shouldInvalidateResult, isTrue);
+      expect(assessment.reason, 'avg_speed_too_high_for_walking');
+    });
   });
 
   group('WorkoutSessionStarter', () {
@@ -135,6 +198,7 @@ void main() {
 
   group('WorkoutSessionFinalizer', () {
     const finalizer = WorkoutSessionFinalizer();
+    const trackingEngine = WorkoutTrackingEngine();
 
     test('finalizes canonical distance, speed and timestamps', () {
       final state = WorkoutSessionState(
@@ -156,6 +220,8 @@ void main() {
         finishedAt: DateTime.utc(2026, 4, 14, 10, 0),
         caloriesBurned: 420,
         fallbackStrideLengthMeters: 0.8,
+        trackingEngine: trackingEngine,
+        rawGpsPositions: const [],
       );
 
       expect(result.session.id, 'session-1');
@@ -184,6 +250,8 @@ void main() {
         finishedAt: DateTime.utc(2026, 4, 14, 10, 10),
         caloriesBurned: 60,
         fallbackStrideLengthMeters: 0.8,
+        trackingEngine: trackingEngine,
+        rawGpsPositions: const [],
       );
 
       expect(result.session.steps, 1000);
@@ -232,6 +300,7 @@ void main() {
         caloriesBurned: 320,
         avgSpeedKmh: 10.2,
         sessionId: 'session-9',
+        gpsAnalysis: const WorkoutGpsAnalysis(),
       );
 
       expect(paused.status, RecordingState.paused);
@@ -249,22 +318,25 @@ void main() {
   group('WorkoutSensorBootstrapper', () {
     const bootstrapper = WorkoutSensorBootstrapper();
 
-    test('applies last known GPS position to both initial and current point', () {
-      final base = WorkoutSessionState(
-        status: RecordingState.initializing,
-        activityType: 'Running',
-        trackingMode: 'outdoor',
-      );
+    test(
+      'applies last known GPS position to both initial and current point',
+      () {
+        final base = WorkoutSessionState(
+          status: RecordingState.initializing,
+          activityType: 'Running',
+          trackingMode: 'outdoor',
+        );
 
-      final updated = bootstrapper.applyLastKnownPosition(
-        current: base,
-        latitude: 10.123,
-        longitude: 106.456,
-      );
+        final updated = bootstrapper.applyLastKnownPosition(
+          current: base,
+          latitude: 10.123,
+          longitude: 106.456,
+        );
 
-      expect(updated.initialPosition, const LatLng(10.123, 106.456));
-      expect(updated.currentLatLng, const LatLng(10.123, 106.456));
-    });
+        expect(updated.initialPosition, const LatLng(10.123, 106.456));
+        expect(updated.currentLatLng, const LatLng(10.123, 106.456));
+      },
+    );
 
     test('converts GPS startup failure into indoor fallback state', () {
       final base = WorkoutSessionState(
@@ -311,18 +383,11 @@ void main() {
       final controller = WorkoutEnvironmentController();
       final events = <dynamic>[];
 
-      await controller.start(
-        activityType: 'walking',
-        onEvent: events.add,
-      );
+      await controller.start(activityType: 'walking', onEvent: events.add);
 
       final t0 = DateTime.utc(2026, 4, 14, 10);
       controller.addPosition(
-        buildPosition(
-          latitude: 10.0,
-          longitude: 106.0,
-          timestamp: t0,
-        ),
+        buildPosition(latitude: 10.0, longitude: 106.0, timestamp: t0),
       );
       controller.addPosition(
         buildPosition(

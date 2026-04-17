@@ -29,6 +29,7 @@ mixin _$WorkoutSession {
   String get mode => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   List<WorkoutLapSplit> get lapSplits => throw _privateConstructorUsedError;
+  WorkoutGpsAnalysis get gpsAnalysis => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $WorkoutSessionCopyWith<WorkoutSession> get copyWith =>
@@ -54,7 +55,8 @@ abstract class $WorkoutSessionCopyWith<$Res> {
       double caloriesKcal,
       String mode,
       DateTime createdAt,
-      List<WorkoutLapSplit> lapSplits});
+      List<WorkoutLapSplit> lapSplits,
+      WorkoutGpsAnalysis gpsAnalysis});
 }
 
 /// @nodoc
@@ -83,6 +85,7 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
     Object? mode = null,
     Object? createdAt = null,
     Object? lapSplits = null,
+    Object? gpsAnalysis = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -137,6 +140,10 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
           ? _value.lapSplits
           : lapSplits // ignore: cast_nullable_to_non_nullable
               as List<WorkoutLapSplit>,
+      gpsAnalysis: null == gpsAnalysis
+          ? _value.gpsAnalysis
+          : gpsAnalysis // ignore: cast_nullable_to_non_nullable
+              as WorkoutGpsAnalysis,
     ) as $Val);
   }
 }
@@ -162,7 +169,8 @@ abstract class _$$WorkoutSessionImplCopyWith<$Res>
       double caloriesKcal,
       String mode,
       DateTime createdAt,
-      List<WorkoutLapSplit> lapSplits});
+      List<WorkoutLapSplit> lapSplits,
+      WorkoutGpsAnalysis gpsAnalysis});
 }
 
 /// @nodoc
@@ -189,6 +197,7 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
     Object? mode = null,
     Object? createdAt = null,
     Object? lapSplits = null,
+    Object? gpsAnalysis = null,
   }) {
     return _then(_$WorkoutSessionImpl(
       id: null == id
@@ -243,6 +252,10 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
           ? _value._lapSplits
           : lapSplits // ignore: cast_nullable_to_non_nullable
               as List<WorkoutLapSplit>,
+      gpsAnalysis: null == gpsAnalysis
+          ? _value.gpsAnalysis
+          : gpsAnalysis // ignore: cast_nullable_to_non_nullable
+              as WorkoutGpsAnalysis,
     ));
   }
 }
@@ -263,7 +276,8 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
       required this.caloriesKcal,
       required this.mode,
       required this.createdAt,
-      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[]})
+      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[],
+      this.gpsAnalysis = const WorkoutGpsAnalysis()})
       : _lapSplits = lapSplits;
 
   @override
@@ -300,8 +314,12 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
   }
 
   @override
+  @JsonKey()
+  final WorkoutGpsAnalysis gpsAnalysis;
+
+  @override
   String toString() {
-    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits)';
+    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis)';
   }
 
   @override
@@ -329,7 +347,9 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             const DeepCollectionEquality()
-                .equals(other._lapSplits, _lapSplits));
+                .equals(other._lapSplits, _lapSplits) &&
+            (identical(other.gpsAnalysis, gpsAnalysis) ||
+                other.gpsAnalysis == gpsAnalysis));
   }
 
   @override
@@ -347,7 +367,8 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
       caloriesKcal,
       mode,
       createdAt,
-      const DeepCollectionEquality().hash(_lapSplits));
+      const DeepCollectionEquality().hash(_lapSplits),
+      gpsAnalysis);
 
   @JsonKey(ignore: true)
   @override
@@ -371,7 +392,8 @@ abstract class _WorkoutSession implements WorkoutSession {
       required final double caloriesKcal,
       required final String mode,
       required final DateTime createdAt,
-      final List<WorkoutLapSplit> lapSplits}) = _$WorkoutSessionImpl;
+      final List<WorkoutLapSplit> lapSplits,
+      final WorkoutGpsAnalysis gpsAnalysis}) = _$WorkoutSessionImpl;
 
   @override
   String get id;
@@ -399,6 +421,8 @@ abstract class _WorkoutSession implements WorkoutSession {
   DateTime get createdAt;
   @override
   List<WorkoutLapSplit> get lapSplits;
+  @override
+  WorkoutGpsAnalysis get gpsAnalysis;
   @override
   @JsonKey(ignore: true)
   _$$WorkoutSessionImplCopyWith<_$WorkoutSessionImpl> get copyWith =>

@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 
 class WorkoutSessionLifecycle {
@@ -82,12 +83,14 @@ class WorkoutSessionLifecycle {
     required int caloriesBurned,
     required double avgSpeedKmh,
     required String sessionId,
+    required WorkoutGpsAnalysis gpsAnalysis,
   }) {
     return current.copyWith(
       status: RecordingState.finished,
       caloriesBurned: caloriesBurned,
       avgSpeedKmh: avgSpeedKmh,
       sessionId: sessionId,
+      gpsAnalysis: gpsAnalysis,
       pausedAutoStopRemainingSeconds: 0,
     );
   }

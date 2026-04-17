@@ -11,11 +11,39 @@ List<LatLng> sanitizeRouteForDisplay(
   if (points.length < 3) return List<LatLng>.from(points);
 
   final normalized = activityType.toLowerCase();
-  var cleaned = _removeTinySegments(points, _minDisplaySegmentMeters(normalized));
+  var cleaned = _removeTinySegments(
+    points,
+    _minDisplaySegmentMeters(normalized),
+  );
   cleaned = _removeSharpSpikes(cleaned, normalized);
-  cleaned = _douglasPeucker(cleaned, _simplifyToleranceMeters(normalized));
+  cleaned = _preserveMeaningfulCorners(
+    cleaned,
+    normalized,
+    toleranceMeters: _simplifyToleranceMeters(normalized),
+  );
+  cleaned = _centeredBearingAwareSmooth(cleaned, normalized);
+  return cleaned;
+}
+
+List<LatLng> refineRouteForSavedDisplay(
+  List<LatLng> points, {
+  required String activityType,
+}) {
+  if (points.length < 3) return List<LatLng>.from(points);
+
+  final normalized = activityType.toLowerCase();
+  var cleaned = _removeTinySegments(
+    points,
+    _minDisplaySegmentMeters(normalized) * 0.8,
+  );
   cleaned = _removeSharpSpikes(cleaned, normalized);
-  cleaned = _constrainedSmooth(cleaned, normalized);
+  cleaned = _preserveMeaningfulCorners(
+    cleaned,
+    normalized,
+    toleranceMeters: _simplifyToleranceMeters(normalized) * 0.75,
+  );
+  cleaned = _centeredBearingAwareSmooth(cleaned, normalized);
+  cleaned = _corridorTighten(cleaned, normalized);
   return cleaned;
 }
 
@@ -58,7 +86,10 @@ double _maxSmoothingShiftMeters(String activityType) {
   }
 }
 
-List<LatLng> _removeTinySegments(List<LatLng> points, double minDistanceMeters) {
+List<LatLng> _removeTinySegments(
+  List<LatLng> points,
+  double minDistanceMeters,
+) {
   if (points.length < 2) return List<LatLng>.from(points);
 
   final result = <LatLng>[points.first];
@@ -90,7 +121,10 @@ List<LatLng> _removeSharpSpikes(List<LatLng> points, String activityType) {
     final b = _distance.distance(curr, next);
     final c = _distance.distance(prev, next);
     final detour = (a + b) - c;
-    final angle = _bearingDelta(_computeBearing(prev, curr), _computeBearing(curr, next));
+    final angle = _bearingDelta(
+      _computeBearing(prev, curr),
+      _computeBearing(curr, next),
+    );
 
     final isSpike =
         a <= maxShortSegment &&
@@ -107,88 +141,87 @@ List<LatLng> _removeSharpSpikes(List<LatLng> points, String activityType) {
   return result;
 }
 
-List<LatLng> _douglasPeucker(List<LatLng> points, double epsilonMeters) {
-  if (points.length < 3) return List<LatLng>.from(points);
-
-  final keep = List<bool>.filled(points.length, false);
-  keep[0] = true;
-  keep[points.length - 1] = true;
-
-  void simplify(int start, int end) {
-    if (end <= start + 1) return;
-
-    double maxDistance = 0;
-    var index = -1;
-
-    for (var i = start + 1; i < end; i++) {
-      final distance = _perpendicularDistanceMeters(
-        points[i],
-        points[start],
-        points[end],
-      );
-      if (distance > maxDistance) {
-        maxDistance = distance;
-        index = i;
-      }
-    }
-
-    if (maxDistance > epsilonMeters && index != -1) {
-      keep[index] = true;
-      simplify(start, index);
-      simplify(index, end);
-    }
-  }
-
-  simplify(0, points.length - 1);
-  return [
-    for (var i = 0; i < points.length; i++)
-      if (keep[i]) points[i],
-  ];
-}
-
-double _perpendicularDistanceMeters(LatLng point, LatLng lineStart, LatLng lineEnd) {
-  final meanLatRad = ((lineStart.latitude + lineEnd.latitude) / 2.0) * math.pi / 180.0;
-  final metersPerDegLat = 111320.0;
-  final metersPerDegLng = 111320.0 * math.cos(meanLatRad);
-
-  final ax = lineStart.longitude * metersPerDegLng;
-  final ay = lineStart.latitude * metersPerDegLat;
-  final bx = lineEnd.longitude * metersPerDegLng;
-  final by = lineEnd.latitude * metersPerDegLat;
-  final px = point.longitude * metersPerDegLng;
-  final py = point.latitude * metersPerDegLat;
-
-  final dx = bx - ax;
-  final dy = by - ay;
-  if (dx.abs() < 1e-6 && dy.abs() < 1e-6) {
-    final distX = px - ax;
-    final distY = py - ay;
-    return math.sqrt(distX * distX + distY * distY);
-  }
-
-  final t = (((px - ax) * dx) + ((py - ay) * dy)) / ((dx * dx) + (dy * dy));
-  final clampedT = t.clamp(0.0, 1.0);
-  final projX = ax + dx * clampedT;
-  final projY = ay + dy * clampedT;
-  final diffX = px - projX;
-  final diffY = py - projY;
-  return math.sqrt(diffX * diffX + diffY * diffY);
-}
-
-List<LatLng> _constrainedSmooth(List<LatLng> points, String activityType) {
+List<LatLng> _preserveMeaningfulCorners(
+  List<LatLng> points,
+  String activityType, {
+  required double toleranceMeters,
+}) {
   if (points.length < 3) return List<LatLng>.from(points);
 
   final result = <LatLng>[points.first];
+  final maxKeepDistance = activityType == 'cycling' ? 26.0 : 18.0;
+  final minCornerAngle = activityType == 'cycling' ? 22.0 : 28.0;
+
+  for (var i = 1; i < points.length - 1; i++) {
+    final prev = result.last;
+    final curr = points[i];
+    final next = points[i + 1];
+    final prevDistance = _distance.distance(prev, curr);
+    final nextDistance = _distance.distance(curr, next);
+    final turnAngle = _bearingDelta(
+      _computeBearing(prev, curr),
+      _computeBearing(curr, next),
+    );
+
+    final keepCorner =
+        turnAngle >= minCornerAngle &&
+        prevDistance <= maxKeepDistance &&
+        nextDistance <= maxKeepDistance;
+    final keepSpacing =
+        prevDistance >= toleranceMeters || i == points.length - 2;
+
+    if (keepCorner || keepSpacing) {
+      result.add(curr);
+    }
+  }
+
+  result.add(points.last);
+  return result;
+}
+
+List<LatLng> _centeredBearingAwareSmooth(
+  List<LatLng> points,
+  String activityType,
+) {
+  if (points.length < 5) return List<LatLng>.from(points);
+
+  final result = <LatLng>[points.first];
   final maxShift = _maxSmoothingShiftMeters(activityType);
+  final protectedTurnAngle = activityType == 'cycling' ? 18.0 : 24.0;
+  final maxBlendSegment = activityType == 'cycling' ? 22.0 : 16.0;
 
   for (var i = 1; i < points.length - 1; i++) {
     final prev = points[i - 1];
     final curr = points[i];
     final next = points[i + 1];
+    final prevDistance = _distance.distance(prev, curr);
+    final nextDistance = _distance.distance(curr, next);
+    final localTurn = _bearingDelta(
+      _computeBearing(prev, curr),
+      _computeBearing(curr, next),
+    );
+
+    if (localTurn >= protectedTurnAngle ||
+        prevDistance > maxBlendSegment ||
+        nextDistance > maxBlendSegment) {
+      result.add(curr);
+      continue;
+    }
+
+    final prev2 = i - 2 >= 0 ? points[i - 2] : prev;
+    final next2 = i + 2 < points.length ? points[i + 2] : next;
+    final leftBearing = _computeBearing(prev2, prev);
+    final rightBearing = _computeBearing(next, next2);
+    final corridorDelta = _bearingDelta(leftBearing, rightBearing);
+
+    if (corridorDelta >= 30.0) {
+      result.add(curr);
+      continue;
+    }
 
     final blended = LatLng(
-      prev.latitude * 0.18 + curr.latitude * 0.64 + next.latitude * 0.18,
-      prev.longitude * 0.18 + curr.longitude * 0.64 + next.longitude * 0.18,
+      prev.latitude * 0.25 + curr.latitude * 0.5 + next.latitude * 0.25,
+      prev.longitude * 0.25 + curr.longitude * 0.5 + next.longitude * 0.25,
     );
 
     final shift = _distance.distance(curr, blended);
@@ -199,6 +232,38 @@ List<LatLng> _constrainedSmooth(List<LatLng> points, String activityType) {
   return result;
 }
 
+List<LatLng> _corridorTighten(List<LatLng> points, String activityType) {
+  if (points.length < 5) return List<LatLng>.from(points);
+
+  final result = <LatLng>[points.first];
+  final maxShift = _maxSmoothingShiftMeters(activityType) * 0.8;
+  final keepTurnAngle = activityType == 'cycling' ? 16.0 : 20.0;
+
+  for (var i = 1; i < points.length - 1; i++) {
+    final prev = result.last;
+    final curr = points[i];
+    final next = points[i + 1];
+    final turnAngle = _bearingDelta(
+      _computeBearing(prev, curr),
+      _computeBearing(curr, next),
+    );
+
+    if (turnAngle >= keepTurnAngle) {
+      result.add(curr);
+      continue;
+    }
+
+    final midpoint = LatLng(
+      (prev.latitude + next.latitude) / 2.0,
+      (prev.longitude + next.longitude) / 2.0,
+    );
+    final shift = _distance.distance(curr, midpoint);
+    result.add(shift <= maxShift ? midpoint : curr);
+  }
+
+  result.add(points.last);
+  return result;
+}
 
 double _computeBearing(LatLng from, LatLng to) {
   final lat1 = from.latitude * math.pi / 180.0;

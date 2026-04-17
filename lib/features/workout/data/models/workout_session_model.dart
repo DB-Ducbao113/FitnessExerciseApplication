@@ -28,6 +28,13 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
     )
     @Default(<WorkoutLapSplit>[])
     List<WorkoutLapSplit> lapSplits,
+    @JsonKey(
+      name: 'gps_analysis',
+      fromJson: _gpsAnalysisFromJson,
+      toJson: _gpsAnalysisToJson,
+    )
+    @Default(WorkoutGpsAnalysis())
+    WorkoutGpsAnalysis gpsAnalysis,
   }) = _WorkoutSessionModel;
 
   factory WorkoutSessionModel.fromJson(Map<String, dynamic> json) =>
@@ -48,6 +55,7 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       mode: entity.mode,
       createdAt: entity.createdAt,
       lapSplits: entity.lapSplits,
+      gpsAnalysis: entity.gpsAnalysis,
     );
   }
 
@@ -66,6 +74,7 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       mode: mode,
       createdAt: createdAt,
       lapSplits: lapSplits,
+      gpsAnalysis: gpsAnalysis,
     );
   }
 }
@@ -74,12 +83,19 @@ List<WorkoutLapSplit> _lapSplitsFromJson(dynamic json) {
   if (json is! List) return const <WorkoutLapSplit>[];
   return json
       .whereType<Map>()
-      .map(
-        (item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)),
-      )
+      .map((item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)))
       .toList();
 }
 
 List<Map<String, dynamic>> _lapSplitsToJson(List<WorkoutLapSplit> splits) {
   return splits.map((split) => split.toJson()).toList();
+}
+
+WorkoutGpsAnalysis _gpsAnalysisFromJson(dynamic json) {
+  if (json is! Map) return const WorkoutGpsAnalysis();
+  return WorkoutGpsAnalysis.fromJson(Map<String, dynamic>.from(json));
+}
+
+Map<String, dynamic> _gpsAnalysisToJson(WorkoutGpsAnalysis analysis) {
+  return analysis.toJson();
 }

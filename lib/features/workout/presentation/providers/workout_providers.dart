@@ -2,12 +2,14 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:latlong2/latlong.dart';
 
 part 'workout_providers.g.dart';
 
@@ -81,15 +83,17 @@ class WorkoutList extends _$WorkoutList {
     final user = ref.read(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
 
-    final resolvedCalories = caloriesKcal ?? await (() async {
-      final profile = await ref.read(userProfileProvider(user).future);
-      if (profile == null) return 0.0;
-      return profile.calculateCalories(
-        activityType: activityType,
-        distanceKm: distanceKm,
-        speedKmh: avgSpeedKmh ?? 0.0,
-      );
-    })();
+    final resolvedCalories =
+        caloriesKcal ??
+        await (() async {
+          final profile = await ref.read(userProfileProvider(user).future);
+          if (profile == null) return 0.0;
+          return profile.calculateCalories(
+            activityType: activityType,
+            distanceKm: distanceKm,
+            speedKmh: avgSpeedKmh ?? 0.0,
+          );
+        })();
 
     // Quick Add -> Generate UUID -> Save immediately
     final durationSec = (durationMinutes * 60).round();
@@ -136,6 +140,14 @@ class ActiveWorkout extends _$ActiveWorkout {
 Future<WorkoutSession?> workout(WorkoutRef ref, String id) async {
   final repository = ref.watch(workoutRepositoryProvider);
   return await repository.getSessionById(id);
+}
+
+@riverpod
+Future<List<LatLng>> workoutRoute(WorkoutRouteRef ref, String id) async {
+  final points = await LocalDB.getPointsForSession(id);
+  return points
+      .map((point) => LatLng(point.latitude, point.longitude))
+      .toList(growable: false);
 }
 
 // --- Timer Logic ---

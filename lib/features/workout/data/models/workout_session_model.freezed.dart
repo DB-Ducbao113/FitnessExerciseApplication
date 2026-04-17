@@ -46,6 +46,11 @@ mixin _$WorkoutSessionModel {
       fromJson: _lapSplitsFromJson,
       toJson: _lapSplitsToJson)
   List<WorkoutLapSplit> get lapSplits => throw _privateConstructorUsedError;
+  @JsonKey(
+      name: 'gps_analysis',
+      fromJson: _gpsAnalysisFromJson,
+      toJson: _gpsAnalysisToJson)
+  WorkoutGpsAnalysis get gpsAnalysis => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -76,7 +81,12 @@ abstract class $WorkoutSessionModelCopyWith<$Res> {
           name: 'lap_splits',
           fromJson: _lapSplitsFromJson,
           toJson: _lapSplitsToJson)
-      List<WorkoutLapSplit> lapSplits});
+      List<WorkoutLapSplit> lapSplits,
+      @JsonKey(
+          name: 'gps_analysis',
+          fromJson: _gpsAnalysisFromJson,
+          toJson: _gpsAnalysisToJson)
+      WorkoutGpsAnalysis gpsAnalysis});
 }
 
 /// @nodoc
@@ -105,6 +115,7 @@ class _$WorkoutSessionModelCopyWithImpl<$Res, $Val extends WorkoutSessionModel>
     Object? mode = null,
     Object? createdAt = null,
     Object? lapSplits = null,
+    Object? gpsAnalysis = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -159,6 +170,10 @@ class _$WorkoutSessionModelCopyWithImpl<$Res, $Val extends WorkoutSessionModel>
           ? _value.lapSplits
           : lapSplits // ignore: cast_nullable_to_non_nullable
               as List<WorkoutLapSplit>,
+      gpsAnalysis: null == gpsAnalysis
+          ? _value.gpsAnalysis
+          : gpsAnalysis // ignore: cast_nullable_to_non_nullable
+              as WorkoutGpsAnalysis,
     ) as $Val);
   }
 }
@@ -188,7 +203,12 @@ abstract class _$$WorkoutSessionModelImplCopyWith<$Res>
           name: 'lap_splits',
           fromJson: _lapSplitsFromJson,
           toJson: _lapSplitsToJson)
-      List<WorkoutLapSplit> lapSplits});
+      List<WorkoutLapSplit> lapSplits,
+      @JsonKey(
+          name: 'gps_analysis',
+          fromJson: _gpsAnalysisFromJson,
+          toJson: _gpsAnalysisToJson)
+      WorkoutGpsAnalysis gpsAnalysis});
 }
 
 /// @nodoc
@@ -215,6 +235,7 @@ class __$$WorkoutSessionModelImplCopyWithImpl<$Res>
     Object? mode = null,
     Object? createdAt = null,
     Object? lapSplits = null,
+    Object? gpsAnalysis = null,
   }) {
     return _then(_$WorkoutSessionModelImpl(
       id: null == id
@@ -269,6 +290,10 @@ class __$$WorkoutSessionModelImplCopyWithImpl<$Res>
           ? _value._lapSplits
           : lapSplits // ignore: cast_nullable_to_non_nullable
               as List<WorkoutLapSplit>,
+      gpsAnalysis: null == gpsAnalysis
+          ? _value.gpsAnalysis
+          : gpsAnalysis // ignore: cast_nullable_to_non_nullable
+              as WorkoutGpsAnalysis,
     ));
   }
 }
@@ -293,7 +318,12 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
           name: 'lap_splits',
           fromJson: _lapSplitsFromJson,
           toJson: _lapSplitsToJson)
-      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[]})
+      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[],
+      @JsonKey(
+          name: 'gps_analysis',
+          fromJson: _gpsAnalysisFromJson,
+          toJson: _gpsAnalysisToJson)
+      this.gpsAnalysis = const WorkoutGpsAnalysis()})
       : _lapSplits = lapSplits,
         super._();
 
@@ -346,8 +376,15 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
   }
 
   @override
+  @JsonKey(
+      name: 'gps_analysis',
+      fromJson: _gpsAnalysisFromJson,
+      toJson: _gpsAnalysisToJson)
+  final WorkoutGpsAnalysis gpsAnalysis;
+
+  @override
   String toString() {
-    return 'WorkoutSessionModel(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits)';
+    return 'WorkoutSessionModel(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis)';
   }
 
   @override
@@ -375,7 +412,9 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             const DeepCollectionEquality()
-                .equals(other._lapSplits, _lapSplits));
+                .equals(other._lapSplits, _lapSplits) &&
+            (identical(other.gpsAnalysis, gpsAnalysis) ||
+                other.gpsAnalysis == gpsAnalysis));
   }
 
   @JsonKey(ignore: true)
@@ -394,7 +433,8 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
       caloriesKcal,
       mode,
       createdAt,
-      const DeepCollectionEquality().hash(_lapSplits));
+      const DeepCollectionEquality().hash(_lapSplits),
+      gpsAnalysis);
 
   @JsonKey(ignore: true)
   @override
@@ -429,7 +469,12 @@ abstract class _WorkoutSessionModel extends WorkoutSessionModel {
           name: 'lap_splits',
           fromJson: _lapSplitsFromJson,
           toJson: _lapSplitsToJson)
-      final List<WorkoutLapSplit> lapSplits}) = _$WorkoutSessionModelImpl;
+      final List<WorkoutLapSplit> lapSplits,
+      @JsonKey(
+          name: 'gps_analysis',
+          fromJson: _gpsAnalysisFromJson,
+          toJson: _gpsAnalysisToJson)
+      final WorkoutGpsAnalysis gpsAnalysis}) = _$WorkoutSessionModelImpl;
   const _WorkoutSessionModel._() : super._();
 
   factory _WorkoutSessionModel.fromJson(Map<String, dynamic> json) =
@@ -474,6 +519,12 @@ abstract class _WorkoutSessionModel extends WorkoutSessionModel {
       fromJson: _lapSplitsFromJson,
       toJson: _lapSplitsToJson)
   List<WorkoutLapSplit> get lapSplits;
+  @override
+  @JsonKey(
+      name: 'gps_analysis',
+      fromJson: _gpsAnalysisFromJson,
+      toJson: _gpsAnalysisToJson)
+  WorkoutGpsAnalysis get gpsAnalysis;
   @override
   @JsonKey(ignore: true)
   _$$WorkoutSessionModelImplCopyWith<_$WorkoutSessionModelImpl> get copyWith =>

@@ -17,9 +17,16 @@ class WorkoutSensorController {
     required LocationTrackingService locationService,
     required String activityType,
     required void Function(Position position) onPosition,
+    void Function(Object error, StackTrace stackTrace)? onError,
+    void Function()? onDone,
   }) async {
     await locationService.startTracking(activityType);
-    return locationService.positionStream.listen(onPosition);
+    return locationService.positionStream.listen(
+      onPosition,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: false,
+    );
   }
 
   Future<void> stopGpsTracking({

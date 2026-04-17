@@ -24,6 +24,9 @@ _$WorkoutSessionModelImpl _$$WorkoutSessionModelImplFromJson(
       lapSplits: json['lap_splits'] == null
           ? const <WorkoutLapSplit>[]
           : _lapSplitsFromJson(json['lap_splits']),
+      gpsAnalysis: json['gps_analysis'] == null
+          ? const WorkoutGpsAnalysis()
+          : _gpsAnalysisFromJson(json['gps_analysis']),
     );
 
 Map<String, dynamic> _$$WorkoutSessionModelImplToJson(
@@ -42,4 +45,5 @@ Map<String, dynamic> _$$WorkoutSessionModelImplToJson(
       'mode': instance.mode,
       'created_at': instance.createdAt.toIso8601String(),
       'lap_splits': _lapSplitsToJson(instance.lapSplits),
+      'gps_analysis': _gpsAnalysisToJson(instance.gpsAnalysis),
     };
