@@ -1,12 +1,13 @@
 import 'dart:ui' as ui;
 
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 const _kBgTop = Color(0xFF050816);
@@ -19,10 +20,9 @@ const _kNeonBlue = Color(0xFF00BFFF);
 const _kMapGlow = Color(0x6600F0FF);
 const _kMapHighlight = Color(0xCCB4F7FF);
 const _kValidGreen = Color(0xFF6BE39B);
-const _kWarningAmber = Color(0xFFFFB85C);
 const _kDangerRed = Color(0xFFFF7A8A);
 
-class WorkoutSummaryScreen extends StatelessWidget {
+class WorkoutSummaryScreen extends ConsumerWidget {
   final String sessionId;
   final String activityType;
   final String trackingMode;
@@ -32,6 +32,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
   final int calories;
   final WorkoutGpsAnalysis gpsAnalysis;
   final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
   final List<WorkoutLapSplit> lapSplits;
 
   const WorkoutSummaryScreen({
@@ -45,13 +46,23 @@ class WorkoutSummaryScreen extends StatelessWidget {
     required this.calories,
     this.gpsAnalysis = const WorkoutGpsAnalysis(),
     this.routePoints = const [],
+    this.routeSegments = const [],
     this.lapSplits = const [],
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
+    final List<List<LatLng>> effectiveRouteSegments = routeSegments.isNotEmpty
+        ? routeSegments
+        : (routePoints.isNotEmpty
+              ? <List<LatLng>>[routePoints]
+              : const <List<LatLng>>[]);
+    final List<LatLng> effectiveRoutePoints = effectiveRouteSegments.isNotEmpty
+        ? effectiveRouteSegments.expand((segment) => segment).toList()
+        : routePoints;
     final distanceKm = distanceMeters / 1000;
-    final consistency = assessRecordedWorkout(gpsAnalysis: gpsAnalysis);
 
     return Scaffold(
       backgroundColor: _kBgTop,
@@ -74,21 +85,17 @@ class WorkoutSummaryScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           child: Column(
             children: [
-              if (consistency.validityFlag != WorkoutValidityFlag.verified) ...[
-                _SummaryWarningCard(
-                  message: activityConsistencyWarningText(consistency),
-                ),
-                const SizedBox(height: 16),
-              ],
               _SummaryHeroCard(
                 activityType: activityType,
                 distanceKm: distanceKm,
+                useMetricUnits: useMetricUnits,
                 durationSeconds: durationSeconds,
                 avgSpeedKmh: avgSpeedKmh,
                 calories: calories,
                 gpsAnalysis: gpsAnalysis,
-                showRouteMap: routePoints.length >= 2,
-                routePoints: routePoints,
+                showRouteMap: effectiveRoutePoints.length >= 2,
+                routePoints: effectiveRoutePoints,
+                routeSegments: effectiveRouteSegments,
               ),
               const SizedBox(height: 16),
               _SectionCard(
@@ -109,8 +116,13 @@ class WorkoutSummaryScreen extends StatelessWidget {
                         Expanded(
                           child: _SummaryStatCard(
                             label: 'Distance',
-                            value:
-                                '${gpsAnalysis.totalDistanceKm > 0 ? gpsAnalysis.totalDistanceKm.toStringAsFixed(2) : distanceKm.toStringAsFixed(2)} km',
+                            value: WorkoutFormatters.formatDistance(
+                              gpsAnalysis.totalDistanceKm > 0
+                                  ? gpsAnalysis.totalDistanceKm
+                                  : distanceKm,
+                              useMetric: useMetricUnits,
+                              decimals: 2,
+                            ),
                             accent: _kNeonCyan,
                           ),
                         ),
@@ -133,9 +145,10 @@ class WorkoutSummaryScreen extends StatelessWidget {
                           child: _SummaryStatCard(
                             label: 'Avg Pace',
                             value: gpsAnalysis.effectivePaceSecPerKm != null
-                                ? '${WorkoutFormatters.formatDurationFromSeconds(gpsAnalysis.effectivePaceSecPerKm!.round())}/km'
+                                ? '${WorkoutFormatters.formatDurationFromSeconds(gpsAnalysis.effectivePaceSecPerKm!.round())}/${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}'
                                 : WorkoutFormatters.formatPaceFromSpeedKmh(
                                     avgSpeedKmh,
+                                    useMetric: useMetricUnits,
                                   ),
                             accent: const Color(0xFFF8C15C),
                           ),
@@ -153,103 +166,6 @@ class WorkoutSummaryScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              _SectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'GPS Validation',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SummaryStatCard(
-                            label: 'Valid distance',
-                            value:
-                                '${gpsAnalysis.validDistanceKm.toStringAsFixed(2)} km',
-                            accent: const Color(0xFF6BE39B),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SummaryStatCard(
-                            label: 'Flagged',
-                            value:
-                                '${(gpsAnalysis.suspiciousDistanceKm + gpsAnalysis.invalidDistanceKm).toStringAsFixed(2)} km',
-                            accent: const Color(0xFFFFB85C),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SummaryStatCard(
-                            label: 'GPS gaps',
-                            value:
-                                '${gpsAnalysis.gpsGapCount} · ${WorkoutFormatters.formatElapsedClock(gpsAnalysis.gpsGapDurationSec)}',
-                            accent: _kNeonBlue,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SummaryStatCard(
-                            label: 'Rest time',
-                            value: WorkoutFormatters.formatElapsedClock(
-                              gpsAnalysis.restDurationSec,
-                            ),
-                            accent: const Color(0xFFFF8CA1),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (gpsAnalysis.flaggedSegments.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Flagged Segments',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'These segments were excluded or marked suspicious in the validation pass.',
-                        style: const TextStyle(
-                          color: _kMutedText,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      for (final segment in gpsAnalysis.flaggedSegments) ...[
-                        _FlaggedSegmentRow(segment: segment),
-                        if (segment != gpsAnalysis.flaggedSegments.last)
-                          Divider(
-                            height: 18,
-                            color: Colors.white.withValues(alpha: 0.06),
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
               if (lapSplits.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _SectionCard(
@@ -266,7 +182,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       for (final split in lapSplits) ...[
-                        _SplitRow(split: split),
+                        _SplitRow(split: split, useMetricUnits: useMetricUnits),
                         if (split != lapSplits.last)
                           Divider(
                             height: 18,
@@ -298,7 +214,7 @@ class WorkoutSummaryScreen extends StatelessWidget {
                     ),
                   ),
                   child: const Text(
-                    'View Analysis',
+                    'Back To History',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -356,65 +272,30 @@ class WorkoutSummaryScreen extends StatelessWidget {
   }
 }
 
-class _SummaryWarningCard extends StatelessWidget {
-  final String message;
-
-  const _SummaryWarningCard({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0x26FFB85C),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x66FFB85C)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.info_outline_rounded, color: Color(0xFFFFB85C)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Color(0xFFFFD39A),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SummaryHeroCard extends StatelessWidget {
   const _SummaryHeroCard({
     required this.activityType,
     required this.distanceKm,
+    required this.useMetricUnits,
     required this.durationSeconds,
     required this.avgSpeedKmh,
     required this.calories,
     required this.gpsAnalysis,
     required this.showRouteMap,
     required this.routePoints,
+    required this.routeSegments,
   });
 
   final String activityType;
   final double distanceKm;
+  final bool useMetricUnits;
   final int durationSeconds;
   final double avgSpeedKmh;
   final int calories;
   final WorkoutGpsAnalysis gpsAnalysis;
   final bool showRouteMap;
   final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
 
   @override
   Widget build(BuildContext context) {
@@ -452,10 +333,12 @@ class _SummaryHeroCard extends StatelessWidget {
                         endColor: _kDangerRed,
                         badgeText: 'ROUTE RECAP',
                         footerText: '${routePoints.length} points recorded',
+                        routeSegments: routeSegments,
                       )
                     : _IndoorTrailPreview(
                         activityType: activityType,
                         distanceKm: distanceKm,
+                        useMetricUnits: useMetricUnits,
                         durationSeconds: durationSeconds,
                       ),
               ),
@@ -497,8 +380,8 @@ class _SummaryHeroCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             showRouteMap
-                                ? 'Session captured with route map'
-                                : 'Session captured with indoor motion view',
+                                ? 'Route recorded on this workout'
+                                : 'Workout captured without route map',
                             style: const TextStyle(
                               color: _kMutedText,
                               fontSize: 13,
@@ -508,41 +391,18 @@ class _SummaryHeroCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    WorkoutValidityBadge(
-                      flag: gpsAnalysis.validityFlag,
-                      verifiedColor: _kValidGreen,
-                      warningColor: _kWarningAmber,
-                      dangerColor: _kDangerRed,
-                    ),
                   ],
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  gpsAnalysis.validDistanceKm.toStringAsFixed(2),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 58,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -2.8,
-                    height: 0.95,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'valid km',
-                  style: TextStyle(
-                    color: _kMutedText,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      distanceKm.toStringAsFixed(2),
+                      (useMetricUnits
+                              ? distanceKm
+                              : WorkoutFormatters.kmToMi(distanceKm))
+                          .toStringAsFixed(2),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 58,
@@ -551,11 +411,13 @@ class _SummaryHeroCard extends StatelessWidget {
                         height: 0.95,
                       ),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.only(left: 8, bottom: 10),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 10),
                       child: Text(
-                        'km',
-                        style: TextStyle(
+                        WorkoutFormatters.distanceUnitLabel(
+                          useMetric: useMetricUnits,
+                        ),
+                        style: const TextStyle(
                           color: _kMutedText,
                           fontSize: 21,
                           fontWeight: FontWeight.w800,
@@ -568,6 +430,7 @@ class _SummaryHeroCard extends StatelessWidget {
                 Text(
                   _summarySubtitle(
                     distanceKm: distanceKm,
+                    useMetricUnits: useMetricUnits,
                     durationSeconds: durationSeconds,
                     avgSpeedKmh: avgSpeedKmh,
                   ),
@@ -585,18 +448,23 @@ class _SummaryHeroCard extends StatelessWidget {
                   alignment: WrapAlignment.center,
                   children: [
                     WorkoutHeroMetricChip(
-                      label: 'Raw',
-                      value:
-                          '${gpsAnalysis.totalDistanceKm.toStringAsFixed(2)} km',
+                      label: 'Duration',
+                      value: WorkoutFormatters.formatElapsedClock(
+                        durationSeconds,
+                      ),
                     ),
                     WorkoutHeroMetricChip(
-                      label: 'Excluded',
-                      value:
-                          '${(gpsAnalysis.suspiciousDistanceKm + gpsAnalysis.invalidDistanceKm).toStringAsFixed(2)} km',
+                      label: 'Avg Pace',
+                      value: gpsAnalysis.effectivePaceSecPerKm != null
+                          ? '${WorkoutFormatters.formatDurationFromSeconds(gpsAnalysis.effectivePaceSecPerKm!.round())}/${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}'
+                          : WorkoutFormatters.formatPaceFromSpeedKmh(
+                              avgSpeedKmh,
+                              useMetric: useMetricUnits,
+                            ),
                     ),
                     WorkoutHeroMetricChip(
-                      label: 'Status',
-                      value: workoutValidityLabel(gpsAnalysis.validityFlag),
+                      label: 'Calories',
+                      value: '$calories kcal',
                     ),
                   ],
                 ),
@@ -605,66 +473,6 @@ class _SummaryHeroCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FlaggedSegmentRow extends StatelessWidget {
-  const _FlaggedSegmentRow({required this.segment});
-
-  final WorkoutFlaggedSegment segment;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (segment.status) {
-      WorkoutSegmentStatus.valid => _kValidGreen,
-      WorkoutSegmentStatus.suspicious => _kWarningAmber,
-      WorkoutSegmentStatus.invalid => _kDangerRed,
-    };
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          margin: const EdgeInsets.only(top: 4),
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                workoutSegmentReasonLabel(segment.reason),
-                style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${_formatSegmentClock(segment.startTimestamp)} - ${_formatSegmentClock(segment.endTimestamp)}  •  ${_formatSegmentDistance(segment.distanceM)}  •  ${_formatSegmentPace(segment.paceSecPerKm)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Accuracy ${segment.avgAccuracy.toStringAsFixed(0)} m',
-                style: const TextStyle(
-                  color: _kMutedText,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -683,35 +491,43 @@ class _SummaryStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.06),
+            Colors.white.withValues(alpha: 0.03),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: accent.withValues(alpha: 0.22)),
+            ),
+            child: Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: accent,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 19,
+              fontSize: 20,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -725,11 +541,13 @@ class _IndoorTrailPreview extends StatelessWidget {
   const _IndoorTrailPreview({
     required this.activityType,
     required this.distanceKm,
+    required this.useMetricUnits,
     required this.durationSeconds,
   });
 
   final String activityType;
   final double distanceKm;
+  final bool useMetricUnits;
   final int durationSeconds;
 
   List<Offset> _buildTrail() {
@@ -880,7 +698,7 @@ class _IndoorTrailPreview extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  '${distanceKm.toStringAsFixed(2)} km  |  ${WorkoutFormatters.formatElapsedClock(durationSeconds)}',
+                  '${WorkoutFormatters.formatDistance(distanceKm, useMetric: useMetricUnits, decimals: 2)}  |  ${WorkoutFormatters.formatElapsedClock(durationSeconds)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -1030,7 +848,11 @@ class _SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: _kSurface,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xCC121B2C), Color(0xCC162436)],
+        ),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(color: _kPanelBorder),
         boxShadow: [
@@ -1048,27 +870,29 @@ class _SectionCard extends StatelessWidget {
 
 class _SplitRow extends StatelessWidget {
   final WorkoutLapSplit split;
+  final bool useMetricUnits;
 
-  const _SplitRow({required this.split});
+  const _SplitRow({required this.split, this.useMetricUnits = true});
 
   @override
   Widget build(BuildContext context) {
-    final paceMinutes = split.paceMinPerKm.floor();
-    var paceSeconds = ((split.paceMinPerKm - paceMinutes) * 60).round();
-    var minutes = paceMinutes;
-    if (paceSeconds == 60) {
-      minutes += 1;
-      paceSeconds = 0;
-    }
-
     return Row(
       children: [
-        Text(
-          'KM ${split.index}',
-          style: const TextStyle(
-            color: _kNeonCyan,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _kNeonCyan.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: _kNeonCyan.withValues(alpha: 0.18)),
+          ),
+          child: Text(
+            '${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits).toUpperCase()} ${split.index}',
+            style: const TextStyle(
+              color: _kNeonCyan,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.7,
+            ),
           ),
         ),
         const Spacer(),
@@ -1082,7 +906,10 @@ class _SplitRow extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Text(
-          '$minutes:${paceSeconds.toString().padLeft(2, '0')}/km',
+          WorkoutFormatters.formatSplitPace(
+            split.paceMinPerKm,
+            useMetric: useMetricUnits,
+          ),
           style: const TextStyle(
             color: _kMutedText,
             fontSize: 13,
@@ -1096,36 +923,16 @@ class _SplitRow extends StatelessWidget {
 
 String _summarySubtitle({
   required double distanceKm,
+  required bool useMetricUnits,
   required int durationSeconds,
   required double avgSpeedKmh,
 }) {
   final duration = WorkoutFormatters.formatElapsedClock(durationSeconds);
-  final pace = WorkoutFormatters.formatPaceFromSpeedKmh(avgSpeedKmh);
-  return '$duration total  •  $pace average  •  ${distanceKm.toStringAsFixed(2)} km';
-}
-
-String _formatSegmentClock(DateTime value) {
-  final local = value.toLocal();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  final second = local.second.toString().padLeft(2, '0');
-  return '$hour:$minute:$second';
-}
-
-String _formatSegmentDistance(double distanceM) {
-  if (distanceM >= 1000) {
-    return '${(distanceM / 1000).toStringAsFixed(2)} km';
-  }
-  return '${distanceM.toStringAsFixed(0)} m';
-}
-
-String _formatSegmentPace(double paceSecPerKm) {
-  if (paceSecPerKm <= 0 || paceSecPerKm.isInfinite || paceSecPerKm.isNaN) {
-    return '--';
-  }
-  final minutes = (paceSecPerKm ~/ 60).toInt();
-  final seconds = (paceSecPerKm.round() % 60).toString().padLeft(2, '0');
-  return '$minutes:$seconds/km';
+  final pace = WorkoutFormatters.formatPaceFromSpeedKmh(
+    avgSpeedKmh,
+    useMetric: useMetricUnits,
+  );
+  return '$duration total  •  $pace average  •  ${WorkoutFormatters.formatDistance(distanceKm, useMetric: useMetricUnits, decimals: 2)}';
 }
 
 String _formatSplitDuration(int seconds) {

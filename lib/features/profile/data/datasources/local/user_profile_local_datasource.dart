@@ -25,6 +25,7 @@ class UserProfileLocalDataSource {
       heightM: map['height_m'] as double,
       age: map['age'] as int,
       gender: map['gender'] as String,
+      avatarUrl: map['avatar_url'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
@@ -39,6 +40,7 @@ class UserProfileLocalDataSource {
       'height_m': profile.heightM,
       'age': profile.age,
       'gender': profile.gender,
+      'avatar_url': profile.avatarUrl,
       'created_at': profile.createdAt.toIso8601String(),
       'updated_at': profile.updatedAt.toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -53,6 +55,7 @@ class UserProfileLocalDataSource {
         'height_m': profile.heightM,
         'age': profile.age,
         'gender': profile.gender,
+        'avatar_url': profile.avatarUrl,
         'updated_at': DateTime.now().toIso8601String(),
       },
       where: 'user_id = ?',

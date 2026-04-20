@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
@@ -5,6 +6,7 @@ import 'package:fitness_exercise_application/features/workout/domain/services/wo
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_tracking_engine.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 class WorkoutSessionFinalization {
   final String sessionId;
@@ -33,6 +35,7 @@ class WorkoutSessionFinalizer {
     required double fallbackStrideLengthMeters,
     required WorkoutTrackingEngine trackingEngine,
     required List<Position> rawGpsPositions,
+    required List<List<LatLng>> filteredRouteSegments,
   }) {
     final gpsAnalysis = trackingEngine.analyzeGpsWorkout(
       GpsWorkoutAnalysisInput(
@@ -78,6 +81,11 @@ class WorkoutSessionFinalizer {
       createdAt: finishedAt.toUtc(),
       lapSplits: state.lapSplits,
       gpsAnalysis: gpsAnalysis,
+      filteredRouteJson: _encodeRouteSegments(filteredRouteSegments),
+      matchedRouteJson: '[]',
+      routeMatchStatus: 'pending',
+      routeDistanceSource: 'filtered',
+      routeMatchMetricsJson: '{}',
     );
 
     return WorkoutSessionFinalization(
@@ -88,4 +96,16 @@ class WorkoutSessionFinalizer {
       session: session,
     );
   }
+}
+
+String _encodeRouteSegments(List<List<LatLng>> segments) {
+  final jsonSegments = segments
+      .where((segment) => segment.isNotEmpty)
+      .map(
+        (segment) => segment
+            .map((point) => {'lat': point.latitude, 'lng': point.longitude})
+            .toList(growable: false),
+      )
+      .toList(growable: false);
+  return jsonEncode(jsonSegments);
 }

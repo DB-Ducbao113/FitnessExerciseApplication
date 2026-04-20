@@ -1,5 +1,7 @@
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,12 +31,18 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
   void initState() {
     super.initState();
     final existing = ref.read(userGoalProvider).valueOrNull;
+    final useMetricUnits =
+        ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
     if (existing != null) {
       _selectedType = existing.goalType;
       _selectedPeriod = existing.period;
-      _targetController.text = existing.targetValue % 1 == 0
-          ? existing.targetValue.toInt().toString()
-          : existing.targetValue.toStringAsFixed(1);
+      final initialTarget =
+          existing.goalType == GoalType.distance && !useMetricUnits
+          ? WorkoutFormatters.kmToMi(existing.targetValue)
+          : existing.targetValue;
+      _targetController.text = initialTarget % 1 == 0
+          ? initialTarget.toInt().toString()
+          : initialTarget.toStringAsFixed(1);
     }
   }
 
@@ -46,6 +54,8 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
 
   Future<void> _save() async {
     final raw = double.tryParse(_targetController.text);
+    final useMetricUnits =
+        ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
     if (raw == null || raw <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid target value')),
@@ -57,12 +67,16 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
 
     final userId = Supabase.instance.client.auth.currentUser!.id;
     final existing = ref.read(userGoalProvider).valueOrNull;
+    final normalizedTarget =
+        _selectedType == GoalType.distance && !useMetricUnits
+        ? raw / 0.621371
+        : raw;
 
     final goal = UserGoal(
       id: existing?.id ?? '',
       userId: userId,
       goalType: _selectedType,
-      targetValue: raw,
+      targetValue: normalizedTarget,
       period: _selectedPeriod,
       createdAt: existing?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
@@ -84,6 +98,8 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
   @override
   Widget build(BuildContext context) {
     final hasGoal = ref.watch(userGoalProvider).valueOrNull != null;
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: _kBgTop,
@@ -136,16 +152,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Choose type and target.',
-                style: TextStyle(
-                  color: _kMutedText,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               _GlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,6 +169,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
                     ...GoalType.values.map(
                       (type) => _GoalTypeOption(
                         type: type,
+                        useMetricUnits: useMetricUnits,
                         isSelected: _selectedType == type,
                         onTap: () {
                           setState(() {
@@ -236,7 +244,10 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Text(
-                            _unitLabel(_selectedType),
+                            _unitLabel(
+                              _selectedType,
+                              useMetricUnits: useMetricUnits,
+                            ),
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -316,6 +327,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
                 type: _selectedType,
                 target: double.tryParse(_targetController.text) ?? 0,
                 period: _selectedPeriod,
+                useMetricUnits: useMetricUnits,
               ),
               const SizedBox(height: 22),
               SizedBox(
@@ -372,9 +384,11 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     );
   }
 
-  String _unitLabel(GoalType type) {
+  String _unitLabel(GoalType type, {required bool useMetricUnits}) {
     return switch (type) {
-      GoalType.distance => 'km',
+      GoalType.distance => WorkoutFormatters.distanceUnitLabel(
+        useMetric: useMetricUnits,
+      ),
       GoalType.workouts => 'sessions',
       GoalType.calories => 'kcal',
     };
@@ -383,11 +397,13 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
 
 class _GoalTypeOption extends StatelessWidget {
   final GoalType type;
+  final bool useMetricUnits;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _GoalTypeOption({
     required this.type,
+    required this.useMetricUnits,
     required this.isSelected,
     required this.onTap,
   });
@@ -398,7 +414,7 @@ class _GoalTypeOption extends StatelessWidget {
       GoalType.distance => (
         Icons.directions_run_rounded,
         'Distance',
-        'Track km per week or month',
+        'Track ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)} per week or month',
       ),
       GoalType.workouts => (
         Icons.fitness_center_rounded,
@@ -472,11 +488,13 @@ class _GoalPreview extends StatelessWidget {
   final GoalType type;
   final double target;
   final GoalPeriod period;
+  final bool useMetricUnits;
 
   const _GoalPreview({
     required this.type,
     required this.target,
     required this.period,
+    required this.useMetricUnits,
   });
 
   @override
@@ -495,7 +513,7 @@ class _GoalPreview extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            _previewLabel(type, target, period),
+            _previewLabel(type, target, period, useMetricUnits),
             style: const TextStyle(
               color: _kNeonCyan,
               fontSize: 15,
@@ -503,26 +521,24 @@ class _GoalPreview extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'This goal will appear on home and analytics progress cards.',
-            style: TextStyle(
-              color: _kMutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
     );
   }
 
-  String _previewLabel(GoalType type, double target, GoalPeriod period) {
+  String _previewLabel(
+    GoalType type,
+    double target,
+    GoalPeriod period,
+    bool useMetricUnits,
+  ) {
     final value = target % 1 == 0
         ? target.toInt().toString()
         : target.toStringAsFixed(1);
     final periodLabel = period == GoalPeriod.weekly ? 'per week' : 'this month';
     return switch (type) {
-      GoalType.distance => 'Run $value km $periodLabel',
+      GoalType.distance =>
+        'Run $value ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)} $periodLabel',
       GoalType.workouts => 'Complete $value workouts $periodLabel',
       GoalType.calories => 'Burn $value kcal $periodLabel',
     };

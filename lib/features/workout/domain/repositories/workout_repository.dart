@@ -13,6 +13,7 @@ abstract class WorkoutRepository {
   Future<void> deleteSession(String sessionId);
   Future<void> deleteAllSessions(String userId);
   Future<void> syncPendingData();
+  Future<bool> syncRouteMatchResult(String sessionId);
 
   // Legacy alias, consider migrating to fetchSessionsRemote + replaceLocalCache
   Future<void> syncFromCloud();

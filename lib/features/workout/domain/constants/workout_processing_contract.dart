@@ -8,11 +8,17 @@ const String kClientFinalizedStatus = 'client_finalized';
 const String kClientProcessingStatus = kClientPendingProcessingStatus;
 
 const String kDeterministicFinalizeJobType = 'deterministic_finalize';
+const String kRouteCorrectionJobType = 'route_correction_finalize';
 const String kQueuedJobStatus = 'queued';
 
 const String kClientFinishEnqueuedEvent = 'client_finish_enqueued';
 const String kClientFinishEnqueuedMessage =
     'Client queued deterministic processing after workout stop.';
+
+const String kClientRouteCorrectionEnqueuedEvent =
+    'client_route_correction_enqueued';
+const String kClientRouteCorrectionEnqueuedMessage =
+    'Client queued route correction processing after workout stop.';
 
 const String kGpsStreamErrorEvent = 'gps_stream_error';
 const String kGpsStreamErrorMessage =
@@ -27,13 +33,11 @@ const String kGpsStreamStalledMessage =
     'Client GPS stream stalled without fresh location updates.';
 
 const String kGpsRecoveryStartedEvent = 'gps_recovery_started';
-const String kGpsRecoveryStartedMessage =
-    'Client started GPS stream recovery.';
+const String kGpsRecoveryStartedMessage = 'Client started GPS stream recovery.';
 
 const String kGpsRecoverySucceededEvent = 'gps_recovery_succeeded';
 const String kGpsRecoverySucceededMessage =
     'Client GPS stream recovery succeeded.';
 
 const String kGpsRecoveryFailedEvent = 'gps_recovery_failed';
-const String kGpsRecoveryFailedMessage =
-    'Client GPS stream recovery failed.';
+const String kGpsRecoveryFailedMessage = 'Client GPS stream recovery failed.';

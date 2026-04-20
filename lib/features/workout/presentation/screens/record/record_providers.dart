@@ -8,6 +8,8 @@ import 'package:fitness_exercise_application/features/workout/data/local/local_d
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/domain/constants/workout_processing_contract.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/gps_smoothing_service.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/core/services/ios_live_activity_service.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
@@ -99,6 +101,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   final Ref _ref;
   final WorkoutRecordingCoordinator _recordingCoordinator;
   final WorkoutTrackingEngine _trackingEngine = const WorkoutTrackingEngine();
+  final GpsSmoothingService _gpsSmoothingService = const GpsSmoothingService();
   final WorkoutSessionFinalizer _sessionFinalizer =
       const WorkoutSessionFinalizer();
   final WorkoutSessionLifecycle _sessionLifecycle =
@@ -149,6 +152,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   static const Duration _kRecoveredGpsWindow = Duration(seconds: 3);
   static const Duration _kGpsHealthCheckTick = Duration(seconds: 5);
   static const Duration _kGpsStreamStaleThreshold = Duration(seconds: 5);
+  static const int _kMaxGpsDebugEntries = 80;
 
   WorkoutSessionNotifier(this._ref)
     : _recordingCoordinator = _ref.read(workoutRecordingCoordinatorProvider),
@@ -546,6 +550,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         ),
         trackingEngine: _trackingEngine,
         rawGpsPositions: List<Position>.unmodifiable(_rawGpsPositions),
+        filteredRouteSegments: List<List<LatLng>>.unmodifiable(
+          state.routeSegments
+              .where((segment) => segment.isNotEmpty)
+              .map((segment) => List<LatLng>.unmodifiable(segment)),
+        ),
       );
 
       if (mounted) {
@@ -569,6 +578,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         force: true,
       );
       await _recordingCoordinator.enqueueProcessingForSession(
+        finalization.session,
+      );
+      await _recordingCoordinator.enqueueRouteCorrectionForSession(
         finalization.session,
       );
     } finally {
@@ -819,6 +831,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       debugLocationMode: kDebugLocationMode,
     );
     state = state.copyWith(currentLatLng: decision.previewPoint);
+    _recordGpsDecision(
+      position: position,
+      decision: decision,
+      detail: decision.skipReason ?? 'accepted',
+    );
 
     if (decision.type == TrackingGpsDecisionType.skip) {
       debugPrint('[GPS-SKIP] ${decision.skipReason}');
@@ -831,12 +848,23 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       state = state.copyWith(
         initialPosition: state.initialPosition ?? decision.livePoint,
         currentLatLng: decision.livePoint,
+        smoothedCurrentLatLng: decision.livePoint,
         trackingMode: kOutdoorMode,
         environmentHint: 'outdoor',
         recordingSource: 'gps',
         gpsFallbackActive: false,
+        filteredRoutePoints: [decision.livePoint],
+        smoothedRoutePoints: [decision.livePoint],
         routePoints: [decision.livePoint],
+        routeSegments: [
+          [decision.livePoint],
+        ],
+        smoothedRouteSegments: [
+          [decision.livePoint],
+        ],
         isIndoorSyntheticRoute: false,
+        gpsConfidence: GpsConfidence.high,
+        isStationaryByGps: false,
         speedKmh: 0,
       );
       debugPrint(
@@ -851,6 +879,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       _lastAcceptedPositionTime = position.timestamp;
       state = state.copyWith(
         currentLatLng: decision.livePoint,
+        smoothedCurrentLatLng: decision.livePoint,
         speedKmh: 0,
         isAutoPaused: false,
       );
@@ -960,8 +989,23 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     if (anchor == null) return;
 
     final updatedRoute = List<LatLng>.from(state.routePoints);
+    final updatedFilteredRoute = List<LatLng>.from(state.filteredRoutePoints);
+    final updatedRouteSegments = state.routeSegments
+        .map((segment) => List<LatLng>.from(segment))
+        .toList();
     if (updatedRoute.isEmpty) {
       updatedRoute.add(anchor);
+      updatedFilteredRoute.add(anchor);
+      updatedRouteSegments.add([anchor]);
+      state = state.copyWith(
+        smoothedCurrentLatLng: anchor,
+        smoothedRoutePoints: [anchor],
+        smoothedRouteSegments: [
+          [anchor],
+        ],
+        gpsConfidence: GpsConfidence.high,
+        isStationaryByGps: false,
+      );
       unawaited(
         _persistSyntheticRoutePoint(
           anchor,
@@ -993,6 +1037,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     if (_distanceBetween(previousPoint, constrainedPoint) < 0.6) {
       state = state.copyWith(
         currentLatLng: constrainedPoint,
+        smoothedCurrentLatLng: constrainedPoint,
         initialPosition: state.initialPosition ?? anchor,
         isIndoorSyntheticRoute: true,
         indoorSyntheticHeadingDeg: (nextHeading + 28.0) % 360.0,
@@ -1001,12 +1046,25 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
 
     updatedRoute.add(constrainedPoint);
+    updatedFilteredRoute.add(constrainedPoint);
+    if (updatedRouteSegments.isEmpty) {
+      updatedRouteSegments.add([constrainedPoint]);
+    } else {
+      updatedRouteSegments.last.add(constrainedPoint);
+    }
     state = state.copyWith(
+      filteredRoutePoints: updatedFilteredRoute,
+      smoothedRoutePoints: updatedFilteredRoute,
       routePoints: updatedRoute,
+      routeSegments: updatedRouteSegments,
+      smoothedRouteSegments: updatedRouteSegments,
       currentLatLng: constrainedPoint,
+      smoothedCurrentLatLng: constrainedPoint,
       initialPosition: state.initialPosition ?? anchor,
       isIndoorSyntheticRoute: true,
       indoorSyntheticHeadingDeg: nextHeading,
+      gpsConfidence: GpsConfidence.high,
+      isStationaryByGps: false,
     );
     unawaited(
       _persistSyntheticRoutePoint(
@@ -1105,12 +1163,44 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
     final smoothedKmh = _computeSmoothedSpeed();
 
+    final updatedFilteredRoute = List<LatLng>.from(state.filteredRoutePoints)
+      ..add(routeCandidate);
+    final updatedSmoothedRoutePoints = List<LatLng>.from(
+      state.smoothedRoutePoints,
+    );
     final updatedRoute = List<LatLng>.from(state.routePoints)
       ..add(routeCandidate);
+    final updatedRouteSegments = state.routeSegments
+        .map((segment) => List<LatLng>.from(segment))
+        .toList();
+    final updatedSmoothedRouteSegments = state.smoothedRouteSegments
+        .map((segment) => List<LatLng>.from(segment))
+        .toList();
     final updatedGapSegments = List<GpsGapSegment>.from(state.gpsGapSegments);
-    final lastRoutePoint = state.routePoints.isNotEmpty
-        ? state.routePoints.last
+    final lastRoutePoint = state.filteredRoutePoints.isNotEmpty
+        ? state.filteredRoutePoints.last
         : null;
+    final timeDeltaSec = gpsGapDurationSec > 0
+        ? gpsGapDurationSec
+        : (_lastAcceptedPositionTime == null
+              ? 0.0
+              : position.timestamp
+                        .difference(_lastAcceptedPositionTime!)
+                        .inMilliseconds /
+                    1000.0);
+    final smoothingUpdate = _gpsSmoothingService.smoothAcceptedPoint(
+      activityType: state.activityType,
+      acceptedPoint: routeCandidate,
+      previousAcceptedPoint: lastRoutePoint,
+      previousSmoothedPoint: state.smoothedCurrentLatLng,
+      lastSmoothedRoutePoint: updatedSmoothedRoutePoints.isNotEmpty
+          ? updatedSmoothedRoutePoints.last
+          : null,
+      accuracyMeters: position.accuracy,
+      speedMs: position.speed,
+      timeDeltaSec: timeDeltaSec,
+      gpsGapDurationSec: gpsGapDurationSec,
+    );
     if (gpsGapDurationSec > 5.0 && lastRoutePoint != null) {
       updatedGapSegments.add(
         GpsGapSegment(
@@ -1119,6 +1209,23 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
           durationSec: gpsGapDurationSec,
         ),
       );
+      updatedRouteSegments.add([routeCandidate]);
+      updatedSmoothedRouteSegments.add([smoothingUpdate.smoothedPoint]);
+    } else if (updatedRouteSegments.isEmpty) {
+      updatedRouteSegments.add([routeCandidate]);
+      updatedSmoothedRouteSegments.add([smoothingUpdate.smoothedPoint]);
+    } else {
+      updatedRouteSegments.last.add(routeCandidate);
+      if (updatedSmoothedRouteSegments.isEmpty) {
+        updatedSmoothedRouteSegments.add([smoothingUpdate.smoothedPoint]);
+      } else if (smoothingUpdate.shouldAppendRoutePoint) {
+        updatedSmoothedRouteSegments.last.add(smoothingUpdate.smoothedPoint);
+      }
+    }
+    if (updatedSmoothedRoutePoints.isEmpty ||
+        smoothingUpdate.shouldAppendRoutePoint ||
+        gpsGapDurationSec > 5.0) {
+      updatedSmoothedRoutePoints.add(smoothingUpdate.smoothedPoint);
     }
     final distanceDelta = shouldAddDistance ? segmentMeters : 0.0;
     final newDistanceM = state.distanceMeters + distanceDelta;
@@ -1136,12 +1243,19 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       recordingSource: 'gps',
       gpsFallbackActive: false,
       currentLatLng: livePoint,
+      smoothedCurrentLatLng: smoothingUpdate.smoothedPoint,
       gpsGapMarker: gpsGapDurationSec > 5.0
           ? routeCandidate
           : state.gpsGapMarker,
       gpsGapSegments: updatedGapSegments,
+      filteredRoutePoints: updatedFilteredRoute,
+      smoothedRoutePoints: updatedSmoothedRoutePoints,
       routePoints: updatedRoute,
+      routeSegments: updatedRouteSegments,
+      smoothedRouteSegments: updatedSmoothedRouteSegments,
       isIndoorSyntheticRoute: false,
+      gpsConfidence: smoothingUpdate.confidence,
+      isStationaryByGps: smoothingUpdate.isStationary,
       distanceMeters: newDistanceM,
       speedKmh: shouldAddDistance ? smoothedKmh : 0,
       lapSplits: _captureLapSplits(newDistanceM),
@@ -1157,6 +1271,44 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       'route=${routeSegmentMeters.toStringAsFixed(2)}m '
       'total=${newDistanceM.toStringAsFixed(2)}m routePoints=${updatedRoute.length} '
       'source=gps addDistance=$shouldAddDistance gap=${gpsGapDurationSec.toStringAsFixed(1)}s',
+    );
+  }
+
+  void _recordGpsDecision({
+    required Position position,
+    required TrackingGpsDecision decision,
+    required String detail,
+  }) {
+    final previousAcceptedTime = _lastAcceptedPositionTime;
+    final timeDeltaSec = previousAcceptedTime == null
+        ? 0.0
+        : position.timestamp.difference(previousAcceptedTime).inMilliseconds /
+              1000.0;
+    final debugEntry = GpsValidationDebugEntry.fromPosition(
+      position: position,
+      outcome: decision.outcome,
+      reason: decision.reason,
+      segmentMeters: decision.segmentMeters,
+      routeSegmentMeters: decision.routeSegmentMeters,
+      timeDeltaSec: timeDeltaSec,
+      detail: detail,
+    );
+    final updatedEntries = List<GpsValidationDebugEntry>.from(
+      state.gpsDebugEntries,
+    )..add(debugEntry);
+    if (updatedEntries.length > _kMaxGpsDebugEntries) {
+      updatedEntries.removeRange(
+        0,
+        updatedEntries.length - _kMaxGpsDebugEntries,
+      );
+    }
+    state = state.copyWith(gpsDebugEntries: updatedEntries);
+    debugPrint(
+      '[GPS-VALIDATION] outcome=${decision.outcome.name} reason=${decision.reason.name} '
+      'lat=${position.latitude.toStringAsFixed(6)} lng=${position.longitude.toStringAsFixed(6)} '
+      'acc=${position.accuracy.toStringAsFixed(1)} speed=${position.speed.toStringAsFixed(2)} '
+      'segment=${decision.segmentMeters.toStringAsFixed(2)} route=${decision.routeSegmentMeters.toStringAsFixed(2)} '
+      'detail=$detail',
     );
   }
 

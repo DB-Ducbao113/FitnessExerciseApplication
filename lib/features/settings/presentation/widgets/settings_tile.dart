@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+const _muted = Color(0xFF8A96A9);
+const _cyan = Color(0xFF19E2FF);
+
 class SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -19,25 +22,43 @@ class SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      minLeadingWidth: 0,
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
-          color: const Color(0xff18b0e8).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          color: _cyan.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _cyan.withValues(alpha: 0.18)),
         ),
-        child: Icon(icon, color: const Color(0xff18b0e8), size: 24),
+        child: Icon(icon, color: _cyan, size: 21),
       ),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
       ),
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: const TextStyle(
+                fontSize: 13,
+                color: _muted,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
             )
           : null,
-      trailing: trailing ?? const Icon(Icons.chevron_right, color: Colors.grey),
+      trailing:
+          trailing ??
+          Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.white.withValues(alpha: 0.4),
+          ),
       onTap: onTap,
     );
   }

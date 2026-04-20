@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_workout.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/route_match_result.dart';
 import 'package:fitness_exercise_application/features/workout/domain/repositories/workout_repository.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/route_match_quality_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
@@ -11,6 +13,8 @@ import 'package:fitness_exercise_application/features/workout/domain/entities/wo
 class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutRemoteDataSource _remoteDataSource;
   final SupabaseClient _supabase;
+  final RouteMatchQualityService _routeMatchQualityService =
+      const RouteMatchQualityService();
 
   WorkoutRepositoryImpl(this._remoteDataSource, this._supabase);
 
@@ -121,6 +125,36 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       }
     } catch (e) {
       debugPrint('[Sync] syncPendingData error: $e');
+    }
+  }
+
+  @override
+  Future<bool> syncRouteMatchResult(String sessionId) async {
+    if (!await InternetConnectionChecker().hasConnection) return false;
+
+    try {
+      final payload = await _remoteDataSource.getRouteMatchPayload(sessionId);
+      if (payload == null) return false;
+
+      final rawResult = RouteMatchResult(
+        sessionId: sessionId,
+        matchedRouteJson: payload['matched_route_json'] as String? ?? '[]',
+        routeMatchStatus: payload['route_match_status'] as String? ?? 'pending',
+        routeMatchConfidence: (payload['route_match_confidence'] as num?)
+            ?.toDouble(),
+        routeDistanceSource:
+            payload['route_distance_source'] as String? ?? 'filtered',
+        matchedDistanceKm: (payload['matched_distance_km'] as num?)?.toDouble(),
+        routeMatchMetricsJson:
+            payload['route_match_metrics_json'] as String? ?? '{}',
+      );
+
+      final normalized = _routeMatchQualityService.normalize(rawResult);
+      await LocalDB.updateRouteMatchResult(normalized);
+      return true;
+    } catch (e) {
+      debugPrint('[WorkoutRepository] syncRouteMatchResult error: $e');
+      return false;
     }
   }
 

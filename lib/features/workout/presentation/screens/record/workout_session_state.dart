@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:latlong2/latlong.dart';
 
 enum RecordingState {
@@ -42,12 +43,18 @@ class WorkoutSessionState {
   final int stepCount;
   final double strideLengthMeters;
   final int caloriesBurned;
+  final List<LatLng> filteredRoutePoints;
+  final List<LatLng> smoothedRoutePoints;
   final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
+  final List<List<LatLng>> smoothedRouteSegments;
+  final List<GpsValidationDebugEntry> gpsDebugEntries;
   final List<WorkoutLapSplit> lapSplits;
   final WorkoutGpsAnalysis gpsAnalysis;
 
   final LatLng? initialPosition;
   final LatLng? currentLatLng;
+  final LatLng? smoothedCurrentLatLng;
   final bool isIndoorSyntheticRoute;
   final double indoorSyntheticHeadingDeg;
   final LatLng? gpsGapMarker;
@@ -55,6 +62,8 @@ class WorkoutSessionState {
   final bool followUser;
   final bool isAutoPaused;
   final bool isGpsSignalWeak;
+  final bool isStationaryByGps;
+  final GpsConfidence gpsConfidence;
   final double lastGpsGapDurationSec;
   final int pausedAutoStopRemainingSeconds;
   final int recenterRequestId;
@@ -83,11 +92,17 @@ class WorkoutSessionState {
     this.stepCount = 0,
     this.strideLengthMeters = 0.75,
     this.caloriesBurned = 0,
+    this.filteredRoutePoints = const [],
+    this.smoothedRoutePoints = const [],
     this.routePoints = const [],
+    this.routeSegments = const [],
+    this.smoothedRouteSegments = const [],
+    this.gpsDebugEntries = const [],
     this.lapSplits = const [],
     this.gpsAnalysis = const WorkoutGpsAnalysis(),
     this.initialPosition,
     this.currentLatLng,
+    this.smoothedCurrentLatLng,
     this.isIndoorSyntheticRoute = false,
     this.indoorSyntheticHeadingDeg = 0,
     this.gpsGapMarker,
@@ -95,6 +110,8 @@ class WorkoutSessionState {
     this.followUser = true,
     this.isAutoPaused = false,
     this.isGpsSignalWeak = false,
+    this.isStationaryByGps = false,
+    this.gpsConfidence = GpsConfidence.high,
     this.lastGpsGapDurationSec = 0,
     this.pausedAutoStopRemainingSeconds = 0,
     this.recenterRequestId = 0,
@@ -119,11 +136,17 @@ class WorkoutSessionState {
     int? stepCount,
     double? strideLengthMeters,
     int? caloriesBurned,
+    List<LatLng>? filteredRoutePoints,
+    List<LatLng>? smoothedRoutePoints,
     List<LatLng>? routePoints,
+    List<List<LatLng>>? routeSegments,
+    List<List<LatLng>>? smoothedRouteSegments,
+    List<GpsValidationDebugEntry>? gpsDebugEntries,
     List<WorkoutLapSplit>? lapSplits,
     WorkoutGpsAnalysis? gpsAnalysis,
     LatLng? initialPosition,
     LatLng? currentLatLng,
+    LatLng? smoothedCurrentLatLng,
     bool? isIndoorSyntheticRoute,
     double? indoorSyntheticHeadingDeg,
     LatLng? gpsGapMarker,
@@ -131,6 +154,8 @@ class WorkoutSessionState {
     bool? followUser,
     bool? isAutoPaused,
     bool? isGpsSignalWeak,
+    bool? isStationaryByGps,
+    GpsConfidence? gpsConfidence,
     double? lastGpsGapDurationSec,
     int? pausedAutoStopRemainingSeconds,
     int? recenterRequestId,
@@ -154,11 +179,19 @@ class WorkoutSessionState {
       stepCount: stepCount ?? this.stepCount,
       strideLengthMeters: strideLengthMeters ?? this.strideLengthMeters,
       caloriesBurned: caloriesBurned ?? this.caloriesBurned,
+      filteredRoutePoints: filteredRoutePoints ?? this.filteredRoutePoints,
+      smoothedRoutePoints: smoothedRoutePoints ?? this.smoothedRoutePoints,
       routePoints: routePoints ?? this.routePoints,
+      routeSegments: routeSegments ?? this.routeSegments,
+      smoothedRouteSegments:
+          smoothedRouteSegments ?? this.smoothedRouteSegments,
+      gpsDebugEntries: gpsDebugEntries ?? this.gpsDebugEntries,
       lapSplits: lapSplits ?? this.lapSplits,
       gpsAnalysis: gpsAnalysis ?? this.gpsAnalysis,
       initialPosition: initialPosition ?? this.initialPosition,
       currentLatLng: currentLatLng ?? this.currentLatLng,
+      smoothedCurrentLatLng:
+          smoothedCurrentLatLng ?? this.smoothedCurrentLatLng,
       isIndoorSyntheticRoute:
           isIndoorSyntheticRoute ?? this.isIndoorSyntheticRoute,
       indoorSyntheticHeadingDeg:
@@ -168,6 +201,8 @@ class WorkoutSessionState {
       followUser: followUser ?? this.followUser,
       isAutoPaused: isAutoPaused ?? this.isAutoPaused,
       isGpsSignalWeak: isGpsSignalWeak ?? this.isGpsSignalWeak,
+      isStationaryByGps: isStationaryByGps ?? this.isStationaryByGps,
+      gpsConfidence: gpsConfidence ?? this.gpsConfidence,
       lastGpsGapDurationSec:
           lastGpsGapDurationSec ?? this.lastGpsGapDurationSec,
       pausedAutoStopRemainingSeconds:

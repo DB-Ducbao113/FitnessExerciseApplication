@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_tracking_engine.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_environment_controller.dart';
@@ -222,6 +224,9 @@ void main() {
         fallbackStrideLengthMeters: 0.8,
         trackingEngine: trackingEngine,
         rawGpsPositions: const [],
+        filteredRouteSegments: const [
+          [LatLng(10.0, 106.0), LatLng(10.001, 106.001)],
+        ],
       );
 
       expect(result.session.id, 'session-1');
@@ -230,6 +235,10 @@ void main() {
       expect(result.session.steps, 6200);
       expect(result.session.startedAt, DateTime.utc(2026, 4, 14, 9, 30));
       expect(result.session.endedAt, DateTime.utc(2026, 4, 14, 10, 0));
+      expect(result.session.routeMatchStatus, 'pending');
+      expect(result.session.routeDistanceSource, 'filtered');
+      expect(result.session.matchedRouteJson, '[]');
+      expect(result.session.filteredRouteJson, isNot('[]'));
     });
 
     test('estimates steps from stride when sensor steps are unavailable', () {
@@ -252,10 +261,50 @@ void main() {
         fallbackStrideLengthMeters: 0.8,
         trackingEngine: trackingEngine,
         rawGpsPositions: const [],
+        filteredRouteSegments: const [
+          [LatLng(10.0, 106.0), LatLng(10.0005, 106.0005)],
+        ],
       );
 
       expect(result.session.steps, 1000);
       expect(result.session.id, isNotEmpty);
+      expect(result.session.routeMatchStatus, 'pending');
+      expect(result.session.routeDistanceSource, 'filtered');
+    });
+
+    test('serializes filtered route segments into filteredRouteJson', () {
+      final state = WorkoutSessionState(
+        status: RecordingState.stopping,
+        sessionId: 'session-route',
+        activityType: 'Running',
+        trackingMode: 'outdoor',
+        recordingSource: 'gps',
+        durationSeconds: 900,
+        distanceMeters: 2400,
+        startedAt: DateTime.utc(2026, 4, 14, 9, 45),
+      );
+
+      final result = finalizer.finalize(
+        state: state,
+        userId: 'user-1',
+        finishedAt: DateTime.utc(2026, 4, 14, 10, 0),
+        caloriesBurned: 210,
+        fallbackStrideLengthMeters: 0.8,
+        trackingEngine: trackingEngine,
+        rawGpsPositions: const [],
+        filteredRouteSegments: const [
+          [LatLng(10.0, 106.0), LatLng(10.001, 106.001)],
+          [LatLng(10.002, 106.002)],
+        ],
+      );
+
+      final decoded = jsonDecode(result.session.filteredRouteJson) as List;
+
+      expect(decoded, hasLength(2));
+      expect((decoded[0] as List), hasLength(2));
+      expect((decoded[1] as List), hasLength(1));
+      expect(result.session.routeDistanceSource, 'filtered');
+      expect(result.session.matchedRouteJson, '[]');
     });
   });
 

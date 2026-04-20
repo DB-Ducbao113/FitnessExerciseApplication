@@ -1,5 +1,6 @@
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -108,6 +109,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingProfile != null;
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: _kBgTop,
@@ -153,15 +156,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'We use this to improve distance-based calorie and pace estimates.',
-                  style: TextStyle(
-                    color: _kMutedText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
                 const SizedBox(height: 20),
                 _GlassCard(
                   child: Column(
@@ -185,7 +179,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       _InputField(
                         controller: _weightController,
                         label: 'Weight',
-                        hint: 'kg',
+                        hint: useMetricUnits ? 'kg' : 'lb',
                         icon: Icons.monitor_weight_outlined,
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -194,7 +188,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           }
                           final weight = double.tryParse(value);
                           if (weight == null || weight < 30 || weight > 300) {
-                            return 'Weight must be between 30-300 kg';
+                            return useMetricUnits
+                                ? 'Weight must be between 30-300 kg'
+                                : 'Weight must be between 66-661 lb';
                           }
                           return null;
                         },
@@ -203,7 +199,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       _InputField(
                         controller: _heightController,
                         label: 'Height',
-                        hint: 'm',
+                        hint: useMetricUnits ? 'm' : 'ft/in',
                         icon: Icons.height_rounded,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -214,7 +210,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           }
                           final height = double.tryParse(value);
                           if (height == null || height < 1.0 || height > 2.5) {
-                            return 'Height must be between 1.0-2.5 m';
+                            return useMetricUnits
+                                ? 'Height must be between 1.0-2.5 m'
+                                : 'Height must stay within a valid range';
                           }
                           return null;
                         },

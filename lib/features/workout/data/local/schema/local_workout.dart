@@ -27,6 +27,13 @@ class LocalWorkout {
   late DateTime createdAt;
   String lapSplitsJson = '[]';
   String gpsAnalysisJson = '{}';
+  String filteredRouteJson = '[]';
+  String matchedRouteJson = '[]';
+  String routeMatchStatus = 'pending';
+  double? routeMatchConfidence;
+  String routeDistanceSource = 'filtered';
+  double? matchedDistanceKm;
+  String routeMatchMetricsJson = '{}';
 
   // Sync tracking
   bool isSynced = false;
@@ -47,6 +54,13 @@ class LocalWorkout {
       createdAt: createdAt,
       lapSplits: _decodeLapSplits(lapSplitsJson),
       gpsAnalysis: _decodeGpsAnalysis(gpsAnalysisJson),
+      filteredRouteJson: filteredRouteJson,
+      matchedRouteJson: matchedRouteJson,
+      routeMatchStatus: routeMatchStatus,
+      routeMatchConfidence: routeMatchConfidence,
+      routeDistanceSource: routeDistanceSource,
+      matchedDistanceKm: matchedDistanceKm,
+      routeMatchMetricsJson: routeMatchMetricsJson,
     );
   }
 
@@ -68,6 +82,13 @@ class LocalWorkout {
         session.lapSplits.map((split) => split.toJson()).toList(),
       )
       ..gpsAnalysisJson = jsonEncode(session.gpsAnalysis.toJson())
+      ..filteredRouteJson = session.filteredRouteJson
+      ..matchedRouteJson = session.matchedRouteJson
+      ..routeMatchStatus = session.routeMatchStatus
+      ..routeMatchConfidence = session.routeMatchConfidence
+      ..routeDistanceSource = session.routeDistanceSource
+      ..matchedDistanceKm = session.matchedDistanceKm
+      ..routeMatchMetricsJson = session.routeMatchMetricsJson
       ..isSynced = true;
   }
 

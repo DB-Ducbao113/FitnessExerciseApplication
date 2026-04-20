@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 class TrackingMapWidget extends StatefulWidget {
   final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
   final String activityType;
   final LatLng? initialPosition;
   final LatLng? currentLocation;
@@ -21,6 +22,7 @@ class TrackingMapWidget extends StatefulWidget {
   const TrackingMapWidget({
     super.key,
     required this.routePoints,
+    this.routeSegments = const [],
     required this.activityType,
     this.initialPosition,
     this.currentLocation,
@@ -42,6 +44,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   DateTime? _lastCameraMove;
   bool _initialCameraSet = false;
   List<LatLng> _cachedDisplayRoute = const <LatLng>[];
+  List<List<LatLng>> _cachedDisplaySegments = const <List<LatLng>>[];
   int? _zoomBucket;
 
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
@@ -73,7 +76,8 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
 
     if (widget.showRoute != oldWidget.showRoute ||
         widget.activityType != oldWidget.activityType ||
-        !listEquals(widget.routePoints, oldWidget.routePoints)) {
+        !listEquals(widget.routePoints, oldWidget.routePoints) ||
+        !_segmentsEqual(widget.routeSegments, oldWidget.routeSegments)) {
       _refreshDisplayRoute();
     }
 
@@ -142,6 +146,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   void _refreshDisplayRoute() {
     if (!widget.showRoute || widget.routePoints.length < 2) {
       _cachedDisplayRoute = widget.routePoints;
+      _cachedDisplaySegments = widget.routeSegments;
       return;
     }
 
@@ -150,6 +155,27 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
       liveRoute,
       zoomBucket: _zoomBucket ?? _zoomBucketFor(_targetZoom),
     );
+    if (widget.routeSegments.isEmpty) {
+      _cachedDisplaySegments = [_cachedDisplayRoute];
+      return;
+    }
+    _cachedDisplaySegments = widget.routeSegments
+        .map(
+          (segment) => _downsampleForRender(
+            List<LatLng>.from(segment),
+            zoomBucket: _zoomBucket ?? _zoomBucketFor(_targetZoom),
+          ),
+        )
+        .where((segment) => segment.length >= 2)
+        .toList();
+  }
+
+  bool _segmentsEqual(List<List<LatLng>> a, List<List<LatLng>> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!listEquals(a[i], b[i])) return false;
+    }
+    return true;
   }
 
   int _zoomBucketFor(double zoom) {
@@ -214,6 +240,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
     final displayRoute = widget.showRoute
         ? _cachedDisplayRoute
         : const <LatLng>[];
+    final displaySegments = widget.showRoute
+        ? _cachedDisplaySegments
+        : const <List<LatLng>>[];
     final useLitePolyline = displayRoute.length > 450;
 
     if (kDebugMode) {
@@ -252,26 +281,28 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
               userAgentPackageName: 'com.fitness_exercise_application',
               maxZoom: 20,
             ),
-            if (widget.showRoute && displayRoute.length >= 2)
+            if (widget.showRoute && displaySegments.isNotEmpty)
               PolylineLayer(
                 polylines: [
-                  if (!useLitePolyline)
+                  for (final segment in displaySegments) ...[
+                    if (!useLitePolyline)
+                      Polyline(
+                        points: segment,
+                        strokeWidth: 16,
+                        color: _routeGlow,
+                      ),
                     Polyline(
-                      points: displayRoute,
-                      strokeWidth: 16,
-                      color: _routeGlow,
+                      points: segment,
+                      strokeWidth: useLitePolyline ? 5 : 7,
+                      color: _routeCore,
                     ),
-                  Polyline(
-                    points: displayRoute,
-                    strokeWidth: useLitePolyline ? 5 : 7,
-                    color: _routeCore,
-                  ),
-                  if (!useLitePolyline)
-                    Polyline(
-                      points: displayRoute,
-                      strokeWidth: 2,
-                      color: _routeHighlight,
-                    ),
+                    if (!useLitePolyline)
+                      Polyline(
+                        points: segment,
+                        strokeWidth: 2,
+                        color: _routeHighlight,
+                      ),
+                  ],
                   for (final gap in widget.gpsGapSegments) ...[
                     Polyline(
                       points: [gap.start, gap.end],

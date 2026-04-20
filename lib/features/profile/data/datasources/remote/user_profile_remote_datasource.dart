@@ -60,7 +60,7 @@ class UserProfileRemoteDataSource {
   /// Upload [imageFile] to Supabase Storage under avatars/{userId}.jpg
   /// Returns the public URL of the uploaded image.
   Future<String> uploadAvatar(String userId, File imageFile) async {
-    final storagePath = 'avatars/$userId.jpg';
+    final storagePath = '$userId/avatar.jpg';
     await _supabase.storage
         .from('avatars')
         .upload(
@@ -74,7 +74,8 @@ class UserProfileRemoteDataSource {
     final publicUrl = _supabase.storage
         .from('avatars')
         .getPublicUrl(storagePath);
-    return publicUrl;
+    final version = DateTime.now().millisecondsSinceEpoch;
+    return '$publicUrl?v=$version';
   }
 
   /// Persist [avatarUrl] to user_profiles.avatar_url in the database.

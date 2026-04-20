@@ -33,7 +33,15 @@ class WorkoutRemoteDataSource {
   /// Saves the complete session to the cloud database
   Future<void> saveSession(WorkoutSession session) async {
     final model = WorkoutSessionModel.fromEntity(session);
-    final payload = model.toJson()..remove('gps_analysis');
+    final payload = model.toJson()
+      ..remove('gps_analysis')
+      ..remove('filtered_route_json')
+      ..remove('matched_route_json')
+      ..remove('route_match_status')
+      ..remove('route_match_confidence')
+      ..remove('route_distance_source')
+      ..remove('matched_distance_km')
+      ..remove('route_match_metrics_json');
     await _supabase.from(DbTables.workoutSessions).upsert({
       ...payload,
       'processing_status': kClientProcessingStatus,
@@ -89,6 +97,37 @@ class WorkoutRemoteDataSource {
     } catch (e) {
       debugPrint(
         '[WorkoutRemoteDataSource] getSessionById unexpected error: $e',
+      );
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getRouteMatchPayload(String id) async {
+    try {
+      final response = await _supabase
+          .from(DbTables.workoutSessions)
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+
+      if (response == null) return null;
+      final payload = Map<String, dynamic>.from(response);
+      final hasAnyRouteMatchField =
+          payload.containsKey('matched_route_json') ||
+          payload.containsKey('route_match_status') ||
+          payload.containsKey('route_match_confidence') ||
+          payload.containsKey('route_distance_source') ||
+          payload.containsKey('matched_distance_km') ||
+          payload.containsKey('route_match_metrics_json');
+      return hasAnyRouteMatchField ? payload : null;
+    } on PostgrestException catch (e) {
+      debugPrint(
+        '[WorkoutRemoteDataSource] getRouteMatchPayload error: ${e.message}',
+      );
+      return null;
+    } catch (e) {
+      debugPrint(
+        '[WorkoutRemoteDataSource] getRouteMatchPayload unexpected error: $e',
       );
       return null;
     }

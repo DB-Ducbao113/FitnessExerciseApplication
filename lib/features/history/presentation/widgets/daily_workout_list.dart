@@ -1,8 +1,10 @@
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const _kCardBg = Color(0xFF102033);
 const _kCardBorder = Color(0x2200E5FF);
@@ -13,7 +15,7 @@ const _kAmber = Color(0xFFFFB85C);
 const _kValidGreen = Color(0xFF6BE39B);
 const _kDangerRed = Color(0xFFFF7A8A);
 
-class DailyWorkoutList extends StatelessWidget {
+class DailyWorkoutList extends ConsumerWidget {
   final List<WorkoutSession> workouts;
   final String range;
 
@@ -24,7 +26,9 @@ class DailyWorkoutList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
     if (workouts.isEmpty) {
       return Container(
         width: double.infinity,
@@ -55,7 +59,10 @@ class DailyWorkoutList extends StatelessWidget {
       children: workouts.map((workout) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: _WorkoutHistoryCard(workout: workout),
+          child: _WorkoutHistoryCard(
+            workout: workout,
+            useMetricUnits: useMetricUnits,
+          ),
         );
       }).toList(),
     );
@@ -64,8 +71,12 @@ class DailyWorkoutList extends StatelessWidget {
 
 class _WorkoutHistoryCard extends StatelessWidget {
   final WorkoutSession workout;
+  final bool useMetricUnits;
 
-  const _WorkoutHistoryCard({required this.workout});
+  const _WorkoutHistoryCard({
+    required this.workout,
+    required this.useMetricUnits,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +84,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
     final start = workout.startedAt.toLocal();
     final day = start.day.toString().padLeft(2, '0');
     final month = _monthShort(start.month).toUpperCase();
-    final pace = _paceLabel(workout);
+    final pace = _paceLabel(workout, useMetricUnits: useMetricUnits);
     final consistency = assessWorkoutSession(workout);
     final shouldWarn = consistency.validityFlag != WorkoutValidityFlag.verified;
     final primaryDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
@@ -183,7 +194,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Raw ${workout.gpsAnalysis.totalDistanceKm.toStringAsFixed(2)} km • Excluded ${excludedKm.toStringAsFixed(2)} km',
+                      'Raw ${WorkoutFormatters.formatDistance(workout.gpsAnalysis.totalDistanceKm, useMetric: useMetricUnits, decimals: 2)} • Excluded ${WorkoutFormatters.formatDistance(excludedKm, useMetric: useMetricUnits, decimals: 2)}',
                       style: const TextStyle(
                         color: _kMutedText,
                         fontSize: 10,
@@ -197,8 +208,16 @@ class _WorkoutHistoryCard extends StatelessWidget {
                       _MetricMini(
                         color: _kNeonCyan,
                         icon: Icons.place_outlined,
-                        value: primaryDistanceKm.toStringAsFixed(1),
-                        label: 'km',
+                        value:
+                            (useMetricUnits
+                                    ? primaryDistanceKm
+                                    : WorkoutFormatters.kmToMi(
+                                        primaryDistanceKm,
+                                      ))
+                                .toStringAsFixed(1),
+                        label: WorkoutFormatters.distanceUnitLabel(
+                          useMetric: useMetricUnits,
+                        ),
                       ),
                       _MetricMini(
                         color: color,
@@ -342,20 +361,16 @@ String _durationShort(int seconds) {
   return '$minutes:${remaining.toString().padLeft(2, '0')}';
 }
 
-String _paceLabel(WorkoutSession workout) {
+String _paceLabel(WorkoutSession workout, {required bool useMetricUnits}) {
   final distanceKm = workout.gpsAnalysis.validDistanceKm > 0
       ? workout.gpsAnalysis.validDistanceKm
       : workout.distanceKm;
   if (distanceKm <= 0 || workout.durationSec <= 0) return '--';
   final paceMinPerKm = workout.durationSec / 60 / distanceKm;
-  final minutes = paceMinPerKm.floor();
-  var paceSeconds = ((paceMinPerKm - minutes) * 60).round();
-  var safeMinutes = minutes;
-  if (paceSeconds == 60) {
-    safeMinutes += 1;
-    paceSeconds = 0;
-  }
-  return '$safeMinutes\'${paceSeconds.toString().padLeft(2, '0')}';
+  return WorkoutFormatters.formatSplitPace(
+    paceMinPerKm,
+    useMetric: useMetricUnits,
+  );
 }
 
 Color _activityColor(String activity) {

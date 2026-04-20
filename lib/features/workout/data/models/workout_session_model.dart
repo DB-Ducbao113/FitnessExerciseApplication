@@ -35,6 +35,21 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
     )
     @Default(WorkoutGpsAnalysis())
     WorkoutGpsAnalysis gpsAnalysis,
+    @JsonKey(name: 'filtered_route_json')
+    @Default('[]')
+    String filteredRouteJson,
+    @JsonKey(name: 'matched_route_json') @Default('[]') String matchedRouteJson,
+    @JsonKey(name: 'route_match_status')
+    @Default('pending')
+    String routeMatchStatus,
+    @JsonKey(name: 'route_match_confidence') double? routeMatchConfidence,
+    @JsonKey(name: 'route_distance_source')
+    @Default('filtered')
+    String routeDistanceSource,
+    @JsonKey(name: 'matched_distance_km') double? matchedDistanceKm,
+    @JsonKey(name: 'route_match_metrics_json')
+    @Default('{}')
+    String routeMatchMetricsJson,
   }) = _WorkoutSessionModel;
 
   factory WorkoutSessionModel.fromJson(Map<String, dynamic> json) =>
@@ -56,6 +71,13 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       createdAt: entity.createdAt,
       lapSplits: entity.lapSplits,
       gpsAnalysis: entity.gpsAnalysis,
+      filteredRouteJson: entity.filteredRouteJson,
+      matchedRouteJson: entity.matchedRouteJson,
+      routeMatchStatus: entity.routeMatchStatus,
+      routeMatchConfidence: entity.routeMatchConfidence,
+      routeDistanceSource: entity.routeDistanceSource,
+      matchedDistanceKm: entity.matchedDistanceKm,
+      routeMatchMetricsJson: entity.routeMatchMetricsJson,
     );
   }
 
@@ -75,6 +97,13 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       createdAt: createdAt,
       lapSplits: lapSplits,
       gpsAnalysis: gpsAnalysis,
+      filteredRouteJson: filteredRouteJson,
+      matchedRouteJson: matchedRouteJson,
+      routeMatchStatus: routeMatchStatus,
+      routeMatchConfidence: routeMatchConfidence,
+      routeDistanceSource: routeDistanceSource,
+      matchedDistanceKm: matchedDistanceKm,
+      routeMatchMetricsJson: routeMatchMetricsJson,
     );
   }
 }

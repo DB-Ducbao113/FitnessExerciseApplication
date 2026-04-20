@@ -171,6 +171,13 @@ class WorkoutSession with _$WorkoutSession {
     required DateTime createdAt,
     @Default(<WorkoutLapSplit>[]) List<WorkoutLapSplit> lapSplits,
     @Default(WorkoutGpsAnalysis()) WorkoutGpsAnalysis gpsAnalysis,
+    @Default('[]') String filteredRouteJson,
+    @Default('[]') String matchedRouteJson,
+    @Default('pending') String routeMatchStatus,
+    double? routeMatchConfidence,
+    @Default('filtered') String routeDistanceSource,
+    double? matchedDistanceKm,
+    @Default('{}') String routeMatchMetricsJson,
   }) = _WorkoutSession;
 }
 

@@ -2,6 +2,7 @@ import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
@@ -32,6 +33,8 @@ class StatsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final workoutsAsync = ref.watch(workoutListProvider);
     final period = ref.watch(selectedPeriodProvider);
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -67,7 +70,10 @@ class StatsScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 22),
-                  _OverviewGrid(summary: summary),
+                  _OverviewGrid(
+                    summary: summary,
+                    useMetricUnits: useMetricUnits,
+                  ),
                   const SizedBox(height: 26),
                   _GoalProgressSection(
                     progress: ref.watch(goalProgressProvider),
@@ -81,7 +87,10 @@ class StatsScreen extends ConsumerWidget {
                   const SizedBox(height: 28),
                   const _SectionTitle(title: 'PERSONAL RECORDS'),
                   const SizedBox(height: 14),
-                  _RecordsList(records: records),
+                  _RecordsList(
+                    records: records,
+                    useMetricUnits: useMetricUnits,
+                  ),
                   const SizedBox(height: 24),
                   _ActivityDistributionCard(
                     breakdown: breakdown,
@@ -218,9 +227,10 @@ class _PeriodSwitcher extends StatelessWidget {
 }
 
 class _OverviewGrid extends StatelessWidget {
-  const _OverviewGrid({required this.summary});
+  const _OverviewGrid({required this.summary, required this.useMetricUnits});
 
   final _AnalyticsSummary summary;
+  final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context) {
@@ -235,8 +245,13 @@ class _OverviewGrid extends StatelessWidget {
       _OverviewItem(
         icon: Icons.route_rounded,
         label: 'DISTANCE',
-        value: summary.totalDistanceKm.toStringAsFixed(1),
-        suffix: ' km',
+        value:
+            (useMetricUnits
+                    ? summary.totalDistanceKm
+                    : WorkoutFormatters.kmToMi(summary.totalDistanceKm))
+                .toStringAsFixed(1),
+        suffix:
+            ' ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}',
         color: _kAmber,
       ),
       _OverviewItem(
@@ -376,7 +391,9 @@ class _GoalProgressSection extends StatelessWidget {
         const _SectionTitle(title: 'GOAL PROGRESS'),
         const SizedBox(height: 2),
         Text(
-          goal.unit == 'km' ? 'MONTHLY DISTANCE' : 'CURRENT GOAL',
+          (goal.unit == 'km' || goal.unit == 'mi')
+              ? 'MONTHLY DISTANCE'
+              : 'CURRENT GOAL',
           style: const TextStyle(
             color: _kMutedText,
             fontSize: 11,
@@ -589,9 +606,10 @@ class _WeekTrendCard extends StatelessWidget {
 }
 
 class _RecordsList extends StatelessWidget {
-  const _RecordsList({required this.records});
+  const _RecordsList({required this.records, required this.useMetricUnits});
 
   final _PersonalRecords records;
+  final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context) {
@@ -599,7 +617,11 @@ class _RecordsList extends StatelessWidget {
       _RecordItem(
         label: 'LONGEST DISTANCE',
         title: 'Marathon Run',
-        value: '${records.longestDistance.toStringAsFixed(1)} km',
+        value: WorkoutFormatters.formatDistance(
+          records.longestDistance,
+          useMetric: useMetricUnits,
+          decimals: 1,
+        ),
         date: 'Best record',
         icon: Icons.emoji_events_rounded,
         color: _kAmber,

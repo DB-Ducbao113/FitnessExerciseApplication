@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
@@ -247,6 +248,43 @@ class WorkoutRecordingCoordinator {
     }
   }
 
+  Future<void> enqueueRouteCorrectionForSession(WorkoutSession session) async {
+    if (!_remoteWorkoutShellReady) return;
+    if (!_hasEnoughFilteredRouteForCorrection(session.filteredRouteJson)) {
+      debugPrint(
+        '[Workout][RouteCorrection] skipped for ${session.id}: insufficient filtered route data',
+      );
+      return;
+    }
+
+    final routeSummary = _summarizeRouteSegments(session.filteredRouteJson);
+    try {
+      await _processingRemote.enqueueRouteCorrectionJob(
+        workoutId: session.id,
+        payload: {
+          'session_id': session.id,
+          'activity_type': session.activityType,
+          'mode': session.mode,
+          'started_at': session.startedAt.toUtc().toIso8601String(),
+          'ended_at': session.endedAt.toUtc().toIso8601String(),
+          'duration_sec': session.durationSec,
+          'distance_km_filtered': session.distanceKm,
+          'gps_gap_count': session.gpsAnalysis.gpsGapCount,
+          'gps_gap_duration_sec': session.gpsAnalysis.gpsGapDurationSec,
+          'filtered_route_json': session.filteredRouteJson,
+          'route_match_status': session.routeMatchStatus,
+          'route_distance_source': session.routeDistanceSource,
+          'route_segment_count': routeSummary.segmentCount,
+          'route_point_count': routeSummary.pointCount,
+        },
+      );
+    } catch (e) {
+      debugPrint(
+        '[Workout][RouteCorrection] enqueue failed for ${session.id}: $e',
+      );
+    }
+  }
+
   Future<void> logProcessingEvent({
     required String workoutId,
     required String eventType,
@@ -285,6 +323,45 @@ class WorkoutRecordingCoordinator {
 
     unawaited(flushPendingRawTracking(workoutId: workoutId, force: false));
   }
+
+  bool _hasEnoughFilteredRouteForCorrection(String filteredRouteJson) {
+    final summary = _summarizeRouteSegments(filteredRouteJson);
+    return summary.pointCount >= 10 && summary.segmentCount > 0;
+  }
+
+  _RouteSegmentSummary _summarizeRouteSegments(String routeJson) {
+    try {
+      final decoded = jsonDecode(routeJson);
+      if (decoded is! List) {
+        return const _RouteSegmentSummary(segmentCount: 0, pointCount: 0);
+      }
+
+      var segmentCount = 0;
+      var pointCount = 0;
+      for (final segment in decoded) {
+        if (segment is! List || segment.isEmpty) continue;
+        segmentCount += 1;
+        pointCount += segment.length;
+      }
+
+      return _RouteSegmentSummary(
+        segmentCount: segmentCount,
+        pointCount: pointCount,
+      );
+    } catch (_) {
+      return const _RouteSegmentSummary(segmentCount: 0, pointCount: 0);
+    }
+  }
+}
+
+class _RouteSegmentSummary {
+  final int segmentCount;
+  final int pointCount;
+
+  const _RouteSegmentSummary({
+    required this.segmentCount,
+    required this.pointCount,
+  });
 }
 
 class _BufferedRawGpsPoint {

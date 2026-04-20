@@ -61,20 +61,71 @@ class WorkoutHeroMetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Text(
-        '$label: $value',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.08),
+            Colors.white.withValues(alpha: 0.04),
+          ],
         ),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapGlassBadge extends StatelessWidget {
+  const _MapGlassBadge({
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  });
+
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: const Color(0xC0152232),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -83,6 +134,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
   const WorkoutRoutePreviewMap({
     super.key,
     required this.routePoints,
+    this.routeSegments = const [],
     required this.activityType,
     required this.icon,
     required this.accentColor,
@@ -95,6 +147,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
   });
 
   final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
   final String activityType;
   final IconData icon;
   final Color accentColor;
@@ -135,6 +188,17 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
       routePoints,
       activityType: activityType,
     );
+    final displaySegments = routeSegments.isEmpty
+        ? [displayRoute]
+        : routeSegments
+              .where((segment) => segment.length >= 2)
+              .map(
+                (segment) => refineRouteForSavedDisplay(
+                  segment,
+                  activityType: activityType,
+                ),
+              )
+              .toList();
     final bounds = _computeBounds(displayRoute);
 
     return Stack(
@@ -157,21 +221,15 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
             ),
             PolylineLayer(
               polylines: [
-                Polyline(
-                  points: displayRoute,
-                  strokeWidth: 18,
-                  color: glowColor,
-                ),
-                Polyline(
-                  points: displayRoute,
-                  strokeWidth: 8,
-                  color: accentColor,
-                ),
-                Polyline(
-                  points: displayRoute,
-                  strokeWidth: 2,
-                  color: highlightColor,
-                ),
+                for (final segment in displaySegments) ...[
+                  Polyline(points: segment, strokeWidth: 18, color: glowColor),
+                  Polyline(points: segment, strokeWidth: 8, color: accentColor),
+                  Polyline(
+                    points: segment,
+                    strokeWidth: 2,
+                    color: highlightColor,
+                  ),
+                ],
               ],
             ),
             MarkerLayer(
@@ -226,13 +284,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
         Positioned(
           left: 14,
           top: 14,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xC0152232),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
+          child: _MapGlassBadge(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -254,13 +306,8 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
         Positioned(
           right: 14,
           bottom: 14,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.30),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-            ),
+          child: _MapGlassBadge(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             child: Text(
               footerText,
               style: const TextStyle(

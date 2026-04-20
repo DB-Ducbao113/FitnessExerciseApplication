@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -17,6 +18,8 @@ class TrackingGpsDecision {
   final double candidateSpeedKmh;
   final bool shouldAddDistance;
   final double gpsGapDurationSec;
+  final GpsPointOutcome outcome;
+  final GpsRejectReason reason;
 
   const TrackingGpsDecision({
     required this.type,
@@ -29,6 +32,8 @@ class TrackingGpsDecision {
     this.candidateSpeedKmh = 0,
     this.shouldAddDistance = true,
     this.gpsGapDurationSec = 0,
+    this.outcome = GpsPointOutcome.accepted,
+    this.reason = GpsRejectReason.none,
   });
 }
 
@@ -121,12 +126,15 @@ class WorkoutTrackingEngine {
           previewPoint: previewPoint,
           skipReason:
               'waiting_for_better_first_fix acc=${position.accuracy.toStringAsFixed(1)}m',
+          outcome: GpsPointOutcome.softRejected,
+          reason: GpsRejectReason.waitingForBetterFirstFix,
         );
       }
       return TrackingGpsDecision(
         type: TrackingGpsDecisionType.seedRoute,
         livePoint: livePoint,
         previewPoint: livePoint,
+        outcome: GpsPointOutcome.accepted,
       );
     }
 
@@ -135,6 +143,7 @@ class WorkoutTrackingEngine {
         type: TrackingGpsDecisionType.resetAnchor,
         livePoint: livePoint,
         previewPoint: livePoint,
+        outcome: GpsPointOutcome.accepted,
       );
     }
 
@@ -168,6 +177,8 @@ class WorkoutTrackingEngine {
         segmentMeters: segmentMeters,
         rawSegmentMeters: rawSegmentMeters,
         routeSegmentMeters: routeSegmentMeters,
+        outcome: GpsPointOutcome.softRejected,
+        reason: GpsRejectReason.tinySegment,
       );
     }
 
@@ -181,6 +192,8 @@ class WorkoutTrackingEngine {
         segmentMeters: segmentMeters,
         rawSegmentMeters: rawSegmentMeters,
         routeSegmentMeters: routeSegmentMeters,
+        outcome: GpsPointOutcome.softRejected,
+        reason: GpsRejectReason.lowAccuracy,
       );
     }
 
@@ -194,6 +207,8 @@ class WorkoutTrackingEngine {
         segmentMeters: segmentMeters,
         rawSegmentMeters: rawSegmentMeters,
         routeSegmentMeters: routeSegmentMeters,
+        outcome: GpsPointOutcome.hardRejected,
+        reason: GpsRejectReason.gpsSpeedHardSpike,
       );
     }
 
@@ -213,6 +228,8 @@ class WorkoutTrackingEngine {
         candidateSpeedKmh: 0,
         shouldAddDistance: false,
         gpsGapDurationSec: timeDeltaSec,
+        outcome: GpsPointOutcome.signalGap,
+        reason: GpsRejectReason.staleSignalGap,
       );
     }
 
@@ -228,6 +245,8 @@ class WorkoutTrackingEngine {
           segmentMeters: segmentMeters,
           rawSegmentMeters: rawSegmentMeters,
           routeSegmentMeters: routeSegmentMeters,
+          outcome: GpsPointOutcome.hardRejected,
+          reason: GpsRejectReason.impliedSpeedHardSpike,
         );
       }
     }
@@ -249,6 +268,8 @@ class WorkoutTrackingEngine {
           segmentMeters: segmentMeters,
           rawSegmentMeters: rawSegmentMeters,
           routeSegmentMeters: routeSegmentMeters,
+          outcome: GpsPointOutcome.hardRejected,
+          reason: GpsRejectReason.headingSpike,
         );
       }
     }
@@ -271,6 +292,7 @@ class WorkoutTrackingEngine {
       rawSegmentMeters: rawSegmentMeters,
       routeSegmentMeters: routeSegmentMeters,
       candidateSpeedKmh: candidateSpeedKmh,
+      outcome: GpsPointOutcome.accepted,
     );
   }
 
