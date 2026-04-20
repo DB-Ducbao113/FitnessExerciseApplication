@@ -48,6 +48,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   int _startupCountdown = _kStartupCountdownSeconds;
   bool _isPreparingWorkout = true;
   bool _hasStartedWorkout = false;
+  Future<Position?>? _startupGpsLockFuture;
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
   Future<void> _startWorkout() async {
     _startupCountdownTimer?.cancel();
+    _startupGpsLockFuture = null;
     if (mounted) {
       setState(() {
         _isPreparingWorkout = true;
@@ -76,11 +78,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         final locationService = ref.read(locationTrackingServiceProvider);
         await locationService.ensurePermissionsOrThrow();
         final lastKnown = await locationService.getLastKnownPosition();
-        unawaited(
-          locationService.getCurrentPositionWithTimeout(
+        _startupGpsLockFuture = locationService.acquireStartupLock(
+          activityType: widget.activityType,
+          fallback: await locationService.getCurrentPositionWithTimeout(
             fallback: lastKnown,
             timeout: const Duration(seconds: _kStartupCountdownSeconds),
           ),
+          maxWait: const Duration(seconds: _kStartupCountdownSeconds + 2),
         );
       }
       // Motion permission is required for both indoor workouts and
@@ -119,14 +123,20 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
       if (_startupCountdown <= 1) {
         timer.cancel();
-        setState(() {
-          _startupCountdown = 0;
-          _isPreparingWorkout = false;
-        });
-        if (!_hasStartedWorkout) {
+        unawaited(() async {
+          final startupGpsLock =
+              await (_startupGpsLockFuture ?? Future.value());
+          if (!mounted || _hasStartedWorkout) return;
+          setState(() {
+            _startupCountdown = 0;
+            _isPreparingWorkout = false;
+          });
           _hasStartedWorkout = true;
-          notifier.startWorkout(widget.activityType);
-        }
+          notifier.startWorkout(
+            widget.activityType,
+            startupGpsLock: startupGpsLock,
+          );
+        }());
         return;
       }
 

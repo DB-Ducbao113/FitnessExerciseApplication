@@ -51,8 +51,6 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   static const _routeGlow = Color(0x6600F0FF);
   static const _routeCore = Color(0xFF00E5FF);
   static const _routeHighlight = Color(0xCCB4F7FF);
-  static const _gapRoute = Color(0x99C7D0DB);
-  static const _gapRouteHighlight = Color(0xCCEEF2F7);
   static Duration get _cameraThrottle => kDebugLocationMode
       ? const Duration(milliseconds: 120)
       : const Duration(milliseconds: 160);
@@ -301,19 +299,6 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
                         points: segment,
                         strokeWidth: 2,
                         color: _routeHighlight,
-                      ),
-                  ],
-                  for (final gap in widget.gpsGapSegments) ...[
-                    Polyline(
-                      points: [gap.start, gap.end],
-                      strokeWidth: 5,
-                      color: _gapRoute,
-                    ),
-                    if (!useLitePolyline)
-                      Polyline(
-                        points: [gap.start, gap.end],
-                        strokeWidth: 1.6,
-                        color: _gapRouteHighlight,
                       ),
                   ],
                 ],

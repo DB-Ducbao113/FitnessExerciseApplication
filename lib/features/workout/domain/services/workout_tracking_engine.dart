@@ -119,13 +119,14 @@ class WorkoutTrackingEngine {
         : getMaxRouteAccuracy(activityType);
 
     if (routePoints.isEmpty) {
-      if (position.accuracy > maxAccuracy) {
+      final initialFixAccuracy = getInitialFixAccuracy(activityType);
+      if (position.accuracy > initialFixAccuracy) {
         return TrackingGpsDecision(
           type: TrackingGpsDecisionType.skip,
           livePoint: livePoint,
           previewPoint: previewPoint,
           skipReason:
-              'waiting_for_better_first_fix acc=${position.accuracy.toStringAsFixed(1)}m',
+              'waiting_for_better_first_fix acc=${position.accuracy.toStringAsFixed(1)}m > ${initialFixAccuracy.toStringAsFixed(1)}m',
           outcome: GpsPointOutcome.softRejected,
           reason: GpsRejectReason.waitingForBetterFirstFix,
         );
@@ -469,6 +470,18 @@ class WorkoutTrackingEngine {
         return 50.0;
       default:
         return 35.0;
+    }
+  }
+
+  double getInitialFixAccuracy(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'cycling':
+        return 20.0;
+      case 'walking':
+        return 18.0;
+      case 'running':
+      default:
+        return 16.0;
     }
   }
 
