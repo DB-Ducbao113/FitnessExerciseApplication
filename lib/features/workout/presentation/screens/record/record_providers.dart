@@ -186,7 +186,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   // Public API
 
-  void startWorkout(String activityType) {
+  void startWorkout(String activityType, {Position? startupGpsLock}) {
     final sessionId = const Uuid().v4();
     final stride = computeStrideLength(
       activityType: activityType,
@@ -204,6 +204,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       recordingSource: _defaultRecordingSource(activityType),
     );
     _resetRuntimeTrackingState();
+    final startupLockPoint = startupGpsLock == null
+        ? null
+        : LatLng(startupGpsLock.latitude, startupGpsLock.longitude);
 
     state = _sessionLifecycle.createInitializingState(
       sessionId: startPlan.sessionId,
@@ -215,8 +218,27 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       strideLengthMeters: startPlan.strideLengthMeters,
       startedAt: startPlan.startedAt,
     );
+    if (startupLockPoint != null) {
+      _distanceAnchorPoint = startupLockPoint;
+      _lastAcceptedPositionTime = startupGpsLock?.timestamp;
+      state = state.copyWith(
+        initialPosition: startupLockPoint,
+        currentLatLng: startupLockPoint,
+        smoothedCurrentLatLng: startupLockPoint,
+        filteredRoutePoints: [startupLockPoint],
+        smoothedRoutePoints: [startupLockPoint],
+        routePoints: [startupLockPoint],
+        routeSegments: [
+          [startupLockPoint],
+        ],
+        smoothedRouteSegments: [
+          [startupLockPoint],
+        ],
+        gpsConfidence: GpsConfidence.high,
+      );
+    }
     debugPrint(
-      '[Workout] startWorkout $activityType — stride=${stride.toStringAsFixed(2)}m',
+      '[Workout] startWorkout $activityType — stride=${stride.toStringAsFixed(2)}m startupLock=${startupLockPoint != null}',
     );
 
     _initServicesInBackground(startPlan);
@@ -299,7 +321,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final lastKnown = await _sensorController.getLastKnownPosition(
       locationService,
     );
-    if (lastKnown != null && mounted) {
+    if (lastKnown != null &&
+        mounted &&
+        state.initialPosition == null &&
+        state.routePoints.isEmpty) {
       state = _sensorBootstrapper.applyLastKnownPosition(
         current: state,
         latitude: lastKnown.latitude,
