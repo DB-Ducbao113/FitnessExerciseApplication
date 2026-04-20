@@ -28,6 +28,28 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
     )
     @Default(<WorkoutLapSplit>[])
     List<WorkoutLapSplit> lapSplits,
+    @JsonKey(
+      name: 'gps_analysis',
+      fromJson: _gpsAnalysisFromJson,
+      toJson: _gpsAnalysisToJson,
+    )
+    @Default(WorkoutGpsAnalysis())
+    WorkoutGpsAnalysis gpsAnalysis,
+    @JsonKey(name: 'filtered_route_json')
+    @Default('[]')
+    String filteredRouteJson,
+    @JsonKey(name: 'matched_route_json') @Default('[]') String matchedRouteJson,
+    @JsonKey(name: 'route_match_status')
+    @Default('pending')
+    String routeMatchStatus,
+    @JsonKey(name: 'route_match_confidence') double? routeMatchConfidence,
+    @JsonKey(name: 'route_distance_source')
+    @Default('filtered')
+    String routeDistanceSource,
+    @JsonKey(name: 'matched_distance_km') double? matchedDistanceKm,
+    @JsonKey(name: 'route_match_metrics_json')
+    @Default('{}')
+    String routeMatchMetricsJson,
   }) = _WorkoutSessionModel;
 
   factory WorkoutSessionModel.fromJson(Map<String, dynamic> json) =>
@@ -48,6 +70,14 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       mode: entity.mode,
       createdAt: entity.createdAt,
       lapSplits: entity.lapSplits,
+      gpsAnalysis: entity.gpsAnalysis,
+      filteredRouteJson: entity.filteredRouteJson,
+      matchedRouteJson: entity.matchedRouteJson,
+      routeMatchStatus: entity.routeMatchStatus,
+      routeMatchConfidence: entity.routeMatchConfidence,
+      routeDistanceSource: entity.routeDistanceSource,
+      matchedDistanceKm: entity.matchedDistanceKm,
+      routeMatchMetricsJson: entity.routeMatchMetricsJson,
     );
   }
 
@@ -66,6 +96,14 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
       mode: mode,
       createdAt: createdAt,
       lapSplits: lapSplits,
+      gpsAnalysis: gpsAnalysis,
+      filteredRouteJson: filteredRouteJson,
+      matchedRouteJson: matchedRouteJson,
+      routeMatchStatus: routeMatchStatus,
+      routeMatchConfidence: routeMatchConfidence,
+      routeDistanceSource: routeDistanceSource,
+      matchedDistanceKm: matchedDistanceKm,
+      routeMatchMetricsJson: routeMatchMetricsJson,
     );
   }
 }
@@ -74,12 +112,19 @@ List<WorkoutLapSplit> _lapSplitsFromJson(dynamic json) {
   if (json is! List) return const <WorkoutLapSplit>[];
   return json
       .whereType<Map>()
-      .map(
-        (item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)),
-      )
+      .map((item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)))
       .toList();
 }
 
 List<Map<String, dynamic>> _lapSplitsToJson(List<WorkoutLapSplit> splits) {
   return splits.map((split) => split.toJson()).toList();
+}
+
+WorkoutGpsAnalysis _gpsAnalysisFromJson(dynamic json) {
+  if (json is! Map) return const WorkoutGpsAnalysis();
+  return WorkoutGpsAnalysis.fromJson(Map<String, dynamic>.from(json));
+}
+
+Map<String, dynamic> _gpsAnalysisToJson(WorkoutGpsAnalysis analysis) {
+  return analysis.toJson();
 }

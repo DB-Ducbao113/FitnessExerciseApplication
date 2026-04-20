@@ -1,8 +1,10 @@
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/daily_workout_list.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,6 +29,8 @@ class CalendarScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final workoutsAsync = ref.watch(workoutListProvider);
     final range = ref.watch(historyRangeProvider);
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: _kBgBottom,
@@ -57,7 +61,10 @@ class CalendarScreen extends ConsumerWidget {
                   children: [
                     const _BrandHeader(),
                     const SizedBox(height: 14),
-                    _HistoryOverview(summary: summary),
+                    _HistoryOverview(
+                      summary: summary,
+                      useMetricUnits: useMetricUnits,
+                    ),
                     const SizedBox(height: 12),
                     _RangeTabs(
                       selected: range,
@@ -152,16 +159,21 @@ class _BrandHeader extends ConsumerWidget {
 }
 
 class _HistoryOverview extends StatelessWidget {
-  const _HistoryOverview({required this.summary});
+  const _HistoryOverview({required this.summary, required this.useMetricUnits});
 
   final _HistorySummary summary;
+  final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context) {
     final cards = [
       _OverviewItem(
-        label: 'TOTAL KM',
-        value: summary.distanceKm.toStringAsFixed(1),
+        label: 'TOTAL DISTANCE',
+        value:
+            (useMetricUnits
+                    ? summary.distanceKm
+                    : WorkoutFormatters.kmToMi(summary.distanceKm))
+                .toStringAsFixed(1),
         color: _kNeonCyan,
         icon: Icons.place_outlined,
       ),

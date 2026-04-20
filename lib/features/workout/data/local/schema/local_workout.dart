@@ -26,6 +26,14 @@ class LocalWorkout {
   String mode = 'outdoor';
   late DateTime createdAt;
   String lapSplitsJson = '[]';
+  String gpsAnalysisJson = '{}';
+  String filteredRouteJson = '[]';
+  String matchedRouteJson = '[]';
+  String routeMatchStatus = 'pending';
+  double? routeMatchConfidence;
+  String routeDistanceSource = 'filtered';
+  double? matchedDistanceKm;
+  String routeMatchMetricsJson = '{}';
 
   // Sync tracking
   bool isSynced = false;
@@ -45,6 +53,14 @@ class LocalWorkout {
       mode: mode,
       createdAt: createdAt,
       lapSplits: _decodeLapSplits(lapSplitsJson),
+      gpsAnalysis: _decodeGpsAnalysis(gpsAnalysisJson),
+      filteredRouteJson: filteredRouteJson,
+      matchedRouteJson: matchedRouteJson,
+      routeMatchStatus: routeMatchStatus,
+      routeMatchConfidence: routeMatchConfidence,
+      routeDistanceSource: routeDistanceSource,
+      matchedDistanceKm: matchedDistanceKm,
+      routeMatchMetricsJson: routeMatchMetricsJson,
     );
   }
 
@@ -65,6 +81,14 @@ class LocalWorkout {
       ..lapSplitsJson = jsonEncode(
         session.lapSplits.map((split) => split.toJson()).toList(),
       )
+      ..gpsAnalysisJson = jsonEncode(session.gpsAnalysis.toJson())
+      ..filteredRouteJson = session.filteredRouteJson
+      ..matchedRouteJson = session.matchedRouteJson
+      ..routeMatchStatus = session.routeMatchStatus
+      ..routeMatchConfidence = session.routeMatchConfidence
+      ..routeDistanceSource = session.routeDistanceSource
+      ..matchedDistanceKm = session.matchedDistanceKm
+      ..routeMatchMetricsJson = session.routeMatchMetricsJson
       ..isSynced = true;
   }
 
@@ -80,6 +104,16 @@ class LocalWorkout {
           .toList();
     } catch (_) {
       return const [];
+    }
+  }
+
+  static WorkoutGpsAnalysis _decodeGpsAnalysis(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return const WorkoutGpsAnalysis();
+      return WorkoutGpsAnalysis.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (_) {
+      return const WorkoutGpsAnalysis();
     }
   }
 }

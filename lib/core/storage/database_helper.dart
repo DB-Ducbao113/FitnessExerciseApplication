@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -34,6 +34,7 @@ class DatabaseHelper {
         height_m REAL NOT NULL,
         age INTEGER NOT NULL,
         gender TEXT NOT NULL,
+        avatar_url TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -51,6 +52,7 @@ class DatabaseHelper {
           height_m REAL NOT NULL,
           age INTEGER NOT NULL,
           gender TEXT NOT NULL,
+          avatar_url TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
@@ -65,6 +67,10 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await db.execute('DROP TABLE IF EXISTS gps_tracks');
       await db.execute('DROP TABLE IF EXISTS workouts');
+    }
+
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE user_profile ADD COLUMN avatar_url TEXT');
     }
   }
 

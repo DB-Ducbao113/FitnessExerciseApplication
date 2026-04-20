@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:uuid/uuid.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:latlong2/latlong.dart';
 
 part 'workout_providers.g.dart';
 
@@ -81,15 +84,17 @@ class WorkoutList extends _$WorkoutList {
     final user = ref.read(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
 
-    final resolvedCalories = caloriesKcal ?? await (() async {
-      final profile = await ref.read(userProfileProvider(user).future);
-      if (profile == null) return 0.0;
-      return profile.calculateCalories(
-        activityType: activityType,
-        distanceKm: distanceKm,
-        speedKmh: avgSpeedKmh ?? 0.0,
-      );
-    })();
+    final resolvedCalories =
+        caloriesKcal ??
+        await (() async {
+          final profile = await ref.read(userProfileProvider(user).future);
+          if (profile == null) return 0.0;
+          return profile.calculateCalories(
+            activityType: activityType,
+            distanceKm: distanceKm,
+            speedKmh: avgSpeedKmh ?? 0.0,
+          );
+        })();
 
     // Quick Add -> Generate UUID -> Save immediately
     final durationSec = (durationMinutes * 60).round();
@@ -136,6 +141,101 @@ class ActiveWorkout extends _$ActiveWorkout {
 Future<WorkoutSession?> workout(WorkoutRef ref, String id) async {
   final repository = ref.watch(workoutRepositoryProvider);
   return await repository.getSessionById(id);
+}
+
+class WorkoutRoutePresentation {
+  final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
+  final String source;
+  final String matchStatus;
+  final double? matchConfidence;
+
+  const WorkoutRoutePresentation({
+    required this.routePoints,
+    required this.routeSegments,
+    required this.source,
+    required this.matchStatus,
+    this.matchConfidence,
+  });
+}
+
+final workoutRoutePresentationProvider =
+    FutureProvider.family<WorkoutRoutePresentation, String>((ref, id) async {
+      final workout = await ref.watch(workoutProvider(id).future);
+
+      if (workout != null) {
+        final matchedSegments = _decodeRouteSegments(workout.matchedRouteJson);
+        if (matchedSegments.isNotEmpty) {
+          return WorkoutRoutePresentation(
+            routePoints: matchedSegments.expand((segment) => segment).toList(),
+            routeSegments: matchedSegments,
+            source: 'matched',
+            matchStatus: workout.routeMatchStatus,
+            matchConfidence: workout.routeMatchConfidence,
+          );
+        }
+
+        final filteredSegments = _decodeRouteSegments(
+          workout.filteredRouteJson,
+        );
+        if (filteredSegments.isNotEmpty) {
+          return WorkoutRoutePresentation(
+            routePoints: filteredSegments.expand((segment) => segment).toList(),
+            routeSegments: filteredSegments,
+            source: 'filtered',
+            matchStatus: workout.routeMatchStatus,
+            matchConfidence: workout.routeMatchConfidence,
+          );
+        }
+      }
+
+      final points = await LocalDB.getPointsForSession(id);
+      final rawRoute = points
+          .map((point) => LatLng(point.latitude, point.longitude))
+          .toList(growable: false);
+
+      return WorkoutRoutePresentation(
+        routePoints: rawRoute,
+        routeSegments: rawRoute.isEmpty ? const <List<LatLng>>[] : [rawRoute],
+        source: 'raw',
+        matchStatus: workout?.routeMatchStatus ?? 'pending',
+        matchConfidence: workout?.routeMatchConfidence,
+      );
+    });
+
+@riverpod
+Future<List<LatLng>> workoutRoute(WorkoutRouteRef ref, String id) async {
+  final presentation = await ref.watch(
+    workoutRoutePresentationProvider(id).future,
+  );
+  return presentation.routePoints;
+}
+
+List<List<LatLng>> _decodeRouteSegments(String raw) {
+  if (raw.isEmpty || raw == '[]') return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+
+    final segments = <List<LatLng>>[];
+    for (final segment in decoded) {
+      if (segment is! List) continue;
+      final points = <LatLng>[];
+      for (final point in segment) {
+        if (point is! Map) continue;
+        final lat = (point['lat'] as num?)?.toDouble();
+        final lng = (point['lng'] as num?)?.toDouble();
+        if (lat == null || lng == null) continue;
+        points.add(LatLng(lat, lng));
+      }
+      if (points.isNotEmpty) {
+        segments.add(points);
+      }
+    }
+    return segments;
+  } catch (_) {
+    return const [];
+  }
 }
 
 // --- Timer Logic ---

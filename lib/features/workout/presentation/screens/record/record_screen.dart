@@ -2,6 +2,7 @@ import 'package:fitness_exercise_application/features/workout/presentation/scree
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/locate_button.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
@@ -12,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:async';
 
 const _kBgTop = Color(0xff0a0e1a);
 const _kPanelBg = Color(0xee121b2c);
@@ -40,7 +42,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   static const double _kSheetMaxSize = 1.0;
   static const double _kLocateHideThreshold = 0.7;
   static const double _kExpandedSheetThreshold = 0.84;
+  static const int _kStartupCountdownSeconds = 3;
   double _sheetExtent = _kSheetInitialSize;
+  Timer? _startupCountdownTimer;
+  int _startupCountdown = _kStartupCountdownSeconds;
+  bool _isPreparingWorkout = true;
+  bool _hasStartedWorkout = false;
 
   @override
   void initState() {
@@ -48,20 +55,42 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _startWorkout());
   }
 
+  @override
+  void dispose() {
+    _startupCountdownTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _startWorkout() async {
+    _startupCountdownTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _isPreparingWorkout = true;
+        _startupCountdown = _kStartupCountdownSeconds;
+      });
+    }
+
     final notifier = ref.read(workoutSessionProvider.notifier);
-    if (widget.requireGps) {
-      try {
-        await ref
-            .read(locationTrackingServiceProvider)
-            .ensurePermissionsOrThrow();
-        await _ensureMotionPermissionOrThrow();
-      } catch (e) {
-        if (mounted) {
-          _showStartError(e.toString().replaceAll('Exception: ', ''));
-        }
-        return;
+    try {
+      if (widget.requireGps) {
+        final locationService = ref.read(locationTrackingServiceProvider);
+        await locationService.ensurePermissionsOrThrow();
+        final lastKnown = await locationService.getLastKnownPosition();
+        unawaited(
+          locationService.getCurrentPositionWithTimeout(
+            fallback: lastKnown,
+            timeout: const Duration(seconds: _kStartupCountdownSeconds),
+          ),
+        );
       }
+      // Motion permission is required for both indoor workouts and
+      // GPS activities that may fall back to step tracking.
+      await _ensureMotionPermissionOrThrow();
+    } catch (e) {
+      if (mounted) {
+        _showStartError(e.toString().replaceAll('Exception: ', ''));
+      }
+      return;
     }
 
     final userId = ref.read(currentUserIdProvider);
@@ -71,7 +100,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         if (profile != null) {
           notifier.setUserProfile(
             weightKg: profile.weightKg,
-            heightCm: profile.heightCm,
+            heightCm: profile.heightM * 100,
             gender: profile.gender,
           );
         }
@@ -79,7 +108,32 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         // Fall back to default stride/weight when profile is temporarily unavailable.
       }
     }
-    notifier.startWorkout(widget.activityType);
+
+    _startupCountdownTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_startupCountdown <= 1) {
+        timer.cancel();
+        setState(() {
+          _startupCountdown = 0;
+          _isPreparingWorkout = false;
+        });
+        if (!_hasStartedWorkout) {
+          _hasStartedWorkout = true;
+          notifier.startWorkout(widget.activityType);
+        }
+        return;
+      }
+
+      setState(() {
+        _startupCountdown -= 1;
+      });
+    });
   }
 
   Future<void> _ensureMotionPermissionOrThrow() async {
@@ -256,7 +310,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           distanceMeters: finalState.distanceMeters,
           avgSpeedKmh: finalState.avgSpeedKmh,
           calories: finalState.caloriesBurned,
+          gpsAnalysis: finalState.gpsAnalysis,
           routePoints: finalState.routePoints,
+          routeSegments: finalState.routeSegments,
           lapSplits: finalState.lapSplits,
         ),
       ),
@@ -266,6 +322,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(workoutSessionProvider);
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     ref.listen<WorkoutSessionState>(workoutSessionProvider, (prev, next) {
       if (next.errorMessage != null &&
@@ -281,7 +339,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       }
     });
 
-    final shouldShowGpsRoute = state.trackingMode != kIndoorMode;
+    final shouldShowGpsRoute =
+        state.routePoints.length >= 2 || state.trackingMode != kIndoorMode;
     final isExpandedSheet = _sheetExtent >= _kExpandedSheetThreshold;
 
     return Scaffold(
@@ -290,10 +349,19 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         children: [
           Positioned.fill(
             child: TrackingMapWidget(
-              routePoints: state.routePoints,
+              routePoints: state.smoothedRoutePoints.isNotEmpty
+                  ? state.smoothedRoutePoints
+                  : state.routePoints,
+              routeSegments: state.smoothedRouteSegments.isNotEmpty
+                  ? state.smoothedRouteSegments
+                  : state.routeSegments,
               activityType: widget.activityType,
               initialPosition: state.initialPosition,
-              currentLocation: state.currentLatLng,
+              currentLocation:
+                  state.smoothedCurrentLatLng ?? state.currentLatLng,
+              gpsGapMarker: state.gpsGapMarker,
+              gpsGapSegments: state.gpsGapSegments,
+              isGpsSignalWeak: state.isGpsSignalWeak,
               followUser: state.followUser,
               recenterRequestId: state.recenterRequestId,
               showRoute: shouldShowGpsRoute,
@@ -499,8 +567,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           Expanded(
                             child: _FeatureStatCard(
                               label: 'DISTANCE',
-                              value:
-                                  '${(state.distanceMeters / 1000).toStringAsFixed(2)} km',
+                              value: WorkoutFormatters.formatDistance(
+                                state.distanceMeters / 1000,
+                                useMetric: useMetricUnits,
+                                decimals: 2,
+                              ),
                               accent: const Color(0xff7df9a8),
                               isHero: true,
                               align: CrossAxisAlignment.end,
@@ -518,6 +589,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               label: 'AVG PACE',
                               value: WorkoutFormatters.formatPaceFromSpeedKmh(
                                 state.avgSpeedKmh,
+                                useMetric: useMetricUnits,
                               ),
                               accent: const Color(0xfff8c15c),
                             ),
@@ -560,7 +632,10 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               ),
                               const Spacer(),
                               Text(
-                                _formatSplit(state.lapSplits.last),
+                                _formatSplit(
+                                  state.lapSplits.last,
+                                  useMetricUnits: useMetricUnits,
+                                ),
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
@@ -584,6 +659,69 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               },
             ),
           ),
+          if (_isPreparingWorkout)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.42),
+                  child: Center(
+                    child: Container(
+                      width: 210,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 26,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _kPanelBg,
+                        borderRadius: BorderRadius.circular(26),
+                        border: Border.all(color: _kPanelBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.22),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _startupCountdown > 0 ? '$_startupCountdown' : 'GO',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 54,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -2,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Getting your current GPS position',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Recording will start in a moment',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _kMutedText,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -696,15 +834,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     );
   }
 
-  String _formatSplit(WorkoutLapSplit split) {
-    final paceMinutes = split.paceMinPerKm.floor();
-    var paceSeconds = ((split.paceMinPerKm - paceMinutes) * 60).round();
-    var minutes = paceMinutes;
-    if (paceSeconds == 60) {
-      minutes += 1;
-      paceSeconds = 0;
-    }
-    return 'KM ${split.index} · ${WorkoutFormatters.formatElapsedClock(split.durationSeconds)} · $minutes:${paceSeconds.toString().padLeft(2, '0')}/km';
+  String _formatSplit(WorkoutLapSplit split, {required bool useMetricUnits}) {
+    return '${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits).toUpperCase()} ${split.index} · ${WorkoutFormatters.formatElapsedClock(split.durationSeconds)} · ${WorkoutFormatters.formatSplitPace(split.paceMinPerKm, useMetric: useMetricUnits)}';
   }
 
   String _modeBadgeText(String mode) {

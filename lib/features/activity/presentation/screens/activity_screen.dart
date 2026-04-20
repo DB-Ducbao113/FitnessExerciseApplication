@@ -5,7 +5,6 @@ const _kBgTop = Color(0xff0a0e1a);
 const _kBgBottom = Color(0xff0d1b2a);
 const _kCardBg = Color(0xcc121b2c);
 const _kCardBorder = Color(0x2200e5ff);
-const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
 
@@ -13,27 +12,9 @@ class ActivityScreen extends StatelessWidget {
   const ActivityScreen({super.key});
 
   static const _activities = [
-    (
-      'running',
-      'Running',
-      'assets/running.jpg',
-      Icons.directions_run,
-      'Outdoor pace + GPS route',
-    ),
-    (
-      'cycling',
-      'Cycling',
-      'assets/cycling.jpg',
-      Icons.directions_bike,
-      'Outdoor distance + speed',
-    ),
-    (
-      'walking',
-      'Walking',
-      'assets/walking.jpg',
-      Icons.directions_walk,
-      'Steps with optional GPS',
-    ),
+    ('running', 'Running', 'assets/running.jpg', Icons.directions_run),
+    ('cycling', 'Cycling', 'assets/cycling.jpg', Icons.directions_bike),
+    ('walking', 'Walking', 'assets/walking.jpg', Icons.directions_walk),
   ];
 
   @override
@@ -60,15 +41,6 @@ class ActivityScreen extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Pick one and start.',
-                style: TextStyle(
-                  color: _kMutedText,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
               const SizedBox(height: 20),
               GridView.count(
                 crossAxisCount: 2,
@@ -78,7 +50,7 @@ class ActivityScreen extends StatelessWidget {
                 crossAxisSpacing: 16,
                 childAspectRatio: 0.83,
                 children: _activities.map((activity) {
-                  final (type, name, imagePath, icon, subtitle) = activity;
+                  final (type, name, imagePath, icon) = activity;
                   return GestureDetector(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -168,16 +140,6 @@ class ActivityScreen extends StatelessWidget {
                                       color: Colors.white,
                                       fontSize: 17,
                                       fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    subtitle,
-                                    style: const TextStyle(
-                                      color: _kMutedText,
-                                      fontSize: 12,
-                                      height: 1.35,
-                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   const SizedBox(height: 12),

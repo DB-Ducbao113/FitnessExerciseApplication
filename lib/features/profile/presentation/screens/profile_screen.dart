@@ -4,6 +4,7 @@ import 'package:fitness_exercise_application/features/profile/domain/entities/us
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_setup_screen.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/screens/settings_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +35,9 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(currentUserProfileProvider);
     final avatar = ref.watch(avatarUploadProvider);
     final streak = ref.watch(streakProvider);
+    final workoutsAsync = ref.watch(workoutListProvider);
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: _bgBottom,
@@ -53,7 +57,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Could not load your profile.\n$error',
+                  'Your profile could not be loaded.\n$error',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white),
                 ),
@@ -91,19 +95,10 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Your account and goals',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _AccountCard(
                   user: user,
                   profile: profile,
@@ -114,6 +109,7 @@ class ProfileScreen extends ConsumerWidget {
                 if (profile != null)
                   _InfoSection(
                     profile: profile,
+                    useMetricUnits: useMetricUnits,
                     onEdit: () => Navigator.of(context)
                         .push(
                           MaterialPageRoute(
@@ -142,6 +138,30 @@ class ProfileScreen extends ConsumerWidget {
                         }),
                   ),
                 const SizedBox(height: 18),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.tune_rounded, color: _cyan, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'ACTIONS',
+                            style: TextStyle(
+                              color: _muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
                 _ActionTile(
                   icon: Icons.settings_outlined,
                   color: _cyan,
@@ -152,29 +172,28 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 _ActionTile(
-                  icon: Icons.notifications_none_rounded,
-                  color: _green,
-                  label: 'Notifications',
-                  onTap: () => _snack(
-                    context,
-                    'Notification preferences are coming soon.',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _ActionTile(
                   icon: Icons.shield_outlined,
                   color: _blue,
                   label: 'Security',
-                  onTap: () =>
-                      _snack(context, 'Security tools will be added soon.'),
+                  onTap: () => _showSecuritySheet(context, user?.email),
                 ),
                 const SizedBox(height: 12),
                 _ActionTile(
                   icon: Icons.emoji_events_outlined,
                   color: _amber,
                   label: 'Achievements',
-                  onTap: () =>
-                      _snack(context, 'Achievements will be available soon.'),
+                  onTap: () => _showAchievementsSheet(
+                    context,
+                    totalWorkouts: workoutsAsync.valueOrNull?.length ?? 0,
+                    currentStreak: streak.currentStreak,
+                    longestStreak: streak.longestStreak,
+                    totalDistanceKm:
+                        workoutsAsync.valueOrNull?.fold<double>(
+                          0,
+                          (sum, workout) => sum + workout.distanceKm,
+                        ) ??
+                        0,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _ActionTile(
@@ -242,6 +261,180 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  void _showSecuritySheet(BuildContext context, String? email) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F1726),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Security',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                email ?? 'No email available',
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _SecurityOption(
+                icon: Icons.mark_email_read_outlined,
+                title: 'Send password reset email',
+                subtitle:
+                    'We will send a secure reset link to your account email.',
+                onTap: email == null
+                    ? null
+                    : () async {
+                        Navigator.of(ctx).pop();
+                        try {
+                          await Supabase.instance.client.auth
+                              .resetPasswordForEmail(email);
+                          if (context.mounted) {
+                            _snack(context, 'Password reset email sent');
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            _snack(context, 'Could not send reset email');
+                          }
+                        }
+                      },
+              ),
+              const SizedBox(height: 10),
+              _SecurityOption(
+                icon: Icons.settings_outlined,
+                title: 'Open app settings',
+                subtitle:
+                    'Manage camera, photos, location, and app permissions.',
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAchievementsSheet(
+    BuildContext context, {
+    required int totalWorkouts,
+    required int currentStreak,
+    required int longestStreak,
+    required double totalDistanceKm,
+  }) {
+    final achievements = <({String title, String subtitle, bool unlocked})>[
+      (
+        title: 'First Workout',
+        subtitle: 'Complete your first recorded session',
+        unlocked: totalWorkouts >= 1,
+      ),
+      (
+        title: 'Consistency',
+        subtitle: 'Reach a 3-day workout streak',
+        unlocked: longestStreak >= 3,
+      ),
+      (
+        title: 'Distance Builder',
+        subtitle: 'Accumulate 25 distance units across all workouts',
+        unlocked: totalDistanceKm >= 25,
+      ),
+      (
+        title: 'Committed Athlete',
+        subtitle: 'Log 10 workouts',
+        unlocked: totalWorkouts >= 10,
+      ),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F1726),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Achievements',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$totalWorkouts workouts logged, current streak $currentStreak days',
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              ...achievements.map(
+                (achievement) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _AchievementRow(
+                    title: achievement.title,
+                    subtitle: achievement.subtitle,
+                    unlocked: achievement.unlocked,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -282,10 +475,13 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final greeting = _profileGreeting();
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 14),
       decoration: BoxDecoration(
         color: const Color(0xFF13263B),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
         border: Border(
           bottom: BorderSide(color: _cyan.withValues(alpha: 0.18)),
         ),
@@ -314,9 +510,13 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text.rich(
                   TextSpan(
-                    style: const TextStyle(fontSize: 12, color: _muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: _muted,
+                      fontWeight: FontWeight.w600,
+                    ),
                     children: [
-                      const TextSpan(text: 'Good afternoon, '),
+                      TextSpan(text: '$greeting, '),
                       TextSpan(
                         text: name,
                         style: const TextStyle(
@@ -521,8 +721,13 @@ class _AccountCard extends StatelessWidget {
 }
 
 class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.profile, required this.onEdit});
+  const _InfoSection({
+    required this.profile,
+    required this.useMetricUnits,
+    required this.onEdit,
+  });
   final UserProfile profile;
+  final bool useMetricUnits;
   final VoidCallback onEdit;
 
   @override
@@ -574,13 +779,17 @@ class _InfoSection extends StatelessWidget {
               _InfoTile(
                 icon: Icons.monitor_weight_outlined,
                 color: _green,
-                value: '${profile.weightKg.toStringAsFixed(1)} kg',
+                value: useMetricUnits
+                    ? '${profile.weightKg.toStringAsFixed(1)} kg'
+                    : '${_kgToLb(profile.weightKg).toStringAsFixed(1)} lb',
                 label: 'WEIGHT',
               ),
               _InfoTile(
                 icon: Icons.straighten_rounded,
                 color: _cyan,
-                value: '${profile.heightM.toStringAsFixed(2)} m',
+                value: useMetricUnits
+                    ? '${profile.heightM.toStringAsFixed(2)} m'
+                    : _formatHeightImperial(profile.heightM),
                 label: 'HEIGHT',
               ),
               _InfoTile(
@@ -870,6 +1079,155 @@ class _SheetTile extends StatelessWidget {
   }
 }
 
+class _SecurityOption extends StatelessWidget {
+  const _SecurityOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _panelAlt,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _blue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: _cyan, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: _muted,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementRow extends StatelessWidget {
+  const _AchievementRow({
+    required this.title,
+    required this.subtitle,
+    required this.unlocked,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = unlocked ? _amber : _mutedSoft;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _panelAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              unlocked
+                  ? Icons.emoji_events_rounded
+                  : Icons.lock_outline_rounded,
+              color: color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            unlocked ? 'Unlocked' : 'Locked',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 BoxDecoration _cardBox() => BoxDecoration(
   color: _panel,
   borderRadius: BorderRadius.circular(22),
@@ -928,4 +1286,20 @@ String _formatDate(DateTime? date) {
     'December',
   ];
   return '${months[date.month - 1]} ${date.day}, ${date.year}';
+}
+
+double _kgToLb(double kg) => kg * 2.2046226218;
+
+String _profileGreeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+String _formatHeightImperial(double meters) {
+  final totalInches = meters * 39.37007874;
+  final feet = totalInches ~/ 12;
+  final inches = (totalInches - (feet * 12)).round();
+  return '$feet ft $inches in';
 }

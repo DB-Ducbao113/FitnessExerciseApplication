@@ -27,38 +27,48 @@ const LocalGPSPointSchema = CollectionSchema(
       name: r'altitude',
       type: IsarType.double,
     ),
-    r'heading': PropertySchema(
+    r'confidence': PropertySchema(
       id: 2,
+      name: r'confidence',
+      type: IsarType.string,
+    ),
+    r'heading': PropertySchema(
+      id: 3,
       name: r'heading',
       type: IsarType.double,
     ),
     r'isSynced': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'latitude': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'latitude',
       type: IsarType.double,
     ),
     r'localWorkoutId': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'localWorkoutId',
       type: IsarType.long,
     ),
     r'longitude': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'longitude',
       type: IsarType.double,
     ),
+    r'sessionId': PropertySchema(
+      id: 8,
+      name: r'sessionId',
+      type: IsarType.string,
+    ),
     r'speed': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'speed',
       type: IsarType.double,
     ),
     r'timestamp': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'timestamp',
       type: IsarType.dateTime,
     )
@@ -69,6 +79,19 @@ const LocalGPSPointSchema = CollectionSchema(
   deserializeProp: _localGPSPointDeserializeProp,
   idName: r'id',
   indexes: {
+    r'sessionId': IndexSchema(
+      id: 6949518585047923839,
+      name: r'sessionId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'sessionId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'localWorkoutId': IndexSchema(
       id: 3106055235185044782,
       name: r'localWorkoutId',
@@ -97,6 +120,8 @@ int _localGPSPointEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.confidence.length * 3;
+  bytesCount += 3 + object.sessionId.length * 3;
   return bytesCount;
 }
 
@@ -108,13 +133,15 @@ void _localGPSPointSerialize(
 ) {
   writer.writeDouble(offsets[0], object.accuracy);
   writer.writeDouble(offsets[1], object.altitude);
-  writer.writeDouble(offsets[2], object.heading);
-  writer.writeBool(offsets[3], object.isSynced);
-  writer.writeDouble(offsets[4], object.latitude);
-  writer.writeLong(offsets[5], object.localWorkoutId);
-  writer.writeDouble(offsets[6], object.longitude);
-  writer.writeDouble(offsets[7], object.speed);
-  writer.writeDateTime(offsets[8], object.timestamp);
+  writer.writeString(offsets[2], object.confidence);
+  writer.writeDouble(offsets[3], object.heading);
+  writer.writeBool(offsets[4], object.isSynced);
+  writer.writeDouble(offsets[5], object.latitude);
+  writer.writeLong(offsets[6], object.localWorkoutId);
+  writer.writeDouble(offsets[7], object.longitude);
+  writer.writeString(offsets[8], object.sessionId);
+  writer.writeDouble(offsets[9], object.speed);
+  writer.writeDateTime(offsets[10], object.timestamp);
 }
 
 LocalGPSPoint _localGPSPointDeserialize(
@@ -124,16 +151,18 @@ LocalGPSPoint _localGPSPointDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = LocalGPSPoint();
-  object.accuracy = reader.readDouble(offsets[0]);
-  object.altitude = reader.readDouble(offsets[1]);
-  object.heading = reader.readDouble(offsets[2]);
+  object.accuracy = reader.readDoubleOrNull(offsets[0]);
+  object.altitude = reader.readDoubleOrNull(offsets[1]);
+  object.confidence = reader.readString(offsets[2]);
+  object.heading = reader.readDoubleOrNull(offsets[3]);
   object.id = id;
-  object.isSynced = reader.readBool(offsets[3]);
-  object.latitude = reader.readDouble(offsets[4]);
-  object.localWorkoutId = reader.readLong(offsets[5]);
-  object.longitude = reader.readDouble(offsets[6]);
-  object.speed = reader.readDouble(offsets[7]);
-  object.timestamp = reader.readDateTime(offsets[8]);
+  object.isSynced = reader.readBool(offsets[4]);
+  object.latitude = reader.readDouble(offsets[5]);
+  object.localWorkoutId = reader.readLong(offsets[6]);
+  object.longitude = reader.readDouble(offsets[7]);
+  object.sessionId = reader.readString(offsets[8]);
+  object.speed = reader.readDoubleOrNull(offsets[9]);
+  object.timestamp = reader.readDateTime(offsets[10]);
   return object;
 }
 
@@ -145,22 +174,26 @@ P _localGPSPointDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 1:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 2:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 3:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 4:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 5:
-      return (reader.readLong(offset)) as P;
-    case 6:
       return (reader.readDouble(offset)) as P;
+    case 6:
+      return (reader.readLong(offset)) as P;
     case 7:
       return (reader.readDouble(offset)) as P;
     case 8:
+      return (reader.readString(offset)) as P;
+    case 9:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 10:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -269,6 +302,51 @@ extension LocalGPSPointQueryWhere
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
+      sessionIdEqualTo(String sessionId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'sessionId',
+        value: [sessionId],
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
+      sessionIdNotEqualTo(String sessionId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sessionId',
+              lower: [],
+              upper: [sessionId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sessionId',
+              lower: [sessionId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sessionId',
+              lower: [sessionId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sessionId',
+              lower: [],
+              upper: [sessionId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
       localWorkoutIdEqualTo(int localWorkoutId) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
@@ -365,8 +443,26 @@ extension LocalGPSPointQueryWhere
 extension LocalGPSPointQueryFilter
     on QueryBuilder<LocalGPSPoint, LocalGPSPoint, QFilterCondition> {
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      accuracyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'accuracy',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      accuracyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'accuracy',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       accuracyEqualTo(
-    double value, {
+    double? value, {
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
@@ -380,7 +476,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       accuracyGreaterThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -396,7 +492,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       accuracyLessThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -412,8 +508,8 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       accuracyBetween(
-    double lower,
-    double upper, {
+    double? lower,
+    double? upper, {
     bool includeLower = true,
     bool includeUpper = true,
     double epsilon = Query.epsilon,
@@ -431,8 +527,26 @@ extension LocalGPSPointQueryFilter
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      altitudeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'altitude',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      altitudeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'altitude',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       altitudeEqualTo(
-    double value, {
+    double? value, {
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
@@ -446,7 +560,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       altitudeGreaterThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -462,7 +576,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       altitudeLessThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -478,8 +592,8 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       altitudeBetween(
-    double lower,
-    double upper, {
+    double? lower,
+    double? upper, {
     bool includeLower = true,
     bool includeUpper = true,
     double epsilon = Query.epsilon,
@@ -497,8 +611,162 @@ extension LocalGPSPointQueryFilter
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'confidence',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'confidence',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'confidence',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'confidence',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'confidence',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'confidence',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'confidence',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'confidence',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'confidence',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      confidenceIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'confidence',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      headingIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'heading',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      headingIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'heading',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       headingEqualTo(
-    double value, {
+    double? value, {
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
@@ -512,7 +780,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       headingGreaterThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -528,7 +796,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       headingLessThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -544,8 +812,8 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       headingBetween(
-    double lower,
-    double upper, {
+    double? lower,
+    double? upper, {
     bool includeLower = true,
     bool includeUpper = true,
     double epsilon = Query.epsilon,
@@ -815,8 +1083,162 @@ extension LocalGPSPointQueryFilter
   }
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sessionId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'sessionId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sessionId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sessionId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'sessionId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'sessionId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'sessionId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'sessionId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sessionId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      sessionIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'sessionId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      speedIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'speed',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      speedIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'speed',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       speedEqualTo(
-    double value, {
+    double? value, {
     double epsilon = Query.epsilon,
   }) {
     return QueryBuilder.apply(this, (query) {
@@ -830,7 +1252,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       speedGreaterThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -846,7 +1268,7 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       speedLessThan(
-    double value, {
+    double? value, {
     bool include = false,
     double epsilon = Query.epsilon,
   }) {
@@ -862,8 +1284,8 @@ extension LocalGPSPointQueryFilter
 
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
       speedBetween(
-    double lower,
-    double upper, {
+    double? lower,
+    double? upper, {
     bool includeLower = true,
     bool includeUpper = true,
     double epsilon = Query.epsilon,
@@ -971,6 +1393,19 @@ extension LocalGPSPointQuerySortBy
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> sortByConfidence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'confidence', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      sortByConfidenceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'confidence', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> sortByHeading() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'heading', Sort.asc);
@@ -1036,6 +1471,19 @@ extension LocalGPSPointQuerySortBy
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> sortBySessionId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessionId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      sortBySessionIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessionId', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> sortBySpeed() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'speed', Sort.asc);
@@ -1087,6 +1535,19 @@ extension LocalGPSPointQuerySortThenBy
       thenByAltitudeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'altitude', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> thenByConfidence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'confidence', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      thenByConfidenceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'confidence', Sort.desc);
     });
   }
 
@@ -1167,6 +1628,19 @@ extension LocalGPSPointQuerySortThenBy
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> thenBySessionId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessionId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      thenBySessionIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessionId', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> thenBySpeed() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'speed', Sort.asc);
@@ -1207,6 +1681,13 @@ extension LocalGPSPointQueryWhereDistinct
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct> distinctByConfidence(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'confidence', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct> distinctByHeading() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'heading');
@@ -1238,6 +1719,13 @@ extension LocalGPSPointQueryWhereDistinct
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct> distinctBySessionId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sessionId', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct> distinctBySpeed() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'speed');
@@ -1259,19 +1747,25 @@ extension LocalGPSPointQueryProperty
     });
   }
 
-  QueryBuilder<LocalGPSPoint, double, QQueryOperations> accuracyProperty() {
+  QueryBuilder<LocalGPSPoint, double?, QQueryOperations> accuracyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'accuracy');
     });
   }
 
-  QueryBuilder<LocalGPSPoint, double, QQueryOperations> altitudeProperty() {
+  QueryBuilder<LocalGPSPoint, double?, QQueryOperations> altitudeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'altitude');
     });
   }
 
-  QueryBuilder<LocalGPSPoint, double, QQueryOperations> headingProperty() {
+  QueryBuilder<LocalGPSPoint, String, QQueryOperations> confidenceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'confidence');
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, double?, QQueryOperations> headingProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'heading');
     });
@@ -1301,7 +1795,13 @@ extension LocalGPSPointQueryProperty
     });
   }
 
-  QueryBuilder<LocalGPSPoint, double, QQueryOperations> speedProperty() {
+  QueryBuilder<LocalGPSPoint, String, QQueryOperations> sessionIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sessionId');
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, double?, QQueryOperations> speedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'speed');
     });

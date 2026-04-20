@@ -24,6 +24,19 @@ _$WorkoutSessionModelImpl _$$WorkoutSessionModelImplFromJson(
       lapSplits: json['lap_splits'] == null
           ? const <WorkoutLapSplit>[]
           : _lapSplitsFromJson(json['lap_splits']),
+      gpsAnalysis: json['gps_analysis'] == null
+          ? const WorkoutGpsAnalysis()
+          : _gpsAnalysisFromJson(json['gps_analysis']),
+      filteredRouteJson: json['filtered_route_json'] as String? ?? '[]',
+      matchedRouteJson: json['matched_route_json'] as String? ?? '[]',
+      routeMatchStatus: json['route_match_status'] as String? ?? 'pending',
+      routeMatchConfidence:
+          (json['route_match_confidence'] as num?)?.toDouble(),
+      routeDistanceSource:
+          json['route_distance_source'] as String? ?? 'filtered',
+      matchedDistanceKm: (json['matched_distance_km'] as num?)?.toDouble(),
+      routeMatchMetricsJson:
+          json['route_match_metrics_json'] as String? ?? '{}',
     );
 
 Map<String, dynamic> _$$WorkoutSessionModelImplToJson(
@@ -42,4 +55,12 @@ Map<String, dynamic> _$$WorkoutSessionModelImplToJson(
       'mode': instance.mode,
       'created_at': instance.createdAt.toIso8601String(),
       'lap_splits': _lapSplitsToJson(instance.lapSplits),
+      'gps_analysis': _gpsAnalysisToJson(instance.gpsAnalysis),
+      'filtered_route_json': instance.filteredRouteJson,
+      'matched_route_json': instance.matchedRouteJson,
+      'route_match_status': instance.routeMatchStatus,
+      'route_match_confidence': instance.routeMatchConfidence,
+      'route_distance_source': instance.routeDistanceSource,
+      'matched_distance_km': instance.matchedDistanceKm,
+      'route_match_metrics_json': instance.routeMatchMetricsJson,
     };

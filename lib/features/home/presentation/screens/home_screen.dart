@@ -10,8 +10,10 @@ import 'package:fitness_exercise_application/features/profile/presentation/provi
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -74,6 +76,7 @@ final _weeklyHomeStatsProvider = Provider<_WeeklyHomeStats>((ref) {
 final _weeklyHeroProvider = Provider<_WeeklyHeroData>((ref) {
   final weekly = ref.watch(_weeklyHomeStatsProvider);
   final goal = ref.watch(userGoalProvider).valueOrNull;
+  final useMetricUnits = ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
   double current;
   double target;
@@ -85,7 +88,7 @@ final _weeklyHeroProvider = Provider<_WeeklyHeroData>((ref) {
     switch (goal.goalType) {
       case GoalType.distance:
         current = weekly.weeklyDistanceKm;
-        unit = 'km';
+        unit = WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits);
         break;
       case GoalType.workouts:
         current = weekly.workoutCount.toDouble();
@@ -208,12 +211,10 @@ class _HomeTopBar extends ConsumerWidget {
         ?.avatarUrl;
     final streak = ref.watch(streakProvider);
     final initials = _initialsFromEmail(user?.email);
-    final name = _displayNameForUser(user);
-    final dayPart = _dayPartGreeting();
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: _kCardBorder),
@@ -230,69 +231,73 @@ class _HomeTopBar extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              InkWell(
-                onTap: () => showModalBottomSheet<void>(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => const _ActivityPickerSheet(),
-                ),
-                borderRadius: BorderRadius.circular(16),
-                child: Ink(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _kCardBorder),
-                  ),
-                  child: const Icon(
-                    Icons.grid_view_rounded,
-                    color: _kNeonCyan,
-                    size: 22,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'FITNESS DASHBOARD',
+                      style: TextStyle(
+                        color: _kMutedText,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 2.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [
+                          Color(0xfff4fdff),
+                          Color(0xff9cefff),
+                          Color(0xff00d8ff),
+                        ],
+                      ).createShader(bounds),
+                      child: const Text(
+                        'AETRON',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.1,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [
-                      Color(0xfff4fdff),
-                      Color(0xff9cefff),
-                      Color(0xff00d8ff),
-                    ],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'AETRON',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
-                      color: Colors.white,
-                    ),
-                  ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
                 ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _kCardBorder),
+                ),
+                child: _StreakPill(streak: streak),
               ),
-              const SizedBox(width: 10),
-              _StreakPill(streak: streak),
               const SizedBox(width: 10),
               GestureDetector(
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
                 ),
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white.withValues(alpha: 0.04),
                     border: Border.all(
-                      color: _kNeonCyan.withValues(alpha: 0.36),
-                      width: 1.8,
+                      color: _kNeonCyan.withValues(alpha: 0.32),
+                      width: 1.4,
                     ),
                     image: avatarUrl != null && avatarUrl.isNotEmpty
                         ? DecorationImage(
@@ -308,49 +313,13 @@ class _HomeTopBar extends ConsumerWidget {
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
-                            fontSize: 15,
+                            fontSize: 14,
                           ),
                         )
                       : null,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Welcome back',
-            style: TextStyle(
-              color: _kMutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Good $dayPart',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.8,
-              color: Colors.white,
-              height: 1.0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.9,
-              color: _kNeonCyan,
-              height: 1.0,
-            ),
           ),
         ],
       ),
@@ -487,12 +456,20 @@ class _NeoStatsGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final weekly = ref.watch(_weeklyHomeStatsProvider);
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
     final items = [
       _NeoStatItem(
         icon: Icons.place_outlined,
         label: 'DISTANCE',
-        value: weekly.weeklyDistanceKm.toStringAsFixed(1),
-        unit: 'KM',
+        value:
+            (useMetricUnits
+                    ? weekly.weeklyDistanceKm
+                    : WorkoutFormatters.kmToMi(weekly.weeklyDistanceKm))
+                .toStringAsFixed(1),
+        unit: WorkoutFormatters.distanceUnitLabel(
+          useMetric: useMetricUnits,
+        ).toUpperCase(),
       ),
       _NeoStatItem(
         icon: Icons.schedule_rounded,
@@ -503,8 +480,12 @@ class _NeoStatsGrid extends ConsumerWidget {
       _NeoStatItem(
         icon: Icons.speed_rounded,
         label: 'PACE',
-        value: _speedLabel(weekly.weeklyDistanceKm, weekly.weeklyDurationSec),
-        unit: 'KM/H',
+        value: _speedLabel(
+          weekly.weeklyDistanceKm,
+          weekly.weeklyDurationSec,
+          useMetricUnits: useMetricUnits,
+        ),
+        unit: useMetricUnits ? 'KM/H' : 'MPH',
       ),
     ];
 
@@ -821,10 +802,10 @@ class _ActivityPickerSheet extends StatelessWidget {
   const _ActivityPickerSheet();
 
   static const _activities = [
-      ('running', 'Running', 'assets/running.jpg', Icons.directions_run),
-      ('cycling', 'Cycling', 'assets/cycling.jpg', Icons.directions_bike),
-      ('walking', 'Walking', 'assets/walking.jpg', Icons.directions_walk),
-    ];
+    ('running', 'Running', 'assets/running.jpg', Icons.directions_run),
+    ('cycling', 'Cycling', 'assets/cycling.jpg', Icons.directions_bike),
+    ('walking', 'Walking', 'assets/walking.jpg', Icons.directions_walk),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -850,7 +831,7 @@ class _ActivityPickerSheet extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           const Text(
-            'Choose Activity',
+            'Activity',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -1285,6 +1266,7 @@ String _weekdayLabel(DateTime date) {
 String _formatMetric(double value, String unit) {
   switch (unit) {
     case 'km':
+    case 'mi':
       return value.toStringAsFixed(1);
     case 'sessions':
       return value.round().toString();
@@ -1305,39 +1287,15 @@ double _monthlyTargetToWeeklyTarget(
   return monthlyTarget / (daysInMonth / 7.0);
 }
 
-String _displayNameForUser(User? user) {
-  final metadata = user?.userMetadata ?? const <String, dynamic>{};
-  final explicitName =
-      metadata['full_name'] ??
-      metadata['display_name'] ??
-      metadata['name'] ??
-      metadata['username'];
-
-  final source = ((explicitName as String?)?.trim().isNotEmpty ?? false)
-      ? (explicitName as String).trim()
-      : (user?.email ?? 'Athlete').split('@').first.trim();
-  if (source.isEmpty) return 'Athlete';
-  final parts = source
-      .split(RegExp(r'[._\-\s]+'))
-      .where((element) => element.isNotEmpty)
-      .toList();
-  return parts
-      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-      .join(' ');
-}
-
-String _speedLabel(double distanceKm, int durationSec) {
+String _speedLabel(
+  double distanceKm,
+  int durationSec, {
+  required bool useMetricUnits,
+}) {
   if (distanceKm <= 0 || durationSec <= 0) return '--';
   final speed = distanceKm / (durationSec / 3600);
-  return speed.toStringAsFixed(speed >= 10 ? 0 : 1);
-}
-
-String _dayPartGreeting() {
-  final hour = DateTime.now().hour;
-  if (hour >= 5 && hour < 12) return 'Morning';
-  if (hour >= 12 && hour < 17) return 'Afternoon';
-  if (hour >= 17 && hour < 22) return 'Evening';
-  return 'Night';
+  final displaySpeed = useMetricUnits ? speed : speed * 0.6213711922;
+  return displaySpeed.toStringAsFixed(displaySpeed >= 10 ? 0 : 1);
 }
 
 String _initialsFromEmail(String? email) {

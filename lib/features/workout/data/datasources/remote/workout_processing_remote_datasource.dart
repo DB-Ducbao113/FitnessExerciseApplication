@@ -54,6 +54,44 @@ class WorkoutProcessingRemoteDataSource {
     }
   }
 
+  Future<String?> enqueueRouteCorrectionJob({
+    required String workoutId,
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final response = await _supabase
+          .from(DbTables.workoutProcessingJobs)
+          .insert({
+            'workout_id': workoutId,
+            'job_type': kRouteCorrectionJobType,
+            'status': kQueuedJobStatus,
+            'attempt_count': 0,
+          })
+          .select('id')
+          .maybeSingle();
+
+      final jobId = response?['id'] as String?;
+      await insertLog(
+        workoutId: workoutId,
+        jobId: jobId,
+        eventType: kClientRouteCorrectionEnqueuedEvent,
+        message: kClientRouteCorrectionEnqueuedMessage,
+        payload: payload,
+      );
+      return jobId;
+    } on PostgrestException catch (e) {
+      debugPrint(
+        '[WorkoutProcessingRemoteDataSource] enqueue route correction failed: ${e.message}',
+      );
+      rethrow;
+    } catch (e) {
+      debugPrint(
+        '[WorkoutProcessingRemoteDataSource] enqueue route correction unexpected error: $e',
+      );
+      rethrow;
+    }
+  }
+
   Future<void> insertLog({
     required String workoutId,
     String? jobId,

@@ -3,8 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 
 // Goal state
 final userGoalProvider =
@@ -34,10 +37,9 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
     if (goal.id.isNotEmpty) {
       data['id'] = goal.id;
     }
-    await _supabase.from(DbTables.userGoals).upsert(
-      data,
-      onConflict: 'user_id',
-    );
+    await _supabase
+        .from(DbTables.userGoals)
+        .upsert(data, onConflict: 'user_id');
   }
 
   Future<void> _load() async {
@@ -91,12 +93,12 @@ class GoalProgress {
   bool get isAchieved => current >= target;
 
   String get currentLabel {
-    if (unit == 'km') return current.toStringAsFixed(1);
+    if (unit == 'km' || unit == 'mi') return current.toStringAsFixed(1);
     return current.toInt().toString();
   }
 
   String get targetLabel {
-    if (unit == 'km') return target.toStringAsFixed(0);
+    if (unit == 'km' || unit == 'mi') return target.toStringAsFixed(0);
     return target.toInt().toString();
   }
 }
@@ -105,6 +107,7 @@ class GoalProgress {
 final goalProgressProvider = Provider<GoalProgress?>((ref) {
   final goalAsync = ref.watch(userGoalProvider);
   final workoutsAsync = ref.watch(workoutListProvider);
+  final useMetricUnits = ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
   final goal = goalAsync.valueOrNull;
   final workouts = workoutsAsync.valueOrNull;
@@ -121,12 +124,13 @@ final goalProgressProvider = Provider<GoalProgress?>((ref) {
       .where(
         (w) => !DateTimeHelper.localDateOnly(w.startedAt).isBefore(periodStart),
       )
+      .where((w) => !assessWorkoutSession(w).shouldInvalidateResult)
       .toList();
 
   double current;
   switch (goal.goalType) {
     case GoalType.distance:
-      current = relevant.fold(0.0, (s, w) => s + w.distanceKm);
+      current = relevant.fold(0.0, (s, w) => s + w.gpsAnalysis.validDistanceKm);
       break;
     case GoalType.workouts:
       current = relevant.length.toDouble();
@@ -137,8 +141,14 @@ final goalProgressProvider = Provider<GoalProgress?>((ref) {
   }
 
   return GoalProgress(
-    current: current,
-    target: goal.targetValue,
-    unit: goal.unit,
+    current: goal.goalType == GoalType.distance && !useMetricUnits
+        ? WorkoutFormatters.kmToMi(current)
+        : current,
+    target: goal.goalType == GoalType.distance && !useMetricUnits
+        ? WorkoutFormatters.kmToMi(goal.targetValue)
+        : goal.targetValue,
+    unit: goal.goalType == GoalType.distance
+        ? WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)
+        : goal.unit,
   );
 });

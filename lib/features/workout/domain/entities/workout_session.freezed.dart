@@ -29,6 +29,14 @@ mixin _$WorkoutSession {
   String get mode => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   List<WorkoutLapSplit> get lapSplits => throw _privateConstructorUsedError;
+  WorkoutGpsAnalysis get gpsAnalysis => throw _privateConstructorUsedError;
+  String get filteredRouteJson => throw _privateConstructorUsedError;
+  String get matchedRouteJson => throw _privateConstructorUsedError;
+  String get routeMatchStatus => throw _privateConstructorUsedError;
+  double? get routeMatchConfidence => throw _privateConstructorUsedError;
+  String get routeDistanceSource => throw _privateConstructorUsedError;
+  double? get matchedDistanceKm => throw _privateConstructorUsedError;
+  String get routeMatchMetricsJson => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $WorkoutSessionCopyWith<WorkoutSession> get copyWith =>
@@ -54,7 +62,15 @@ abstract class $WorkoutSessionCopyWith<$Res> {
       double caloriesKcal,
       String mode,
       DateTime createdAt,
-      List<WorkoutLapSplit> lapSplits});
+      List<WorkoutLapSplit> lapSplits,
+      WorkoutGpsAnalysis gpsAnalysis,
+      String filteredRouteJson,
+      String matchedRouteJson,
+      String routeMatchStatus,
+      double? routeMatchConfidence,
+      String routeDistanceSource,
+      double? matchedDistanceKm,
+      String routeMatchMetricsJson});
 }
 
 /// @nodoc
@@ -83,6 +99,14 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
     Object? mode = null,
     Object? createdAt = null,
     Object? lapSplits = null,
+    Object? gpsAnalysis = null,
+    Object? filteredRouteJson = null,
+    Object? matchedRouteJson = null,
+    Object? routeMatchStatus = null,
+    Object? routeMatchConfidence = freezed,
+    Object? routeDistanceSource = null,
+    Object? matchedDistanceKm = freezed,
+    Object? routeMatchMetricsJson = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -137,6 +161,38 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
           ? _value.lapSplits
           : lapSplits // ignore: cast_nullable_to_non_nullable
               as List<WorkoutLapSplit>,
+      gpsAnalysis: null == gpsAnalysis
+          ? _value.gpsAnalysis
+          : gpsAnalysis // ignore: cast_nullable_to_non_nullable
+              as WorkoutGpsAnalysis,
+      filteredRouteJson: null == filteredRouteJson
+          ? _value.filteredRouteJson
+          : filteredRouteJson // ignore: cast_nullable_to_non_nullable
+              as String,
+      matchedRouteJson: null == matchedRouteJson
+          ? _value.matchedRouteJson
+          : matchedRouteJson // ignore: cast_nullable_to_non_nullable
+              as String,
+      routeMatchStatus: null == routeMatchStatus
+          ? _value.routeMatchStatus
+          : routeMatchStatus // ignore: cast_nullable_to_non_nullable
+              as String,
+      routeMatchConfidence: freezed == routeMatchConfidence
+          ? _value.routeMatchConfidence
+          : routeMatchConfidence // ignore: cast_nullable_to_non_nullable
+              as double?,
+      routeDistanceSource: null == routeDistanceSource
+          ? _value.routeDistanceSource
+          : routeDistanceSource // ignore: cast_nullable_to_non_nullable
+              as String,
+      matchedDistanceKm: freezed == matchedDistanceKm
+          ? _value.matchedDistanceKm
+          : matchedDistanceKm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      routeMatchMetricsJson: null == routeMatchMetricsJson
+          ? _value.routeMatchMetricsJson
+          : routeMatchMetricsJson // ignore: cast_nullable_to_non_nullable
+              as String,
     ) as $Val);
   }
 }
@@ -162,7 +218,15 @@ abstract class _$$WorkoutSessionImplCopyWith<$Res>
       double caloriesKcal,
       String mode,
       DateTime createdAt,
-      List<WorkoutLapSplit> lapSplits});
+      List<WorkoutLapSplit> lapSplits,
+      WorkoutGpsAnalysis gpsAnalysis,
+      String filteredRouteJson,
+      String matchedRouteJson,
+      String routeMatchStatus,
+      double? routeMatchConfidence,
+      String routeDistanceSource,
+      double? matchedDistanceKm,
+      String routeMatchMetricsJson});
 }
 
 /// @nodoc
@@ -189,6 +253,14 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
     Object? mode = null,
     Object? createdAt = null,
     Object? lapSplits = null,
+    Object? gpsAnalysis = null,
+    Object? filteredRouteJson = null,
+    Object? matchedRouteJson = null,
+    Object? routeMatchStatus = null,
+    Object? routeMatchConfidence = freezed,
+    Object? routeDistanceSource = null,
+    Object? matchedDistanceKm = freezed,
+    Object? routeMatchMetricsJson = null,
   }) {
     return _then(_$WorkoutSessionImpl(
       id: null == id
@@ -243,6 +315,38 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
           ? _value._lapSplits
           : lapSplits // ignore: cast_nullable_to_non_nullable
               as List<WorkoutLapSplit>,
+      gpsAnalysis: null == gpsAnalysis
+          ? _value.gpsAnalysis
+          : gpsAnalysis // ignore: cast_nullable_to_non_nullable
+              as WorkoutGpsAnalysis,
+      filteredRouteJson: null == filteredRouteJson
+          ? _value.filteredRouteJson
+          : filteredRouteJson // ignore: cast_nullable_to_non_nullable
+              as String,
+      matchedRouteJson: null == matchedRouteJson
+          ? _value.matchedRouteJson
+          : matchedRouteJson // ignore: cast_nullable_to_non_nullable
+              as String,
+      routeMatchStatus: null == routeMatchStatus
+          ? _value.routeMatchStatus
+          : routeMatchStatus // ignore: cast_nullable_to_non_nullable
+              as String,
+      routeMatchConfidence: freezed == routeMatchConfidence
+          ? _value.routeMatchConfidence
+          : routeMatchConfidence // ignore: cast_nullable_to_non_nullable
+              as double?,
+      routeDistanceSource: null == routeDistanceSource
+          ? _value.routeDistanceSource
+          : routeDistanceSource // ignore: cast_nullable_to_non_nullable
+              as String,
+      matchedDistanceKm: freezed == matchedDistanceKm
+          ? _value.matchedDistanceKm
+          : matchedDistanceKm // ignore: cast_nullable_to_non_nullable
+              as double?,
+      routeMatchMetricsJson: null == routeMatchMetricsJson
+          ? _value.routeMatchMetricsJson
+          : routeMatchMetricsJson // ignore: cast_nullable_to_non_nullable
+              as String,
     ));
   }
 }
@@ -263,7 +367,15 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
       required this.caloriesKcal,
       required this.mode,
       required this.createdAt,
-      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[]})
+      final List<WorkoutLapSplit> lapSplits = const <WorkoutLapSplit>[],
+      this.gpsAnalysis = const WorkoutGpsAnalysis(),
+      this.filteredRouteJson = '[]',
+      this.matchedRouteJson = '[]',
+      this.routeMatchStatus = 'pending',
+      this.routeMatchConfidence,
+      this.routeDistanceSource = 'filtered',
+      this.matchedDistanceKm,
+      this.routeMatchMetricsJson = '{}'})
       : _lapSplits = lapSplits;
 
   @override
@@ -300,8 +412,31 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
   }
 
   @override
+  @JsonKey()
+  final WorkoutGpsAnalysis gpsAnalysis;
+  @override
+  @JsonKey()
+  final String filteredRouteJson;
+  @override
+  @JsonKey()
+  final String matchedRouteJson;
+  @override
+  @JsonKey()
+  final String routeMatchStatus;
+  @override
+  final double? routeMatchConfidence;
+  @override
+  @JsonKey()
+  final String routeDistanceSource;
+  @override
+  final double? matchedDistanceKm;
+  @override
+  @JsonKey()
+  final String routeMatchMetricsJson;
+
+  @override
   String toString() {
-    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits)';
+    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis, filteredRouteJson: $filteredRouteJson, matchedRouteJson: $matchedRouteJson, routeMatchStatus: $routeMatchStatus, routeMatchConfidence: $routeMatchConfidence, routeDistanceSource: $routeDistanceSource, matchedDistanceKm: $matchedDistanceKm, routeMatchMetricsJson: $routeMatchMetricsJson)';
   }
 
   @override
@@ -329,25 +464,50 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             const DeepCollectionEquality()
-                .equals(other._lapSplits, _lapSplits));
+                .equals(other._lapSplits, _lapSplits) &&
+            (identical(other.gpsAnalysis, gpsAnalysis) ||
+                other.gpsAnalysis == gpsAnalysis) &&
+            (identical(other.filteredRouteJson, filteredRouteJson) ||
+                other.filteredRouteJson == filteredRouteJson) &&
+            (identical(other.matchedRouteJson, matchedRouteJson) ||
+                other.matchedRouteJson == matchedRouteJson) &&
+            (identical(other.routeMatchStatus, routeMatchStatus) ||
+                other.routeMatchStatus == routeMatchStatus) &&
+            (identical(other.routeMatchConfidence, routeMatchConfidence) ||
+                other.routeMatchConfidence == routeMatchConfidence) &&
+            (identical(other.routeDistanceSource, routeDistanceSource) ||
+                other.routeDistanceSource == routeDistanceSource) &&
+            (identical(other.matchedDistanceKm, matchedDistanceKm) ||
+                other.matchedDistanceKm == matchedDistanceKm) &&
+            (identical(other.routeMatchMetricsJson, routeMatchMetricsJson) ||
+                other.routeMatchMetricsJson == routeMatchMetricsJson));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      userId,
-      activityType,
-      startedAt,
-      endedAt,
-      durationSec,
-      distanceKm,
-      steps,
-      avgSpeedKmh,
-      caloriesKcal,
-      mode,
-      createdAt,
-      const DeepCollectionEquality().hash(_lapSplits));
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        userId,
+        activityType,
+        startedAt,
+        endedAt,
+        durationSec,
+        distanceKm,
+        steps,
+        avgSpeedKmh,
+        caloriesKcal,
+        mode,
+        createdAt,
+        const DeepCollectionEquality().hash(_lapSplits),
+        gpsAnalysis,
+        filteredRouteJson,
+        matchedRouteJson,
+        routeMatchStatus,
+        routeMatchConfidence,
+        routeDistanceSource,
+        matchedDistanceKm,
+        routeMatchMetricsJson
+      ]);
 
   @JsonKey(ignore: true)
   @override
@@ -371,7 +531,15 @@ abstract class _WorkoutSession implements WorkoutSession {
       required final double caloriesKcal,
       required final String mode,
       required final DateTime createdAt,
-      final List<WorkoutLapSplit> lapSplits}) = _$WorkoutSessionImpl;
+      final List<WorkoutLapSplit> lapSplits,
+      final WorkoutGpsAnalysis gpsAnalysis,
+      final String filteredRouteJson,
+      final String matchedRouteJson,
+      final String routeMatchStatus,
+      final double? routeMatchConfidence,
+      final String routeDistanceSource,
+      final double? matchedDistanceKm,
+      final String routeMatchMetricsJson}) = _$WorkoutSessionImpl;
 
   @override
   String get id;
@@ -399,6 +567,22 @@ abstract class _WorkoutSession implements WorkoutSession {
   DateTime get createdAt;
   @override
   List<WorkoutLapSplit> get lapSplits;
+  @override
+  WorkoutGpsAnalysis get gpsAnalysis;
+  @override
+  String get filteredRouteJson;
+  @override
+  String get matchedRouteJson;
+  @override
+  String get routeMatchStatus;
+  @override
+  double? get routeMatchConfidence;
+  @override
+  String get routeDistanceSource;
+  @override
+  double? get matchedDistanceKm;
+  @override
+  String get routeMatchMetricsJson;
   @override
   @JsonKey(ignore: true)
   _$$WorkoutSessionImplCopyWith<_$WorkoutSessionImpl> get copyWith =>

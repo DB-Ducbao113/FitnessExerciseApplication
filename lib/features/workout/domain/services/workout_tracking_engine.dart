@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -14,6 +16,10 @@ class TrackingGpsDecision {
   final double rawSegmentMeters;
   final double routeSegmentMeters;
   final double candidateSpeedKmh;
+  final bool shouldAddDistance;
+  final double gpsGapDurationSec;
+  final GpsPointOutcome outcome;
+  final GpsRejectReason reason;
 
   const TrackingGpsDecision({
     required this.type,
@@ -24,6 +30,10 @@ class TrackingGpsDecision {
     this.rawSegmentMeters = 0,
     this.routeSegmentMeters = 0,
     this.candidateSpeedKmh = 0,
+    this.shouldAddDistance = true,
+    this.gpsGapDurationSec = 0,
+    this.outcome = GpsPointOutcome.accepted,
+    this.reason = GpsRejectReason.none,
   });
 }
 
@@ -47,6 +57,44 @@ class IndoorStepContribution {
   });
 }
 
+class ActivityConsistencyAssessment {
+  final bool shouldInvalidateResult;
+  final String? reason;
+  final double minExpectedAvgSpeedKmh;
+  final double maxExpectedAvgSpeedKmh;
+
+  const ActivityConsistencyAssessment({
+    required this.shouldInvalidateResult,
+    required this.reason,
+    required this.minExpectedAvgSpeedKmh,
+    required this.maxExpectedAvgSpeedKmh,
+  });
+}
+
+class SegmentThreshold {
+  final double minPaceSecPerKm;
+  final double maxPaceSecPerKm;
+
+  const SegmentThreshold({
+    required this.minPaceSecPerKm,
+    required this.maxPaceSecPerKm,
+  });
+}
+
+class GpsWorkoutAnalysisInput {
+  final List<Position> rawPositions;
+  final String activityType;
+  final int totalDurationSec;
+  final double fallbackDistanceMeters;
+
+  const GpsWorkoutAnalysisInput({
+    required this.rawPositions,
+    required this.activityType,
+    required this.totalDurationSec,
+    required this.fallbackDistanceMeters,
+  });
+}
+
 class WorkoutTrackingEngine {
   const WorkoutTrackingEngine();
 
@@ -64,7 +112,7 @@ class WorkoutTrackingEngine {
     final previewAccuracy = debugLocationMode
         ? 100.0
         : getPreviewAccuracy(activityType);
-    final allowPreviewUpdate = position.accuracy <= previewAccuracy * 1.6;
+    final allowPreviewUpdate = position.accuracy <= previewAccuracy * 3.0;
     final previewPoint = allowPreviewUpdate ? livePoint : currentLatLng;
     final maxAccuracy = debugLocationMode
         ? 100.0
@@ -78,12 +126,15 @@ class WorkoutTrackingEngine {
           previewPoint: previewPoint,
           skipReason:
               'waiting_for_better_first_fix acc=${position.accuracy.toStringAsFixed(1)}m',
+          outcome: GpsPointOutcome.softRejected,
+          reason: GpsRejectReason.waitingForBetterFirstFix,
         );
       }
       return TrackingGpsDecision(
         type: TrackingGpsDecisionType.seedRoute,
         livePoint: livePoint,
         previewPoint: livePoint,
+        outcome: GpsPointOutcome.accepted,
       );
     }
 
@@ -92,13 +143,14 @@ class WorkoutTrackingEngine {
         type: TrackingGpsDecisionType.resetAnchor,
         livePoint: livePoint,
         previewPoint: livePoint,
+        outcome: GpsPointOutcome.accepted,
       );
     }
 
     final minSegmentMeters = debugLocationMode
         ? 0.25
         : getMinSegmentMeters(activityType);
-    final maxSpeedMs = getMaxSpeedMs(activityType);
+    final maxSpeedMs = getHardGpsSpikeSpeedMs();
     final lastPoint = routePoints.last;
     final rawDistanceAnchor = distanceAnchorPoint ?? lastPoint;
     final rawSegmentMeters = Geolocator.distanceBetween(
@@ -125,6 +177,8 @@ class WorkoutTrackingEngine {
         segmentMeters: segmentMeters,
         rawSegmentMeters: rawSegmentMeters,
         routeSegmentMeters: routeSegmentMeters,
+        outcome: GpsPointOutcome.softRejected,
+        reason: GpsRejectReason.tinySegment,
       );
     }
 
@@ -138,6 +192,8 @@ class WorkoutTrackingEngine {
         segmentMeters: segmentMeters,
         rawSegmentMeters: rawSegmentMeters,
         routeSegmentMeters: routeSegmentMeters,
+        outcome: GpsPointOutcome.softRejected,
+        reason: GpsRejectReason.lowAccuracy,
       );
     }
 
@@ -147,10 +203,12 @@ class WorkoutTrackingEngine {
         livePoint: livePoint,
         previewPoint: previewPoint,
         skipReason:
-            'gps_speed=${position.speed.toStringAsFixed(2)}m/s > ${maxSpeedMs.toStringAsFixed(2)}m/s',
+            'gps_speed_hard_spike=${position.speed.toStringAsFixed(2)}m/s > ${maxSpeedMs.toStringAsFixed(2)}m/s',
         segmentMeters: segmentMeters,
         rawSegmentMeters: rawSegmentMeters,
         routeSegmentMeters: routeSegmentMeters,
+        outcome: GpsPointOutcome.hardRejected,
+        reason: GpsRejectReason.gpsSpeedHardSpike,
       );
     }
 
@@ -159,6 +217,22 @@ class WorkoutTrackingEngine {
         ? 0.0
         : position.timestamp.difference(previousAcceptedTime).inMilliseconds /
               1000.0;
+    if (timeDeltaSec > 5.0) {
+      return TrackingGpsDecision(
+        type: TrackingGpsDecisionType.acceptRoute,
+        livePoint: livePoint,
+        previewPoint: previewPoint,
+        segmentMeters: 0,
+        rawSegmentMeters: rawSegmentMeters,
+        routeSegmentMeters: routeSegmentMeters,
+        candidateSpeedKmh: 0,
+        shouldAddDistance: false,
+        gpsGapDurationSec: timeDeltaSec,
+        outcome: GpsPointOutcome.signalGap,
+        reason: GpsRejectReason.staleSignalGap,
+      );
+    }
+
     if (timeDeltaSec > 0) {
       final impliedSpeed = segmentMeters / timeDeltaSec;
       if (impliedSpeed > maxSpeedMs * 1.2) {
@@ -167,18 +241,17 @@ class WorkoutTrackingEngine {
           livePoint: livePoint,
           previewPoint: previewPoint,
           skipReason:
-              'implied_speed=${impliedSpeed.toStringAsFixed(2)}m/s',
+              'implied_speed_hard_spike=${impliedSpeed.toStringAsFixed(2)}m/s',
           segmentMeters: segmentMeters,
           rawSegmentMeters: rawSegmentMeters,
           routeSegmentMeters: routeSegmentMeters,
+          outcome: GpsPointOutcome.hardRejected,
+          reason: GpsRejectReason.impliedSpeedHardSpike,
         );
       }
     }
 
-    final canUseBearingFilter =
-        activityType.toLowerCase() == 'cycling' &&
-        routePoints.length >= 2 &&
-        routeSegmentMeters > 22;
+    final canUseBearingFilter = routePoints.length >= 2;
     if (canUseBearingFilter) {
       final previousBearing = computeBearing(
         routePoints[routePoints.length - 2],
@@ -186,7 +259,7 @@ class WorkoutTrackingEngine {
       );
       final currentBearing = computeBearing(lastPoint, livePoint);
       final delta = bearingDelta(previousBearing, currentBearing);
-      if (delta > 150.0 && rawSegmentMeters < 18) {
+      if (delta > 120.0 && rawSegmentMeters < 20.0) {
         return TrackingGpsDecision(
           type: TrackingGpsDecisionType.skip,
           livePoint: livePoint,
@@ -195,6 +268,8 @@ class WorkoutTrackingEngine {
           segmentMeters: segmentMeters,
           rawSegmentMeters: rawSegmentMeters,
           routeSegmentMeters: routeSegmentMeters,
+          outcome: GpsPointOutcome.hardRejected,
+          reason: GpsRejectReason.headingSpike,
         );
       }
     }
@@ -217,6 +292,7 @@ class WorkoutTrackingEngine {
       rawSegmentMeters: rawSegmentMeters,
       routeSegmentMeters: routeSegmentMeters,
       candidateSpeedKmh: candidateSpeedKmh,
+      outcome: GpsPointOutcome.accepted,
     );
   }
 
@@ -278,6 +354,56 @@ class WorkoutTrackingEngine {
     return speedKmh >= getMinMovingSpeedKmh(activityType);
   }
 
+  ActivityConsistencyAssessment assessActivityConsistency({
+    required String activityType,
+    required double avgSpeedKmh,
+    required double distanceKm,
+    required int durationSec,
+  }) {
+    final normalizedActivity = activityType.toLowerCase();
+    final minExpectedAvgSpeedKmh = getMinExpectedAverageSpeedKmh(
+      normalizedActivity,
+    );
+    final maxExpectedAvgSpeedKmh = getMaxExpectedAverageSpeedKmh(
+      normalizedActivity,
+    );
+
+    // Ignore very short/noisy sessions and let backend decide later.
+    if (durationSec < 180 || distanceKm < 0.2 || avgSpeedKmh <= 0) {
+      return ActivityConsistencyAssessment(
+        shouldInvalidateResult: false,
+        reason: null,
+        minExpectedAvgSpeedKmh: minExpectedAvgSpeedKmh,
+        maxExpectedAvgSpeedKmh: maxExpectedAvgSpeedKmh,
+      );
+    }
+
+    if (avgSpeedKmh < minExpectedAvgSpeedKmh) {
+      return ActivityConsistencyAssessment(
+        shouldInvalidateResult: true,
+        reason: 'avg_speed_too_low_for_$normalizedActivity',
+        minExpectedAvgSpeedKmh: minExpectedAvgSpeedKmh,
+        maxExpectedAvgSpeedKmh: maxExpectedAvgSpeedKmh,
+      );
+    }
+
+    if (avgSpeedKmh > maxExpectedAvgSpeedKmh) {
+      return ActivityConsistencyAssessment(
+        shouldInvalidateResult: true,
+        reason: 'avg_speed_too_high_for_$normalizedActivity',
+        minExpectedAvgSpeedKmh: minExpectedAvgSpeedKmh,
+        maxExpectedAvgSpeedKmh: maxExpectedAvgSpeedKmh,
+      );
+    }
+
+    return ActivityConsistencyAssessment(
+      shouldInvalidateResult: false,
+      reason: null,
+      minExpectedAvgSpeedKmh: minExpectedAvgSpeedKmh,
+      maxExpectedAvgSpeedKmh: maxExpectedAvgSpeedKmh,
+    );
+  }
+
   double getMinMovingSpeedKmh(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'walking':
@@ -290,16 +416,33 @@ class WorkoutTrackingEngine {
     }
   }
 
-  double getMaxSpeedMs(String activityType) {
-    switch (activityType.toLowerCase()) {
+  double getHardGpsSpikeSpeedMs() {
+    return 80.0;
+  }
+
+  double getMinExpectedAverageSpeedKmh(String activityType) {
+    switch (activityType) {
       case 'walking':
-        return 4.5;
+        return 1.5;
       case 'cycling':
-        return 22.0;
+        return 8.0;
       case 'running':
-        return 10.0;
+        return 5.5;
       default:
-        return 15.0;
+        return 0.0;
+    }
+  }
+
+  double getMaxExpectedAverageSpeedKmh(String activityType) {
+    switch (activityType) {
+      case 'walking':
+        return 9.0;
+      case 'cycling':
+        return 45.0;
+      case 'running':
+        return 24.0;
+      default:
+        return 60.0;
     }
   }
 
@@ -357,5 +500,354 @@ class WorkoutTrackingEngine {
   double bearingDelta(double a, double b) {
     final delta = (a - b).abs();
     return delta > 180 ? 360 - delta : delta;
+  }
+
+  String confidenceForAccuracy(double? accuracy) {
+    if (accuracy == null || accuracy.isNaN || accuracy.isInfinite) {
+      return 'low';
+    }
+    if (accuracy <= 10.0) return 'high';
+    if (accuracy <= 30.0) return 'medium';
+    return 'low';
+  }
+
+  WorkoutGpsAnalysis analyzeGpsWorkout(GpsWorkoutAnalysisInput input) {
+    final filtered = _filterRawPositions(input.rawPositions);
+    if (filtered.length < 2) {
+      final fallbackKm = (input.fallbackDistanceMeters / 1000).clamp(
+        0.0,
+        double.infinity,
+      );
+      return WorkoutGpsAnalysis(
+        totalDistanceKm: fallbackKm,
+        validDistanceKm: fallbackKm,
+        effectivePaceSecPerKm: fallbackKm > 0
+            ? input.totalDurationSec / fallbackKm
+            : null,
+      );
+    }
+
+    final thresholds = _segmentThresholdFor(input.activityType);
+    final flaggedSegments = <WorkoutFlaggedSegment>[];
+    var totalDistanceM = 0.0;
+    var validDistanceM = 0.0;
+    var suspiciousDistanceM = 0.0;
+    var invalidDistanceM = 0.0;
+    var restDurationSec = 0.0;
+    var gpsGapCount = 0;
+    var gpsGapDurationSec = 0.0;
+
+    var segmentStartIndex = 0;
+    var segmentDistanceM = 0.0;
+    var segmentAccuracySum = filtered.first.accuracy;
+    var segmentPointCount = 1;
+    var stationaryDurationSec = 0.0;
+
+    for (var i = 1; i < filtered.length; i++) {
+      final prev = filtered[i - 1];
+      final curr = filtered[i];
+      final deltaSec =
+          curr.timestamp.difference(prev.timestamp).inMilliseconds / 1000.0;
+      if (deltaSec <= 0) {
+        continue;
+      }
+
+      if (deltaSec > 5.0) {
+        gpsGapCount += 1;
+        gpsGapDurationSec += deltaSec;
+        _finalizeSegment(
+          filtered: filtered,
+          startIndex: segmentStartIndex,
+          endIndex: i - 1,
+          distanceM: segmentDistanceM,
+          accuracySum: segmentAccuracySum,
+          pointCount: segmentPointCount,
+          thresholds: thresholds,
+          flaggedSegments: flaggedSegments,
+          onValid: (value) => validDistanceM += value,
+          onSuspicious: (value) => suspiciousDistanceM += value,
+          onInvalid: (value) => invalidDistanceM += value,
+          onTotal: (value) => totalDistanceM += value,
+        );
+        segmentStartIndex = i;
+        segmentDistanceM = 0;
+        segmentAccuracySum = curr.accuracy;
+        segmentPointCount = 1;
+        stationaryDurationSec = 0;
+        continue;
+      }
+
+      final distanceM = Geolocator.distanceBetween(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
+
+      if (distanceM < 1.0 || (distanceM / deltaSec) < 0.3) {
+        stationaryDurationSec += deltaSec;
+      } else {
+        if (stationaryDurationSec >= 60.0) {
+          restDurationSec += stationaryDurationSec;
+        }
+        stationaryDurationSec = 0;
+      }
+
+      segmentDistanceM += distanceM;
+      segmentAccuracySum += curr.accuracy;
+      segmentPointCount += 1;
+
+      final segmentDurationSec =
+          filtered[i].timestamp
+              .difference(filtered[segmentStartIndex].timestamp)
+              .inMilliseconds /
+          1000.0;
+      final shouldCloseByDistance = segmentDistanceM >= 100.0;
+      final shouldCloseByTime =
+          segmentDurationSec >= 30.0 && segmentDistanceM > 0.0;
+      if (!shouldCloseByDistance && !shouldCloseByTime) {
+        continue;
+      }
+
+      _finalizeSegment(
+        filtered: filtered,
+        startIndex: segmentStartIndex,
+        endIndex: i,
+        distanceM: segmentDistanceM,
+        accuracySum: segmentAccuracySum,
+        pointCount: segmentPointCount,
+        thresholds: thresholds,
+        flaggedSegments: flaggedSegments,
+        onValid: (value) => validDistanceM += value,
+        onSuspicious: (value) => suspiciousDistanceM += value,
+        onInvalid: (value) => invalidDistanceM += value,
+        onTotal: (value) => totalDistanceM += value,
+      );
+      segmentStartIndex = i;
+      segmentDistanceM = 0;
+      segmentAccuracySum = curr.accuracy;
+      segmentPointCount = 1;
+    }
+
+    if (stationaryDurationSec >= 60.0) {
+      restDurationSec += stationaryDurationSec;
+    }
+
+    _finalizeSegment(
+      filtered: filtered,
+      startIndex: segmentStartIndex,
+      endIndex: filtered.length - 1,
+      distanceM: segmentDistanceM,
+      accuracySum: segmentAccuracySum,
+      pointCount: segmentPointCount,
+      thresholds: thresholds,
+      flaggedSegments: flaggedSegments,
+      onValid: (value) => validDistanceM += value,
+      onSuspicious: (value) => suspiciousDistanceM += value,
+      onInvalid: (value) => invalidDistanceM += value,
+      onTotal: (value) => totalDistanceM += value,
+    );
+
+    final normalizedTotalDistanceM = totalDistanceM > 0
+        ? totalDistanceM
+        : input.fallbackDistanceMeters;
+    final suspiciousRatio = normalizedTotalDistanceM <= 0
+        ? 0.0
+        : suspiciousDistanceM / normalizedTotalDistanceM;
+    final validityFlag = suspiciousRatio > 0.30
+        ? WorkoutValidityFlag.unverified
+        : suspiciousRatio > 0.10
+        ? WorkoutValidityFlag.partial
+        : WorkoutValidityFlag.verified;
+    final effectivePaceSecPerKm = validDistanceM > 0
+        ? input.totalDurationSec / (validDistanceM / 1000.0)
+        : null;
+
+    return WorkoutGpsAnalysis(
+      totalDistanceKm: normalizedTotalDistanceM / 1000.0,
+      validDistanceKm: validDistanceM / 1000.0,
+      suspiciousDistanceKm: suspiciousDistanceM / 1000.0,
+      invalidDistanceKm: invalidDistanceM / 1000.0,
+      restDurationSec: restDurationSec.round(),
+      gpsGapCount: gpsGapCount,
+      gpsGapDurationSec: gpsGapDurationSec.round(),
+      effectivePaceSecPerKm: effectivePaceSecPerKm,
+      suspiciousRatio: suspiciousRatio,
+      validityFlag: validityFlag,
+      flaggedSegments: flaggedSegments,
+    );
+  }
+
+  SegmentThreshold _segmentThresholdFor(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'walking':
+        return const SegmentThreshold(
+          minPaceSecPerKm: 300,
+          maxPaceSecPerKm: 1800,
+        );
+      case 'cycling':
+        return const SegmentThreshold(
+          minPaceSecPerKm: 45,
+          maxPaceSecPerKm: 600,
+        );
+      case 'hiking':
+        return const SegmentThreshold(
+          minPaceSecPerKm: 240,
+          maxPaceSecPerKm: 2400,
+        );
+      case 'running':
+      default:
+        return const SegmentThreshold(
+          minPaceSecPerKm: 150,
+          maxPaceSecPerKm: 720,
+        );
+    }
+  }
+
+  List<Position> _filterRawPositions(List<Position> positions) {
+    if (positions.length < 2) return List<Position>.from(positions);
+    final sorted = List<Position>.from(positions)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final kept = <Position>[sorted.first];
+
+    for (var i = 1; i < sorted.length; i++) {
+      final prev = kept.last;
+      final curr = sorted[i];
+      final dtSec =
+          curr.timestamp.difference(prev.timestamp).inMilliseconds / 1000.0;
+      if (dtSec <= 0) continue;
+
+      final distanceM = Geolocator.distanceBetween(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
+      final impliedSpeedMs = distanceM / dtSec;
+      if (distanceM > 500.0 && dtSec < 2.0) {
+        continue;
+      }
+      if (impliedSpeedMs > 80.0 || (curr.speed > 0 && curr.speed > 80.0)) {
+        continue;
+      }
+      kept.add(curr);
+    }
+
+    if (kept.length < 3) return kept;
+
+    final result = <Position>[kept.first];
+    for (var i = 1; i < kept.length - 1; i++) {
+      final prev = result.last;
+      final curr = kept[i];
+      final next = kept[i + 1];
+      final distancePrevCurr = Geolocator.distanceBetween(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
+      final delta = bearingDelta(
+        computeBearing(
+          LatLng(prev.latitude, prev.longitude),
+          LatLng(curr.latitude, curr.longitude),
+        ),
+        computeBearing(
+          LatLng(curr.latitude, curr.longitude),
+          LatLng(next.latitude, next.longitude),
+        ),
+      );
+      if (delta > 120.0 && distancePrevCurr < 20.0) {
+        continue;
+      }
+      result.add(curr);
+    }
+    result.add(kept.last);
+    return result;
+  }
+
+  void _finalizeSegment({
+    required List<Position> filtered,
+    required int startIndex,
+    required int endIndex,
+    required double distanceM,
+    required double accuracySum,
+    required int pointCount,
+    required SegmentThreshold thresholds,
+    required List<WorkoutFlaggedSegment> flaggedSegments,
+    required void Function(double value) onValid,
+    required void Function(double value) onSuspicious,
+    required void Function(double value) onInvalid,
+    required void Function(double value) onTotal,
+  }) {
+    if (endIndex <= startIndex || distanceM <= 0) {
+      return;
+    }
+
+    final start = filtered[startIndex];
+    final end = filtered[endIndex];
+    final durationSec =
+        end.timestamp.difference(start.timestamp).inMilliseconds / 1000.0;
+    if (durationSec <= 0) {
+      return;
+    }
+
+    final avgAccuracy = pointCount <= 0 ? 999.0 : accuracySum / pointCount;
+    final paceSecPerKm = durationSec / (distanceM / 1000.0);
+    final avgSpeedMs = distanceM / durationSec;
+
+    WorkoutSegmentStatus status;
+    String reason;
+    if (avgAccuracy > 50.0) {
+      status = WorkoutSegmentStatus.invalid;
+      reason = 'low_gps_accuracy';
+    } else if (paceSecPerKm < thresholds.minPaceSecPerKm) {
+      status = WorkoutSegmentStatus.suspicious;
+      reason = 'pace_too_fast';
+    } else if (paceSecPerKm > thresholds.maxPaceSecPerKm) {
+      status = WorkoutSegmentStatus.invalid;
+      reason = 'pace_too_slow';
+    } else {
+      status = WorkoutSegmentStatus.valid;
+      reason = 'valid';
+    }
+
+    onTotal(distanceM);
+    switch (status) {
+      case WorkoutSegmentStatus.valid:
+        onValid(distanceM);
+        break;
+      case WorkoutSegmentStatus.suspicious:
+        onSuspicious(distanceM);
+        flaggedSegments.add(
+          WorkoutFlaggedSegment(
+            startTimestamp: start.timestamp.toUtc(),
+            endTimestamp: end.timestamp.toUtc(),
+            distanceM: distanceM,
+            durationSec: durationSec,
+            paceSecPerKm: paceSecPerKm,
+            avgSpeedMs: avgSpeedMs,
+            avgAccuracy: avgAccuracy,
+            status: status,
+            reason: reason,
+          ),
+        );
+        break;
+      case WorkoutSegmentStatus.invalid:
+        onInvalid(distanceM);
+        flaggedSegments.add(
+          WorkoutFlaggedSegment(
+            startTimestamp: start.timestamp.toUtc(),
+            endTimestamp: end.timestamp.toUtc(),
+            distanceM: distanceM,
+            durationSec: durationSec,
+            paceSecPerKm: paceSecPerKm,
+            avgSpeedMs: avgSpeedMs,
+            avgAccuracy: avgAccuracy,
+            status: status,
+            reason: reason,
+          ),
+        );
+        break;
+    }
   }
 }

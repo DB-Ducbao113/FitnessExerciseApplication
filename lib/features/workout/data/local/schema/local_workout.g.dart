@@ -52,38 +52,78 @@ const LocalWorkoutSchema = CollectionSchema(
       name: r'endedAt',
       type: IsarType.dateTime,
     ),
-    r'isSynced': PropertySchema(
+    r'filteredRouteJson': PropertySchema(
       id: 7,
+      name: r'filteredRouteJson',
+      type: IsarType.string,
+    ),
+    r'gpsAnalysisJson': PropertySchema(
+      id: 8,
+      name: r'gpsAnalysisJson',
+      type: IsarType.string,
+    ),
+    r'isSynced': PropertySchema(
+      id: 9,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lapSplitsJson': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'lapSplitsJson',
       type: IsarType.string,
     ),
+    r'matchedDistanceKm': PropertySchema(
+      id: 11,
+      name: r'matchedDistanceKm',
+      type: IsarType.double,
+    ),
+    r'matchedRouteJson': PropertySchema(
+      id: 12,
+      name: r'matchedRouteJson',
+      type: IsarType.string,
+    ),
     r'mode': PropertySchema(
-      id: 9,
+      id: 13,
       name: r'mode',
       type: IsarType.string,
     ),
+    r'routeDistanceSource': PropertySchema(
+      id: 14,
+      name: r'routeDistanceSource',
+      type: IsarType.string,
+    ),
+    r'routeMatchConfidence': PropertySchema(
+      id: 15,
+      name: r'routeMatchConfidence',
+      type: IsarType.double,
+    ),
+    r'routeMatchMetricsJson': PropertySchema(
+      id: 16,
+      name: r'routeMatchMetricsJson',
+      type: IsarType.string,
+    ),
+    r'routeMatchStatus': PropertySchema(
+      id: 17,
+      name: r'routeMatchStatus',
+      type: IsarType.string,
+    ),
     r'sessionId': PropertySchema(
-      id: 10,
+      id: 18,
       name: r'sessionId',
       type: IsarType.string,
     ),
     r'startedAt': PropertySchema(
-      id: 11,
+      id: 19,
       name: r'startedAt',
       type: IsarType.dateTime,
     ),
     r'steps': PropertySchema(
-      id: 12,
+      id: 20,
       name: r'steps',
       type: IsarType.long,
     ),
     r'userId': PropertySchema(
-      id: 13,
+      id: 21,
       name: r'userId',
       type: IsarType.string,
     )
@@ -123,8 +163,14 @@ int _localWorkoutEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.activityType.length * 3;
+  bytesCount += 3 + object.filteredRouteJson.length * 3;
+  bytesCount += 3 + object.gpsAnalysisJson.length * 3;
   bytesCount += 3 + object.lapSplitsJson.length * 3;
+  bytesCount += 3 + object.matchedRouteJson.length * 3;
   bytesCount += 3 + object.mode.length * 3;
+  bytesCount += 3 + object.routeDistanceSource.length * 3;
+  bytesCount += 3 + object.routeMatchMetricsJson.length * 3;
+  bytesCount += 3 + object.routeMatchStatus.length * 3;
   bytesCount += 3 + object.sessionId.length * 3;
   bytesCount += 3 + object.userId.length * 3;
   return bytesCount;
@@ -143,13 +189,21 @@ void _localWorkoutSerialize(
   writer.writeDouble(offsets[4], object.distanceKm);
   writer.writeLong(offsets[5], object.durationSec);
   writer.writeDateTime(offsets[6], object.endedAt);
-  writer.writeBool(offsets[7], object.isSynced);
-  writer.writeString(offsets[8], object.lapSplitsJson);
-  writer.writeString(offsets[9], object.mode);
-  writer.writeString(offsets[10], object.sessionId);
-  writer.writeDateTime(offsets[11], object.startedAt);
-  writer.writeLong(offsets[12], object.steps);
-  writer.writeString(offsets[13], object.userId);
+  writer.writeString(offsets[7], object.filteredRouteJson);
+  writer.writeString(offsets[8], object.gpsAnalysisJson);
+  writer.writeBool(offsets[9], object.isSynced);
+  writer.writeString(offsets[10], object.lapSplitsJson);
+  writer.writeDouble(offsets[11], object.matchedDistanceKm);
+  writer.writeString(offsets[12], object.matchedRouteJson);
+  writer.writeString(offsets[13], object.mode);
+  writer.writeString(offsets[14], object.routeDistanceSource);
+  writer.writeDouble(offsets[15], object.routeMatchConfidence);
+  writer.writeString(offsets[16], object.routeMatchMetricsJson);
+  writer.writeString(offsets[17], object.routeMatchStatus);
+  writer.writeString(offsets[18], object.sessionId);
+  writer.writeDateTime(offsets[19], object.startedAt);
+  writer.writeLong(offsets[20], object.steps);
+  writer.writeString(offsets[21], object.userId);
 }
 
 LocalWorkout _localWorkoutDeserialize(
@@ -166,14 +220,22 @@ LocalWorkout _localWorkoutDeserialize(
   object.distanceKm = reader.readDouble(offsets[4]);
   object.durationSec = reader.readLong(offsets[5]);
   object.endedAt = reader.readDateTime(offsets[6]);
+  object.filteredRouteJson = reader.readString(offsets[7]);
+  object.gpsAnalysisJson = reader.readString(offsets[8]);
   object.id = id;
-  object.isSynced = reader.readBool(offsets[7]);
-  object.lapSplitsJson = reader.readString(offsets[8]);
-  object.mode = reader.readString(offsets[9]);
-  object.sessionId = reader.readString(offsets[10]);
-  object.startedAt = reader.readDateTime(offsets[11]);
-  object.steps = reader.readLong(offsets[12]);
-  object.userId = reader.readString(offsets[13]);
+  object.isSynced = reader.readBool(offsets[9]);
+  object.lapSplitsJson = reader.readString(offsets[10]);
+  object.matchedDistanceKm = reader.readDoubleOrNull(offsets[11]);
+  object.matchedRouteJson = reader.readString(offsets[12]);
+  object.mode = reader.readString(offsets[13]);
+  object.routeDistanceSource = reader.readString(offsets[14]);
+  object.routeMatchConfidence = reader.readDoubleOrNull(offsets[15]);
+  object.routeMatchMetricsJson = reader.readString(offsets[16]);
+  object.routeMatchStatus = reader.readString(offsets[17]);
+  object.sessionId = reader.readString(offsets[18]);
+  object.startedAt = reader.readDateTime(offsets[19]);
+  object.steps = reader.readLong(offsets[20]);
+  object.userId = reader.readString(offsets[21]);
   return object;
 }
 
@@ -199,18 +261,34 @@ P _localWorkoutDeserializeProp<P>(
     case 6:
       return (reader.readDateTime(offset)) as P;
     case 7:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 8:
       return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 10:
       return (reader.readString(offset)) as P;
     case 11:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 12:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
+      return (reader.readString(offset)) as P;
+    case 15:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 16:
+      return (reader.readString(offset)) as P;
+    case 17:
+      return (reader.readString(offset)) as P;
+    case 18:
+      return (reader.readString(offset)) as P;
+    case 19:
+      return (reader.readDateTime(offset)) as P;
+    case 20:
+      return (reader.readLong(offset)) as P;
+    case 21:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -913,6 +991,278 @@ extension LocalWorkoutQueryFilter
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'filteredRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'filteredRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'filteredRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'filteredRouteJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'filteredRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'filteredRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'filteredRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'filteredRouteJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'filteredRouteJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      filteredRouteJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'filteredRouteJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'gpsAnalysisJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'gpsAnalysisJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'gpsAnalysisJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'gpsAnalysisJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      gpsAnalysisJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'gpsAnalysisJson',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition> idEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -1112,6 +1462,226 @@ extension LocalWorkoutQueryFilter
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedDistanceKmIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'matchedDistanceKm',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedDistanceKmIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'matchedDistanceKm',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedDistanceKmEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'matchedDistanceKm',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedDistanceKmGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'matchedDistanceKm',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedDistanceKmLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'matchedDistanceKm',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedDistanceKmBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'matchedDistanceKm',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'matchedRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'matchedRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'matchedRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'matchedRouteJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'matchedRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'matchedRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'matchedRouteJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'matchedRouteJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'matchedRouteJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      matchedRouteJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'matchedRouteJson',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition> modeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1241,6 +1811,499 @@ extension LocalWorkoutQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'mode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeDistanceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'routeDistanceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'routeDistanceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'routeDistanceSource',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'routeDistanceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'routeDistanceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'routeDistanceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'routeDistanceSource',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeDistanceSource',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeDistanceSourceIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'routeDistanceSource',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchConfidenceIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'routeMatchConfidence',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchConfidenceIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'routeMatchConfidence',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchConfidenceEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeMatchConfidence',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchConfidenceGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'routeMatchConfidence',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchConfidenceLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'routeMatchConfidence',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchConfidenceBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'routeMatchConfidence',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeMatchMetricsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'routeMatchMetricsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'routeMatchMetricsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'routeMatchMetricsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'routeMatchMetricsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'routeMatchMetricsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'routeMatchMetricsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'routeMatchMetricsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeMatchMetricsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchMetricsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'routeMatchMetricsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeMatchStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'routeMatchStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'routeMatchStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'routeMatchStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'routeMatchStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'routeMatchStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'routeMatchStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'routeMatchStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'routeMatchStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      routeMatchStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'routeMatchStatus',
         value: '',
       ));
     });
@@ -1725,6 +2788,34 @@ extension LocalWorkoutQuerySortBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByFilteredRouteJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'filteredRouteJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByFilteredRouteJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'filteredRouteJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByGpsAnalysisJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByGpsAnalysisJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> sortByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSynced', Sort.asc);
@@ -1750,6 +2841,34 @@ extension LocalWorkoutQuerySortBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByMatchedDistanceKm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedDistanceKm', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByMatchedDistanceKmDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedDistanceKm', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByMatchedRouteJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedRouteJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByMatchedRouteJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedRouteJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> sortByMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mode', Sort.asc);
@@ -1759,6 +2878,62 @@ extension LocalWorkoutQuerySortBy
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> sortByModeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteDistanceSource() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeDistanceSource', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteDistanceSourceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeDistanceSource', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteMatchConfidence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchConfidence', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteMatchConfidenceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchConfidence', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteMatchMetricsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchMetricsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteMatchMetricsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchMetricsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteMatchStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByRouteMatchStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchStatus', Sort.desc);
     });
   }
 
@@ -1902,6 +3077,34 @@ extension LocalWorkoutQuerySortThenBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByFilteredRouteJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'filteredRouteJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByFilteredRouteJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'filteredRouteJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByGpsAnalysisJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByGpsAnalysisJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'gpsAnalysisJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -1939,6 +3142,34 @@ extension LocalWorkoutQuerySortThenBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByMatchedDistanceKm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedDistanceKm', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByMatchedDistanceKmDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedDistanceKm', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByMatchedRouteJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedRouteJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByMatchedRouteJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'matchedRouteJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> thenByMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mode', Sort.asc);
@@ -1948,6 +3179,62 @@ extension LocalWorkoutQuerySortThenBy
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> thenByModeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteDistanceSource() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeDistanceSource', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteDistanceSourceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeDistanceSource', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteMatchConfidence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchConfidence', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteMatchConfidenceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchConfidence', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteMatchMetricsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchMetricsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteMatchMetricsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchMetricsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteMatchStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByRouteMatchStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'routeMatchStatus', Sort.desc);
     });
   }
 
@@ -2045,6 +3332,22 @@ extension LocalWorkoutQueryWhereDistinct
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByFilteredRouteJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'filteredRouteJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct> distinctByGpsAnalysisJson(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'gpsAnalysisJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QDistinct> distinctByIsSynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSynced');
@@ -2059,10 +3362,56 @@ extension LocalWorkoutQueryWhereDistinct
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByMatchedDistanceKm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'matchedDistanceKm');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByMatchedRouteJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'matchedRouteJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QDistinct> distinctByMode(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'mode', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByRouteDistanceSource({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'routeDistanceSource',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByRouteMatchConfidence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'routeMatchConfidence');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByRouteMatchMetricsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'routeMatchMetricsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByRouteMatchStatus({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'routeMatchStatus',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2143,6 +3492,20 @@ extension LocalWorkoutQueryProperty
     });
   }
 
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      filteredRouteJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'filteredRouteJson');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      gpsAnalysisJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'gpsAnalysisJson');
+    });
+  }
+
   QueryBuilder<LocalWorkout, bool, QQueryOperations> isSyncedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSynced');
@@ -2155,9 +3518,51 @@ extension LocalWorkoutQueryProperty
     });
   }
 
+  QueryBuilder<LocalWorkout, double?, QQueryOperations>
+      matchedDistanceKmProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'matchedDistanceKm');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      matchedRouteJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'matchedRouteJson');
+    });
+  }
+
   QueryBuilder<LocalWorkout, String, QQueryOperations> modeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'mode');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      routeDistanceSourceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'routeDistanceSource');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, double?, QQueryOperations>
+      routeMatchConfidenceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'routeMatchConfidence');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      routeMatchMetricsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'routeMatchMetricsJson');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, String, QQueryOperations>
+      routeMatchStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'routeMatchStatus');
     });
   }
 

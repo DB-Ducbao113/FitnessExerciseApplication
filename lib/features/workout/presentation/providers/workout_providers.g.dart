@@ -166,6 +166,135 @@ class _WorkoutProviderElement
   String get id => (origin as WorkoutProvider).id;
 }
 
+String _$workoutRouteHash() => r'a80b87d7e3a9d769ac0eaa2f38ffaaaa8da25021';
+
+/// See also [workoutRoute].
+@ProviderFor(workoutRoute)
+const workoutRouteProvider = WorkoutRouteFamily();
+
+/// See also [workoutRoute].
+class WorkoutRouteFamily extends Family<AsyncValue<List<LatLng>>> {
+  /// See also [workoutRoute].
+  const WorkoutRouteFamily();
+
+  /// See also [workoutRoute].
+  WorkoutRouteProvider call(
+    String id,
+  ) {
+    return WorkoutRouteProvider(
+      id,
+    );
+  }
+
+  @override
+  WorkoutRouteProvider getProviderOverride(
+    covariant WorkoutRouteProvider provider,
+  ) {
+    return call(
+      provider.id,
+    );
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'workoutRouteProvider';
+}
+
+/// See also [workoutRoute].
+class WorkoutRouteProvider extends AutoDisposeFutureProvider<List<LatLng>> {
+  /// See also [workoutRoute].
+  WorkoutRouteProvider(
+    String id,
+  ) : this._internal(
+          (ref) => workoutRoute(
+            ref as WorkoutRouteRef,
+            id,
+          ),
+          from: workoutRouteProvider,
+          name: r'workoutRouteProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$workoutRouteHash,
+          dependencies: WorkoutRouteFamily._dependencies,
+          allTransitiveDependencies:
+              WorkoutRouteFamily._allTransitiveDependencies,
+          id: id,
+        );
+
+  WorkoutRouteProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.id,
+  }) : super.internal();
+
+  final String id;
+
+  @override
+  Override overrideWith(
+    FutureOr<List<LatLng>> Function(WorkoutRouteRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: WorkoutRouteProvider._internal(
+        (ref) => create(ref as WorkoutRouteRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        id: id,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<List<LatLng>> createElement() {
+    return _WorkoutRouteProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is WorkoutRouteProvider && other.id == id;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, id.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+mixin WorkoutRouteRef on AutoDisposeFutureProviderRef<List<LatLng>> {
+  /// The parameter `id` of this provider.
+  String get id;
+}
+
+class _WorkoutRouteProviderElement
+    extends AutoDisposeFutureProviderElement<List<LatLng>>
+    with WorkoutRouteRef {
+  _WorkoutRouteProviderElement(super.provider);
+
+  @override
+  String get id => (origin as WorkoutRouteProvider).id;
+}
+
 String _$workoutListHash() => r'98186eb373396e4c45a76a28a32f10b0a3a8c62a';
 
 /// Workout List Provider

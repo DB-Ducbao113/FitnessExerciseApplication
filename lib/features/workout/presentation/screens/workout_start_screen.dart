@@ -145,7 +145,7 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -158,71 +158,47 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                           letterSpacing: 1.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Ready to go?',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 12),
                       _HeroImage(
                         tag: widget.activityType,
                         imagePath: widget.activityImagePath,
                         icon: _activityIcon(widget.activityType),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _GlassCard(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _GpsStatusBadge(
-                                isEnabled: _gpsEnabled,
-                                hasLocationPermission:
-                                    _locationPermissionGranted,
-                                isPermissionBlocked:
-                                    _locationPermissionBlocked,
-                                isChecking: _checkingGps,
-                                isRequired: _requiresGps,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton.icon(
-                              onPressed: _openGpsSettings,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: _gpsEnabled
-                                    ? (_locationPermissionGranted
-                                          ? Colors.white
-                                          : _kNeonCyan)
-                                    : _kNeonCyan,
-                                side: const BorderSide(color: _kCardBorder),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.settings_rounded,
-                                size: 18,
-                              ),
-                              label: Text(
-                                _requiresGps
-                                    ? (!_gpsEnabled
-                                          ? 'Turn On GPS'
-                                          : _locationPermissionGranted
-                                          ? 'GPS Settings'
-                                          : 'Allow Location')
-                                    : 'Location Settings',
-                              ),
-                            ),
-                          ],
+                        child: _GpsSetupPanel(
+                          isEnabled: _gpsEnabled,
+                          hasLocationPermission: _locationPermissionGranted,
+                          isPermissionBlocked: _locationPermissionBlocked,
+                          isChecking: _checkingGps,
+                          isRequired: _requiresGps,
+                          onActionTap: _openGpsSettings,
                         ),
                       ),
+                      if (_requiresGps &&
+                          (_gpsEnabled && _locationPermissionGranted)) ...[
+                        const SizedBox(height: 10),
+                        _GlassCard(
+                          child: Row(
+                            children: [
+                              _MiniSignalChip(
+                                icon: Icons.route_rounded,
+                                label: 'Live route',
+                              ),
+                              const SizedBox(width: 10),
+                              _MiniSignalChip(
+                                icon: Icons.location_searching_rounded,
+                                label: 'GPS locked',
+                              ),
+                              const SizedBox(width: 10),
+                              _MiniSignalChip(
+                                icon: Icons.auto_awesome_rounded,
+                                label: 'Ready',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -256,10 +232,16 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
                           borderRadius: BorderRadius.circular(22),
                         ),
                       ),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                      label: const Text(
-                        'START WORKOUT',
-                        style: TextStyle(
+                      icon: Icon(
+                        _requiresGps &&
+                                (!_gpsEnabled || !_locationPermissionGranted)
+                            ? Icons.gps_fixed_rounded
+                            : Icons.play_arrow_rounded,
+                        size: 28,
+                      ),
+                      label: Text(
+                        _primaryButtonLabel(),
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
@@ -275,32 +257,42 @@ class _WorkoutStartScreenState extends ConsumerState<WorkoutStartScreen>
       ),
     );
   }
+
+  String _primaryButtonLabel() {
+    if (!_requiresGps) return 'START WORKOUT';
+    if (_checkingGps) return 'CHECKING GPS';
+    if (!_gpsEnabled) return 'TURN ON GPS';
+    if (!_locationPermissionGranted) return 'ALLOW LOCATION';
+    return 'START WORKOUT';
+  }
 }
 
-class _GpsStatusBadge extends StatelessWidget {
+class _GpsSetupPanel extends StatelessWidget {
   final bool isEnabled;
   final bool hasLocationPermission;
   final bool isPermissionBlocked;
   final bool isChecking;
   final bool isRequired;
+  final VoidCallback onActionTap;
 
-  const _GpsStatusBadge({
+  const _GpsSetupPanel({
     required this.isEnabled,
     required this.hasLocationPermission,
     required this.isPermissionBlocked,
     required this.isChecking,
     required this.isRequired,
+    required this.onActionTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isChecking
+    final accent = isChecking
         ? _kMutedText
         : (!isEnabled || !hasLocationPermission
               ? const Color(0xffff6b6b)
               : const Color(0xff2be38c));
     final label = isChecking
-        ? 'Checking GPS...'
+        ? 'Checking GPS'
         : isRequired
         ? (!isEnabled
               ? 'GPS OFF'
@@ -308,64 +300,194 @@ class _GpsStatusBadge extends StatelessWidget {
               ? 'GPS ON'
               : 'LOCATION BLOCKED')
         : (isEnabled ? 'GPS READY' : 'GPS OPTIONAL');
-    final subtitle = isChecking
-        ? 'Verifying location services'
+    final title = isChecking
+        ? 'Checking your location status'
         : isRequired
         ? (!isEnabled
-              ? 'Turn on location services to start'
+              ? 'Location services are off'
               : hasLocationPermission
-              ? 'Ready for outdoor tracking'
+              ? 'Outdoor tracking is ready'
               : isPermissionBlocked
-              ? 'Open Settings and allow location access'
-              : 'Allow location access to start')
-        : 'This activity can start without GPS';
+              ? 'Location access is blocked'
+              : 'Location permission is needed')
+        : 'This activity can start anytime';
+    final actionLabel = !isRequired
+        ? 'OPEN LOCATION SETTINGS'
+        : (!isEnabled
+              ? 'TURN ON GPS'
+              : hasLocationPermission
+              ? 'OPEN GPS SETTINGS'
+              : 'ALLOW LOCATION');
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(15, 15, 15, 15),
       decoration: BoxDecoration(
         color: const Color(0xff101a29),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kCardBorder),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [accent.withValues(alpha: 0.10), const Color(0xff101a29)],
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 8),
-              ],
-            ),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isRequired ? Icons.gps_fixed_rounded : Icons.explore_outlined,
+                  color: accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _kCardBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: accent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.32),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          isRequired ? 'Outdoor mode' : 'Flexible start',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.tonalIcon(
+                onPressed: onActionTap,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.07),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 11,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.settings_rounded, size: 18),
+                label: Text(
+                  actionLabel,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: _kMutedText,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MiniSignalChip extends StatelessWidget {
+  const _MiniSignalChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xff101a29),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _kCardBorder),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: _kNeonCyan, size: 16),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
