@@ -22,7 +22,10 @@ $files = @(
   "migrations/20260413_workout_processing_metadata.sql",
   "migrations/20260413_raw_tracking_tables.sql",
   "migrations/20260413_workout_processing_jobs.sql",
-  "migrations/20260413_workout_processing_logs.sql"
+  "migrations/20260413_workout_processing_logs.sql",
+  "migrations/20260417_workout_route_matching_phase3.sql",
+  "migrations/20260420_add_workout_moving_time.sql",
+  "migrations/20260426_workout_segment_audits.sql"
 )
 
 if ($IncludeSeed) {

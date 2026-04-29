@@ -80,6 +80,8 @@ Current Supabase Edge Functions:
 - `workouts-start`
 - `workouts-end`
 - `gps-track`
+- `deterministic-finalize-worker`
+- `route-correction-worker`
 
 ## Quick Start
 
@@ -138,6 +140,8 @@ cd backend
 supabase functions deploy workouts-start
 supabase functions deploy workouts-end
 supabase functions deploy gps-track
+supabase functions deploy deterministic-finalize-worker
+supabase functions deploy route-correction-worker
 ```
 
 ## Repository Goal

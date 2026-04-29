@@ -61,6 +61,8 @@ devtools_options.yaml
 .idea/
 .vscode/
 backend/.vscode/
+.env
+backend/remote_schema_public_dump.sql
 
 # Frontend local files
 frontend/node_modules/

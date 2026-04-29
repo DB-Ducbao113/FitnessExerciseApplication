@@ -13,6 +13,7 @@ import 'package:fitness_exercise_application/features/workout/providers/workout_
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 final workoutRecordingCoordinatorProvider =
     Provider.autoDispose<WorkoutRecordingCoordinator>((ref) {
@@ -43,14 +44,21 @@ class WorkoutRecordingCoordinator {
 
   static const int _kRawGpsFlushThreshold = 24;
   static const int _kRawStepFlushThreshold = 6;
+  static const Duration _kRawTrackingFlushInterval = Duration(seconds: 5);
+  static const Duration _kLiveRouteSnapshotInterval = Duration(seconds: 5);
 
   final List<_BufferedRawGpsPoint> _pendingRawGpsPoints = [];
   final List<_BufferedRawStepInterval> _pendingRawStepIntervals = [];
 
   DateTime? _lastRawStepIntervalEnd;
+  DateTime? _lastLiveRouteSnapshotSyncAt;
+  String? _activeWorkoutId;
   bool _remoteWorkoutShellReady = false;
   bool _isFlushingRawGpsPoints = false;
   bool _isFlushingRawStepIntervals = false;
+  bool _isSyncingLiveRouteSnapshot = false;
+  Timer? _rawTrackingFlushTimer;
+  _PendingLiveRouteSnapshot? _pendingLiveRouteSnapshot;
 
   int get pendingRawGpsPointCount => _pendingRawGpsPoints.length;
   int get pendingRawStepIntervalCount => _pendingRawStepIntervals.length;
@@ -58,10 +66,16 @@ class WorkoutRecordingCoordinator {
   void reset() {
     _pendingRawGpsPoints.clear();
     _pendingRawStepIntervals.clear();
+    _pendingLiveRouteSnapshot = null;
     _lastRawStepIntervalEnd = null;
+    _lastLiveRouteSnapshotSyncAt = null;
+    _activeWorkoutId = null;
     _remoteWorkoutShellReady = false;
     _isFlushingRawGpsPoints = false;
     _isFlushingRawStepIntervals = false;
+    _isSyncingLiveRouteSnapshot = false;
+    _rawTrackingFlushTimer?.cancel();
+    _rawTrackingFlushTimer = null;
   }
 
   Future<void> createRemoteWorkoutShell({
@@ -82,15 +96,22 @@ class WorkoutRecordingCoordinator {
         startedAt: startedAt,
         createdAt: startedAt,
       );
+      _activeWorkoutId = sessionId;
       _remoteWorkoutShellReady = true;
       debugPrint('[Workout][RemoteShell] ready for session $sessionId');
+      _ensurePeriodicFlushTimer();
       await flushPendingRawTracking(workoutId: sessionId, force: true);
+      await syncLiveRouteSnapshot(force: true);
     } catch (e) {
       debugPrint('[Workout][RemoteShell] create failed for $sessionId: $e');
     }
   }
 
-  void bufferRawGpsPoint(Position position, {required String? workoutId}) {
+  void bufferRawGpsPoint(
+    Position position, {
+    required String? workoutId,
+    String deviceSource = 'geolocator_position_stream',
+  }) {
     if (workoutId != null && workoutId.isNotEmpty) {
       final localPoint = LocalGPSPoint()
         ..sessionId = workoutId
@@ -117,7 +138,7 @@ class WorkoutRecordingCoordinator {
         speed: position.speed >= 0 ? position.speed : null,
         accuracy: position.accuracy >= 0 ? position.accuracy : null,
         heading: position.heading >= 0 ? position.heading : null,
-        deviceSource: 'geolocator_position_stream',
+        deviceSource: deviceSource,
       ),
     );
     _maybeFlushRawTrackingBuffers(workoutId);
@@ -148,6 +169,29 @@ class WorkoutRecordingCoordinator {
 
   void markRemoteWorkoutShellReady() {
     _remoteWorkoutShellReady = true;
+    _ensurePeriodicFlushTimer();
+  }
+
+  void queueLiveRouteSnapshot({
+    required String? workoutId,
+    required List<List<LatLng>> routeSegments,
+    required double lastGpsGapDurationSec,
+    required bool isGpsSignalWeak,
+  }) {
+    if (workoutId == null || workoutId.isEmpty) return;
+
+    _activeWorkoutId = workoutId;
+    _pendingLiveRouteSnapshot = _PendingLiveRouteSnapshot(
+      workoutId: workoutId,
+      routeSegments: routeSegments
+          .where((segment) => segment.isNotEmpty)
+          .map((segment) => List<LatLng>.from(segment))
+          .toList(growable: false),
+      lastGpsGapDurationSec: lastGpsGapDurationSec,
+      isGpsSignalWeak: isGpsSignalWeak,
+    );
+    _ensurePeriodicFlushTimer();
+    unawaited(syncLiveRouteSnapshot(force: false));
   }
 
   Future<void> flushPendingRawTracking({
@@ -212,6 +256,51 @@ class WorkoutRecordingCoordinator {
     }
   }
 
+  Future<void> syncLiveRouteSnapshot({required bool force}) async {
+    final snapshot = _pendingLiveRouteSnapshot;
+    if (!_remoteWorkoutShellReady || snapshot == null) return;
+    if (_isSyncingLiveRouteSnapshot) return;
+
+    final now = DateTime.now();
+    final lastSyncAt = _lastLiveRouteSnapshotSyncAt;
+    if (!force &&
+        lastSyncAt != null &&
+        now.difference(lastSyncAt) < _kLiveRouteSnapshotInterval) {
+      return;
+    }
+
+    _isSyncingLiveRouteSnapshot = true;
+    try {
+      final routePointCount = snapshot.routeSegments.fold<int>(
+        0,
+        (sum, segment) => sum + segment.length,
+      );
+      await _workoutRemote.saveLiveRouteSnapshot(
+        sessionId: snapshot.workoutId,
+        routeSegments: snapshot.routeSegments,
+        shouldRequestRouteCorrection: routePointCount >= 10,
+        lastGpsGapDurationSec: snapshot.lastGpsGapDurationSec > 0
+            ? snapshot.lastGpsGapDurationSec
+            : null,
+        isGpsSignalWeak: snapshot.isGpsSignalWeak,
+      );
+      _lastLiveRouteSnapshotSyncAt = now;
+      if (identical(_pendingLiveRouteSnapshot, snapshot)) {
+        _pendingLiveRouteSnapshot = null;
+      }
+      debugPrint(
+        '[Workout][RouteSnapshot] synced '
+        '${snapshot.routeSegments.length} segments / $routePointCount points',
+      );
+    } catch (e) {
+      debugPrint(
+        '[Workout][RouteSnapshot] sync failed for ${snapshot.workoutId}: $e',
+      );
+    } finally {
+      _isSyncingLiveRouteSnapshot = false;
+    }
+  }
+
   Future<void> enqueueProcessingForSession(WorkoutSession session) async {
     final activityConsistency = _trackingEngine.assessActivityConsistency(
       activityType: session.activityType,
@@ -226,6 +315,7 @@ class WorkoutRecordingCoordinator {
           'activity_type': session.activityType,
           'mode': session.mode,
           'duration_sec': session.durationSec,
+          'moving_time_sec': session.movingTimeSec,
           'distance_km': session.distanceKm,
           'steps': session.steps,
           'avg_speed_kmh': session.avgSpeedKmh,
@@ -268,6 +358,7 @@ class WorkoutRecordingCoordinator {
           'started_at': session.startedAt.toUtc().toIso8601String(),
           'ended_at': session.endedAt.toUtc().toIso8601String(),
           'duration_sec': session.durationSec,
+          'moving_time_sec': session.movingTimeSec,
           'distance_km_filtered': session.distanceKm,
           'gps_gap_count': session.gpsAnalysis.gpsGapCount,
           'gps_gap_duration_sec': session.gpsAnalysis.gpsGapDurationSec,
@@ -324,6 +415,20 @@ class WorkoutRecordingCoordinator {
     unawaited(flushPendingRawTracking(workoutId: workoutId, force: false));
   }
 
+  void _ensurePeriodicFlushTimer() {
+    if (_rawTrackingFlushTimer != null) return;
+
+    _rawTrackingFlushTimer = Timer.periodic(_kRawTrackingFlushInterval, (_) {
+      final workoutId = _activeWorkoutId;
+      if (!_remoteWorkoutShellReady || workoutId == null || workoutId.isEmpty) {
+        return;
+      }
+
+      unawaited(flushPendingRawTracking(workoutId: workoutId, force: true));
+      unawaited(syncLiveRouteSnapshot(force: false));
+    });
+  }
+
   bool _hasEnoughFilteredRouteForCorrection(String filteredRouteJson) {
     final summary = _summarizeRouteSegments(filteredRouteJson);
     return summary.pointCount >= 10 && summary.segmentCount > 0;
@@ -352,6 +457,20 @@ class WorkoutRecordingCoordinator {
       return const _RouteSegmentSummary(segmentCount: 0, pointCount: 0);
     }
   }
+}
+
+class _PendingLiveRouteSnapshot {
+  final String workoutId;
+  final List<List<LatLng>> routeSegments;
+  final double lastGpsGapDurationSec;
+  final bool isGpsSignalWeak;
+
+  const _PendingLiveRouteSnapshot({
+    required this.workoutId,
+    required this.routeSegments,
+    required this.lastGpsGapDurationSec,
+    required this.isGpsSignalWeak,
+  });
 }
 
 class _RouteSegmentSummary {

@@ -163,6 +163,7 @@ class WorkoutSession with _$WorkoutSession {
     required DateTime startedAt,
     required DateTime endedAt,
     required int durationSec,
+    @Default(0) int movingTimeSec,
     required double distanceKm,
     required int steps,
     required double avgSpeedKmh,

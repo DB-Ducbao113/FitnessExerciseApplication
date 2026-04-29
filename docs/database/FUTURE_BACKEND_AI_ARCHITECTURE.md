@@ -270,6 +270,7 @@ Use these roles consistently:
 - `raw_gps_points` and `raw_step_intervals` store original device input
 - `gps_points` and `step_intervals` are optional cleaned/canonical tracking tables
 - `workout_processing_jobs` and `workout_processing_logs` track deterministic processing
+- `workout_segment_audits` stores segment-level validity evidence for anti-cheat checks and future AI
 
 ### Profile modeling rule
 
@@ -319,6 +320,21 @@ Examples:
 - "dropped 12 GPS outliers"
 - "route smoothing applied"
 - "fallback to step-based distance"
+
+#### `workout_segment_audits`
+
+Deterministic segment evidence for activity validity and future AI enrichment.
+
+Examples:
+
+- cycling segment faster than `3:00/km`
+- long idle period after a suspicious fast segment
+- invalid segment due to poor accuracy or impossible pace
+
+The canonical workout metrics should use valid segments only. Suspicious and
+invalid segments remain stored as evidence and should appear in
+`route_match_metrics_json` as aggregate features such as suspicious distance
+ratio, max speed, median speed, and rest-after-fast duration.
 
 ### AI Tables
 
@@ -488,17 +504,42 @@ Current implementation status:
 - app creates `workout_sessions` shell at start
 - app batches raw tracking data during recording
 - app enqueues deterministic processing intent at finish
+- edge worker `deterministic-finalize-worker` finalizes canonical metrics from raw tracking data
+- edge worker `route-correction-worker` runs async route quality / map matching enrichment
 
 ### Phase D: Deterministic Processing
 
 Implement:
 
-- outlier filtering
-- GPS smoothing
-- final distance computation
-- finalized calorie baseline
-- generation of cleaned `gps_points` / `step_intervals` if needed
-- transition from `client_finished_pending_processing` to finalized status
+- outlier filtering: implemented in `deterministic-finalize-worker`
+- GPS smoothing / cleaned display route: implemented as `filtered_route_json`
+- final distance computation: implemented from valid raw GPS segments only
+- finalized calorie baseline: implemented from canonical distance and profile weight when available
+- generation of cleaned `gps_points` / `step_intervals` if needed: not yet implemented as separate child rows; current output is `filtered_route_json`, `lap_splits`, and `workout_segment_audits`
+- transition from `client_finished_pending_processing` to finalized status: implemented as `client_finalized`
+
+Current Phase D stabilization status:
+
+- local code path exists for app raw upload, deterministic job enqueue, worker finalization, and route correction enqueue
+- `20260420_add_workout_moving_time.sql` must be applied after route matching metadata
+- `202604260001_workout_segment_audits.sql` adds segment-level anti-cheat evidence for AI-ready review in the Supabase CLI migration path
+- local Flutter analysis/tests and Deno function checks pass as of Phase D stabilization
+- Supabase remote schema and migration history were aligned during Phase D deployment
+- Supabase Edge Functions were deployed for `workouts-start`, `workouts-end`, `gps-track`, `deterministic-finalize-worker`, and `route-correction-worker`
+- remote worker smoke test passed with a no-op `job_not_found` response; the remaining gate before AI is a real test workout through the app
+
+### AI-Ready Gate
+
+Before connecting an AI model, complete these non-AI checks:
+
+- record one outdoor workout with a test account
+- confirm `workout_sessions.processing_status` moves from `client_recording` to `client_finished_pending_processing` to `client_finalized`
+- confirm `raw_gps_points` and `raw_step_intervals` store raw evidence by `workout_id`
+- confirm `workout_processing_jobs` and `workout_processing_logs` contain the deterministic finalize trace
+- confirm `workout_segment_audits` contains valid/suspicious/invalid segment evidence
+- test a fast cycling segment followed by idle time and confirm the suspicious segment remains excluded from canonical distance
+- decide the AI input contract: joined workout summary, raw point sample, segment audits, profile context, and deterministic quality metrics
+- keep AI output additive and versioned; do not let AI overwrite raw evidence or deterministic canonical metrics directly
 
 ### Phase E: Legacy Cleanup
 

@@ -602,6 +602,13 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         workoutId: finalization.sessionId,
         force: true,
       );
+      _recordingCoordinator.queueLiveRouteSnapshot(
+        workoutId: finalization.sessionId,
+        routeSegments: state.routeSegments,
+        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+        isGpsSignalWeak: state.isGpsSignalWeak,
+      );
+      await _recordingCoordinator.syncLiveRouteSnapshot(force: true);
       await _recordingCoordinator.enqueueProcessingForSession(
         finalization.session,
       );
@@ -664,8 +671,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       id: 'active-session',
       userId: _ref.read(currentUserIdProvider) ?? 'active-session',
       weightKg: _weightKg,
-      heightM: ((_heightCm ?? 170).clamp(50.0, 250.0)) / 100,
-      age: 0,
+      heightCm: (_heightCm ?? 170).clamp(50.0, 250.0),
+      legacyAge: 0,
       gender: _gender ?? 'male',
       createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
@@ -795,6 +802,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final isGpsPrimary = _requiresGpsTracking(state.activityType);
     final livePoint = LatLng(position.latitude, position.longitude);
     _lastGpsEventTime = DateTime.now();
+    final rawGpsDeviceSource =
+        state.isGpsSignalWeak || _shouldResetGpsAnchorOnResume
+        ? 'geolocator_position_stream_recovery'
+        : 'geolocator_position_stream';
 
     debugPrint(
       '[Workout][GPS] lat=${position.latitude}, lng=${position.longitude}, '
@@ -823,6 +834,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _recordingCoordinator.bufferRawGpsPoint(
       position,
       workoutId: state.sessionId,
+      deviceSource: rawGpsDeviceSource,
     );
     _rawGpsPositions.add(position);
     _environmentController.addPosition(position);
@@ -895,6 +907,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       debugPrint(
         '[Workout][GPS-ACCEPT] first route point seeded; gps pipeline active',
       );
+      _recordingCoordinator.queueLiveRouteSnapshot(
+        workoutId: state.sessionId,
+        routeSegments: state.routeSegments,
+        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+        isGpsSignalWeak: state.isGpsSignalWeak,
+      );
       return;
     }
 
@@ -909,6 +927,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         isAutoPaused: false,
       );
       debugPrint('[GPS] resume anchor reset');
+      _recordingCoordinator.queueLiveRouteSnapshot(
+        workoutId: state.sessionId,
+        routeSegments: state.routeSegments,
+        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+        isGpsSignalWeak: state.isGpsSignalWeak,
+      );
       return;
     }
 
@@ -1296,6 +1320,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       'route=${routeSegmentMeters.toStringAsFixed(2)}m '
       'total=${newDistanceM.toStringAsFixed(2)}m routePoints=${updatedRoute.length} '
       'source=gps addDistance=$shouldAddDistance gap=${gpsGapDurationSec.toStringAsFixed(1)}s',
+    );
+    _recordingCoordinator.queueLiveRouteSnapshot(
+      workoutId: state.sessionId,
+      routeSegments: state.routeSegments,
+      lastGpsGapDurationSec: gpsGapDurationSec,
+      isGpsSignalWeak: state.isGpsSignalWeak,
     );
   }
 

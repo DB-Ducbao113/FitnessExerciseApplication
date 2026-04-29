@@ -46,6 +46,7 @@ class WorkoutSessionFinalizer {
       ),
     );
     final durationSec = state.durationSeconds;
+    final movingTimeSec = math.min(state.movingTimeSeconds, durationSec);
     final distanceKm = gpsAnalysis.totalDistanceKm > 0
         ? gpsAnalysis.totalDistanceKm
         : WorkoutMetricsCalculator.distanceMetersToKm(state.distanceMeters);
@@ -73,6 +74,7 @@ class WorkoutSessionFinalizer {
           finishedAt.toUtc().subtract(Duration(seconds: durationSec)),
       endedAt: finishedAt.toUtc(),
       durationSec: durationSec,
+      movingTimeSec: movingTimeSec,
       distanceKm: distanceKm,
       steps: finalSteps,
       avgSpeedKmh: avgSpeedKmh,

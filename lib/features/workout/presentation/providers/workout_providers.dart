@@ -106,6 +106,7 @@ class WorkoutList extends _$WorkoutList {
       startedAt: endedAt.subtract(Duration(seconds: durationSec)),
       endedAt: endedAt,
       durationSec: durationSec,
+      movingTimeSec: durationSec,
       distanceKm: distanceKm,
       steps: steps,
       avgSpeedKmh: avgSpeedKmh ?? 0.0,

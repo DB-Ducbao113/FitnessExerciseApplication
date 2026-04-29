@@ -31,6 +31,8 @@ mixin _$WorkoutSessionModel {
   DateTime get endedAt => throw _privateConstructorUsedError;
   @JsonKey(name: 'duration_sec')
   int get durationSec => throw _privateConstructorUsedError;
+  @JsonKey(name: 'moving_time_sec')
+  int get movingTimeSec => throw _privateConstructorUsedError;
   @JsonKey(name: 'distance_km')
   double get distanceKm => throw _privateConstructorUsedError;
   int get steps => throw _privateConstructorUsedError;
@@ -85,6 +87,7 @@ abstract class $WorkoutSessionModelCopyWith<$Res> {
       @JsonKey(name: 'started_at') DateTime startedAt,
       @JsonKey(name: 'ended_at') DateTime endedAt,
       @JsonKey(name: 'duration_sec') int durationSec,
+      @JsonKey(name: 'moving_time_sec') int movingTimeSec,
       @JsonKey(name: 'distance_km') double distanceKm,
       int steps,
       @JsonKey(name: 'avg_speed_kmh') double avgSpeedKmh,
@@ -129,6 +132,7 @@ class _$WorkoutSessionModelCopyWithImpl<$Res, $Val extends WorkoutSessionModel>
     Object? startedAt = null,
     Object? endedAt = null,
     Object? durationSec = null,
+    Object? movingTimeSec = null,
     Object? distanceKm = null,
     Object? steps = null,
     Object? avgSpeedKmh = null,
@@ -169,6 +173,10 @@ class _$WorkoutSessionModelCopyWithImpl<$Res, $Val extends WorkoutSessionModel>
       durationSec: null == durationSec
           ? _value.durationSec
           : durationSec // ignore: cast_nullable_to_non_nullable
+              as int,
+      movingTimeSec: null == movingTimeSec
+          ? _value.movingTimeSec
+          : movingTimeSec // ignore: cast_nullable_to_non_nullable
               as int,
       distanceKm: null == distanceKm
           ? _value.distanceKm
@@ -249,6 +257,7 @@ abstract class _$$WorkoutSessionModelImplCopyWith<$Res>
       @JsonKey(name: 'started_at') DateTime startedAt,
       @JsonKey(name: 'ended_at') DateTime endedAt,
       @JsonKey(name: 'duration_sec') int durationSec,
+      @JsonKey(name: 'moving_time_sec') int movingTimeSec,
       @JsonKey(name: 'distance_km') double distanceKm,
       int steps,
       @JsonKey(name: 'avg_speed_kmh') double avgSpeedKmh,
@@ -291,6 +300,7 @@ class __$$WorkoutSessionModelImplCopyWithImpl<$Res>
     Object? startedAt = null,
     Object? endedAt = null,
     Object? durationSec = null,
+    Object? movingTimeSec = null,
     Object? distanceKm = null,
     Object? steps = null,
     Object? avgSpeedKmh = null,
@@ -331,6 +341,10 @@ class __$$WorkoutSessionModelImplCopyWithImpl<$Res>
       durationSec: null == durationSec
           ? _value.durationSec
           : durationSec // ignore: cast_nullable_to_non_nullable
+              as int,
+      movingTimeSec: null == movingTimeSec
+          ? _value.movingTimeSec
+          : movingTimeSec // ignore: cast_nullable_to_non_nullable
               as int,
       distanceKm: null == distanceKm
           ? _value.distanceKm
@@ -406,6 +420,7 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
       @JsonKey(name: 'started_at') required this.startedAt,
       @JsonKey(name: 'ended_at') required this.endedAt,
       @JsonKey(name: 'duration_sec') required this.durationSec,
+      @JsonKey(name: 'moving_time_sec') this.movingTimeSec = 0,
       @JsonKey(name: 'distance_km') required this.distanceKm,
       required this.steps,
       @JsonKey(name: 'avg_speed_kmh') required this.avgSpeedKmh,
@@ -454,6 +469,9 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
   @override
   @JsonKey(name: 'duration_sec')
   final int durationSec;
+  @override
+  @JsonKey(name: 'moving_time_sec')
+  final int movingTimeSec;
   @override
   @JsonKey(name: 'distance_km')
   final double distanceKm;
@@ -512,7 +530,7 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
 
   @override
   String toString() {
-    return 'WorkoutSessionModel(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis, filteredRouteJson: $filteredRouteJson, matchedRouteJson: $matchedRouteJson, routeMatchStatus: $routeMatchStatus, routeMatchConfidence: $routeMatchConfidence, routeDistanceSource: $routeDistanceSource, matchedDistanceKm: $matchedDistanceKm, routeMatchMetricsJson: $routeMatchMetricsJson)';
+    return 'WorkoutSessionModel(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, movingTimeSec: $movingTimeSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis, filteredRouteJson: $filteredRouteJson, matchedRouteJson: $matchedRouteJson, routeMatchStatus: $routeMatchStatus, routeMatchConfidence: $routeMatchConfidence, routeDistanceSource: $routeDistanceSource, matchedDistanceKm: $matchedDistanceKm, routeMatchMetricsJson: $routeMatchMetricsJson)';
   }
 
   @override
@@ -529,6 +547,8 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
             (identical(other.endedAt, endedAt) || other.endedAt == endedAt) &&
             (identical(other.durationSec, durationSec) ||
                 other.durationSec == durationSec) &&
+            (identical(other.movingTimeSec, movingTimeSec) ||
+                other.movingTimeSec == movingTimeSec) &&
             (identical(other.distanceKm, distanceKm) ||
                 other.distanceKm == distanceKm) &&
             (identical(other.steps, steps) || other.steps == steps) &&
@@ -569,6 +589,7 @@ class _$WorkoutSessionModelImpl extends _WorkoutSessionModel {
         startedAt,
         endedAt,
         durationSec,
+        movingTimeSec,
         distanceKm,
         steps,
         avgSpeedKmh,
@@ -609,6 +630,7 @@ abstract class _WorkoutSessionModel extends WorkoutSessionModel {
       @JsonKey(name: 'started_at') required final DateTime startedAt,
       @JsonKey(name: 'ended_at') required final DateTime endedAt,
       @JsonKey(name: 'duration_sec') required final int durationSec,
+      @JsonKey(name: 'moving_time_sec') final int movingTimeSec,
       @JsonKey(name: 'distance_km') required final double distanceKm,
       required final int steps,
       @JsonKey(name: 'avg_speed_kmh') required final double avgSpeedKmh,
@@ -656,6 +678,9 @@ abstract class _WorkoutSessionModel extends WorkoutSessionModel {
   @override
   @JsonKey(name: 'duration_sec')
   int get durationSec;
+  @override
+  @JsonKey(name: 'moving_time_sec')
+  int get movingTimeSec;
   @override
   @JsonKey(name: 'distance_km')
   double get distanceKm;

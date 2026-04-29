@@ -317,6 +317,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           activityType: finalState.activityType,
           trackingMode: finalState.trackingMode,
           durationSeconds: finalState.durationSeconds,
+          movingTimeSeconds: finalState.movingTimeSeconds,
           distanceMeters: finalState.distanceMeters,
           avgSpeedKmh: finalState.avgSpeedKmh,
           calories: finalState.caloriesBurned,
@@ -334,6 +335,16 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     final state = ref.watch(workoutSessionProvider);
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
+    final distanceKm = state.distanceMeters / 1000.0;
+    final avgPace = WorkoutFormatters.formatPaceFromSpeedKmh(
+      state.avgSpeedKmh,
+      useMetric: useMetricUnits,
+    );
+    final movingPace = WorkoutFormatters.formatPaceFromDistanceAndDuration(
+      distanceKm: distanceKm,
+      durationSec: state.movingTimeSeconds,
+      useMetric: useMetricUnits,
+    );
 
     ref.listen<WorkoutSessionState>(workoutSessionProvider, (prev, next) {
       if (next.errorMessage != null &&
@@ -597,11 +608,31 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           Expanded(
                             child: _FeatureStatCard(
                               label: 'AVG PACE',
-                              value: WorkoutFormatters.formatPaceFromSpeedKmh(
-                                state.avgSpeedKmh,
-                                useMetric: useMetricUnits,
-                              ),
+                              value: avgPace,
                               accent: const Color(0xfff8c15c),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _FeatureStatCard(
+                              label: 'MOVING PACE',
+                              value: movingPace,
+                              accent: const Color(0xff7df9a8),
+                              align: CrossAxisAlignment.end,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _FeatureStatCard(
+                              label: 'MOVING TIME',
+                              value: WorkoutFormatters.formatElapsedClock(
+                                state.movingTimeSeconds,
+                              ),
+                              accent: _kNeonCyan,
                             ),
                           ),
                           const SizedBox(width: 12),

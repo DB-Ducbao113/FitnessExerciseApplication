@@ -145,6 +145,7 @@ class LocalDB {
           existing.startedAt = remote.startedAt;
           existing.endedAt = remote.endedAt;
           existing.durationSec = remote.durationSec;
+          existing.movingTimeSec = remote.movingTimeSec;
           existing.distanceKm = remote.distanceKm;
           existing.steps = remote.steps;
           existing.avgSpeedKmh = remote.avgSpeedKmh;

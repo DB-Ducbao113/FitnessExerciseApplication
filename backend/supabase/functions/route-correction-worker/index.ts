@@ -35,6 +35,20 @@ type MatchedChunk = {
   unmatchedCount?: number;
 };
 
+type ProcessingJobRow = {
+  id: string;
+  workout_id: string;
+  attempt_count: number | null;
+};
+
+type WorkoutRouteRow = {
+  filtered_route_json: unknown;
+  distance_km: number | null;
+  route_match_metrics_json: Record<string, unknown> | null;
+};
+
+type SupabaseAdminClient = any;
+
 const ROUTE_CORRECTION_JOB_TYPE = "route_correction_finalize";
 const MAX_ATTEMPTS = 3;
 const MIN_POINTS = 10;
@@ -159,9 +173,9 @@ Deno.serve(async (req: Request) => {
 });
 
 async function fetchQueuedJob(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseAdminClient,
   input: { workoutId?: string; jobId?: string },
-) {
+): Promise<ProcessingJobRow | null> {
   let query = supabase
     .from("workout_processing_jobs")
     .select("*")
@@ -183,9 +197,9 @@ async function fetchQueuedJob(
 }
 
 async function fetchWorkout(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseAdminClient,
   workoutId: string,
-) {
+): Promise<WorkoutRouteRow | null> {
   const { data, error } = await supabase
     .from("workout_sessions")
     .select("*")
@@ -196,7 +210,7 @@ async function fetchWorkout(
 }
 
 async function markJobStarted(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseAdminClient,
   jobId: string,
 ) {
   const { data: current, error: currentError } = await supabase
@@ -218,7 +232,7 @@ async function markJobStarted(
 }
 
 async function completeJob(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseAdminClient,
   jobId: string,
 ) {
   const { error } = await supabase
@@ -233,7 +247,7 @@ async function completeJob(
 }
 
 async function failJob(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseAdminClient,
   jobId: string,
   errorMessage: string,
 ) {
@@ -410,7 +424,7 @@ function scoreAndResolve(input: {
 }
 
 async function persistRouteMatchResult(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseAdminClient,
   workoutId: string,
   result: RouteMatchResult,
 ) {
