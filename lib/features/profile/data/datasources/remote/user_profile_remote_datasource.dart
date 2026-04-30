@@ -17,13 +17,22 @@ class UserProfileRemoteDataSource {
 
     if (response == null) return null;
 
+    final rawHeightCm = response['height_cm'];
+    final rawHeightM = response['height_m'];
+    final heightCm = rawHeightCm != null
+        ? (rawHeightCm as num).toDouble()
+        : ((rawHeightM as num?)?.toDouble() ?? 0) * 100.0;
+    final dateOfBirth = _parseDate(response['date_of_birth']);
+    final legacyAge = (response['age'] as num?)?.toInt() ?? 0;
+
     return UserProfileModel(
       id: response['id'] as String,
       userId: response['user_id'] as String,
       weightKg: (response['weight_kg'] as num).toDouble(),
-      heightM: (response['height_m'] as num).toDouble(),
-      age: (response['age'] as num).toInt(),
-      gender: response['gender'] as String,
+      heightCm: heightCm,
+      dateOfBirth: dateOfBirth,
+      legacyAge: legacyAge,
+      gender: (response['gender'] as String?) ?? '',
       createdAt: DateTime.parse(response['created_at'] as String),
       updatedAt: DateTime.parse(response['updated_at'] as String),
       avatarUrl: response['avatar_url'] as String?,
@@ -31,17 +40,19 @@ class UserProfileRemoteDataSource {
   }
 
   Future<void> createProfile(UserProfileModel profile) async {
-    await _supabase.from(DbTables.userProfiles).insert({
+    await _supabase.from(DbTables.userProfiles).upsert({
       'id': profile.id,
       'user_id': profile.userId,
       'weight_kg': profile.weightKg,
-      'height_m': profile.heightM,
-      'age': profile.age,
+      'height_cm': profile.heightCm,
+      'height_m': profile.heightCm / 100.0,
+      'date_of_birth': _serializeDate(profile.dateOfBirth),
+      'age': profile.dateOfBirth != null ? null : profile.legacyAge,
       'gender': profile.gender,
       'avatar_url': profile.avatarUrl,
       'created_at': profile.createdAt.toIso8601String(),
       'updated_at': profile.updatedAt.toIso8601String(),
-    });
+    }, onConflict: 'user_id');
   }
 
   Future<void> updateProfile(UserProfileModel profile) async {
@@ -49,9 +60,12 @@ class UserProfileRemoteDataSource {
         .from(DbTables.userProfiles)
         .update({
           'weight_kg': profile.weightKg,
-          'height_m': profile.heightM,
-          'age': profile.age,
+          'height_cm': profile.heightCm,
+          'height_m': profile.heightCm / 100.0,
+          'date_of_birth': _serializeDate(profile.dateOfBirth),
+          'age': profile.dateOfBirth != null ? null : profile.legacyAge,
           'gender': profile.gender,
+          'avatar_url': profile.avatarUrl,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('user_id', profile.userId);
@@ -88,4 +102,14 @@ class UserProfileRemoteDataSource {
         })
         .eq('user_id', userId);
   }
+}
+
+DateTime? _parseDate(dynamic value) {
+  if (value is! String || value.isEmpty) return null;
+  return DateTime.tryParse(value);
+}
+
+String? _serializeDate(DateTime? value) {
+  if (value == null) return null;
+  return value.toIso8601String().split('T').first;
 }

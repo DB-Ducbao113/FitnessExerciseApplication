@@ -25,9 +25,12 @@ mixin _$UserProfileModel {
   String get userId => throw _privateConstructorUsedError;
   @JsonKey(name: 'weight_kg')
   double get weightKg => throw _privateConstructorUsedError;
-  @JsonKey(name: 'height_m')
-  double get heightM => throw _privateConstructorUsedError;
-  int get age => throw _privateConstructorUsedError;
+  @JsonKey(name: 'height_cm')
+  double get heightCm => throw _privateConstructorUsedError;
+  @JsonKey(name: 'date_of_birth')
+  DateTime? get dateOfBirth => throw _privateConstructorUsedError;
+  @JsonKey(name: 'age')
+  int get legacyAge => throw _privateConstructorUsedError;
   String get gender => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -52,8 +55,9 @@ abstract class $UserProfileModelCopyWith<$Res> {
       {String id,
       @JsonKey(name: 'user_id') String userId,
       @JsonKey(name: 'weight_kg') double weightKg,
-      @JsonKey(name: 'height_m') double heightM,
-      int age,
+      @JsonKey(name: 'height_cm') double heightCm,
+      @JsonKey(name: 'date_of_birth') DateTime? dateOfBirth,
+      @JsonKey(name: 'age') int legacyAge,
       String gender,
       @JsonKey(name: 'created_at') DateTime createdAt,
       @JsonKey(name: 'updated_at') DateTime updatedAt,
@@ -76,8 +80,9 @@ class _$UserProfileModelCopyWithImpl<$Res, $Val extends UserProfileModel>
     Object? id = null,
     Object? userId = null,
     Object? weightKg = null,
-    Object? heightM = null,
-    Object? age = null,
+    Object? heightCm = null,
+    Object? dateOfBirth = freezed,
+    Object? legacyAge = null,
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
@@ -96,13 +101,17 @@ class _$UserProfileModelCopyWithImpl<$Res, $Val extends UserProfileModel>
           ? _value.weightKg
           : weightKg // ignore: cast_nullable_to_non_nullable
               as double,
-      heightM: null == heightM
-          ? _value.heightM
-          : heightM // ignore: cast_nullable_to_non_nullable
+      heightCm: null == heightCm
+          ? _value.heightCm
+          : heightCm // ignore: cast_nullable_to_non_nullable
               as double,
-      age: null == age
-          ? _value.age
-          : age // ignore: cast_nullable_to_non_nullable
+      dateOfBirth: freezed == dateOfBirth
+          ? _value.dateOfBirth
+          : dateOfBirth // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      legacyAge: null == legacyAge
+          ? _value.legacyAge
+          : legacyAge // ignore: cast_nullable_to_non_nullable
               as int,
       gender: null == gender
           ? _value.gender
@@ -136,8 +145,9 @@ abstract class _$$UserProfileModelImplCopyWith<$Res>
       {String id,
       @JsonKey(name: 'user_id') String userId,
       @JsonKey(name: 'weight_kg') double weightKg,
-      @JsonKey(name: 'height_m') double heightM,
-      int age,
+      @JsonKey(name: 'height_cm') double heightCm,
+      @JsonKey(name: 'date_of_birth') DateTime? dateOfBirth,
+      @JsonKey(name: 'age') int legacyAge,
       String gender,
       @JsonKey(name: 'created_at') DateTime createdAt,
       @JsonKey(name: 'updated_at') DateTime updatedAt,
@@ -158,8 +168,9 @@ class __$$UserProfileModelImplCopyWithImpl<$Res>
     Object? id = null,
     Object? userId = null,
     Object? weightKg = null,
-    Object? heightM = null,
-    Object? age = null,
+    Object? heightCm = null,
+    Object? dateOfBirth = freezed,
+    Object? legacyAge = null,
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
@@ -178,13 +189,17 @@ class __$$UserProfileModelImplCopyWithImpl<$Res>
           ? _value.weightKg
           : weightKg // ignore: cast_nullable_to_non_nullable
               as double,
-      heightM: null == heightM
-          ? _value.heightM
-          : heightM // ignore: cast_nullable_to_non_nullable
+      heightCm: null == heightCm
+          ? _value.heightCm
+          : heightCm // ignore: cast_nullable_to_non_nullable
               as double,
-      age: null == age
-          ? _value.age
-          : age // ignore: cast_nullable_to_non_nullable
+      dateOfBirth: freezed == dateOfBirth
+          ? _value.dateOfBirth
+          : dateOfBirth // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      legacyAge: null == legacyAge
+          ? _value.legacyAge
+          : legacyAge // ignore: cast_nullable_to_non_nullable
               as int,
       gender: null == gender
           ? _value.gender
@@ -213,8 +228,9 @@ class _$UserProfileModelImpl extends _UserProfileModel {
       {required this.id,
       @JsonKey(name: 'user_id') required this.userId,
       @JsonKey(name: 'weight_kg') required this.weightKg,
-      @JsonKey(name: 'height_m') required this.heightM,
-      required this.age,
+      @JsonKey(name: 'height_cm') required this.heightCm,
+      @JsonKey(name: 'date_of_birth') this.dateOfBirth,
+      @JsonKey(name: 'age') this.legacyAge = 0,
       required this.gender,
       @JsonKey(name: 'created_at') required this.createdAt,
       @JsonKey(name: 'updated_at') required this.updatedAt,
@@ -233,10 +249,14 @@ class _$UserProfileModelImpl extends _UserProfileModel {
   @JsonKey(name: 'weight_kg')
   final double weightKg;
   @override
-  @JsonKey(name: 'height_m')
-  final double heightM;
+  @JsonKey(name: 'height_cm')
+  final double heightCm;
   @override
-  final int age;
+  @JsonKey(name: 'date_of_birth')
+  final DateTime? dateOfBirth;
+  @override
+  @JsonKey(name: 'age')
+  final int legacyAge;
   @override
   final String gender;
   @override
@@ -251,7 +271,7 @@ class _$UserProfileModelImpl extends _UserProfileModel {
 
   @override
   String toString() {
-    return 'UserProfileModel(id: $id, userId: $userId, weightKg: $weightKg, heightM: $heightM, age: $age, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt, avatarUrl: $avatarUrl)';
+    return 'UserProfileModel(id: $id, userId: $userId, weightKg: $weightKg, heightCm: $heightCm, dateOfBirth: $dateOfBirth, legacyAge: $legacyAge, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt, avatarUrl: $avatarUrl)';
   }
 
   @override
@@ -263,8 +283,12 @@ class _$UserProfileModelImpl extends _UserProfileModel {
             (identical(other.userId, userId) || other.userId == userId) &&
             (identical(other.weightKg, weightKg) ||
                 other.weightKg == weightKg) &&
-            (identical(other.heightM, heightM) || other.heightM == heightM) &&
-            (identical(other.age, age) || other.age == age) &&
+            (identical(other.heightCm, heightCm) ||
+                other.heightCm == heightCm) &&
+            (identical(other.dateOfBirth, dateOfBirth) ||
+                other.dateOfBirth == dateOfBirth) &&
+            (identical(other.legacyAge, legacyAge) ||
+                other.legacyAge == legacyAge) &&
             (identical(other.gender, gender) || other.gender == gender) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
@@ -276,8 +300,8 @@ class _$UserProfileModelImpl extends _UserProfileModel {
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightM,
-      age, gender, createdAt, updatedAt, avatarUrl);
+  int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightCm,
+      dateOfBirth, legacyAge, gender, createdAt, updatedAt, avatarUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -299,8 +323,9 @@ abstract class _UserProfileModel extends UserProfileModel {
           {required final String id,
           @JsonKey(name: 'user_id') required final String userId,
           @JsonKey(name: 'weight_kg') required final double weightKg,
-          @JsonKey(name: 'height_m') required final double heightM,
-          required final int age,
+          @JsonKey(name: 'height_cm') required final double heightCm,
+          @JsonKey(name: 'date_of_birth') final DateTime? dateOfBirth,
+          @JsonKey(name: 'age') final int legacyAge,
           required final String gender,
           @JsonKey(name: 'created_at') required final DateTime createdAt,
           @JsonKey(name: 'updated_at') required final DateTime updatedAt,
@@ -320,10 +345,14 @@ abstract class _UserProfileModel extends UserProfileModel {
   @JsonKey(name: 'weight_kg')
   double get weightKg;
   @override
-  @JsonKey(name: 'height_m')
-  double get heightM;
+  @JsonKey(name: 'height_cm')
+  double get heightCm;
   @override
-  int get age;
+  @JsonKey(name: 'date_of_birth')
+  DateTime? get dateOfBirth;
+  @override
+  @JsonKey(name: 'age')
+  int get legacyAge;
   @override
   String get gender;
   @override

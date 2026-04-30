@@ -39,9 +39,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       text: profile?.weightKg.toString() ?? '',
     );
     _heightController = TextEditingController(
-      text: profile?.heightM.toString() ?? '',
+      text: profile != null ? profile.heightM.toString() : '',
     );
-    _ageController = TextEditingController(text: profile?.age.toString() ?? '');
+    _ageController = TextEditingController(
+      text: profile != null ? profile.age.toString() : '',
+    );
     _selectedGender = profile?.gender ?? 'male';
   }
 
@@ -69,11 +71,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         id: profileId,
         userId: user.id,
         weightKg: double.parse(_weightController.text),
-        heightM: double.parse(_heightController.text),
-        age: int.parse(_ageController.text),
+        heightCm: double.parse(_heightController.text) * 100.0,
+        dateOfBirth: _approximateDateOfBirth(int.parse(_ageController.text)),
+        legacyAge: int.parse(_ageController.text),
         gender: _selectedGender,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
+        avatarUrl: widget.existingProfile?.avatarUrl,
       );
 
       final repository = ref.read(userProfileRepositoryProvider);
@@ -104,6 +108,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  DateTime _approximateDateOfBirth(int age) {
+    final now = DateTime.now();
+    return DateTime(now.year - age, now.month, now.day);
   }
 
   @override

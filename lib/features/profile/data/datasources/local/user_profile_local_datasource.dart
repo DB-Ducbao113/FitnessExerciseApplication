@@ -18,12 +18,17 @@ class UserProfileLocalDataSource {
     if (results.isEmpty) return null;
 
     final map = results.first;
+    final rawHeightCm = map['height_cm'];
+    final rawHeightM = map['height_m'];
     return UserProfileModel(
       id: map['id'] as String,
       userId: map['user_id'] as String,
-      weightKg: map['weight_kg'] as double,
-      heightM: map['height_m'] as double,
-      age: map['age'] as int,
+      weightKg: (map['weight_kg'] as num).toDouble(),
+      heightCm: rawHeightCm != null
+          ? (rawHeightCm as num).toDouble()
+          : ((rawHeightM as num?)?.toDouble() ?? 0) * 100.0,
+      dateOfBirth: _parseDate(map['date_of_birth']),
+      legacyAge: (map['age'] as num?)?.toInt() ?? 0,
       gender: map['gender'] as String,
       avatarUrl: map['avatar_url'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
@@ -37,8 +42,10 @@ class UserProfileLocalDataSource {
       'id': profile.id,
       'user_id': profile.userId,
       'weight_kg': profile.weightKg,
-      'height_m': profile.heightM,
-      'age': profile.age,
+      'height_cm': profile.heightCm,
+      'height_m': profile.heightCm / 100.0,
+      'date_of_birth': _serializeDate(profile.dateOfBirth),
+      'age': profile.dateOfBirth != null ? null : profile.legacyAge,
       'gender': profile.gender,
       'avatar_url': profile.avatarUrl,
       'created_at': profile.createdAt.toIso8601String(),
@@ -52,8 +59,10 @@ class UserProfileLocalDataSource {
       'user_profile',
       {
         'weight_kg': profile.weightKg,
-        'height_m': profile.heightM,
-        'age': profile.age,
+        'height_cm': profile.heightCm,
+        'height_m': profile.heightCm / 100.0,
+        'date_of_birth': _serializeDate(profile.dateOfBirth),
+        'age': profile.dateOfBirth != null ? null : profile.legacyAge,
         'gender': profile.gender,
         'avatar_url': profile.avatarUrl,
         'updated_at': DateTime.now().toIso8601String(),
@@ -72,4 +81,14 @@ class UserProfileLocalDataSource {
     );
     return results.isNotEmpty;
   }
+}
+
+DateTime? _parseDate(dynamic value) {
+  if (value is! String || value.isEmpty) return null;
+  return DateTime.tryParse(value);
+}
+
+String? _serializeDate(DateTime? value) {
+  if (value == null) return null;
+  return value.toIso8601String().split('T').first;
 }

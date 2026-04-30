@@ -31,8 +31,10 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL UNIQUE,
         weight_kg REAL NOT NULL,
-        height_m REAL NOT NULL,
-        age INTEGER NOT NULL,
+        height_m REAL,
+        height_cm REAL NOT NULL,
+        age INTEGER,
+        date_of_birth TEXT,
         gender TEXT NOT NULL,
         avatar_url TEXT,
         created_at TEXT NOT NULL,
@@ -49,8 +51,10 @@ class DatabaseHelper {
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL UNIQUE,
           weight_kg REAL NOT NULL,
-          height_m REAL NOT NULL,
-          age INTEGER NOT NULL,
+          height_m REAL,
+          height_cm REAL NOT NULL,
+          age INTEGER,
+          date_of_birth TEXT,
           gender TEXT NOT NULL,
           avatar_url TEXT,
           created_at TEXT NOT NULL,
@@ -70,7 +74,15 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 5) {
-      await db.execute('ALTER TABLE user_profile ADD COLUMN avatar_url TEXT');
+      await _addColumnIfMissing(db, 'user_profile', 'height_cm', 'REAL');
+      await _addColumnIfMissing(db, 'user_profile', 'date_of_birth', 'TEXT');
+      await _addColumnIfMissing(db, 'user_profile', 'avatar_url', 'TEXT');
+
+      await db.execute('''
+        UPDATE user_profile
+        SET height_cm = COALESCE(height_cm, height_m * 100.0)
+        WHERE height_cm IS NULL
+      ''');
     }
   }
 
@@ -78,5 +90,20 @@ class DatabaseHelper {
     final db = await database;
     await db.close();
     _database = null;
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String tableName,
+    String columnName,
+    String columnType,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($tableName)');
+    final exists = columns.any((column) => column['name'] == columnName);
+    if (!exists) {
+      await db.execute(
+        'ALTER TABLE $tableName ADD COLUMN $columnName $columnType',
+      );
+    }
   }
 }

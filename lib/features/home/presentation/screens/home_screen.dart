@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_screen.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_start_screen.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
@@ -162,7 +161,7 @@ class HomeScreen extends ConsumerWidget {
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(20, topInset + 16, 20, 148),
+                      padding: EdgeInsets.fromLTRB(20, topInset + 16, 20, 32),
                       child: const _HomeContent(),
                     ),
                   ),
@@ -170,7 +169,6 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const _StickyStartButton(),
         ],
       ),
     );
@@ -474,7 +472,7 @@ class _NeoStatsGrid extends ConsumerWidget {
       _NeoStatItem(
         icon: Icons.schedule_rounded,
         label: 'TIME',
-        value: (weekly.weeklyDurationSec / 60).round().toString(),
+        value: (weekly.weeklyDurationSec / 60).floor().toString(),
         unit: 'MIN',
       ),
       _NeoStatItem(
@@ -575,78 +573,6 @@ class _WeeklyPulseCard extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StickyStartButton extends StatelessWidget {
-  const _StickyStartButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 20,
-      right: 20,
-      bottom: 18,
-      child: SafeArea(
-        top: false,
-        child: GestureDetector(
-          onTap: () => showModalBottomSheet<void>(
-            context: context,
-            backgroundColor: Colors.transparent,
-            builder: (_) => const _ActivityPickerSheet(),
-          ),
-          child: Container(
-            height: 70,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: const LinearGradient(
-                colors: [_kNeonBlue, _kNeonCyan, _kNeonBlue],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _kNeonCyan.withValues(alpha: 0.26),
-                  blurRadius: 26,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.28),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-                const Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.play_arrow_rounded, color: _kBgTop, size: 24),
-                      SizedBox(width: 10),
-                      Text(
-                        'START WORKOUT',
-                        style: TextStyle(
-                          color: _kBgTop,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -791,101 +717,6 @@ class _StreakInfoRow extends StatelessWidget {
               fontSize: 15,
               fontWeight: FontWeight.w800,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivityPickerSheet extends StatelessWidget {
-  const _ActivityPickerSheet();
-
-  static const _activities = [
-    ('running', 'Running', 'assets/running.jpg', Icons.directions_run),
-    ('cycling', 'Cycling', 'assets/cycling.jpg', Icons.directions_bike),
-    ('walking', 'Walking', 'assets/walking.jpg', Icons.directions_walk),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xff0f1726),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Activity',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.0,
-            children: _activities.map((activity) {
-              final (type, name, imagePath, icon) = activity;
-              return GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => WorkoutStartScreen(
-                        activityType: type,
-                        activityName: name,
-                        activityImagePath: imagePath,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xff151f31),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: _kCardBorder),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(icon, color: _kNeonCyan, size: 28),
-                      const SizedBox(height: 8),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
           ),
         ],
       ),

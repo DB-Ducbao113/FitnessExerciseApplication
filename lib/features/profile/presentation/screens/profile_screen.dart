@@ -326,19 +326,6 @@ class ProfileScreen extends ConsumerWidget {
                         }
                       },
               ),
-              const SizedBox(height: 10),
-              _SecurityOption(
-                icon: Icons.settings_outlined,
-                title: 'Open app settings',
-                subtitle:
-                    'Manage camera, photos, location, and app permissions.',
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
-              ),
             ],
           ),
         ),
