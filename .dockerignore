@@ -1,0 +1,17 @@
+.git
+.dart_tool
+.idea
+.vscode
+build
+coverage
+*.log
+.env
+backend/.env
+backend/.env.docker
+backend/supabase/.temp
+backend/supabase/.branches
+android/.gradle
+android/.kotlin
+android/build
+ios/Pods
+macos/Pods

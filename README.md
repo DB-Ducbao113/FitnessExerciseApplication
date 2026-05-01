@@ -63,7 +63,7 @@ lib/
   shared/     Reusable helpers and formatters
 ```
 
-More architecture notes are available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Additional architecture and deployment notes are kept locally under `docs/`.
 
 ## Backend Structure
 
@@ -132,6 +132,17 @@ dart analyze
 ```
 
 ## Deployment Notes
+
+### Docker for backend function smoke tests
+
+The backend remains Supabase-based; Docker is used to smoke test Edge Functions
+in isolated Deno containers.
+
+```bash
+cd backend
+cp .env.docker.example .env.docker
+docker compose --env-file .env.docker up --build
+```
 
 To deploy Supabase functions from the backend folder:
 

@@ -1,0 +1,6 @@
+.vscode
+.env
+.env.docker
+supabase/.temp
+supabase/.branches
+remote_schema_public_dump.sql

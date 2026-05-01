@@ -60,6 +60,7 @@ build_ios_release.sh
 devtools_options.yaml
 .idea/
 .vscode/
+docs/
 backend/.vscode/
 .env
 backend/remote_schema_public_dump.sql
