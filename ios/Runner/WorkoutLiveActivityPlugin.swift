@@ -2,7 +2,7 @@ import Flutter
 import Foundation
 
 final class WorkoutLiveActivityPlugin: NSObject, FlutterPlugin {
-  private static let channelName = "fitness_exercise_application/live_activity"
+  private static let channelName = "aetron/live_activity"
 
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(

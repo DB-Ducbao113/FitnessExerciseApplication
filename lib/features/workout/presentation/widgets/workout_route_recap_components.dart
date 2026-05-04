@@ -216,7 +216,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.fitness_exercise_application',
+              userAgentPackageName: 'com.aetron.app',
               maxZoom: 20,
             ),
             PolylineLayer(

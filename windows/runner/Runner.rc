@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "fitness_exercise_application" "\0"
+            VALUE "CompanyName", "Aetron" "\0"
+            VALUE "FileDescription", "Aetron" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "fitness_exercise_application" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "fitness_exercise_application.exe" "\0"
-            VALUE "ProductName", "fitness_exercise_application" "\0"
+            VALUE "InternalName", "Aetron" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Aetron. All rights reserved." "\0"
+            VALUE "OriginalFilename", "aetron.exe" "\0"
+            VALUE "ProductName", "Aetron" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

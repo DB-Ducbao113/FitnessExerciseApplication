@@ -641,7 +641,7 @@
 					"@executable_path/Frameworks",
 				);
 				"PODS_CONFIGURATION_BUILD_DIR[arch=*]" = "${PODS_BUILD_DIR}/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -660,7 +660,7 @@
 				DEVELOPMENT_TEAM = ZDR9AX4U8V;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.fitnessExerciseApplication.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -679,7 +679,7 @@
 				DEVELOPMENT_TEAM = ZDR9AX4U8V;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.fitnessExerciseApplication.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -696,7 +696,7 @@
 				DEVELOPMENT_TEAM = ZDR9AX4U8V;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.fitnessExerciseApplication.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -715,7 +715,7 @@
 				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app.WorkoutLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -853,7 +853,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -880,7 +880,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -901,7 +901,7 @@
 				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app.WorkoutLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -923,7 +923,7 @@
 				INFOPLIST_FILE = WorkoutLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.baobungbu.fitnessapp.WorkoutLiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aetron.app.WorkoutLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;

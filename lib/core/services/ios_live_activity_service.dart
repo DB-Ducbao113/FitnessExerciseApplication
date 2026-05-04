@@ -11,9 +11,7 @@ final iosLiveActivityServiceProvider = Provider(
 class IosLiveActivityService {
   const IosLiveActivityService();
 
-  static const MethodChannel _channel = MethodChannel(
-    'fitness_exercise_application/live_activity',
-  );
+  static const MethodChannel _channel = MethodChannel('aetron/live_activity');
 
   Future<void> syncWorkout({
     required String activityType,
