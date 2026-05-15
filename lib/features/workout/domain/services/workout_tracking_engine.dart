@@ -17,6 +17,7 @@ class TrackingGpsDecision {
   final double routeSegmentMeters;
   final double candidateSpeedKmh;
   final bool shouldAddDistance;
+  final bool shouldBreakRouteForDisplay;
   final double gpsGapDurationSec;
   final GpsPointOutcome outcome;
   final GpsRejectReason reason;
@@ -31,6 +32,7 @@ class TrackingGpsDecision {
     this.routeSegmentMeters = 0,
     this.candidateSpeedKmh = 0,
     this.shouldAddDistance = true,
+    this.shouldBreakRouteForDisplay = false,
     this.gpsGapDurationSec = 0,
     this.outcome = GpsPointOutcome.accepted,
     this.reason = GpsRejectReason.none,
@@ -106,6 +108,7 @@ class WorkoutTrackingEngine {
     required LatLng? distanceAnchorPoint,
     required DateTime? lastAcceptedPositionTime,
     required bool shouldResetAnchorOnResume,
+    bool wasGpsSignalWeak = false,
     bool debugLocationMode = false,
   }) {
     final livePoint = LatLng(position.latitude, position.longitude);
@@ -228,6 +231,31 @@ class WorkoutTrackingEngine {
         routeSegmentMeters: routeSegmentMeters,
         candidateSpeedKmh: 0,
         shouldAddDistance: false,
+        shouldBreakRouteForDisplay: true,
+        gpsGapDurationSec: timeDeltaSec,
+        outcome: GpsPointOutcome.signalGap,
+        reason: GpsRejectReason.staleSignalGap,
+      );
+    }
+
+    if (!debugLocationMode &&
+        _shouldBreakLiveRouteForDisplay(
+          activityType: activityType,
+          accuracyMeters: position.accuracy,
+          timeDeltaSec: timeDeltaSec,
+          routeSegmentMeters: routeSegmentMeters,
+          wasGpsSignalWeak: wasGpsSignalWeak,
+        )) {
+      return TrackingGpsDecision(
+        type: TrackingGpsDecisionType.acceptRoute,
+        livePoint: livePoint,
+        previewPoint: previewPoint,
+        segmentMeters: 0,
+        rawSegmentMeters: rawSegmentMeters,
+        routeSegmentMeters: routeSegmentMeters,
+        candidateSpeedKmh: 0,
+        shouldAddDistance: false,
+        shouldBreakRouteForDisplay: true,
         gpsGapDurationSec: timeDeltaSec,
         outcome: GpsPointOutcome.signalGap,
         reason: GpsRejectReason.staleSignalGap,
@@ -295,6 +323,76 @@ class WorkoutTrackingEngine {
       candidateSpeedKmh: candidateSpeedKmh,
       outcome: GpsPointOutcome.accepted,
     );
+  }
+
+  bool _shouldBreakLiveRouteForDisplay({
+    required String activityType,
+    required double accuracyMeters,
+    required double timeDeltaSec,
+    required double routeSegmentMeters,
+    required bool wasGpsSignalWeak,
+  }) {
+    if (routeSegmentMeters <= 0) return false;
+
+    final normalized = activityType.toLowerCase();
+    final jumpMeters = _liveRecoveryJumpMeters(normalized);
+    final weakAccuracy = _weakLiveAccuracyMeters(normalized);
+    final plausibleSpeedMs = _plausibleLiveSpeedMs(normalized);
+    final impliedSpeedMs = timeDeltaSec > 0
+        ? routeSegmentMeters / timeDeltaSec
+        : 0.0;
+
+    if (wasGpsSignalWeak && routeSegmentMeters >= jumpMeters * 0.65) {
+      return true;
+    }
+    if (accuracyMeters >= weakAccuracy && routeSegmentMeters >= jumpMeters) {
+      return true;
+    }
+    if (timeDeltaSec >= 2.0 &&
+        routeSegmentMeters >= jumpMeters &&
+        impliedSpeedMs > plausibleSpeedMs) {
+      return true;
+    }
+    return false;
+  }
+
+  double _liveRecoveryJumpMeters(String activityType) {
+    switch (activityType) {
+      case 'cycling':
+        return 70.0;
+      case 'running':
+        return 34.0;
+      case 'walking':
+        return 24.0;
+      default:
+        return 30.0;
+    }
+  }
+
+  double _weakLiveAccuracyMeters(String activityType) {
+    switch (activityType) {
+      case 'cycling':
+        return 28.0;
+      case 'running':
+        return 32.0;
+      case 'walking':
+        return 34.0;
+      default:
+        return 30.0;
+    }
+  }
+
+  double _plausibleLiveSpeedMs(String activityType) {
+    switch (activityType) {
+      case 'cycling':
+        return 15.0;
+      case 'running':
+        return 7.0;
+      case 'walking':
+        return 3.2;
+      default:
+        return 6.0;
+    }
   }
 
   StepTrackingDecision evaluateStepUpdate({

@@ -166,8 +166,18 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     if (!await InternetConnectionChecker().hasConnection) return;
 
     try {
+      await syncPendingData();
       final remoteWorkouts = await fetchSessionsRemote(userId);
-      await replaceLocalCache(userId, remoteWorkouts);
+      final localWorkouts = await getSessionsLocal(userId);
+
+      if (remoteWorkouts.isEmpty && localWorkouts.isNotEmpty) {
+        debugPrint(
+          '[Sync] syncFromCloud skipped empty remote refresh to preserve local cache.',
+        );
+        return;
+      }
+
+      await LocalDB.syncRemoteSessions(remoteWorkouts);
     } catch (e) {
       debugPrint('[Sync] syncFromCloud error: $e');
     }

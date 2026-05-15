@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,10 +13,13 @@ class AppHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileAsync = ref.watch(currentUserProfileProvider);
     final user = Supabase.instance.client.auth.currentUser;
-
-    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+    final avatar = ref.watch(currentAvatarDisplayProvider);
+    final ImageProvider? avatarImage = avatar.localPath != null
+        ? FileImage(File(avatar.localPath!))
+        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
+        ? NetworkImage(avatar.remoteUrl!)
+        : null;
     final displayName = user?.email?.split('@').first ?? 'User';
 
     return SizedBox(
@@ -56,10 +61,8 @@ class AppHeader extends ConsumerWidget {
                 child: CircleAvatar(
                   radius: 32,
                   backgroundColor: const Color(0xffe8f7fd),
-                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? NetworkImage(avatarUrl)
-                      : null,
-                  child: avatarUrl == null || avatarUrl.isEmpty
+                  backgroundImage: avatarImage,
+                  child: avatarImage == null
                       ? const Icon(
                           Icons.person,
                           size: 32,

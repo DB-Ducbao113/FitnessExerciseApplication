@@ -1,26 +1,80 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+const Object _avatarOverrideUnset = Object();
+const Object _localAvatarOverrideUnset = Object();
+
 class AvatarState {
   final bool isUploading;
   final String? errorMessage;
+  final String? avatarUrlOverride;
+  final bool hasAvatarUrlOverride;
+  final String? localAvatarPathOverride;
 
-  const AvatarState({this.isUploading = false, this.errorMessage});
+  const AvatarState({
+    this.isUploading = false,
+    this.errorMessage,
+    this.avatarUrlOverride,
+    this.hasAvatarUrlOverride = false,
+    this.localAvatarPathOverride,
+  });
 
-  AvatarState copyWith({bool? isUploading, String? errorMessage}) =>
-      AvatarState(
-        isUploading: isUploading ?? this.isUploading,
-        errorMessage: errorMessage,
-      );
+  AvatarState copyWith({
+    bool? isUploading,
+    String? errorMessage,
+    Object? avatarUrlOverride = _avatarOverrideUnset,
+    bool? hasAvatarUrlOverride,
+    Object? localAvatarPathOverride = _localAvatarOverrideUnset,
+  }) => AvatarState(
+    isUploading: isUploading ?? this.isUploading,
+    errorMessage: errorMessage,
+    avatarUrlOverride: identical(avatarUrlOverride, _avatarOverrideUnset)
+        ? this.avatarUrlOverride
+        : avatarUrlOverride as String?,
+    hasAvatarUrlOverride: hasAvatarUrlOverride ?? this.hasAvatarUrlOverride,
+    localAvatarPathOverride:
+        identical(localAvatarPathOverride, _localAvatarOverrideUnset)
+        ? this.localAvatarPathOverride
+        : localAvatarPathOverride as String?,
+  );
+
+  String? resolveAvatarUrl(String? profileAvatarUrl) {
+    return hasAvatarUrlOverride ? avatarUrlOverride : profileAvatarUrl;
+  }
 }
+
+class AvatarDisplayState {
+  final String? remoteUrl;
+  final String? localPath;
+
+  const AvatarDisplayState({this.remoteUrl, this.localPath});
+
+  bool get hasAvatar =>
+      localPath != null || (remoteUrl != null && remoteUrl!.isNotEmpty);
+}
+
+final currentAvatarDisplayProvider = Provider<AvatarDisplayState>((ref) {
+  final profileAvatarUrl = ref
+      .watch(currentUserProfileProvider)
+      .valueOrNull
+      ?.avatarUrl;
+  final avatarState = ref.watch(avatarUploadProvider);
+
+  return AvatarDisplayState(
+    remoteUrl: avatarState.resolveAvatarUrl(profileAvatarUrl),
+    localPath: avatarState.localAvatarPathOverride,
+  );
+});
 
 final currentUserProfileProvider = Provider<AsyncValue<UserProfile?>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
@@ -42,7 +96,7 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
   AvatarUploadNotifier(this._ref) : super(const AvatarState());
 
   Future<void> pickAndUpload(ImageSource source) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
     if (userId == null) return;
 
     state = state.copyWith(errorMessage: null);
@@ -70,35 +124,126 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       );
       if (picked == null) return;
 
-      state = state.copyWith(isUploading: true, errorMessage: null);
+      state = state.copyWith(
+        isUploading: true,
+        errorMessage: null,
+        localAvatarPathOverride: picked.path,
+        avatarUrlOverride: null,
+        hasAvatarUrlOverride: false,
+      );
 
       final file = File(picked.path);
       final remoteDatasource = _ref.read(userProfileRemoteDataSourceProvider);
       final repository = _ref.read(userProfileRepositoryProvider);
       final publicUrl = await remoteDatasource.uploadAvatar(userId, file);
+      final previousAvatarUrl = profile.avatarUrl;
+      final updatedProfile = profile.copyWith(
+        avatarUrl: publicUrl,
+        updatedAt: DateTime.now(),
+      );
 
-      await remoteDatasource.updateAvatarUrl(userId, publicUrl);
-      await repository.cacheLocal(
-        profile.copyWith(avatarUrl: publicUrl, updatedAt: DateTime.now()),
+      await repository.cacheLocal(updatedProfile);
+      unawaited(
+        _syncRemoteAvatarUrl(
+          remoteDatasource,
+          userId,
+          publicUrl,
+          previousAvatarUrl: previousAvatarUrl,
+        ),
       );
       _ref.invalidate(userProfileProvider(userId));
 
-      state = state.copyWith(isUploading: false);
-    } on StorageException catch (e) {
       state = state.copyWith(
         isUploading: false,
-        errorMessage: _storageErrorMessage(e),
+        avatarUrlOverride: publicUrl,
+        hasAvatarUrlOverride: true,
+        localAvatarPathOverride: null,
+      );
+    } on StorageException catch (e) {
+      debugPrint('Avatar upload storage sync failed: ${e.message}');
+      state = state.copyWith(
+        isUploading: false,
+        errorMessage: state.localAvatarPathOverride != null
+            ? null
+            : _storageErrorMessage(e),
       );
     } on PostgrestException catch (e) {
+      debugPrint('Avatar upload profile sync failed: ${e.message}');
       state = state.copyWith(
         isUploading: false,
-        errorMessage: _profileUpdateErrorMessage(e),
+        errorMessage: state.localAvatarPathOverride != null
+            ? null
+            : _profileUpdateErrorMessage(e),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Avatar upload failed: $e\n$stackTrace');
       state = state.copyWith(
         isUploading: false,
-        errorMessage: 'Could not upload your photo.',
+        errorMessage: state.localAvatarPathOverride != null
+            ? null
+            : _unknownAvatarErrorMessage(
+                e,
+                fallback: 'Could not upload your photo.',
+              ),
       );
+    }
+  }
+
+  Future<void> removeAvatar() async {
+    final userId = _ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+
+    state = state.copyWith(errorMessage: null);
+
+    final profile = _ref.read(currentUserProfileProvider).valueOrNull;
+    if (profile == null) {
+      state = state.copyWith(
+        errorMessage: 'Complete your profile before changing your photo.',
+      );
+      return;
+    }
+    final avatarUrl = state.resolveAvatarUrl(profile.avatarUrl);
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return;
+    }
+
+    try {
+      state = state.copyWith(
+        isUploading: true,
+        errorMessage: null,
+        avatarUrlOverride: null,
+        hasAvatarUrlOverride: true,
+        localAvatarPathOverride: null,
+      );
+
+      final remoteDatasource = _ref.read(userProfileRemoteDataSourceProvider);
+      final repository = _ref.read(userProfileRepositoryProvider);
+      final updatedProfile = profile.copyWith(
+        avatarUrl: null,
+        updatedAt: DateTime.now(),
+      );
+      await repository.cacheLocal(updatedProfile);
+      unawaited(
+        _syncRemoteAvatarUrl(
+          remoteDatasource,
+          userId,
+          null,
+          previousAvatarUrl: avatarUrl,
+        ),
+      );
+      _ref.invalidate(userProfileProvider(userId));
+
+      state = state.copyWith(
+        isUploading: false,
+        avatarUrlOverride: null,
+        hasAvatarUrlOverride: true,
+      );
+    } on PostgrestException catch (e) {
+      debugPrint('Avatar removal profile sync failed: ${e.message}');
+      state = state.copyWith(isUploading: false, errorMessage: null);
+    } catch (e, stackTrace) {
+      debugPrint('Avatar removal failed: $e\n$stackTrace');
+      state = state.copyWith(isUploading: false, errorMessage: null);
     }
   }
 
@@ -153,5 +298,37 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       return 'Your profile could not be updated right now.';
     }
     return 'Could not update your profile photo.';
+  }
+
+  String _unknownAvatarErrorMessage(Object error, {required String fallback}) {
+    final message = error.toString();
+    if (message.contains('PathAccessException') ||
+        message.contains('FileSystemException')) {
+      return 'Could not read the selected photo. Please choose another image.';
+    }
+    if (message.toLowerCase().contains('network') ||
+        message.toLowerCase().contains('socket')) {
+      return 'Network error while updating your photo. Please try again.';
+    }
+    return fallback;
+  }
+
+  Future<void> _syncRemoteAvatarUrl(
+    dynamic remoteDatasource,
+    String userId,
+    String? avatarUrl, {
+    String? previousAvatarUrl,
+  }) async {
+    try {
+      await remoteDatasource.updateAvatarUrl(userId, avatarUrl);
+      if (previousAvatarUrl != null && previousAvatarUrl.isNotEmpty) {
+        await remoteDatasource.deleteAvatarObject(
+          userId,
+          avatarUrl: previousAvatarUrl,
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Avatar remote sync failed: $e\n$stackTrace');
+    }
   }
 }

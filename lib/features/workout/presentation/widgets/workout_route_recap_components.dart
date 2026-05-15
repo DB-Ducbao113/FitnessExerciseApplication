@@ -143,7 +143,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
     required this.startColor,
     required this.endColor,
     required this.badgeText,
-    required this.footerText,
+    this.footerText,
   });
 
   final List<LatLng> routePoints;
@@ -156,7 +156,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
   final Color startColor;
   final Color endColor;
   final String badgeText;
-  final String footerText;
+  final String? footerText;
 
   LatLngBounds _computeBounds(List<LatLng> points) {
     double minLat = points.first.latitude;
@@ -188,17 +188,11 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
       routePoints,
       activityType: activityType,
     );
-    final displaySegments = routeSegments.isEmpty
-        ? [displayRoute]
-        : routeSegments
-              .where((segment) => segment.length >= 2)
-              .map(
-                (segment) => refineRouteForSavedDisplay(
-                  segment,
-                  activityType: activityType,
-                ),
-              )
-              .toList();
+    final displaySegments = refineRouteSegmentsForSavedDisplay(
+      routePoints: routePoints,
+      routeSegments: routeSegments,
+      activityType: activityType,
+    );
     final bounds = _computeBounds(displayRoute);
 
     return Stack(
@@ -303,21 +297,22 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          right: 14,
-          bottom: 14,
-          child: _MapGlassBadge(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            child: Text(
-              footerText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+        if (footerText != null)
+          Positioned(
+            right: 14,
+            bottom: 14,
+            child: _MapGlassBadge(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              child: Text(
+                footerText!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

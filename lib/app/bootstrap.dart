@@ -26,9 +26,7 @@ class AppBootstrapService {
     // 2. Hydrate Workout History
     try {
       final workoutRepo = ref.read(workoutRepositoryProvider);
-      final remoteWorkouts = await workoutRepo.fetchSessionsRemote(userId);
-      // This explicitly replaces the local cache for this user with the remote truth
-      await workoutRepo.replaceLocalCache(userId, remoteWorkouts);
+      await workoutRepo.syncFromCloud();
     } catch (e) {
       debugPrint('[AppBootstrapService] Failed to hydrate Workout History: $e');
     }

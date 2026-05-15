@@ -100,5 +100,38 @@ void main() {
         }
       },
     );
+
+    test('segmented saved display does not reconnect route gaps', () {
+      const start = LatLng(10.00000, 106.00000);
+      const beforeGap = LatLng(10.00008, 106.00000);
+      const afterGap = LatLng(10.00200, 106.00200);
+      const finish = LatLng(10.00208, 106.00200);
+
+      final displaySegments = refineRouteSegmentsForSavedDisplay(
+        routePoints: const [start, beforeGap, afterGap, finish],
+        routeSegments: const [
+          [start, beforeGap],
+          [afterGap],
+          [afterGap, finish],
+        ],
+        activityType: 'walking',
+      );
+
+      expect(displaySegments, hasLength(2));
+      expect(displaySegments.first.last, beforeGap);
+      expect(displaySegments.last.first, afterGap);
+      expect(displaySegments.any(containsPair(beforeGap, afterGap)), isFalse);
+    });
   });
+}
+
+bool Function(List<LatLng>) containsPair(LatLng first, LatLng second) {
+  return (points) {
+    for (var i = 0; i < points.length - 1; i++) {
+      if (points[i] == first && points[i + 1] == second) {
+        return true;
+      }
+    }
+    return false;
+  };
 }
