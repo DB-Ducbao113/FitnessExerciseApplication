@@ -83,66 +83,53 @@ Current Supabase Edge Functions:
 - `deterministic-finalize-worker`
 - `route-correction-worker`
 
-## Quick Start
+## Core Workflow (Tổng quan luồng sản phẩm)
 
-### 1. Install dependencies
+Aetron được thiết kế xoay quanh việc ghi nhận và xử lý workout như một đường ống dữ liệu rõ ràng.
 
-```bash
-flutter pub get
-```
+### 1) Tạo session workout (client)
+- App tạo một workout “shell” ở backend.
+- Trạng thái xử lý ban đầu cho biết workout đang ở giai đoạn client recording.
 
-### 2. Configure environment
+### 2) Ghi nhận dữ liệu realtime (client)
+- GPS: thu thập điểm GPS theo thời gian thực.
+- Step tracking: ghi nhận chuyển động/nhịp bước phù hợp với luồng workout.
+- Dữ liệu realtime được lưu thành raw samples để dùng cho việc tính toán canonical sau này.
 
-Run the app with Supabase credentials:
+### 3) Kết thúc workout (client)
+- App kết thúc session và gửi snapshot tạm thời của các chỉ số.
+- Đồng thời backend được enqueue để tính toán deterministic canonical metrics.
 
-```bash
-flutter run ^
-  --dart-define=SUPABASE_URL=your_project_url ^
-  --dart-define=SUPABASE_ANON_KEY=your_anon_key
-```
+### 4) Xử lý deterministic & đối soát chất lượng (backend)
+- Backend đọc raw tracking, recompute metrics dựa trên các segment hợp lệ.
+- Hệ thống ghi nhận bằng chứng kiểm định (audit/quality) ở cấp segment.
+- Kết quả sẽ cập nhật trạng thái xử lý để UI có thể hiển thị “provisional” vs “finalized”.
 
-### 3. Generate code
+### 5) Hiển thị lịch sử (client)
+- UI ưu tiên đọc canonical từ các bảng workout sessions.
+- `processing_status` giúp phân biệt workout đang xử lý/chưa finalize.
 
-```bash
-dart run build_runner build --delete-conflicting-outputs
-```
+Mô tả API-contract hiện có: [docs/api/api_contract.md](docs/api/api_contract.md)
 
-### 4. Launch the app
+## Architecture at a Glance
 
-```bash
-flutter run
-```
+### Feature-first + core/shared
+- `lib/features/`: mỗi feature sở hữu domain/data/presentation.
+- `lib/core/`: hạ tầng dùng chung (provider, constants, platform services, storage helpers, utils… không thuộc riêng một feature).
+- `lib/shared/`: phần UI/formatting tái sử dụng giữa các feature.
 
-### 5. Local helper scripts
+Tham khảo chi tiết: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
 
-- Windows run app: copy `run.bat.example` to `run.bat`, then run `.\run.bat`
-- Windows build release APK: copy `build_release.bat.example` to `build_release.bat`, then run `.\build_release.bat`
-- macOS build iOS release: copy `build_ios_release.sh.example` to `build_ios_release.sh`, then run `zsh ./build_ios_release.sh`
+### MVVM cho luồng Workout Recording
+Luồng recording hiện tại là ví dụ rõ nhất của cách tách View / ViewModel / controllers / domain services.
 
-## Development Notes
+- `View`: render UI, gửi intent (start/pause/resume/stop) đến ViewModel.
+- `ViewModel`: quản lý `WorkoutSessionState`, nhận callback từ sensor/classifier, điều phối các helper.
+- Controllers: quản lý lifecycle GPS/step và environment classifier.
+- Domain service: quyết định luật lọc/đánh giá cập nhật GPS/step theo engine.
+- Coordinator: điều phối buffer raw data, upload và enqueue processing job.
 
-- Keep feature-specific code inside its own module under `lib/features/`
-- Use `core/` only for truly shared infrastructure
-- Regenerate code after changing Riverpod, Freezed, Isar, or JSON models
-- Run formatting and static analysis before pushing changes
-
-```bash
-dart format lib docs
-dart analyze
-```
-
-## Deployment Notes
-
-To deploy Supabase functions from the backend folder:
-
-```bash
-cd backend
-supabase functions deploy workouts-start
-supabase functions deploy workouts-end
-supabase functions deploy gps-track
-supabase functions deploy deterministic-finalize-worker
-supabase functions deploy route-correction-worker
-```
+Tham khảo: [docs/architecture/MVVM_WORKOUT_RECORDING.md](docs/architecture/MVVM_WORKOUT_RECORDING.md)
 
 ## Repository Goal
 
