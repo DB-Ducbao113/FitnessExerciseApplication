@@ -602,6 +602,13 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         workoutId: finalization.sessionId,
         force: true,
       );
+      _recordingCoordinator.queueLiveRouteSnapshot(
+        workoutId: finalization.sessionId,
+        routeSegments: state.routeSegments,
+        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+        isGpsSignalWeak: state.isGpsSignalWeak,
+      );
+      await _recordingCoordinator.syncLiveRouteSnapshot(force: true);
       await _recordingCoordinator.enqueueProcessingForSession(
         finalization.session,
       );
@@ -664,8 +671,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       id: 'active-session',
       userId: _ref.read(currentUserIdProvider) ?? 'active-session',
       weightKg: _weightKg,
-      heightM: ((_heightCm ?? 170).clamp(50.0, 250.0)) / 100,
-      age: 0,
+      heightCm: (_heightCm ?? 170).clamp(50.0, 250.0),
+      legacyAge: 0,
       gender: _gender ?? 'male',
       createdAt: DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
@@ -795,6 +802,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final isGpsPrimary = _requiresGpsTracking(state.activityType);
     final livePoint = LatLng(position.latitude, position.longitude);
     _lastGpsEventTime = DateTime.now();
+    final rawGpsDeviceSource =
+        state.isGpsSignalWeak || _shouldResetGpsAnchorOnResume
+        ? 'geolocator_position_stream_recovery'
+        : 'geolocator_position_stream';
 
     debugPrint(
       '[Workout][GPS] lat=${position.latitude}, lng=${position.longitude}, '
@@ -823,6 +834,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     _recordingCoordinator.bufferRawGpsPoint(
       position,
       workoutId: state.sessionId,
+      deviceSource: rawGpsDeviceSource,
     );
     _rawGpsPositions.add(position);
     _environmentController.addPosition(position);
@@ -853,6 +865,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       distanceAnchorPoint: _distanceAnchorPoint,
       lastAcceptedPositionTime: _lastAcceptedPositionTime,
       shouldResetAnchorOnResume: _shouldResetGpsAnchorOnResume,
+      wasGpsSignalWeak: state.isGpsSignalWeak,
       debugLocationMode: kDebugLocationMode,
     );
     state = state.copyWith(currentLatLng: decision.previewPoint);
@@ -863,6 +876,14 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     );
 
     if (decision.type == TrackingGpsDecisionType.skip) {
+      if (decision.reason == GpsRejectReason.lowAccuracy) {
+        state = state.copyWith(
+          isGpsSignalWeak: true,
+          gpsGapMarker:
+              state.currentLatLng ??
+              (state.routePoints.isNotEmpty ? state.routePoints.last : null),
+        );
+      }
       debugPrint('[GPS-SKIP] ${decision.skipReason}');
       return;
     }
@@ -895,6 +916,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       debugPrint(
         '[Workout][GPS-ACCEPT] first route point seeded; gps pipeline active',
       );
+      _recordingCoordinator.queueLiveRouteSnapshot(
+        workoutId: state.sessionId,
+        routeSegments: state.routeSegments,
+        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+        isGpsSignalWeak: state.isGpsSignalWeak,
+      );
       return;
     }
 
@@ -909,6 +936,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         isAutoPaused: false,
       );
       debugPrint('[GPS] resume anchor reset');
+      _recordingCoordinator.queueLiveRouteSnapshot(
+        workoutId: state.sessionId,
+        routeSegments: state.routeSegments,
+        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+        isGpsSignalWeak: state.isGpsSignalWeak,
+      );
       return;
     }
 
@@ -921,6 +954,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       candidateSpeedKmh: decision.candidateSpeedKmh,
       routeCandidate: decision.livePoint,
       shouldAddDistance: decision.shouldAddDistance,
+      shouldBreakRouteForDisplay: decision.shouldBreakRouteForDisplay,
       gpsGapDurationSec: decision.gpsGapDurationSec,
     );
   }
@@ -1181,6 +1215,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     required double candidateSpeedKmh,
     required LatLng routeCandidate,
     required bool shouldAddDistance,
+    required bool shouldBreakRouteForDisplay,
     required double gpsGapDurationSec,
   }) {
     if (shouldAddDistance && candidateSpeedKmh > 0) {
@@ -1226,7 +1261,10 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       timeDeltaSec: timeDeltaSec,
       gpsGapDurationSec: gpsGapDurationSec,
     );
-    if (gpsGapDurationSec > 5.0 && lastRoutePoint != null) {
+    final displayRoutePoint = shouldBreakRouteForDisplay
+        ? routeCandidate
+        : smoothingUpdate.smoothedPoint;
+    if (shouldBreakRouteForDisplay && lastRoutePoint != null) {
       updatedGapSegments.add(
         GpsGapSegment(
           start: lastRoutePoint,
@@ -1235,22 +1273,22 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         ),
       );
       updatedRouteSegments.add([routeCandidate]);
-      updatedSmoothedRouteSegments.add([smoothingUpdate.smoothedPoint]);
+      updatedSmoothedRouteSegments.add([displayRoutePoint]);
     } else if (updatedRouteSegments.isEmpty) {
       updatedRouteSegments.add([routeCandidate]);
-      updatedSmoothedRouteSegments.add([smoothingUpdate.smoothedPoint]);
+      updatedSmoothedRouteSegments.add([displayRoutePoint]);
     } else {
       updatedRouteSegments.last.add(routeCandidate);
       if (updatedSmoothedRouteSegments.isEmpty) {
-        updatedSmoothedRouteSegments.add([smoothingUpdate.smoothedPoint]);
+        updatedSmoothedRouteSegments.add([displayRoutePoint]);
       } else if (smoothingUpdate.shouldAppendRoutePoint) {
-        updatedSmoothedRouteSegments.last.add(smoothingUpdate.smoothedPoint);
+        updatedSmoothedRouteSegments.last.add(displayRoutePoint);
       }
     }
     if (updatedSmoothedRoutePoints.isEmpty ||
         smoothingUpdate.shouldAppendRoutePoint ||
-        gpsGapDurationSec > 5.0) {
-      updatedSmoothedRoutePoints.add(smoothingUpdate.smoothedPoint);
+        shouldBreakRouteForDisplay) {
+      updatedSmoothedRoutePoints.add(displayRoutePoint);
     }
     final distanceDelta = shouldAddDistance ? segmentMeters : 0.0;
     final newDistanceM = state.distanceMeters + distanceDelta;
@@ -1268,8 +1306,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       recordingSource: 'gps',
       gpsFallbackActive: false,
       currentLatLng: livePoint,
-      smoothedCurrentLatLng: smoothingUpdate.smoothedPoint,
-      gpsGapMarker: gpsGapDurationSec > 5.0
+      smoothedCurrentLatLng: displayRoutePoint,
+      gpsGapMarker: shouldBreakRouteForDisplay
           ? routeCandidate
           : state.gpsGapMarker,
       gpsGapSegments: updatedGapSegments,
@@ -1295,7 +1333,14 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       'raw=${rawSegmentMeters.toStringAsFixed(2)}m '
       'route=${routeSegmentMeters.toStringAsFixed(2)}m '
       'total=${newDistanceM.toStringAsFixed(2)}m routePoints=${updatedRoute.length} '
-      'source=gps addDistance=$shouldAddDistance gap=${gpsGapDurationSec.toStringAsFixed(1)}s',
+      'source=gps addDistance=$shouldAddDistance breakDisplay=$shouldBreakRouteForDisplay '
+      'gap=${gpsGapDurationSec.toStringAsFixed(1)}s',
+    );
+    _recordingCoordinator.queueLiveRouteSnapshot(
+      workoutId: state.sessionId,
+      routeSegments: state.routeSegments,
+      lastGpsGapDurationSec: gpsGapDurationSec,
+      isGpsSignalWeak: state.isGpsSignalWeak,
     );
   }
 

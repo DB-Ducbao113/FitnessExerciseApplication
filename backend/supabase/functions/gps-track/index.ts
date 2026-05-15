@@ -72,13 +72,15 @@ Deno.serve(async (req: Request) => {
     const pointsToInsert = payload.map((point: any) => ({
       workout_id: point.workout_id,
       timestamp: point.timestamp ?? new Date().toISOString(),
-      location: `SRID=4326;POINT(${point.longitude} ${point.latitude})`,
+      latitude: point.latitude,
+      longitude: point.longitude,
       altitude: point.altitude ?? null,
       speed: point.speed ?? null,
       accuracy: point.accuracy ?? null,
       heading: point.heading ?? null,
+      device_source: point.device_source ?? 'edge_function',
     }));
-    const { error } = await supabase.from("gps_points").insert(pointsToInsert);
+    const { error } = await supabase.from("raw_gps_points").insert(pointsToInsert);
     if (error) {
       console.error("Insert error:", error);
       return new Response(JSON.stringify({ error: error.message }), {

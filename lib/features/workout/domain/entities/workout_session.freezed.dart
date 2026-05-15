@@ -22,6 +22,7 @@ mixin _$WorkoutSession {
   DateTime get startedAt => throw _privateConstructorUsedError;
   DateTime get endedAt => throw _privateConstructorUsedError;
   int get durationSec => throw _privateConstructorUsedError;
+  int get movingTimeSec => throw _privateConstructorUsedError;
   double get distanceKm => throw _privateConstructorUsedError;
   int get steps => throw _privateConstructorUsedError;
   double get avgSpeedKmh => throw _privateConstructorUsedError;
@@ -56,6 +57,7 @@ abstract class $WorkoutSessionCopyWith<$Res> {
       DateTime startedAt,
       DateTime endedAt,
       int durationSec,
+      int movingTimeSec,
       double distanceKm,
       int steps,
       double avgSpeedKmh,
@@ -92,6 +94,7 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
     Object? startedAt = null,
     Object? endedAt = null,
     Object? durationSec = null,
+    Object? movingTimeSec = null,
     Object? distanceKm = null,
     Object? steps = null,
     Object? avgSpeedKmh = null,
@@ -132,6 +135,10 @@ class _$WorkoutSessionCopyWithImpl<$Res, $Val extends WorkoutSession>
       durationSec: null == durationSec
           ? _value.durationSec
           : durationSec // ignore: cast_nullable_to_non_nullable
+              as int,
+      movingTimeSec: null == movingTimeSec
+          ? _value.movingTimeSec
+          : movingTimeSec // ignore: cast_nullable_to_non_nullable
               as int,
       distanceKm: null == distanceKm
           ? _value.distanceKm
@@ -212,6 +219,7 @@ abstract class _$$WorkoutSessionImplCopyWith<$Res>
       DateTime startedAt,
       DateTime endedAt,
       int durationSec,
+      int movingTimeSec,
       double distanceKm,
       int steps,
       double avgSpeedKmh,
@@ -246,6 +254,7 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
     Object? startedAt = null,
     Object? endedAt = null,
     Object? durationSec = null,
+    Object? movingTimeSec = null,
     Object? distanceKm = null,
     Object? steps = null,
     Object? avgSpeedKmh = null,
@@ -286,6 +295,10 @@ class __$$WorkoutSessionImplCopyWithImpl<$Res>
       durationSec: null == durationSec
           ? _value.durationSec
           : durationSec // ignore: cast_nullable_to_non_nullable
+              as int,
+      movingTimeSec: null == movingTimeSec
+          ? _value.movingTimeSec
+          : movingTimeSec // ignore: cast_nullable_to_non_nullable
               as int,
       distanceKm: null == distanceKm
           ? _value.distanceKm
@@ -361,6 +374,7 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
       required this.startedAt,
       required this.endedAt,
       required this.durationSec,
+      this.movingTimeSec = 0,
       required this.distanceKm,
       required this.steps,
       required this.avgSpeedKmh,
@@ -390,6 +404,9 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
   final DateTime endedAt;
   @override
   final int durationSec;
+  @override
+  @JsonKey()
+  final int movingTimeSec;
   @override
   final double distanceKm;
   @override
@@ -436,7 +453,7 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
 
   @override
   String toString() {
-    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis, filteredRouteJson: $filteredRouteJson, matchedRouteJson: $matchedRouteJson, routeMatchStatus: $routeMatchStatus, routeMatchConfidence: $routeMatchConfidence, routeDistanceSource: $routeDistanceSource, matchedDistanceKm: $matchedDistanceKm, routeMatchMetricsJson: $routeMatchMetricsJson)';
+    return 'WorkoutSession(id: $id, userId: $userId, activityType: $activityType, startedAt: $startedAt, endedAt: $endedAt, durationSec: $durationSec, movingTimeSec: $movingTimeSec, distanceKm: $distanceKm, steps: $steps, avgSpeedKmh: $avgSpeedKmh, caloriesKcal: $caloriesKcal, mode: $mode, createdAt: $createdAt, lapSplits: $lapSplits, gpsAnalysis: $gpsAnalysis, filteredRouteJson: $filteredRouteJson, matchedRouteJson: $matchedRouteJson, routeMatchStatus: $routeMatchStatus, routeMatchConfidence: $routeMatchConfidence, routeDistanceSource: $routeDistanceSource, matchedDistanceKm: $matchedDistanceKm, routeMatchMetricsJson: $routeMatchMetricsJson)';
   }
 
   @override
@@ -453,6 +470,8 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
             (identical(other.endedAt, endedAt) || other.endedAt == endedAt) &&
             (identical(other.durationSec, durationSec) ||
                 other.durationSec == durationSec) &&
+            (identical(other.movingTimeSec, movingTimeSec) ||
+                other.movingTimeSec == movingTimeSec) &&
             (identical(other.distanceKm, distanceKm) ||
                 other.distanceKm == distanceKm) &&
             (identical(other.steps, steps) || other.steps == steps) &&
@@ -492,6 +511,7 @@ class _$WorkoutSessionImpl implements _WorkoutSession {
         startedAt,
         endedAt,
         durationSec,
+        movingTimeSec,
         distanceKm,
         steps,
         avgSpeedKmh,
@@ -525,6 +545,7 @@ abstract class _WorkoutSession implements WorkoutSession {
       required final DateTime startedAt,
       required final DateTime endedAt,
       required final int durationSec,
+      final int movingTimeSec,
       required final double distanceKm,
       required final int steps,
       required final double avgSpeedKmh,
@@ -553,6 +574,8 @@ abstract class _WorkoutSession implements WorkoutSession {
   DateTime get endedAt;
   @override
   int get durationSec;
+  @override
+  int get movingTimeSec;
   @override
   double get distanceKm;
   @override

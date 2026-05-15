@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +27,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
   final String activityType;
   final String trackingMode;
   final int durationSeconds;
+  final int movingTimeSeconds;
   final double distanceMeters;
   final double avgSpeedKmh;
   final int calories;
@@ -41,6 +42,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
     required this.activityType,
     required this.trackingMode,
     required this.durationSeconds,
+    required this.movingTimeSeconds,
     required this.distanceMeters,
     required this.avgSpeedKmh,
     required this.calories,
@@ -63,6 +65,25 @@ class WorkoutSummaryScreen extends ConsumerWidget {
         ? effectiveRouteSegments.expand((segment) => segment).toList()
         : routePoints;
     final distanceKm = distanceMeters / 1000;
+    final effectiveDistanceKm = gpsAnalysis.validDistanceKm > 0
+        ? gpsAnalysis.validDistanceKm
+        : distanceKm;
+    final avgPace = gpsAnalysis.effectivePaceSecPerKm != null
+        ? WorkoutFormatters.formatPaceFromSecondsPerKm(
+            gpsAnalysis.effectivePaceSecPerKm!,
+            useMetric: useMetricUnits,
+          )
+        : WorkoutFormatters.formatPaceFromSpeedKmh(
+            avgSpeedKmh,
+            useMetric: useMetricUnits,
+          );
+    final movingPace =
+        WorkoutFormatters.formatMovingPaceFromDistanceAndDuration(
+          distanceKm: effectiveDistanceKm,
+          durationSec: movingTimeSeconds,
+          restDurationSec: 0,
+          useMetric: useMetricUnits,
+        );
 
     return Scaffold(
       backgroundColor: _kBgTop,
@@ -87,12 +108,6 @@ class WorkoutSummaryScreen extends ConsumerWidget {
             children: [
               _SummaryHeroCard(
                 activityType: activityType,
-                distanceKm: distanceKm,
-                useMetricUnits: useMetricUnits,
-                durationSeconds: durationSeconds,
-                avgSpeedKmh: avgSpeedKmh,
-                calories: calories,
-                gpsAnalysis: gpsAnalysis,
                 showRouteMap: effectiveRoutePoints.length >= 2,
                 routePoints: effectiveRoutePoints,
                 routeSegments: effectiveRouteSegments,
@@ -144,21 +159,38 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                         Expanded(
                           child: _SummaryStatCard(
                             label: 'Avg Pace',
-                            value: gpsAnalysis.effectivePaceSecPerKm != null
-                                ? '${WorkoutFormatters.formatDurationFromSeconds(gpsAnalysis.effectivePaceSecPerKm!.round())}/${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}'
-                                : WorkoutFormatters.formatPaceFromSpeedKmh(
-                                    avgSpeedKmh,
-                                    useMetric: useMetricUnits,
-                                  ),
+                            value: avgPace,
                             accent: const Color(0xFFF8C15C),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _SummaryStatCard(
+                            label: 'Moving Pace',
+                            value: movingPace,
+                            accent: _kValidGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SummaryStatCard(
                             label: 'Calories',
                             value: '$calories kcal',
                             accent: const Color(0xFFFF8CA1),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SummaryStatCard(
+                            label: 'Rest Time',
+                            value: WorkoutFormatters.formatElapsedClock(
+                              gpsAnalysis.restDurationSec,
+                            ),
+                            accent: _kNeonBlue,
                           ),
                         ),
                       ],
@@ -275,24 +307,12 @@ class WorkoutSummaryScreen extends ConsumerWidget {
 class _SummaryHeroCard extends StatelessWidget {
   const _SummaryHeroCard({
     required this.activityType,
-    required this.distanceKm,
-    required this.useMetricUnits,
-    required this.durationSeconds,
-    required this.avgSpeedKmh,
-    required this.calories,
-    required this.gpsAnalysis,
     required this.showRouteMap,
     required this.routePoints,
     required this.routeSegments,
   });
 
   final String activityType;
-  final double distanceKm;
-  final bool useMetricUnits;
-  final int durationSeconds;
-  final double avgSpeedKmh;
-  final int calories;
-  final WorkoutGpsAnalysis gpsAnalysis;
   final bool showRouteMap;
   final List<LatLng> routePoints;
   final List<List<LatLng>> routeSegments;
@@ -315,7 +335,7 @@ class _SummaryHeroCard extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            padding: const EdgeInsets.all(14),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: SizedBox(
@@ -332,143 +352,10 @@ class _SummaryHeroCard extends StatelessWidget {
                         startColor: _kValidGreen,
                         endColor: _kDangerRed,
                         badgeText: 'ROUTE RECAP',
-                        footerText: '${routePoints.length} points recorded',
                         routeSegments: routeSegments,
                       )
-                    : _IndoorTrailPreview(
-                        activityType: activityType,
-                        distanceKm: distanceKm,
-                        useMetricUnits: useMetricUnits,
-                        durationSeconds: durationSeconds,
-                      ),
+                    : _IndoorTrailPreview(activityType: activityType),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: _kNeonCyan.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        _activityIcon(activityType),
-                        color: _kNeonCyan,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            activityType.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            showRouteMap
-                                ? 'Route recorded on this workout'
-                                : 'Workout captured without route map',
-                            style: const TextStyle(
-                              color: _kMutedText,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      (useMetricUnits
-                              ? distanceKm
-                              : WorkoutFormatters.kmToMi(distanceKm))
-                          .toStringAsFixed(2),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 58,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -2.8,
-                        height: 0.95,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, bottom: 10),
-                      child: Text(
-                        WorkoutFormatters.distanceUnitLabel(
-                          useMetric: useMetricUnits,
-                        ),
-                        style: const TextStyle(
-                          color: _kMutedText,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _summarySubtitle(
-                    distanceKm: distanceKm,
-                    useMetricUnits: useMetricUnits,
-                    durationSeconds: durationSeconds,
-                    avgSpeedKmh: avgSpeedKmh,
-                  ),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _kMutedText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    WorkoutHeroMetricChip(
-                      label: 'Duration',
-                      value: WorkoutFormatters.formatElapsedClock(
-                        durationSeconds,
-                      ),
-                    ),
-                    WorkoutHeroMetricChip(
-                      label: 'Avg Pace',
-                      value: gpsAnalysis.effectivePaceSecPerKm != null
-                          ? '${WorkoutFormatters.formatDurationFromSeconds(gpsAnalysis.effectivePaceSecPerKm!.round())}/${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}'
-                          : WorkoutFormatters.formatPaceFromSpeedKmh(
-                              avgSpeedKmh,
-                              useMetric: useMetricUnits,
-                            ),
-                    ),
-                    WorkoutHeroMetricChip(
-                      label: 'Calories',
-                      value: '$calories kcal',
-                    ),
-                  ],
-                ),
-              ],
             ),
           ),
         ],
@@ -538,21 +425,13 @@ class _SummaryStatCard extends StatelessWidget {
 }
 
 class _IndoorTrailPreview extends StatelessWidget {
-  const _IndoorTrailPreview({
-    required this.activityType,
-    required this.distanceKm,
-    required this.useMetricUnits,
-    required this.durationSeconds,
-  });
+  const _IndoorTrailPreview({required this.activityType});
 
   final String activityType;
-  final double distanceKm;
-  final bool useMetricUnits;
-  final int durationSeconds;
 
   List<Offset> _buildTrail() {
     final points = <Offset>[];
-    final loops = (distanceKm * 10).clamp(2, 7).round();
+    const loops = 4;
     const segmentsPerLoop = 18;
     final seed = activityType.toLowerCase().codeUnits.fold<int>(
       0,
@@ -683,11 +562,11 @@ class _IndoorTrailPreview extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: 14,
+              left: 14,
               bottom: 14,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
+                  horizontal: 12,
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
@@ -698,11 +577,12 @@ class _IndoorTrailPreview extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  '${WorkoutFormatters.formatDistance(distanceKm, useMetric: useMetricUnits, decimals: 2)}  |  ${WorkoutFormatters.formatElapsedClock(durationSeconds)}',
-                  style: const TextStyle(
+                  'ROUTE NOT AVAILABLE',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
                   ),
                 ),
               ),
@@ -919,20 +799,6 @@ class _SplitRow extends StatelessWidget {
       ],
     );
   }
-}
-
-String _summarySubtitle({
-  required double distanceKm,
-  required bool useMetricUnits,
-  required int durationSeconds,
-  required double avgSpeedKmh,
-}) {
-  final duration = WorkoutFormatters.formatElapsedClock(durationSeconds);
-  final pace = WorkoutFormatters.formatPaceFromSpeedKmh(
-    avgSpeedKmh,
-    useMetric: useMetricUnits,
-  );
-  return '$duration total  •  $pace average  •  ${WorkoutFormatters.formatDistance(distanceKm, useMetric: useMetricUnits, decimals: 2)}';
 }
 
 String _formatSplitDuration(int seconds) {

@@ -1,9 +1,6 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
-import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/widgets/profile_header.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/widgets/settings_section.dart';
@@ -40,7 +37,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _notificationsEnabled = true;
   bool _useMetricUnits = true;
   String _appVersion = 'Loading...';
-  bool _isExporting = false;
   bool _isClearingCache = false;
 
   @override
@@ -170,90 +166,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
     if (status.isDenied || status.isPermanentlyDenied || status.isRestricted) {
       await _openPermissionSettings();
-    }
-  }
-
-  Future<void> _exportData() async {
-    if (_isExporting) return;
-    final userId = ref.read(currentUserIdProvider);
-    if (userId == null) return;
-
-    setState(() => _isExporting = true);
-    try {
-      final workouts = await ref.read(workoutListProvider.future);
-      final profile = await ref.read(userProfileProvider(userId).future);
-      final exportPayload = <String, dynamic>{
-        'exported_at': DateTime.now().toIso8601String(),
-        'user_id': userId,
-        'profile': profile == null
-            ? null
-            : {
-                'weight_kg': profile.weightKg,
-                'height_m': profile.heightM,
-                'age': profile.age,
-                'gender': profile.gender,
-                'avatar_url': profile.avatarUrl,
-                'created_at': profile.createdAt.toIso8601String(),
-                'updated_at': profile.updatedAt.toIso8601String(),
-              },
-        'workouts': workouts
-            .map(
-              (w) => {
-                'id': w.id,
-                'activity_type': w.activityType,
-                'mode': w.mode,
-                'started_at': w.startedAt.toIso8601String(),
-                'ended_at': w.endedAt.toIso8601String(),
-                'duration_sec': w.durationSec,
-                'distance_km': w.distanceKm,
-                'steps': w.steps,
-                'avg_speed_kmh': w.avgSpeedKmh,
-                'calories_kcal': w.caloriesKcal,
-                'filtered_route_json': w.filteredRouteJson,
-                'matched_route_json': w.matchedRouteJson,
-                'route_match_status': w.routeMatchStatus,
-                'route_distance_source': w.routeDistanceSource,
-                'created_at': w.createdAt.toIso8601String(),
-              },
-            )
-            .toList(growable: false),
-      };
-
-      final documentsDir = await getApplicationDocumentsDirectory();
-      final exportDir = Directory('${documentsDir.path}/exports');
-      if (!await exportDir.exists()) {
-        await exportDir.create(recursive: true);
-      }
-      final file = File(
-        '${exportDir.path}/fitness_export_${DateTime.now().millisecondsSinceEpoch}.json',
-      );
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(exportPayload),
-      );
-
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Export ready'),
-          content: Text('Saved locally.\n\n${file.path}'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not export data')));
-    } finally {
-      if (mounted) {
-        setState(() => _isExporting = false);
-      }
     }
   }
 
@@ -446,22 +358,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               SettingsSection(
                 title: 'DATA',
                 children: [
-                  SettingsTile(
-                    icon: Icons.download,
-                    title: 'Export Data',
-                    subtitle: _isExporting
-                        ? 'Preparing your workout export...'
-                        : '',
-                    trailing: _isExporting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    onTap: _exportData,
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
                   SettingsTile(
                     icon: Icons.delete_sweep,
                     title: 'Clear Cache',

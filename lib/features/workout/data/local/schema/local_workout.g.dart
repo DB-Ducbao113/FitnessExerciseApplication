@@ -87,43 +87,48 @@ const LocalWorkoutSchema = CollectionSchema(
       name: r'mode',
       type: IsarType.string,
     ),
-    r'routeDistanceSource': PropertySchema(
+    r'movingTimeSec': PropertySchema(
       id: 14,
+      name: r'movingTimeSec',
+      type: IsarType.long,
+    ),
+    r'routeDistanceSource': PropertySchema(
+      id: 15,
       name: r'routeDistanceSource',
       type: IsarType.string,
     ),
     r'routeMatchConfidence': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'routeMatchConfidence',
       type: IsarType.double,
     ),
     r'routeMatchMetricsJson': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'routeMatchMetricsJson',
       type: IsarType.string,
     ),
     r'routeMatchStatus': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'routeMatchStatus',
       type: IsarType.string,
     ),
     r'sessionId': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'sessionId',
       type: IsarType.string,
     ),
     r'startedAt': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'startedAt',
       type: IsarType.dateTime,
     ),
     r'steps': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'steps',
       type: IsarType.long,
     ),
     r'userId': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'userId',
       type: IsarType.string,
     )
@@ -196,14 +201,15 @@ void _localWorkoutSerialize(
   writer.writeDouble(offsets[11], object.matchedDistanceKm);
   writer.writeString(offsets[12], object.matchedRouteJson);
   writer.writeString(offsets[13], object.mode);
-  writer.writeString(offsets[14], object.routeDistanceSource);
-  writer.writeDouble(offsets[15], object.routeMatchConfidence);
-  writer.writeString(offsets[16], object.routeMatchMetricsJson);
-  writer.writeString(offsets[17], object.routeMatchStatus);
-  writer.writeString(offsets[18], object.sessionId);
-  writer.writeDateTime(offsets[19], object.startedAt);
-  writer.writeLong(offsets[20], object.steps);
-  writer.writeString(offsets[21], object.userId);
+  writer.writeLong(offsets[14], object.movingTimeSec);
+  writer.writeString(offsets[15], object.routeDistanceSource);
+  writer.writeDouble(offsets[16], object.routeMatchConfidence);
+  writer.writeString(offsets[17], object.routeMatchMetricsJson);
+  writer.writeString(offsets[18], object.routeMatchStatus);
+  writer.writeString(offsets[19], object.sessionId);
+  writer.writeDateTime(offsets[20], object.startedAt);
+  writer.writeLong(offsets[21], object.steps);
+  writer.writeString(offsets[22], object.userId);
 }
 
 LocalWorkout _localWorkoutDeserialize(
@@ -228,14 +234,15 @@ LocalWorkout _localWorkoutDeserialize(
   object.matchedDistanceKm = reader.readDoubleOrNull(offsets[11]);
   object.matchedRouteJson = reader.readString(offsets[12]);
   object.mode = reader.readString(offsets[13]);
-  object.routeDistanceSource = reader.readString(offsets[14]);
-  object.routeMatchConfidence = reader.readDoubleOrNull(offsets[15]);
-  object.routeMatchMetricsJson = reader.readString(offsets[16]);
-  object.routeMatchStatus = reader.readString(offsets[17]);
-  object.sessionId = reader.readString(offsets[18]);
-  object.startedAt = reader.readDateTime(offsets[19]);
-  object.steps = reader.readLong(offsets[20]);
-  object.userId = reader.readString(offsets[21]);
+  object.movingTimeSec = reader.readLong(offsets[14]);
+  object.routeDistanceSource = reader.readString(offsets[15]);
+  object.routeMatchConfidence = reader.readDoubleOrNull(offsets[16]);
+  object.routeMatchMetricsJson = reader.readString(offsets[17]);
+  object.routeMatchStatus = reader.readString(offsets[18]);
+  object.sessionId = reader.readString(offsets[19]);
+  object.startedAt = reader.readDateTime(offsets[20]);
+  object.steps = reader.readLong(offsets[21]);
+  object.userId = reader.readString(offsets[22]);
   return object;
 }
 
@@ -275,20 +282,22 @@ P _localWorkoutDeserializeProp<P>(
     case 13:
       return (reader.readString(offset)) as P;
     case 14:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 15:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 16:
       return (reader.readString(offset)) as P;
+    case 16:
+      return (reader.readDoubleOrNull(offset)) as P;
     case 17:
       return (reader.readString(offset)) as P;
     case 18:
       return (reader.readString(offset)) as P;
     case 19:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 20:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 21:
+      return (reader.readLong(offset)) as P;
+    case 22:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1817,6 +1826,62 @@ extension LocalWorkoutQueryFilter
   }
 
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      movingTimeSecEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'movingTimeSec',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      movingTimeSecGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'movingTimeSec',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      movingTimeSecLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'movingTimeSec',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
+      movingTimeSecBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'movingTimeSec',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterFilterCondition>
       routeDistanceSourceEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2881,6 +2946,19 @@ extension LocalWorkoutQuerySortBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> sortByMovingTimeSec() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'movingTimeSec', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      sortByMovingTimeSecDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'movingTimeSec', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
       sortByRouteDistanceSource() {
     return QueryBuilder.apply(this, (query) {
@@ -3182,6 +3260,19 @@ extension LocalWorkoutQuerySortThenBy
     });
   }
 
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy> thenByMovingTimeSec() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'movingTimeSec', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
+      thenByMovingTimeSecDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'movingTimeSec', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalWorkout, LocalWorkout, QAfterSortBy>
       thenByRouteDistanceSource() {
     return QueryBuilder.apply(this, (query) {
@@ -3385,6 +3476,13 @@ extension LocalWorkoutQueryWhereDistinct
   }
 
   QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
+      distinctByMovingTimeSec() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'movingTimeSec');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, LocalWorkout, QDistinct>
       distinctByRouteDistanceSource({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'routeDistanceSource',
@@ -3535,6 +3633,12 @@ extension LocalWorkoutQueryProperty
   QueryBuilder<LocalWorkout, String, QQueryOperations> modeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'mode');
+    });
+  }
+
+  QueryBuilder<LocalWorkout, int, QQueryOperations> movingTimeSecProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'movingTimeSec');
     });
   }
 

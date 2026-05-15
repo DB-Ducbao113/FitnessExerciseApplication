@@ -92,14 +92,21 @@ class LocationTrackingService {
   Future<Position?> acquireStartupLock({
     required String activityType,
     Position? fallback,
-    Duration maxWait = const Duration(seconds: 6),
+    Duration? maxWait = const Duration(seconds: 15),
   }) async {
     await ensurePermissionsOrThrow();
 
     final desiredAccuracy = _startupLockAccuracy(activityType);
     final stableRadiusMeters = math.max(6.0, desiredAccuracy * 0.7);
     final completer = Completer<Position?>();
-    Position? bestFix = fallback;
+    Position? bestFix =
+        isFreshStartupLock(
+          fallback,
+          activityType: activityType,
+          now: DateTime.now(),
+        )
+        ? fallback
+        : null;
     Position? stableCandidate;
     StreamSubscription<Position>? subscription;
     Timer? timeoutTimer;
@@ -116,6 +123,13 @@ class LocationTrackingService {
           Geolocator.getPositionStream(
             locationSettings: _buildLocationSettings(),
           ).listen((position) {
+            if (!isFreshStartupLock(
+              position,
+              activityType: activityType,
+              now: DateTime.now(),
+            )) {
+              return;
+            }
             final currentBestAccuracy = bestFix?.accuracy ?? double.infinity;
             if (position.accuracy < currentBestAccuracy) {
               bestFix = position;
@@ -148,14 +162,32 @@ class LocationTrackingService {
             }
 
             stableCandidate = preferredFix;
-          }, onError: (_) => finish(bestFix ?? fallback));
+          }, onError: (_) => finish(bestFix));
 
-      timeoutTimer = Timer(maxWait, () => finish(bestFix ?? fallback));
+      if (maxWait != null) {
+        timeoutTimer = Timer(maxWait, () => finish(bestFix));
+      }
       return await completer.future;
     } catch (e) {
       debugPrint('[GPS] acquireStartupLock error: $e');
-      return bestFix ?? fallback;
+      return bestFix;
     }
+  }
+
+  @visibleForTesting
+  bool isFreshStartupLock(
+    Position? position, {
+    required String activityType,
+    DateTime? now,
+  }) {
+    if (position == null) return false;
+    if (position.accuracy.isNaN || position.accuracy.isInfinite) return false;
+    final capturedAt = position.timestamp;
+    final referenceTime = now ?? DateTime.now();
+    final age = referenceTime.difference(capturedAt).abs();
+    final accuracyLimit = _startupLockAccuracy(activityType) * 1.35;
+    return age <= const Duration(seconds: 8) &&
+        position.accuracy <= accuracyLimit;
   }
 
   Future<void> startTracking(String activityType) async {

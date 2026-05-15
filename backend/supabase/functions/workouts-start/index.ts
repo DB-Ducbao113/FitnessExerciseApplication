@@ -60,6 +60,8 @@ Deno.serve(async (req: Request) => {
         activity_type: activityType,
         mode,
         started_at: startedAt,
+        processing_status: "client_recording",
+        metrics_version: 1,
       })
       .select("id")
       .single();

@@ -18,7 +18,6 @@ const _kPanel = Color(0xFF102033);
 const _kPanelSoft = Color(0xFF12263C);
 const _kPanelBorder = Color(0x2200E5FF);
 const _kMutedText = Color(0xFF8A96A9);
-const _kMutedSoft = Color(0xFF627286);
 const _kNeonCyan = Color(0xFF19E2FF);
 const _kAmber = Color(0xFFFFB85C);
 
@@ -61,18 +60,18 @@ class CalendarScreen extends ConsumerWidget {
                   children: [
                     const _BrandHeader(),
                     const SizedBox(height: 14),
-                    _HistoryOverview(
-                      summary: summary,
-                      useMetricUnits: useMetricUnits,
-                    ),
-                    const SizedBox(height: 12),
                     _RangeTabs(
                       selected: range,
                       onChanged: (value) {
                         ref.read(historyRangeProvider.notifier).state = value;
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
+                    _HistoryOverview(
+                      summary: summary,
+                      useMetricUnits: useMetricUnits,
+                    ),
+                    const SizedBox(height: 10),
                     DailyWorkoutList(workouts: filtered, range: range.label),
                   ],
                 ),
@@ -166,84 +165,48 @@ class _HistoryOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cards = [
-      _OverviewItem(
-        label: 'TOTAL DISTANCE',
-        value:
-            (useMetricUnits
-                    ? summary.distanceKm
-                    : WorkoutFormatters.kmToMi(summary.distanceKm))
-                .toStringAsFixed(1),
-        color: _kNeonCyan,
-        icon: Icons.place_outlined,
-      ),
-      _OverviewItem(
-        label: 'CALORIES',
-        value: '${summary.calories}',
-        color: _kAmber,
-        icon: Icons.local_fire_department_rounded,
-      ),
-      _OverviewItem(
-        label: 'SESSIONS',
-        value: '${summary.workouts}',
-        color: const Color(0xFF39F2B8),
-        icon: Icons.fitness_center_rounded,
-      ),
-    ];
-
-    return Row(
-      children: [
-        for (var i = 0; i < cards.length; i++) ...[
-          Expanded(child: _OverviewCard(item: cards[i])),
-          if (i != cards.length - 1) const SizedBox(width: 10),
-        ],
-      ],
+    final distance = WorkoutFormatters.formatDistance(
+      summary.distanceKm,
+      useMetric: useMetricUnits,
+      decimals: 1,
     );
-  }
-}
+    final duration = WorkoutFormatters.formatDurationFromSeconds(
+      summary.durationSec,
+    );
 
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({required this.item});
-
-  final _OverviewItem item;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      height: 74,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _kPanelSoft,
-        borderRadius: BorderRadius.circular(14),
+        color: _kPanelSoft.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _kPanelBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(item.icon, color: item.color, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: const TextStyle(
-                    color: _kMutedSoft,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                  ),
-                ),
+          Icon(Icons.history_rounded, color: _kNeonCyan, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${summary.workouts} workouts / $distance / $duration',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
               ),
-            ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           Text(
-            item.value,
+            '${summary.calories} kcal',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+              color: _kMutedText,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -316,35 +279,24 @@ extension on _HistoryRange {
   }
 }
 
-class _OverviewItem {
-  final String label;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _OverviewItem({
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.icon,
-  });
-}
-
 class _HistorySummary {
   final int workouts;
   final double distanceKm;
   final int calories;
+  final int durationSec;
 
   const _HistorySummary({
     required this.workouts,
     required this.distanceKm,
     required this.calories,
+    required this.durationSec,
   });
 
   factory _HistorySummary.fromWorkouts(List<WorkoutSession> workouts) {
     return _HistorySummary(
       workouts: workouts.length,
       distanceKm: workouts.fold(0.0, (sum, item) => sum + item.distanceKm),
+      durationSec: workouts.fold(0, (sum, item) => sum + item.durationSec),
       calories: workouts.fold(
         0,
         (sum, item) => sum + item.caloriesKcal.round(),

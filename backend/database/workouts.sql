@@ -37,6 +37,7 @@ create table if not exists public.workout_sessions (
   started_at      timestamptz not null,
   ended_at        timestamptz,
   duration_sec    int check (duration_sec >= 0),
+  moving_time_sec int not null default 0 check (moving_time_sec >= 0),
 
   distance_km     float8 check (distance_km is null or distance_km >= 0),
   avg_speed_kmh   float8 check (avg_speed_kmh is null or avg_speed_kmh >= 0),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +18,12 @@ class ProfileHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileAsync = ref.watch(currentUserProfileProvider);
-    final avatarUrl = profileAsync.valueOrNull?.avatarUrl;
+    final avatar = ref.watch(currentAvatarDisplayProvider);
+    final ImageProvider? avatarImage = avatar.localPath != null
+        ? FileImage(File(avatar.localPath!))
+        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
+        ? NetworkImage(avatar.remoteUrl!)
+        : null;
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -53,10 +59,8 @@ class ProfileHeader extends ConsumerWidget {
               child: CircleAvatar(
                 radius: 28,
                 backgroundColor: const Color(0xFF102031),
-                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                    ? NetworkImage(avatarUrl)
-                    : null,
-                child: avatarUrl == null || avatarUrl.isEmpty
+                backgroundImage: avatarImage,
+                child: avatarImage == null
                     ? const Icon(Icons.person, size: 30, color: _cyan)
                     : null,
               ),

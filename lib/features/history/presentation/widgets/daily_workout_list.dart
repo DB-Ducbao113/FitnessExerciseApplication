@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_details_screen.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
@@ -229,7 +229,7 @@ class _WorkoutHistoryCard extends StatelessWidget {
                         color: Colors.white,
                         icon: Icons.speed_rounded,
                         value: pace,
-                        label: 'pace',
+                        label: 'avg pace',
                       ),
                       _MetricMini(
                         color: _kAmber,
@@ -356,9 +356,7 @@ String _monthShort(int month) {
 }
 
 String _durationShort(int seconds) {
-  final minutes = seconds ~/ 60;
-  final remaining = seconds % 60;
-  return '$minutes:${remaining.toString().padLeft(2, '0')}';
+  return WorkoutFormatters.formatElapsedClock(seconds);
 }
 
 String _paceLabel(WorkoutSession workout, {required bool useMetricUnits}) {

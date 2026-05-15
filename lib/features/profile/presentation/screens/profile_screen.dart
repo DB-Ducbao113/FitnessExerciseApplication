@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
@@ -211,6 +213,17 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _showAvatarSourceSheet(BuildContext context, WidgetRef ref) {
+    final profileAvatarUrl = ref
+        .read(currentUserProfileProvider)
+        .valueOrNull
+        ?.avatarUrl;
+    final avatarUrl = ref
+        .read(avatarUploadProvider)
+        .resolveAvatarUrl(profileAvatarUrl);
+    final hasAvatar =
+        avatarUrl != null && avatarUrl.isNotEmpty ||
+        ref.read(avatarUploadProvider).localAvatarPathOverride != null;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -253,6 +266,16 @@ class ProfileScreen extends ConsumerWidget {
                       .pickAndUpload(ImageSource.camera);
                 },
               ),
+              if (hasAvatar)
+                _SheetTile(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Remove current photo',
+                  color: _red,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ref.read(avatarUploadProvider.notifier).removeAvatar();
+                  },
+                ),
               const SizedBox(height: 8),
             ],
           ),
@@ -325,19 +348,6 @@ class ProfileScreen extends ConsumerWidget {
                           }
                         }
                       },
-              ),
-              const SizedBox(height: 10),
-              _SecurityOption(
-                icon: Icons.settings_outlined,
-                title: 'Open app settings',
-                subtitle:
-                    'Manage camera, photos, location, and app permissions.',
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
               ),
             ],
           ),
@@ -578,7 +588,13 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = profile?.avatarUrl;
+    final imageUrl = avatarState.resolveAvatarUrl(profile?.avatarUrl);
+    final localImagePath = avatarState.localAvatarPathOverride;
+    final ImageProvider? imageProvider = localImagePath != null
+        ? FileImage(File(localImagePath))
+        : imageUrl != null && imageUrl.isNotEmpty
+        ? NetworkImage(imageUrl)
+        : null;
     final memberSince = _formatDate(
       profile?.createdAt ?? _parseDate(user?.createdAt),
     );
@@ -614,22 +630,25 @@ class _AccountCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Container(
+                    key: ValueKey(
+                      localImagePath ?? imageUrl ?? 'default-avatar',
+                    ),
                     width: 86,
                     height: 86,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: const Color(0xFF102031),
-                      image: imageUrl != null && imageUrl.isNotEmpty
+                      image: imageProvider != null
                           ? DecorationImage(
-                              image: NetworkImage(imageUrl),
+                              image: imageProvider,
                               fit: BoxFit.cover,
                             )
                           : null,
                     ),
-                    child: imageUrl == null || imageUrl.isEmpty
+                    child: imageProvider == null
                         ? const Icon(
                             Icons.person_outline_rounded,
-                            color: _cyan,
+                            color: Color(0xFF9AA6B2),
                             size: 54,
                           )
                         : null,
@@ -1057,24 +1076,26 @@ class _SheetTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.color = _cyan,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const CircleAvatar(
+      leading: CircleAvatar(
         backgroundColor: _panel,
-        child: Icon(Icons.image_outlined, color: _cyan),
+        child: Icon(Icons.image_outlined, color: color),
       ),
       title: Text(label, style: const TextStyle(color: Colors.white)),
       onTap: onTap,
-      iconColor: _cyan,
+      iconColor: color,
       textColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      trailing: Icon(icon, color: _cyan),
+      trailing: Icon(icon, color: color),
     );
   }
 }

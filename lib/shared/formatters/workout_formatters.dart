@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_metrics_calculator.dart';
 
- // Shared workout formatters.
+// Shared workout formatters.
 
 class WorkoutFormatters {
   static double kmToMi(double km) => km * 0.6213711922;
@@ -112,6 +112,31 @@ class WorkoutFormatters {
       durationSec: durationSec,
     );
     return formatPaceFromSpeedKmh(speedKmh, useMetric: useMetric);
+  }
+
+  /// Format pace directly from elapsed seconds per kilometer.
+  static String formatPaceFromSecondsPerKm(
+    double paceSecPerKm, {
+    bool useMetric = true,
+  }) {
+    if (paceSecPerKm <= 0) return '--';
+    return formatSplitPace(paceSecPerKm / 60.0, useMetric: useMetric);
+  }
+
+  /// Format moving pace by excluding detected rest time from the duration.
+  static String formatMovingPaceFromDistanceAndDuration({
+    required double distanceKm,
+    required int durationSec,
+    required int restDurationSec,
+    bool useMetric = true,
+  }) {
+    final movingDurationSec = durationSec - restDurationSec;
+    if (movingDurationSec <= 0) return '--';
+    return formatPaceFromDistanceAndDuration(
+      distanceKm: distanceKm,
+      durationSec: movingDurationSec,
+      useMetric: useMetric,
+    );
   }
 
   static String formatSplitPace(double paceMinPerKm, {bool useMetric = true}) {

@@ -33,7 +33,14 @@ $$;
 --  13) migrations/20260413_raw_tracking_tables.sql
 --  14) migrations/20260413_workout_processing_jobs.sql
 --  15) migrations/20260413_workout_processing_logs.sql
---  16) seed/dev_seed.sql (optional, dev only)
+--  16) migrations/20260417_workout_route_matching_phase3.sql
+--  17) migrations/20260420_add_workout_moving_time.sql
+--  18) migrations/20260426_workout_segment_audits.sql
+--
+-- Supabase CLI deploy path:
+--   use backend/supabase/migrations with unique version prefixes, including
+--   202604260001_workout_segment_audits.sql.
+--  19) seed/dev_seed.sql (optional, dev only)
 
 -- Storage note:
 -- Create an `avatars` bucket in Supabase Storage and store the public URL in

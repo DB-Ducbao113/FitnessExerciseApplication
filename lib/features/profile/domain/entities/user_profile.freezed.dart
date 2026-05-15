@@ -19,9 +19,9 @@ mixin _$UserProfile {
   String get id => throw _privateConstructorUsedError;
   String get userId => throw _privateConstructorUsedError;
   double get weightKg => throw _privateConstructorUsedError;
-  double get heightM =>
-      throw _privateConstructorUsedError; // Changed from cm to meters
-  int get age => throw _privateConstructorUsedError;
+  double get heightCm => throw _privateConstructorUsedError;
+  DateTime? get dateOfBirth => throw _privateConstructorUsedError;
+  int get legacyAge => throw _privateConstructorUsedError;
   String get gender => throw _privateConstructorUsedError; // 'male' or 'female'
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime get updatedAt => throw _privateConstructorUsedError;
@@ -42,8 +42,9 @@ abstract class $UserProfileCopyWith<$Res> {
       {String id,
       String userId,
       double weightKg,
-      double heightM,
-      int age,
+      double heightCm,
+      DateTime? dateOfBirth,
+      int legacyAge,
       String gender,
       DateTime createdAt,
       DateTime updatedAt,
@@ -66,8 +67,9 @@ class _$UserProfileCopyWithImpl<$Res, $Val extends UserProfile>
     Object? id = null,
     Object? userId = null,
     Object? weightKg = null,
-    Object? heightM = null,
-    Object? age = null,
+    Object? heightCm = null,
+    Object? dateOfBirth = freezed,
+    Object? legacyAge = null,
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
@@ -86,13 +88,17 @@ class _$UserProfileCopyWithImpl<$Res, $Val extends UserProfile>
           ? _value.weightKg
           : weightKg // ignore: cast_nullable_to_non_nullable
               as double,
-      heightM: null == heightM
-          ? _value.heightM
-          : heightM // ignore: cast_nullable_to_non_nullable
+      heightCm: null == heightCm
+          ? _value.heightCm
+          : heightCm // ignore: cast_nullable_to_non_nullable
               as double,
-      age: null == age
-          ? _value.age
-          : age // ignore: cast_nullable_to_non_nullable
+      dateOfBirth: freezed == dateOfBirth
+          ? _value.dateOfBirth
+          : dateOfBirth // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      legacyAge: null == legacyAge
+          ? _value.legacyAge
+          : legacyAge // ignore: cast_nullable_to_non_nullable
               as int,
       gender: null == gender
           ? _value.gender
@@ -126,8 +132,9 @@ abstract class _$$UserProfileImplCopyWith<$Res>
       {String id,
       String userId,
       double weightKg,
-      double heightM,
-      int age,
+      double heightCm,
+      DateTime? dateOfBirth,
+      int legacyAge,
       String gender,
       DateTime createdAt,
       DateTime updatedAt,
@@ -148,8 +155,9 @@ class __$$UserProfileImplCopyWithImpl<$Res>
     Object? id = null,
     Object? userId = null,
     Object? weightKg = null,
-    Object? heightM = null,
-    Object? age = null,
+    Object? heightCm = null,
+    Object? dateOfBirth = freezed,
+    Object? legacyAge = null,
     Object? gender = null,
     Object? createdAt = null,
     Object? updatedAt = null,
@@ -168,13 +176,17 @@ class __$$UserProfileImplCopyWithImpl<$Res>
           ? _value.weightKg
           : weightKg // ignore: cast_nullable_to_non_nullable
               as double,
-      heightM: null == heightM
-          ? _value.heightM
-          : heightM // ignore: cast_nullable_to_non_nullable
+      heightCm: null == heightCm
+          ? _value.heightCm
+          : heightCm // ignore: cast_nullable_to_non_nullable
               as double,
-      age: null == age
-          ? _value.age
-          : age // ignore: cast_nullable_to_non_nullable
+      dateOfBirth: freezed == dateOfBirth
+          ? _value.dateOfBirth
+          : dateOfBirth // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      legacyAge: null == legacyAge
+          ? _value.legacyAge
+          : legacyAge // ignore: cast_nullable_to_non_nullable
               as int,
       gender: null == gender
           ? _value.gender
@@ -203,8 +215,9 @@ class _$UserProfileImpl extends _UserProfile {
       {required this.id,
       required this.userId,
       required this.weightKg,
-      required this.heightM,
-      required this.age,
+      required this.heightCm,
+      this.dateOfBirth,
+      this.legacyAge = 0,
       required this.gender,
       required this.createdAt,
       required this.updatedAt,
@@ -218,10 +231,12 @@ class _$UserProfileImpl extends _UserProfile {
   @override
   final double weightKg;
   @override
-  final double heightM;
-// Changed from cm to meters
+  final double heightCm;
   @override
-  final int age;
+  final DateTime? dateOfBirth;
+  @override
+  @JsonKey()
+  final int legacyAge;
   @override
   final String gender;
 // 'male' or 'female'
@@ -234,7 +249,7 @@ class _$UserProfileImpl extends _UserProfile {
 
   @override
   String toString() {
-    return 'UserProfile(id: $id, userId: $userId, weightKg: $weightKg, heightM: $heightM, age: $age, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt, avatarUrl: $avatarUrl)';
+    return 'UserProfile(id: $id, userId: $userId, weightKg: $weightKg, heightCm: $heightCm, dateOfBirth: $dateOfBirth, legacyAge: $legacyAge, gender: $gender, createdAt: $createdAt, updatedAt: $updatedAt, avatarUrl: $avatarUrl)';
   }
 
   @override
@@ -246,8 +261,12 @@ class _$UserProfileImpl extends _UserProfile {
             (identical(other.userId, userId) || other.userId == userId) &&
             (identical(other.weightKg, weightKg) ||
                 other.weightKg == weightKg) &&
-            (identical(other.heightM, heightM) || other.heightM == heightM) &&
-            (identical(other.age, age) || other.age == age) &&
+            (identical(other.heightCm, heightCm) ||
+                other.heightCm == heightCm) &&
+            (identical(other.dateOfBirth, dateOfBirth) ||
+                other.dateOfBirth == dateOfBirth) &&
+            (identical(other.legacyAge, legacyAge) ||
+                other.legacyAge == legacyAge) &&
             (identical(other.gender, gender) || other.gender == gender) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
@@ -258,8 +277,8 @@ class _$UserProfileImpl extends _UserProfile {
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightM,
-      age, gender, createdAt, updatedAt, avatarUrl);
+  int get hashCode => Object.hash(runtimeType, id, userId, weightKg, heightCm,
+      dateOfBirth, legacyAge, gender, createdAt, updatedAt, avatarUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -273,8 +292,9 @@ abstract class _UserProfile extends UserProfile {
       {required final String id,
       required final String userId,
       required final double weightKg,
-      required final double heightM,
-      required final int age,
+      required final double heightCm,
+      final DateTime? dateOfBirth,
+      final int legacyAge,
       required final String gender,
       required final DateTime createdAt,
       required final DateTime updatedAt,
@@ -288,9 +308,11 @@ abstract class _UserProfile extends UserProfile {
   @override
   double get weightKg;
   @override
-  double get heightM;
-  @override // Changed from cm to meters
-  int get age;
+  double get heightCm;
+  @override
+  DateTime? get dateOfBirth;
+  @override
+  int get legacyAge;
   @override
   String get gender;
   @override // 'male' or 'female'

@@ -106,6 +106,21 @@ class _WorkoutHeroSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final routeAsync = ref.watch(workoutRoutePresentationProvider(workoutId));
     final displayDistanceKm = workout.distanceKm;
+    final effectiveDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
+        ? workout.gpsAnalysis.validDistanceKm
+        : displayDistanceKm;
+    final avgPace = WorkoutFormatters.formatPaceFromDistanceAndDuration(
+      distanceKm: displayDistanceKm,
+      durationSec: workout.durationSec,
+      useMetric: useMetricUnits,
+    );
+    final movingPace =
+        WorkoutFormatters.formatMovingPaceFromDistanceAndDuration(
+          distanceKm: effectiveDistanceKm,
+          durationSec: workout.movingTimeSec,
+          restDurationSec: 0,
+          useMetric: useMetricUnits,
+        );
 
     return Container(
       decoration: BoxDecoration(
@@ -279,19 +294,27 @@ class _WorkoutHeroSection extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
+                      _HeroMetaRow(label: 'Avg Pace', value: avgPace),
+                      const SizedBox(height: 10),
+                      _HeroMetaRow(label: 'Moving Pace', value: movingPace),
+                      const SizedBox(height: 10),
                       _HeroMetaRow(
-                        label: 'Avg Pace',
-                        value:
-                            WorkoutFormatters.formatPaceFromDistanceAndDuration(
-                              distanceKm: displayDistanceKm,
-                              durationSec: workout.durationSec,
-                              useMetric: useMetricUnits,
-                            ),
+                        label: 'Moving Time',
+                        value: WorkoutFormatters.formatElapsedClock(
+                          workout.movingTimeSec,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _HeroMetaRow(
                         label: 'Calories',
                         value: '${workout.caloriesKcal.round()} kcal',
+                      ),
+                      const SizedBox(height: 10),
+                      _HeroMetaRow(
+                        label: 'Rest Time',
+                        value: WorkoutFormatters.formatElapsedClock(
+                          workout.gpsAnalysis.restDurationSec,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _HeroMetaRow(

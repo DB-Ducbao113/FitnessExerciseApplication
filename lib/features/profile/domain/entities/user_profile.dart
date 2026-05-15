@@ -8,8 +8,9 @@ class UserProfile with _$UserProfile {
     required String id,
     required String userId,
     required double weightKg,
-    required double heightM, // Changed from cm to meters
-    required int age,
+    required double heightCm,
+    DateTime? dateOfBirth,
+    @Default(0) int legacyAge,
     required String gender, // 'male' or 'female'
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -18,12 +19,24 @@ class UserProfile with _$UserProfile {
 
   const UserProfile._();
 
+  double get heightM => heightCm / 100.0;
+
+  int get age {
+    if (dateOfBirth == null) return legacyAge;
+    final now = DateTime.now();
+    var years = now.year - dateOfBirth!.year;
+    final hadBirthdayThisYear =
+        now.month > dateOfBirth!.month ||
+        (now.month == dateOfBirth!.month && now.day >= dateOfBirth!.day);
+    if (!hadBirthdayThisYear) years -= 1;
+    return years;
+  }
+
   // Calculate BMI
   double get bmi => weightKg / (heightM * heightM);
 
   // Calculate BMR (Basal Metabolic Rate) using Mifflin-St Jeor Equation
   double get bmr {
-    final heightCm = heightM * 100;
     if (gender.toLowerCase() == 'male') {
       return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
     } else {

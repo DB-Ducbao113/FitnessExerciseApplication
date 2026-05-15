@@ -19,6 +19,7 @@ class LocalWorkout {
   late DateTime endedAt;
 
   int durationSec = 0;
+  int movingTimeSec = 0;
   double distanceKm = 0;
   int steps = 0;
   double avgSpeedKmh = 0;
@@ -46,6 +47,7 @@ class LocalWorkout {
       startedAt: startedAt,
       endedAt: endedAt,
       durationSec: durationSec,
+      movingTimeSec: movingTimeSec,
       distanceKm: distanceKm,
       steps: steps,
       avgSpeedKmh: avgSpeedKmh,
@@ -72,6 +74,7 @@ class LocalWorkout {
       ..startedAt = session.startedAt.toUtc()
       ..endedAt = session.endedAt.toUtc()
       ..durationSec = session.durationSec
+      ..movingTimeSec = session.movingTimeSec
       ..distanceKm = session.distanceKm
       ..steps = session.steps
       ..avgSpeedKmh = session.avgSpeedKmh
