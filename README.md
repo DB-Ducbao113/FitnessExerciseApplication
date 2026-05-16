@@ -1,7 +1,11 @@
+<div align="center">
+  <img src="assets/logo.png" alt="Aetron logo" width="120" />
+</div>
 
 <div align="center">
 
 # Aetron
+<div align="center">
 
 ### A modern fitness tracking app built with Flutter
 
