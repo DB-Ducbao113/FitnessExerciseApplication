@@ -1,0 +1,70 @@
+services:
+  workouts-start:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FUNCTION_NAME: workouts-start
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
+      ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
+    ports:
+      - "54331:8000"
+
+  workouts-end:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FUNCTION_NAME: workouts-end
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
+      ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
+    ports:
+      - "54332:8000"
+
+  gps-track:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FUNCTION_NAME: gps-track
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
+      ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
+    ports:
+      - "54333:8000"
+
+  deterministic-finalize-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FUNCTION_NAME: deterministic-finalize-worker
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
+      ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
+    ports:
+      - "54334:8000"
+
+  route-correction-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FUNCTION_NAME: route-correction-worker
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
+      ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
+    ports:
+      - "54335:8000"

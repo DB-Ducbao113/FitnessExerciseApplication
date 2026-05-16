@@ -1,0 +1,61 @@
+import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_setup_screen.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// Root auth gate.
+
+class AuthWrapper extends ConsumerStatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends ConsumerState<AuthWrapper> {
+  late final Stream<AuthState> _authStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStream = Supabase.instance.client.auth.onAuthStateChange;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: _authStream,
+      builder: (context, snapshot) {
+        final session = Supabase.instance.client.auth.currentSession;
+        final event = snapshot.data?.event;
+
+        // Clear cached workouts on sign-out.
+        if (event == AuthChangeEvent.signedOut) {
+          Future.microtask(() {
+            ref.invalidate(workoutListProvider);
+          });
+        }
+
+        if (session == null) {
+          return const LoginScreen();
+        }
+
+        // Route signed-in users by profile state.
+        final userId = session.user.id;
+        final hasProfileAsync = ref.watch(hasUserProfileProvider(userId));
+
+        return hasProfileAsync.when(
+          data: (hasProfile) =>
+              hasProfile ? const MainShell() : const ProfileSetupScreen(),
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (error, stackTrace) => const ProfileSetupScreen(),
+        );
+      },
+    );
+  }
+}

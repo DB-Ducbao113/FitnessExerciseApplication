@@ -1,0 +1,151 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+
+/// Home header with live avatar data.
+class AppHeader extends ConsumerWidget {
+  final VoidCallback? onMenuTap;
+
+  const AppHeader({super.key, this.onMenuTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final avatar = ref.watch(currentAvatarDisplayProvider);
+    final ImageProvider? avatarImage = avatar.localPath != null
+        ? FileImage(File(avatar.localPath!))
+        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
+        ? NetworkImage(avatar.remoteUrl!)
+        : null;
+    final displayName = user?.email?.split('@').first ?? 'User';
+
+    return SizedBox(
+      width: double.infinity,
+      height: 200,
+      child: Stack(
+        children: [
+          CustomPaint(
+            painter: HeaderPainter(),
+            size: const Size(double.infinity, 200),
+          ),
+          // Menu
+          Positioned(
+            top: 20,
+            left: 20,
+            child: IconButton(
+              onPressed: onMenuTap,
+              icon: const Icon(Icons.menu, color: Colors.white),
+            ),
+          ),
+          // Avatar
+          Positioned(
+            top: 25,
+            right: 30,
+            child: GestureDetector(
+              onTap: onMenuTap,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 32,
+                  backgroundColor: const Color(0xffe8f7fd),
+                  backgroundImage: avatarImage,
+                  child: avatarImage == null
+                      ? const Icon(
+                          Icons.person,
+                          size: 32,
+                          color: Color(0xff18b0e8),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ),
+          // Greeting
+          Positioned(
+            left: 33,
+            bottom: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Hello',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w400,
+                    fontSize: 20,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  displayName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HeaderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gradient = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xff00d4ff), Color(0xff0099ff), Color(0xff0066ff)],
+    );
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final paint = Paint()..shader = gradient.createShader(rect);
+    canvas.drawRect(rect, paint);
+
+    Paint circles1 = Paint()..color = Colors.white.withValues(alpha: 0.15);
+    Paint circles2 = Paint()..color = Colors.white.withValues(alpha: 0.1);
+    Paint circles3 = Paint()..color = Colors.white.withValues(alpha: 0.08);
+
+    canvas.drawCircle(Offset(size.width * 0.7, -20), 80, circles1);
+    canvas.drawCircle(Offset(size.width * 0.85, 50), 60, circles2);
+    canvas.drawCircle(Offset(size.width * 0.55, 140), 40, circles3);
+    canvas.drawCircle(Offset(size.width - 30, size.height - 30), 50, circles2);
+    canvas.drawCircle(Offset(20, size.height * 0.3), 30, circles3);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
