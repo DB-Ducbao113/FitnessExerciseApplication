@@ -1,11 +1,11 @@
 {
-    "name": "fitness_exercise_application",
-    "short_name": "fitness_exercise_application",
+    "name": "Aetron",
+    "short_name": "Aetron",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Aetron, a modern fitness tracking app for workouts, goals, history, and progress.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

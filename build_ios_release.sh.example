@@ -6,7 +6,7 @@ SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY_HERE"
 FLUTTER_BIN="/ABSOLUTE/PATH/TO/flutter/bin/flutter"
 POD_BIN="$HOME/.gem/ruby/2.6.0/bin/pod"
 POD_WRAPPER_DIR="/tmp/codex-bin"
-BUNDLE_ID="com.example.fitnessExerciseApplication"
+BUNDLE_ID="com.aetron.app"
 APP_PATH_SUFFIX="build/ios/iphoneos/Runner.app"
 DEVICE_ID="YOUR_DEVICE_ID_HERE"
 

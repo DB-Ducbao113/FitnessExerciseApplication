@@ -1,6 +1,3 @@
-<div align="center">
-  <img src="assets/logo.png" alt="Aetron logo" width="120" />
-</div>
 
 <div align="center">
 

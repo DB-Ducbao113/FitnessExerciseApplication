@@ -7,7 +7,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fitness Exercise Application',
+      title: 'Aetron',
       theme: ThemeData(
         fontFamily: 'Outfit',
         textTheme: const TextTheme(
