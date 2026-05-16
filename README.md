@@ -5,7 +5,6 @@
 <div align="center">
 
 # Aetron
-<div align="center">
 
 ### A modern fitness tracking app built with Flutter
 
