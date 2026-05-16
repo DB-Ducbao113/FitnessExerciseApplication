@@ -47,6 +47,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   Timer? _startupCountdownTimer;
   int _startupCountdown = _kStartupCountdownSeconds;
   bool _isPreparingWorkout = true;
+  bool _isLockingStartupGps = false;
   bool _hasStartedWorkout = false;
   Future<Position?>? _startupGpsLockFuture;
 
@@ -68,6 +69,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     if (mounted) {
       setState(() {
         _isPreparingWorkout = true;
+        _isLockingStartupGps = false;
+        _hasStartedWorkout = false;
         _startupCountdown = _kStartupCountdownSeconds;
       });
     }
@@ -77,14 +80,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       if (widget.requireGps) {
         final locationService = ref.read(locationTrackingServiceProvider);
         await locationService.ensurePermissionsOrThrow();
-        final lastKnown = await locationService.getLastKnownPosition();
         _startupGpsLockFuture = locationService.acquireStartupLock(
           activityType: widget.activityType,
-          fallback: await locationService.getCurrentPositionWithTimeout(
-            fallback: lastKnown,
-            timeout: const Duration(seconds: _kStartupCountdownSeconds),
-          ),
-          maxWait: const Duration(seconds: _kStartupCountdownSeconds + 2),
+          maxWait: null,
         );
       }
       // Motion permission is required for both indoor workouts and
@@ -123,20 +121,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
       if (_startupCountdown <= 1) {
         timer.cancel();
-        unawaited(() async {
-          final startupGpsLock =
-              await (_startupGpsLockFuture ?? Future.value());
-          if (!mounted || _hasStartedWorkout) return;
-          setState(() {
-            _startupCountdown = 0;
-            _isPreparingWorkout = false;
-          });
-          _hasStartedWorkout = true;
-          notifier.startWorkout(
-            widget.activityType,
-            startupGpsLock: startupGpsLock,
-          );
-        }());
+        unawaited(_startAfterCountdown(notifier));
         return;
       }
 
@@ -144,6 +129,32 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         _startupCountdown -= 1;
       });
     });
+  }
+
+  Future<void> _startAfterCountdown(WorkoutSessionNotifier notifier) async {
+    if (!mounted || _hasStartedWorkout) return;
+    setState(() {
+      _startupCountdown = 0;
+      _isLockingStartupGps = widget.requireGps;
+    });
+
+    final startupGpsLock = await (_startupGpsLockFuture ?? Future.value());
+    if (!mounted || _hasStartedWorkout) return;
+
+    if (widget.requireGps && startupGpsLock == null) {
+      setState(() {
+        _isLockingStartupGps = false;
+      });
+      _showStartError('gps_startup_lock_failed');
+      return;
+    }
+
+    setState(() {
+      _isPreparingWorkout = false;
+      _isLockingStartupGps = false;
+    });
+    _hasStartedWorkout = true;
+    notifier.startWorkout(widget.activityType, startupGpsLock: startupGpsLock);
   }
 
   Future<void> _ensureMotionPermissionOrThrow() async {
@@ -219,6 +230,16 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         actionLabel = 'Open Settings';
         onAction = () async {
           await openAppSettings();
+          if (!mounted) return;
+          await _startWorkout();
+        };
+        break;
+      case 'gps_startup_lock_failed':
+        title = 'GPS Signal Needed';
+        message =
+            'Move to a more open area so the app can lock your current GPS position before recording.';
+        actionLabel = 'Try Again';
+        onAction = () async {
           if (!mounted) return;
           await _startWorkout();
         };
@@ -728,7 +749,11 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _startupCountdown > 0 ? '$_startupCountdown' : 'GO',
+                            _startupCountdown > 0
+                                ? '$_startupCountdown'
+                                : _isLockingStartupGps
+                                ? ''
+                                : 'GO',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 54,
@@ -736,21 +761,36 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               letterSpacing: -2,
                             ),
                           ),
+                          if (_isLockingStartupGps) ...[
+                            const SizedBox(height: 2),
+                            const SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: _kNeonCyan,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 10),
-                          const Text(
-                            'Getting your current GPS position',
+                          Text(
+                            _isLockingStartupGps
+                                ? 'Locking your GPS position'
+                                : 'Getting your current GPS position',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'Recording will start in a moment',
+                          Text(
+                            _isLockingStartupGps
+                                ? 'Recording starts once the location is accurate'
+                                : 'Recording will start in a moment',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: _kMutedText,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

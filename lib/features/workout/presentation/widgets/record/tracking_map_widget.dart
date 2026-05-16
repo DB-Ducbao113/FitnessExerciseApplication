@@ -144,7 +144,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget> {
   void _refreshDisplayRoute() {
     if (!widget.showRoute || widget.routePoints.length < 2) {
       _cachedDisplayRoute = widget.routePoints;
-      _cachedDisplaySegments = widget.routeSegments;
+      _cachedDisplaySegments = widget.routeSegments
+          .where((segment) => segment.length >= 2)
+          .toList();
       return;
     }
 

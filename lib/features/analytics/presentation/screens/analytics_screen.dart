@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
@@ -42,9 +44,10 @@ class StatsScreen extends ConsumerWidget {
         child: workoutsAsync.when(
           data: (workouts) {
             final filtered = _filterWorkouts(workouts, period);
-            final summary = _AnalyticsSummary.fromWorkouts(filtered);
+            final insights = _AnalyticsInsights.fromWorkouts(filtered, period);
             final records = _PersonalRecords.fromWorkouts(workouts);
-            final chart = _chartData(filtered, period);
+            final chart = _distanceChartData(filtered, period);
+            final monthlyProgress = _monthlyDistanceByWeek(workouts);
             final breakdown = _activityBreakdown(filtered);
             final average = chart.isEmpty
                 ? 0.0
@@ -71,18 +74,24 @@ class StatsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 22),
                   _OverviewGrid(
-                    summary: summary,
+                    insights: insights,
                     useMetricUnits: useMetricUnits,
-                  ),
-                  const SizedBox(height: 26),
-                  _GoalProgressSection(
-                    progress: ref.watch(goalProgressProvider),
                   ),
                   const SizedBox(height: 26),
                   _WeekTrendCard(
                     chartData: chart,
                     period: period,
                     average: average,
+                    useMetricUnits: useMetricUnits,
+                  ),
+                  const SizedBox(height: 24),
+                  _MonthlyProgressCard(
+                    weekData: monthlyProgress,
+                    useMetricUnits: useMetricUnits,
+                  ),
+                  const SizedBox(height: 26),
+                  _GoalProgressSection(
+                    progress: ref.watch(goalProgressProvider),
                   ),
                   const SizedBox(height: 28),
                   const _SectionTitle(title: 'PERSONAL RECORDS'),
@@ -123,10 +132,12 @@ class _AnalyticsTopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final avatarUrl = ref
-        .watch(currentUserProfileProvider)
-        .valueOrNull
-        ?.avatarUrl;
+    final avatar = ref.watch(currentAvatarDisplayProvider);
+    final ImageProvider? avatarImage = avatar.localPath != null
+        ? FileImage(File(avatar.localPath!))
+        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
+        ? NetworkImage(avatar.remoteUrl!)
+        : null;
 
     return Row(
       children: [
@@ -146,14 +157,11 @@ class _AnalyticsTopBar extends ConsumerWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF3A414D),
             borderRadius: BorderRadius.circular(999),
-            image: avatarUrl != null && avatarUrl.isNotEmpty
-                ? DecorationImage(
-                    image: NetworkImage(avatarUrl),
-                    fit: BoxFit.cover,
-                  )
+            image: avatarImage != null
+                ? DecorationImage(image: avatarImage, fit: BoxFit.cover)
                 : null,
           ),
-          child: avatarUrl == null || avatarUrl.isEmpty
+          child: avatarImage == null
               ? const Icon(
                   Icons.person_outline_rounded,
                   color: Color(0xFFD7E9F2),
@@ -227,46 +235,51 @@ class _PeriodSwitcher extends StatelessWidget {
 }
 
 class _OverviewGrid extends StatelessWidget {
-  const _OverviewGrid({required this.summary, required this.useMetricUnits});
+  const _OverviewGrid({required this.insights, required this.useMetricUnits});
 
-  final _AnalyticsSummary summary;
+  final _AnalyticsInsights insights;
   final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context) {
     final cards = [
       _OverviewItem(
-        icon: Icons.fitness_center_rounded,
-        label: 'WORKOUTS',
-        value: '${summary.totalWorkouts}',
-        suffix: '',
-        color: _kNeonCyan,
-      ),
-      _OverviewItem(
         icon: Icons.route_rounded,
-        label: 'DISTANCE',
+        label: 'AVG DISTANCE',
         value:
             (useMetricUnits
-                    ? summary.totalDistanceKm
-                    : WorkoutFormatters.kmToMi(summary.totalDistanceKm))
+                    ? insights.averageDistanceKm
+                    : WorkoutFormatters.kmToMi(insights.averageDistanceKm))
                 .toStringAsFixed(1),
         suffix:
             ' ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}',
         color: _kAmber,
       ),
       _OverviewItem(
-        icon: Icons.timer_rounded,
-        label: 'ACTIVE TIME',
-        value: _minutesLabel(summary.totalDurationSec),
-        suffix: ' min',
+        icon: Icons.speed_rounded,
+        label: 'BEST PACE',
+        value: insights.bestPaceSecPerKm == null
+            ? '--'
+            : WorkoutFormatters.formatPaceFromSecondsPerKm(
+                insights.bestPaceSecPerKm!,
+                useMetric: useMetricUnits,
+              ),
+        suffix: '',
         color: _kNeonCyan,
       ),
       _OverviewItem(
-        icon: Icons.local_fire_department_rounded,
-        label: 'CALORIES',
-        value: '${summary.totalCalories}',
-        suffix: ' kcal',
+        icon: Icons.event_available_rounded,
+        label: '${insights.activeDays}/${insights.expectedDays} DAYS',
+        value: '${insights.consistencyPercent}',
+        suffix: '%',
         color: _kRed,
+      ),
+      _OverviewItem(
+        icon: Icons.fitness_center_rounded,
+        label: 'WORKOUTS',
+        value: '${insights.totalWorkouts}',
+        suffix: '',
+        color: _kNeonCyan,
       ),
     ];
 
@@ -455,19 +468,31 @@ class _WeekTrendCard extends StatelessWidget {
     required this.chartData,
     required this.period,
     required this.average,
+    required this.useMetricUnits,
   });
 
   final Map<String, double> chartData;
   final TimePeriod period;
   final double average;
+  final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context) {
     final labels = chartData.keys.toList();
-    final values = chartData.values.toList();
+    final values = chartData.values
+        .map(
+          (value) => useMetricUnits ? value : WorkoutFormatters.kmToMi(value),
+        )
+        .toList();
+    final displayAverage = useMetricUnits
+        ? average
+        : WorkoutFormatters.kmToMi(average);
+    final unit = WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits);
     final maxY = values.isEmpty
         ? 1.0
-        : values.reduce((a, b) => a > b ? a : b) + 1;
+        : (values.reduce((a, b) => a > b ? a : b) * 1.2)
+              .clamp(1.0, 9999.0)
+              .toDouble();
     final selectedIndex = values.isEmpty
         ? -1
         : values.indexOf(values.reduce((a, b) => a >= b ? a : b));
@@ -479,7 +504,7 @@ class _WeekTrendCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                '${_periodLabel(period).toUpperCase()} TREND',
+                '${_periodLabel(period).toUpperCase()} DISTANCE',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -498,7 +523,7 @@ class _WeekTrendCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Avg: ${average.toStringAsFixed(1)}',
+                  'Avg: ${displayAverage.toStringAsFixed(1)} $unit',
                   style: const TextStyle(
                     color: _kNeonCyan,
                     fontSize: 13,
@@ -601,6 +626,127 @@ class _WeekTrendCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MonthlyProgressCard extends StatelessWidget {
+  const _MonthlyProgressCard({
+    required this.weekData,
+    required this.useMetricUnits,
+  });
+
+  final Map<String, double> weekData;
+  final bool useMetricUnits;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = weekData.values
+        .map(
+          (value) => useMetricUnits ? value : WorkoutFormatters.kmToMi(value),
+        )
+        .toList();
+    final maxValue = values.isEmpty
+        ? 1.0
+        : values
+              .reduce((a, b) => a > b ? a : b)
+              .clamp(1.0, double.infinity)
+              .toDouble();
+    final total = values.fold<double>(0, (sum, value) => sum + value);
+    final unit = WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits);
+
+    return _CardShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _SectionTitle(title: 'MONTHLY PROGRESS'),
+              const Spacer(),
+              Text(
+                '${total.toStringAsFixed(1)} $unit',
+                style: const TextStyle(
+                  color: _kNeonCyan,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          for (var i = 0; i < weekData.length; i++) ...[
+            _MonthlyProgressRow(
+              label: weekData.keys.elementAt(i),
+              value: values[i],
+              maxValue: maxValue,
+              unit: unit,
+            ),
+            if (i != weekData.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyProgressRow extends StatelessWidget {
+  const _MonthlyProgressRow({
+    required this.label,
+    required this.value,
+    required this.maxValue,
+    required this.unit,
+  });
+
+  final String label;
+  final double value;
+  final double maxValue;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = maxValue <= 0
+        ? 0.0
+        : (value / maxValue).clamp(0.0, 1.0).toDouble();
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 30,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: _kMutedText,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 10,
+              backgroundColor: _kTrack,
+              valueColor: const AlwaysStoppedAnimation<Color>(_kAmber),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 58,
+          child: Text(
+            '${value.toStringAsFixed(1)} $unit',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -890,40 +1036,58 @@ class _RecordItem {
   });
 }
 
-class _AnalyticsSummary {
+class _AnalyticsInsights {
   final int totalWorkouts;
-  final double totalDistanceKm;
-  final int totalDurationSec;
-  final int totalCalories;
-  final int totalSteps;
+  final double averageDistanceKm;
+  final double? bestPaceSecPerKm;
+  final int activeDays;
+  final int expectedDays;
+  final int consistencyPercent;
 
-  const _AnalyticsSummary({
+  const _AnalyticsInsights({
     required this.totalWorkouts,
-    required this.totalDistanceKm,
-    required this.totalDurationSec,
-    required this.totalCalories,
-    required this.totalSteps,
+    required this.averageDistanceKm,
+    required this.bestPaceSecPerKm,
+    required this.activeDays,
+    required this.expectedDays,
+    required this.consistencyPercent,
   });
 
-  factory _AnalyticsSummary.fromWorkouts(List<WorkoutSession> workouts) {
-    return _AnalyticsSummary(
+  factory _AnalyticsInsights.fromWorkouts(
+    List<WorkoutSession> workouts,
+    TimePeriod period,
+  ) {
+    final totalDistance = workouts.fold(
+      0.0,
+      (sum, item) => sum + _effectiveDistanceKm(item),
+    );
+    final pacedWorkouts = workouts.where((workout) {
+      return _effectiveDistanceKm(workout) > 0 && workout.durationSec > 0;
+    }).toList();
+    final bestPace = pacedWorkouts.isEmpty
+        ? null
+        : pacedWorkouts
+              .map((workout) {
+                return workout.durationSec / _effectiveDistanceKm(workout);
+              })
+              .reduce((a, b) => a < b ? a : b);
+    final activeDates = workouts
+        .map((workout) => DateTimeHelper.localDateOnly(workout.startedAt))
+        .toSet();
+    final expectedDays = _elapsedDaysInPeriod(period);
+    final consistency = expectedDays <= 0
+        ? 0
+        : ((activeDates.length / expectedDays) * 100).clamp(0, 100).round();
+
+    return _AnalyticsInsights(
       totalWorkouts: workouts.length,
-      totalDistanceKm: workouts.fold(0.0, (sum, item) => sum + item.distanceKm),
-      totalDurationSec: workouts.fold(0, (sum, item) => sum + item.durationSec),
-      totalCalories: workouts.fold(
-        0,
-        (sum, item) => sum + item.caloriesKcal.round(),
-      ),
-      totalSteps: workouts.fold(
-        0,
-        (sum, item) => sum + (_supportsStepAnalytics(item) ? item.steps : 0),
-      ),
+      averageDistanceKm: workouts.isEmpty ? 0 : totalDistance / workouts.length,
+      bestPaceSecPerKm: bestPace,
+      activeDays: activeDates.length,
+      expectedDays: expectedDays,
+      consistencyPercent: consistency,
     );
   }
-}
-
-bool _supportsStepAnalytics(WorkoutSession workout) {
-  return workout.activityType.toLowerCase() != 'cycling';
 }
 
 class _PersonalRecords {
@@ -1000,7 +1164,7 @@ List<WorkoutSession> _filterWorkouts(
   }
 }
 
-Map<String, double> _chartData(
+Map<String, double> _distanceChartData(
   List<WorkoutSession> workouts,
   TimePeriod period,
 ) {
@@ -1017,7 +1181,9 @@ Map<String, double> _chartData(
         final key = _weekdayLabel(
           DateTimeHelper.localDateOnly(workout.startedAt),
         );
-        if (data.containsKey(key)) data[key] = data[key]! + 1;
+        if (data.containsKey(key)) {
+          data[key] = data[key]! + _effectiveDistanceKm(workout);
+        }
       }
       break;
     case TimePeriod.month:
@@ -1028,7 +1194,7 @@ Map<String, double> _chartData(
         final date = DateTimeHelper.localDateOnly(workout.startedAt);
         final index = ((date.day - 1) ~/ 7) + 1;
         final key = 'W${index.clamp(1, 5)}';
-        data[key] = (data[key] ?? 0) + 1;
+        data[key] = (data[key] ?? 0) + _effectiveDistanceKm(workout);
       }
       break;
     case TimePeriod.year:
@@ -1052,12 +1218,47 @@ Map<String, double> _chartData(
       for (final workout in workouts) {
         final date = DateTimeHelper.localDateOnly(workout.startedAt);
         final key = months[date.month - 1];
-        data[key] = (data[key] ?? 0) + 1;
+        data[key] = (data[key] ?? 0) + _effectiveDistanceKm(workout);
       }
       break;
   }
 
   return data;
+}
+
+Map<String, double> _monthlyDistanceByWeek(List<WorkoutSession> workouts) {
+  final data = <String, double>{
+    for (var week = 1; week <= 5; week++) 'W$week': 0,
+  };
+  final now = DateTimeHelper.localDateOnly(DateTime.now());
+
+  for (final workout in workouts) {
+    final date = DateTimeHelper.localDateOnly(workout.startedAt);
+    if (date.year != now.year || date.month != now.month) continue;
+
+    final index = ((date.day - 1) ~/ 7) + 1;
+    final key = 'W${index.clamp(1, 5)}';
+    data[key] = (data[key] ?? 0) + _effectiveDistanceKm(workout);
+  }
+
+  return data;
+}
+
+double _effectiveDistanceKm(WorkoutSession workout) {
+  final validDistance = workout.gpsAnalysis.validDistanceKm;
+  return validDistance > 0 ? validDistance : workout.distanceKm;
+}
+
+int _elapsedDaysInPeriod(TimePeriod period) {
+  final now = DateTimeHelper.localDateOnly(DateTime.now());
+  switch (period) {
+    case TimePeriod.week:
+      return now.weekday;
+    case TimePeriod.month:
+      return now.day;
+    case TimePeriod.year:
+      return now.difference(DateTime(now.year, 1, 1)).inDays + 1;
+  }
 }
 
 Map<String, int> _activityBreakdown(List<WorkoutSession> workouts) {
@@ -1085,11 +1286,6 @@ String _periodLabel(TimePeriod period) {
 String _weekdayLabel(DateTime day) {
   const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   return labels[day.weekday - 1];
-}
-
-String _minutesLabel(int seconds) {
-  final minutes = (seconds / 60).floor();
-  return '$minutes';
 }
 
 Color _activityColor(String activity) {

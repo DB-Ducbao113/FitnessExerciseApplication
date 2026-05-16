@@ -47,6 +47,31 @@ List<LatLng> refineRouteForSavedDisplay(
   return cleaned;
 }
 
+List<List<LatLng>> refineRouteSegmentsForSavedDisplay({
+  required List<LatLng> routePoints,
+  required List<List<LatLng>> routeSegments,
+  required String activityType,
+}) {
+  if (routeSegments.isEmpty) {
+    final displayRoute = refineRouteForSavedDisplay(
+      routePoints,
+      activityType: activityType,
+    );
+    return displayRoute.length >= 2
+        ? <List<LatLng>>[displayRoute]
+        : const <List<LatLng>>[];
+  }
+
+  return routeSegments
+      .where((segment) => segment.length >= 2)
+      .map(
+        (segment) =>
+            refineRouteForSavedDisplay(segment, activityType: activityType),
+      )
+      .where((segment) => segment.length >= 2)
+      .toList();
+}
+
 double _minDisplaySegmentMeters(String activityType) {
   switch (activityType) {
     case 'cycling':

@@ -55,7 +55,7 @@ class UserProfileLocalDataSource {
 
   Future<void> updateProfile(UserProfileModel profile) async {
     final db = await _dbHelper.database;
-    await db.update(
+    final updated = await db.update(
       'user_profile',
       {
         'weight_kg': profile.weightKg,
@@ -70,6 +70,9 @@ class UserProfileLocalDataSource {
       where: 'user_id = ?',
       whereArgs: [profile.userId],
     );
+    if (updated == 0) {
+      await insertProfile(profile);
+    }
   }
 
   Future<bool> hasProfile(String userId) async {
