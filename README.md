@@ -1,57 +1,54 @@
 <div align="center">
   <img src="assets/logo.png" alt="Aetron logo" width="120" />
+
+  # Aetron
+
+  ### A modern fitness tracking app built with Flutter
+
+  Track workouts, monitor progress, set goals, and keep your fitness journey organized in one clean mobile experience.
+
+  ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)
+  ![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)
+  ![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
+  ![Riverpod](https://img.shields.io/badge/Riverpod-State%20Management-0E7490?style=for-the-badge)
 </div>
 
-<div align="center">
-
-# Aetron
-
-### A modern fitness tracking app built with Flutter
-
-Track workouts, monitor progress, set goals, and keep your fitness journey organized in one clean mobile experience.
-
-![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
-![Riverpod](https://img.shields.io/badge/Riverpod-State%20Management-0E7490?style=for-the-badge)
-
-</div>
+---
 
 ## Overview
 
-Aetron is a Flutter fitness application designed to help users build consistent workout habits. The app combines workout tracking, personal goals, history, and analytics into a single product-focused experience.
+Aetron is a Flutter‑based fitness application designed to help users build consistent workout habits by combining workout tracking, goals, history, and analytics into a single product‑focused experience.  
+It supports both indoor and outdoor activities, offers offline‑friendly local persistence, and synchronizes important user data through Supabase.
 
-It supports both indoor and outdoor activities, uses local persistence for a smoother offline experience, and syncs important user data through Supabase.
+## Features
 
-## What The App Does
+- Email/password authentication and account management via Supabase Auth  
+- Personal profile setup with avatar management  
+- Workout session tracking with live metrics  
+- GPS‑based tracking for outdoor activities  
+- Step‑based tracking for supported workout flows  
+- Workout history and detail screens for later review  
+- Progress visualization through analytics and summary views  
+- Goal tracking to help users stay consistent
 
-- Lets users register and sign in with Supabase Authentication
-- Supports personal profile setup and avatar management
-- Tracks workout sessions with live metrics
-- Records outdoor activity with GPS-based location tracking
-- Tracks step-based movement for supported workout flows
-- Stores workout history for later review
-- Visualizes progress through analytics and summary screens
-- Helps users stay consistent with goal tracking
+## User Experience
 
-## Experience Highlights
-
-- Clean fitness-first mobile interface
-- Feature-first Flutter architecture for easier scaling
-- Offline-capable local storage for smoother day-to-day usage
-- Remote sync with Supabase for account and workout data
+- Clean, fitness‑first mobile interface focused on workout flows  
+- Feature‑first Flutter architecture for easier scaling and maintenance  
+- Offline‑capable local storage for smoother day‑to‑day usage  
+- Remote sync with Supabase for account and workout data  
 - Modular state management powered by Riverpod
 
 ## Tech Stack
 
-- `Flutter` for cross-platform application development
-- `Riverpod` and `riverpod_generator` for state management
-- `Supabase` for auth, backend data, storage, and server integration
-- `Isar` for workout persistence
-- `sqflite` for local profile-related persistence
-- `Freezed` and `json_serializable` for immutable models and code generation
-- `Geolocator`, `flutter_map`, and `pedometer` for tracking features
-- `fl_chart` and `table_calendar` for analytics and history UI
+- **Flutter** for cross‑platform mobile app development  
+- **Riverpod** + `riverpod_generator` for state management  
+- **Supabase** for authentication, database, storage, and edge functions  
+- **Isar** for local workout persistence  
+- **sqflite** for local profile‑related storage  
+- **Freezed** + `json_serializable` for immutable models and code generation  
+- **Geolocator**, **flutter_map**, **pedometer** for tracking/location features  
+- **fl_chart**, **table_calendar** for analytics and history UI
 
 ## Project Structure
 
@@ -60,14 +57,8 @@ lib/
   app/        App bootstrap and app-level wiring
   core/       Shared services, providers, constants, storage, and utilities
   features/   Feature modules organized by domain/data/presentation
-  shared/     Reusable helpers and formatters
-```
+  shared/     Reusable helpers, widgets, and formatters
 
-More architecture notes are available in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Backend Structure
-
-```text
 backend/
   database/   SQL reference files
   migrations/ Database migrations
@@ -75,71 +66,96 @@ backend/
   supabase/   Supabase functions and related configuration
 ```
 
-Current Supabase Edge Functions:
+More details are available in:
 
-- `workouts-start`
-- `workouts-end`
-- `gps-track`
-- `deterministic-finalize-worker`
-- `route-correction-worker`
+- `docs/architecture/ARCHITECTURE.md`  
+- `docs/api/api_contract.md`
 
-## Core Workflow (Tổng quan luồng sản phẩm)
+## Core Workflow
 
-Aetron được thiết kế xoay quanh việc ghi nhận và xử lý workout như một đường ống dữ liệu rõ ràng.
+Aetron is designed around treating each workout as a well‑defined data pipeline, from recording on device to deterministic processing on the backend.
 
-### 1) Tạo session workout (client)
-- App tạo một workout “shell” ở backend.
-- Trạng thái xử lý ban đầu cho biết workout đang ở giai đoạn client recording.
+### 1. Create workout session (client)
 
-### 2) Ghi nhận dữ liệu realtime (client)
-- GPS: thu thập điểm GPS theo thời gian thực.
-- Step tracking: ghi nhận chuyển động/nhịp bước phù hợp với luồng workout.
-- Dữ liệu realtime được lưu thành raw samples để dùng cho việc tính toán canonical sau này.
+- The app creates an initial “shell” workout on the backend.  
+- Processing status is set to indicate the session is in client‑side recording.
 
-### 3) Kết thúc workout (client)
-- App kết thúc session và gửi snapshot tạm thời của các chỉ số.
-- Đồng thời backend được enqueue để tính toán deterministic canonical metrics.
+### 2. Capture realtime tracking data (client)
 
-### 4) Xử lý deterministic & đối soát chất lượng (backend)
-- Backend đọc raw tracking, recompute metrics dựa trên các segment hợp lệ.
-- Hệ thống ghi nhận bằng chứng kiểm định (audit/quality) ở cấp segment.
-- Kết quả sẽ cập nhật trạng thái xử lý để UI có thể hiển thị “provisional” vs “finalized”.
+- GPS: capture GPS points in realtime for outdoor activities.  
+- Steps: record step‑based movement for supported workouts.  
+- All realtime tracking is stored as raw samples for later deterministic computation.
 
-### 5) Hiển thị lịch sử (client)
-- UI ưu tiên đọc canonical từ các bảng workout sessions.
-- `processing_status` giúp phân biệt workout đang xử lý/chưa finalize.
+### 3. End workout session (client)
 
-Mô tả API-contract hiện có: [docs/api/api_contract.md](docs/api/api_contract.md)
+- The app ends the session and sends a provisional snapshot of key metrics.  
+- The backend enqueues a job to compute deterministic canonical metrics.
 
-## Architecture at a Glance
+### 4. Deterministic processing & quality checks (backend)
 
-### Feature-first + core/shared
-- `lib/features/`: mỗi feature sở hữu domain/data/presentation.
-- `lib/core/`: hạ tầng dùng chung (provider, constants, platform services, storage helpers, utils… không thuộc riêng một feature).
-- `lib/shared/`: phần UI/formatting tái sử dụng giữa các feature.
+- Backend reads raw tracking data and recomputes metrics based on valid segments.  
+- The system records audit/quality evidence at the segment level.  
+- Processing status is updated so the UI can distinguish “provisional” vs “finalized” workouts.
 
-Tham khảo chi tiết: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
+### 5. Display history (client)
 
-### MVVM cho luồng Workout Recording
-Luồng recording hiện tại là ví dụ rõ nhất của cách tách View / ViewModel / controllers / domain services.
+- UI reads canonical data from workout session tables by default.  
+- The `processing_status` field indicates whether a workout is still processing or fully finalized.
 
-- `View`: render UI, gửi intent (start/pause/resume/stop) đến ViewModel.
-- `ViewModel`: quản lý `WorkoutSessionState`, nhận callback từ sensor/classifier, điều phối các helper.
-- Controllers: quản lý lifecycle GPS/step và environment classifier.
-- Domain service: quyết định luật lọc/đánh giá cập nhật GPS/step theo engine.
-- Coordinator: điều phối buffer raw data, upload và enqueue processing job.
+For the current API contract, see `docs/api/api_contract.md`.
 
-Tham khảo: [docs/architecture/MVVM_WORKOUT_RECORDING.md](docs/architecture/MVVM_WORKOUT_RECORDING.md)
+## Architecture Overview
 
-## Repository Goal
+### Feature‑first + core/shared
 
-This repository is not just a Flutter codebase. It is the foundation of a fitness product focused on helping users:
+- `lib/features/`: each feature owns its domain, data layer, and presentation.  
+- `lib/core/`: infrastructure shared across features (providers, constants, platform services, storage helpers, utilities).  
+- `lib/shared/`: reusable UI components and formatting logic shared between features.
 
-- move consistently
-- understand workout progress
-- stay motivated through goals and history
-- keep their data available across sessions
+More details: `docs/architecture/ARCHITECTURE.md`.
+
+### MVVM for workout recording
+
+The workout recording flow showcases the app’s MVVM‑style separation of concerns:
+
+- **View**: renders UI and sends user intents (start/pause/resume/stop) to the ViewModel.  
+- **ViewModel**: manages `WorkoutSessionState`, consumes callbacks from sensors/classifiers, coordinates helper classes.  
+- **Controllers**: handle GPS/step lifecycle and environment classification.  
+- **Domain services**: apply rules for filtering and evaluating GPS/step updates.  
+- **Coordinator**: orchestrates raw data buffering, upload, and enqueueing of processing jobs.
+
+Detailed documentation: `docs/architecture/MVVM_WORKOUT_RECORDING.md`.
+
+## Project Goal
+
+This repository is intended to be more than a Flutter codebase: it is the foundation for a fitness product that helps users:
+
+- move consistently  
+- understand workout progress  
+- stay motivated via goals and history  
+- keep their data available and consistent across sessions and devices  
 
 ## Status
 
-The project is actively evolving, with continued work around workout flow, tracking reliability, local persistence, and overall product polish.
+The project is actively evolving, with ongoing work on workout flows, tracking reliability, local persistence, and overall product polish.
+
+## Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/DB-Ducbao113/FitnessExerciseApplication.git
+cd FitnessExerciseApplication
+
+# Install Flutter dependencies
+flutter pub get
+
+# (Optional) Set up Supabase and environment config
+# See docs/backend/setup.md (coming soon)
+
+# Run the app
+flutter run
+```
+
+---
+
+Feel free to open issues or pull requests as the project evolves.
