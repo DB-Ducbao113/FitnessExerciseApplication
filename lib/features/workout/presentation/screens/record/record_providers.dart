@@ -28,8 +28,10 @@ import 'package:fitness_exercise_application/features/workout/domain/services/wo
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
+import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 
 // Constants
 
@@ -594,9 +596,31 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         await _endLiveActivity(endedState);
       }
 
-      await _ref
-          .read(workoutListProvider.notifier)
-          .saveSession(finalization.session);
+      // 1. Save session to Supabase directly so we know whether the row
+      //    actually exists before we try to insert FK-constrained job rows.
+      final repo = _ref.read(workoutRepositoryProvider);
+      bool savedRemotely = false;
+      if (await InternetConnectionChecker().hasConnection) {
+        try {
+          await repo.saveSessionRemote(finalization.session);
+          savedRemotely = true;
+          debugPrint('[Workout] Remote session save succeeded');
+        } catch (e) {
+          debugPrint('[Workout] Remote session save failed: $e');
+        }
+      }
+
+      // 2. Cache locally with the correct sync status so syncPendingData
+      //    can retry sessions that were never delivered to Supabase.
+      await repo.cacheSessionLocal(
+        finalization.session,
+        isSynced: savedRemotely,
+      );
+      _ref.invalidate(workoutListProvider);
+
+      // 3. Flush raw tracking and route snapshot regardless of session save
+      //    outcome, since the remote shell was created at startWorkout and
+      //    these tables use their own FK to workout_sessions.id.
       _recordingCoordinator.markRemoteWorkoutShellReady();
       await _recordingCoordinator.flushPendingRawTracking(
         workoutId: finalization.sessionId,
@@ -609,12 +633,22 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         isGpsSignalWeak: state.isGpsSignalWeak,
       );
       await _recordingCoordinator.syncLiveRouteSnapshot(force: true);
-      await _recordingCoordinator.enqueueProcessingForSession(
-        finalization.session,
-      );
-      await _recordingCoordinator.enqueueRouteCorrectionForSession(
-        finalization.session,
-      );
+
+      // 4. Only enqueue processing jobs if the session row exists remotely.
+      //    Without this guard, the FK constraint on workout_processing_jobs
+      //    causes silent failures and no logs ever appear in Supabase.
+      if (savedRemotely) {
+        await _recordingCoordinator.enqueueProcessingForSession(
+          finalization.session,
+        );
+        await _recordingCoordinator.enqueueRouteCorrectionForSession(
+          finalization.session,
+        );
+      } else {
+        debugPrint(
+          '[Workout] Skipping job enqueue — session not saved to Supabase yet',
+        );
+      }
     } finally {
       _isStopping = false;
     }

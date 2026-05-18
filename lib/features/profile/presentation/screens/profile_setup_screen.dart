@@ -39,7 +39,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       text: profile?.weightKg.toString() ?? '',
     );
     _heightController = TextEditingController(
-      text: profile != null ? profile.heightM.toString() : '',
+      text: profile != null ? profile.heightCm.toString() : '',
     );
     _ageController = TextEditingController(
       text: profile != null ? profile.age.toString() : '',
@@ -71,7 +71,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         id: profileId,
         userId: user.id,
         weightKg: double.parse(_weightController.text),
-        heightCm: double.parse(_heightController.text) * 100.0,
+        heightCm: double.parse(_heightController.text),
         dateOfBirth: _approximateDateOfBirth(int.parse(_ageController.text)),
         legacyAge: int.parse(_ageController.text),
         gender: _selectedGender,
@@ -208,7 +208,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       _InputField(
                         controller: _heightController,
                         label: 'Height',
-                        hint: useMetricUnits ? 'm' : 'ft/in',
+                        hint: useMetricUnits ? 'cm' : 'in',
                         icon: Icons.height_rounded,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -218,9 +218,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             return 'Please enter your height';
                           }
                           final height = double.tryParse(value);
-                          if (height == null || height < 1.0 || height > 2.5) {
+                          if (height == null || height < 100 || height > 250) {
                             return useMetricUnits
-                                ? 'Height must be between 1.0-2.5 m'
+                                ? 'Height must be between 100-250 cm'
                                 : 'Height must stay within a valid range';
                           }
                           return null;

@@ -102,7 +102,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         if (profile != null) {
           notifier.setUserProfile(
             weightKg: profile.weightKg,
-            heightCm: profile.heightM * 100,
+            heightCm: profile.heightCm,
             gender: profile.gender,
           );
         }

@@ -2,7 +2,7 @@ import 'package:fitness_exercise_application/features/workout/domain/entities/wo
 
 abstract class WorkoutRepository {
   Future<void> saveSessionRemote(WorkoutSession session);
-  Future<void> cacheSessionLocal(WorkoutSession session);
+  Future<void> cacheSessionLocal(WorkoutSession session, {bool isSynced = false});
   Future<List<WorkoutSession>> fetchSessionsRemote(String userId);
   Future<List<WorkoutSession>> getSessionsLocal(String userId);
   Future<void> replaceLocalCache(String userId, List<WorkoutSession> sessions);

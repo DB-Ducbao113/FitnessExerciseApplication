@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
@@ -60,14 +61,16 @@ class WorkoutList extends _$WorkoutList {
   /// Save a completed workout session verbatim
   Future<void> saveSession(WorkoutSession session) async {
     final repository = ref.read(workoutRepositoryProvider);
+    bool savedRemotely = false;
     try {
       if (await InternetConnectionChecker().hasConnection) {
         await repository.saveSessionRemote(session);
+        savedRemotely = true;
       }
-    } catch (_) {
-      // Offline fallback
+    } catch (e) {
+      debugPrint('[WorkoutList] saveSession remote failed: $e');
     }
-    await repository.cacheSessionLocal(session);
+    await repository.cacheSessionLocal(session, isSynced: savedRemotely);
     ref.invalidateSelf();
   }
 

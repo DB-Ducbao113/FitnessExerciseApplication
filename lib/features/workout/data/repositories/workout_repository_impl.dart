@@ -24,9 +24,12 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   }
 
   @override
-  Future<void> cacheSessionLocal(WorkoutSession session) async {
+  Future<void> cacheSessionLocal(
+    WorkoutSession session, {
+    bool isSynced = false,
+  }) async {
     final localWorkout = LocalWorkout.fromEntity(session);
-    localWorkout.isSynced = true;
+    localWorkout.isSynced = isSynced;
     await LocalDB.saveSession(localWorkout);
   }
 
