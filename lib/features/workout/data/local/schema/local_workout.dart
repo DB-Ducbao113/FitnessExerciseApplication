@@ -66,7 +66,7 @@ class LocalWorkout {
     );
   }
 
-  static LocalWorkout fromEntity(WorkoutSession session) {
+  static LocalWorkout fromEntity(WorkoutSession session, {bool isSynced = false}) {
     return LocalWorkout()
       ..sessionId = session.id
       ..userId = session.userId
@@ -92,7 +92,7 @@ class LocalWorkout {
       ..routeDistanceSource = session.routeDistanceSource
       ..matchedDistanceKm = session.matchedDistanceKm
       ..routeMatchMetricsJson = session.routeMatchMetricsJson
-      ..isSynced = true;
+      ..isSynced = isSynced;
   }
 
   static List<WorkoutLapSplit> _decodeLapSplits(String raw) {

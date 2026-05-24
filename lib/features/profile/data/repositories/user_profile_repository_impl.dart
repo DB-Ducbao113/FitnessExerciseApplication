@@ -19,12 +19,7 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   @override
   Future<void> saveRemote(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
-    // Determine whether to create or update based on existence locally or remotely
-    // For simplicity, we can rely on `updateProfile` and `createProfile` remotely
-    // Let's assume updating an upsert on supabase, or we try update and fallback to create.
-    await _remoteDataSource.createProfile(
-      model,
-    ); // In Supabase, upsert is usually preferred if they share ID.
+    await _remoteDataSource.updateProfile(model);
   }
 
   @override

@@ -22,6 +22,12 @@ const _kMapHighlight = Color(0xCCB4F7FF);
 const _kValidGreen = Color(0xFF6BE39B);
 const _kDangerRed = Color(0xFFFF7A8A);
 
+// Whether this activity type tracks steps.
+bool _hasSteps(String activityType) {
+  final t = activityType.toLowerCase();
+  return t == 'running' || t == 'walking';
+}
+
 class WorkoutSummaryScreen extends ConsumerWidget {
   final String sessionId;
   final String activityType;
@@ -31,6 +37,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
   final double distanceMeters;
   final double avgSpeedKmh;
   final int calories;
+  final int steps;
   final WorkoutGpsAnalysis gpsAnalysis;
   final List<LatLng> routePoints;
   final List<List<LatLng>> routeSegments;
@@ -46,6 +53,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
     required this.distanceMeters,
     required this.avgSpeedKmh,
     required this.calories,
+    this.steps = 0,
     this.gpsAnalysis = const WorkoutGpsAnalysis(),
     this.routePoints = const [],
     this.routeSegments = const [],
@@ -56,18 +64,21 @@ class WorkoutSummaryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
+
     final List<List<LatLng>> effectiveRouteSegments = routeSegments.isNotEmpty
         ? routeSegments
         : (routePoints.isNotEmpty
               ? <List<LatLng>>[routePoints]
               : const <List<LatLng>>[]);
     final List<LatLng> effectiveRoutePoints = effectiveRouteSegments.isNotEmpty
-        ? effectiveRouteSegments.expand((segment) => segment).toList()
+        ? effectiveRouteSegments.expand((s) => s).toList()
         : routePoints;
+
     final distanceKm = distanceMeters / 1000;
     final effectiveDistanceKm = gpsAnalysis.validDistanceKm > 0
         ? gpsAnalysis.validDistanceKm
         : distanceKm;
+
     final avgPace = gpsAnalysis.effectivePaceSecPerKm != null
         ? WorkoutFormatters.formatPaceFromSecondsPerKm(
             gpsAnalysis.effectivePaceSecPerKm!,
@@ -77,6 +88,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
             avgSpeedKmh,
             useMetric: useMetricUnits,
           );
+
     final movingPace =
         WorkoutFormatters.formatMovingPaceFromDistanceAndDuration(
           distanceKm: effectiveDistanceKm,
@@ -84,6 +96,8 @@ class WorkoutSummaryScreen extends ConsumerWidget {
           restDurationSec: 0,
           useMetric: useMetricUnits,
         );
+
+    final showSteps = _hasSteps(activityType) && steps > 0;
 
     return Scaffold(
       backgroundColor: _kBgTop,
@@ -106,6 +120,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           child: Column(
             children: [
+              // ── Route map / indoor trail ──────────────────────────────────
               _SummaryHeroCard(
                 activityType: activityType,
                 showRouteMap: effectiveRoutePoints.length >= 2,
@@ -113,23 +128,20 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                 routeSegments: effectiveRouteSegments,
               ),
               const SizedBox(height: 16),
+
+              // ── Primary stats: Distance · Duration · Calories · Avg Pace ─
               _SectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Overview',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    const _SectionTitle('Overview'),
                     const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
-                          child: _SummaryStatCard(
+                          child: _PrimaryStatCard(
+                            id: 'summary_stat_distance',
+                            icon: Icons.straighten_rounded,
                             label: 'Distance',
                             value: WorkoutFormatters.formatDistance(
                               gpsAnalysis.totalDistanceKm > 0
@@ -143,7 +155,9 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _SummaryStatCard(
+                          child: _PrimaryStatCard(
+                            id: 'summary_stat_duration',
+                            icon: Icons.timer_rounded,
                             label: 'Duration',
                             value: WorkoutFormatters.formatElapsedClock(
                               durationSeconds,
@@ -157,27 +171,9 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: _SummaryStatCard(
-                            label: 'Avg Pace',
-                            value: avgPace,
-                            accent: const Color(0xFFF8C15C),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SummaryStatCard(
-                            label: 'Moving Pace',
-                            value: movingPace,
-                            accent: _kValidGreen,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SummaryStatCard(
+                          child: _PrimaryStatCard(
+                            id: 'summary_stat_calories',
+                            icon: Icons.local_fire_department_rounded,
                             label: 'Calories',
                             value: '$calories kcal',
                             accent: const Color(0xFFFF8CA1),
@@ -185,12 +181,12 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _SummaryStatCard(
-                            label: 'Rest Time',
-                            value: WorkoutFormatters.formatElapsedClock(
-                              gpsAnalysis.restDurationSec,
-                            ),
-                            accent: _kNeonBlue,
+                          child: _PrimaryStatCard(
+                            id: 'summary_stat_avg_pace',
+                            icon: Icons.speed_rounded,
+                            label: 'Avg Pace',
+                            value: avgPace,
+                            accent: const Color(0xFFF8C15C),
                           ),
                         ),
                       ],
@@ -198,23 +194,63 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+
+              // ── Secondary stats ───────────────────────────────────────────
+              _SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _SectionTitle('Details'),
+                    const SizedBox(height: 12),
+                    _SecondaryRow(
+                      label: 'Moving Pace',
+                      value: movingPace,
+                      icon: Icons.directions_run_rounded,
+                    ),
+                    _divider(),
+                    _SecondaryRow(
+                      label: 'Moving Time',
+                      value: WorkoutFormatters.formatElapsedClock(
+                        movingTimeSeconds,
+                      ),
+                      icon: Icons.play_circle_outline_rounded,
+                    ),
+                    _divider(),
+                    _SecondaryRow(
+                      label: 'Rest Time',
+                      value: WorkoutFormatters.formatElapsedClock(
+                        gpsAnalysis.restDurationSec,
+                      ),
+                      icon: Icons.pause_circle_outline_rounded,
+                    ),
+                    if (showSteps) ...[
+                      _divider(),
+                      _SecondaryRow(
+                        label: 'Steps',
+                        value: _formatSteps(steps),
+                        icon: Icons.transfer_within_a_station_rounded,
+                        accent: _kValidGreen,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // ── Lap splits ────────────────────────────────────────────────
               if (lapSplits.isNotEmpty) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _SectionCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Lap Splits',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                      const _SectionTitle('Lap Splits'),
                       const SizedBox(height: 14),
                       for (final split in lapSplits) ...[
-                        _SplitRow(split: split, useMetricUnits: useMetricUnits),
+                        _SplitRow(
+                          split: split,
+                          useMetricUnits: useMetricUnits,
+                        ),
                         if (split != lapSplits.last)
                           Divider(
                             height: 18,
@@ -225,6 +261,8 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+
+              // ── Action buttons ────────────────────────────────────────────
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
@@ -304,6 +342,165 @@ class WorkoutSummaryScreen extends ConsumerWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+Widget _divider() => Divider(
+  height: 18,
+  color: Colors.white.withValues(alpha: 0.07),
+);
+
+String _formatSteps(int steps) {
+  if (steps >= 1000) {
+    return '${(steps / 1000).toStringAsFixed(1)}k';
+  }
+  return '$steps';
+}
+
+// ---------------------------------------------------------------------------
+// Primary stat card — prominent 2×2 grid for the 4 hero metrics
+// ---------------------------------------------------------------------------
+
+class _PrimaryStatCard extends StatelessWidget {
+  final String id;
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  const _PrimaryStatCard({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey(id),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.10),
+            Colors.white.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: accent, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Secondary metric row — compact label/value list for supporting metrics
+// ---------------------------------------------------------------------------
+
+class _SecondaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+
+  const _SecondaryRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.accent = _kMutedText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: accent),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kMutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Section title
+// ---------------------------------------------------------------------------
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Existing widgets preserved unchanged
+// ---------------------------------------------------------------------------
+
 class _SummaryHeroCard extends StatelessWidget {
   const _SummaryHeroCard({
     required this.activityType,
@@ -356,66 +553,6 @@ class _SummaryHeroCard extends StatelessWidget {
                       )
                     : _IndoorTrailPreview(activityType: activityType),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryStatCard extends StatelessWidget {
-  const _SummaryStatCard({
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.06),
-            Colors.white.withValues(alpha: 0.03),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: accent.withValues(alpha: 0.22)),
-            ),
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: accent,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -576,7 +713,7 @@ class _IndoorTrailPreview extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.06),
                   ),
                 ),
-                child: Text(
+                child: const Text(
                   'ROUTE NOT AVAILABLE',
                   style: TextStyle(
                     color: Colors.white,
@@ -631,36 +768,38 @@ class _IndoorTrailPainter extends CustomPainter {
       }
     }
 
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 16
-      ..color = _kMapGlow;
-
-    final corePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 7
-      ..color = _kNeonCyan;
-
-    final highlightPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 2
-      ..color = _kMapHighlight;
-
-    canvas.drawPath(trailPath, glowPaint);
-    canvas.drawPath(trailPath, corePaint);
-    canvas.drawPath(trailPath, highlightPaint);
+    canvas.drawPath(
+      trailPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 16
+        ..color = _kMapGlow,
+    );
+    canvas.drawPath(
+      trailPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 7
+        ..color = _kNeonCyan,
+    );
+    canvas.drawPath(
+      trailPath,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 2
+        ..color = _kMapHighlight,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _IndoorTrailPainter oldDelegate) {
-    return oldDelegate.points != points;
-  }
+  bool shouldRepaint(covariant _IndoorTrailPainter oldDelegate) =>
+      oldDelegate.points != points;
 }
 
 class _RouteStartMarker extends StatelessWidget {
@@ -726,7 +865,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,

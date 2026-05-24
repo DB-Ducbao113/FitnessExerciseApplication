@@ -14,8 +14,15 @@ const _kCardBg = Color(0xcc121b2c);
 const _kCardBorder = Color(0x2200e5ff);
 const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
+
 const _kValidGreen = Color(0xFF6BE39B);
 const _kDangerRed = Color(0xFFFF7A8A);
+
+// Whether this activity type tracks steps.
+bool _hasSteps(String activityType) {
+  final t = activityType.toLowerCase();
+  return t == 'running' || t == 'walking';
+}
 
 class WorkoutDetailsScreen extends ConsumerWidget {
   final String workoutId;
@@ -109,6 +116,7 @@ class _WorkoutHeroSection extends ConsumerWidget {
     final effectiveDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
         ? workout.gpsAnalysis.validDistanceKm
         : displayDistanceKm;
+
     final avgPace = WorkoutFormatters.formatPaceFromDistanceAndDuration(
       distanceKm: displayDistanceKm,
       durationSec: workout.durationSec,
@@ -121,6 +129,8 @@ class _WorkoutHeroSection extends ConsumerWidget {
           restDurationSec: 0,
           useMetric: useMetricUnits,
         );
+
+    final showSteps = _hasSteps(workout.activityType) && workout.steps > 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -137,6 +147,7 @@ class _WorkoutHeroSection extends ConsumerWidget {
       ),
       child: Column(
         children: [
+          // ── Route map ─────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
             child: ClipRRect(
@@ -179,11 +190,13 @@ class _WorkoutHeroSection extends ConsumerWidget {
               ),
             ),
           ),
+
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ── Activity header ────────────────────────────────────────
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -230,7 +243,9 @@ class _WorkoutHeroSection extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
+
+                // ── Distance hero ──────────────────────────────────────────
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -271,7 +286,72 @@ class _WorkoutHeroSection extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+
+                // ── Primary stats 2×2 ─────────────────────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DetailsPrimaryCard(
+                        id: 'details_stat_duration',
+                        icon: Icons.timer_rounded,
+                        label: 'Duration',
+                        value: WorkoutFormatters.formatDurationFromSeconds(
+                          workout.durationSec,
+                        ),
+                        accent: _kNeonCyan,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _DetailsPrimaryCard(
+                        id: 'details_stat_avg_pace',
+                        icon: Icons.speed_rounded,
+                        label: 'Avg Pace',
+                        value: avgPace,
+                        accent: const Color(0xFFF8C15C),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DetailsPrimaryCard(
+                        id: 'details_stat_calories',
+                        icon: Icons.local_fire_department_rounded,
+                        label: 'Calories',
+                        value: '${workout.caloriesKcal.round()} kcal',
+                        accent: const Color(0xFFFF8CA1),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    if (showSteps)
+                      Expanded(
+                        child: _DetailsPrimaryCard(
+                          id: 'details_stat_steps',
+                          icon: Icons.transfer_within_a_station_rounded,
+                          label: 'Steps',
+                          value: _formatSteps(workout.steps),
+                          accent: _kValidGreen,
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: _DetailsPrimaryCard(
+                          id: 'details_stat_moving_pace',
+                          icon: Icons.directions_run_rounded,
+                          label: 'Moving Pace',
+                          value: movingPace,
+                          accent: _kValidGreen,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // ── Secondary details ─────────────────────────────────────
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -282,72 +362,73 @@ class _WorkoutHeroSection extends ConsumerWidget {
                     color: Colors.white.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05),
+                      color: Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
                   child: Column(
                     children: [
-                      _HeroMetaRow(
-                        label: 'Duration',
-                        value: WorkoutFormatters.formatDurationFromSeconds(
-                          workout.durationSec,
+                      // If steps are shown in primary, show moving pace here
+                      if (showSteps) ...[
+                        _DetailsSecondaryRow(
+                          label: 'Moving Pace',
+                          value: movingPace,
+                          icon: Icons.directions_run_rounded,
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(label: 'Avg Pace', value: avgPace),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(label: 'Moving Pace', value: movingPace),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
+                        _detailsDivider(),
+                      ],
+                      _DetailsSecondaryRow(
                         label: 'Moving Time',
                         value: WorkoutFormatters.formatElapsedClock(
                           workout.movingTimeSec,
                         ),
+                        icon: Icons.play_circle_outline_rounded,
                       ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
-                        label: 'Calories',
-                        value: '${workout.caloriesKcal.round()} kcal',
-                      ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
                         label: 'Rest Time',
                         value: WorkoutFormatters.formatElapsedClock(
                           workout.gpsAnalysis.restDurationSec,
                         ),
+                        icon: Icons.pause_circle_outline_rounded,
                       ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
                         label: 'Activity',
                         value: WorkoutFormatters.formatActivityType(
                           workout.activityType,
                         ),
+                        icon: _activityIcon(workout.activityType),
                       ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
                         label: 'Started',
                         value: DateFormat(
                           'HH:mm:ss',
                         ).format(workout.startedAt.toLocal()),
+                        icon: Icons.login_rounded,
                       ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
                         label: 'Finished',
                         value: DateFormat(
                           'HH:mm:ss',
                         ).format(workout.endedAt.toLocal()),
+                        icon: Icons.logout_rounded,
                       ),
-                      const SizedBox(height: 10),
-                      _HeroMetaRow(
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
                         label: 'Saved',
                         value: DateFormat(
                           'MMM dd, yyyy HH:mm',
                         ).format(workout.createdAt.toLocal()),
+                        icon: Icons.save_rounded,
                       ),
+
+                      // ── Lap splits ───────────────────────────────────────
                       if (workout.lapSplits.isNotEmpty) ...[
                         Divider(
                           height: 24,
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: Colors.white.withValues(alpha: 0.08),
                         ),
                         const Align(
                           alignment: Alignment.centerLeft,
@@ -355,7 +436,7 @@ class _WorkoutHeroSection extends ConsumerWidget {
                             'Lap Splits',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -384,6 +465,145 @@ class _WorkoutHeroSection extends ConsumerWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Primary stat card (details) — same visual language as summary
+// ---------------------------------------------------------------------------
+
+class _DetailsPrimaryCard extends StatelessWidget {
+  final String id;
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  const _DetailsPrimaryCard({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey(id),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.10),
+            Colors.white.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: accent, size: 14),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label.toUpperCase(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Secondary metric row (details)
+// ---------------------------------------------------------------------------
+
+Widget _detailsDivider() => Divider(
+  height: 16,
+  color: Colors.white.withValues(alpha: 0.06),
+);
+
+class _DetailsSecondaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _DetailsSecondaryRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: _kMutedText),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: _kMutedText,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+String _formatSteps(int steps) {
+  if (steps >= 1000) {
+    return '${(steps / 1000).toStringAsFixed(1)}k';
+  }
+  return '$steps';
+}
+
+// ---------------------------------------------------------------------------
+// Route map / unavailable state
+// ---------------------------------------------------------------------------
 
 class _DetailsRouteMapHero extends StatelessWidget {
   const _DetailsRouteMapHero({
@@ -493,40 +713,9 @@ class _DetailsRouteUnavailableState extends StatelessWidget {
   }
 }
 
-class _HeroMetaRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _HeroMetaRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: _kMutedText,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const Spacer(),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+// ---------------------------------------------------------------------------
+// Lap split row
+// ---------------------------------------------------------------------------
 
 class _LapSplitRow extends StatelessWidget {
   final WorkoutLapSplit split;
@@ -571,6 +760,10 @@ class _LapSplitRow extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
 
 IconData _activityIcon(String activityType) {
   switch (activityType.toLowerCase()) {

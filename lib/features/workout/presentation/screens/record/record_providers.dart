@@ -792,7 +792,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
   // Mode changes
 
-  // ignore: unused_element
   void _onEnvironmentChanged(ClassifierEvent event) {
     if (!mounted) return;
     final nextHint = switch (event.environment) {
@@ -803,10 +802,38 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
 
     if (_requiresGpsTracking(state.activityType)) {
       state = state.copyWith(environmentHint: nextHint);
-      debugPrint(
-        '[Workout][ENV] hint=$nextHint fallbackSuggested=${event.fallbackSuggested} '
-        'confidence=${event.confidence.toStringAsFixed(2)} reason=${event.reason}',
-      );
+
+      // Classifier phát hiện indoor + GPS thực sự yếu → kích hoạt step-fallback.
+      // Điều kiện kép: environment == indoor VÀ fallbackSuggested (accuracy cao +
+      // displacement thấp + steps đang tăng) để tránh false positive.
+      // GPS stream không bị tắt — luôn có quyền override về kOutdoorMode ngay
+      // khi tín hiệu phục hồi (xem _applyAcceptedGpsSegment).
+      final shouldActivateFallback =
+          event.environment == TrackingEnvironment.indoor &&
+          event.fallbackSuggested &&
+          !state.gpsFallbackActive &&
+          state.status == RecordingState.active;
+
+      if (shouldActivateFallback) {
+        state = state.copyWith(
+          trackingMode: kIndoorMode,
+          recordingSource: 'step_fallback',
+          gpsFallbackActive: true,
+          // modeDecisionLocked: false → GPS không bị block, luôn có thể
+          // override về Outdoor khi tín hiệu phục hồi.
+          modeDecisionLocked: false,
+        );
+        _refreshIndoorWatchdog();
+        debugPrint(
+          '[Workout][ENV→FALLBACK] Classifier triggered step-fallback '
+          'confidence=${event.confidence.toStringAsFixed(2)} reason=${event.reason}',
+        );
+      } else {
+        debugPrint(
+          '[Workout][ENV] hint=$nextHint fallbackSuggested=${event.fallbackSuggested} '
+          'confidence=${event.confidence.toStringAsFixed(2)} reason=${event.reason}',
+        );
+      }
       return;
     }
 
@@ -1507,6 +1534,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
               5) {
         liveSpeedKmh = 0;
         isAutoPaused = true;
+        _setAutoPauseState(true);
       }
 
       if (_isMoving(liveSpeedKmh, state.activityType)) {
@@ -1630,8 +1658,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   void _setAutoPauseState(bool isPaused) {
-    if (state.status == RecordingState.active && !_stopwatch.isRunning) {
-      _stopwatch.start();
+    if (isPaused) {
+      if (_stopwatch.isRunning) _stopwatch.stop();
+    } else {
+      if (state.status == RecordingState.active && !_stopwatch.isRunning) {
+        _stopwatch.start();
+      }
     }
   }
 

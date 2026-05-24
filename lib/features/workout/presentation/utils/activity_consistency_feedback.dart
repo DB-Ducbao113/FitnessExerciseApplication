@@ -1,21 +1,21 @@
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 
-class ActivityConsistencyAssessment {
+class RecordedWorkoutAssessment {
   final bool shouldInvalidateResult;
   final String? reason;
   final WorkoutValidityFlag validityFlag;
 
-  const ActivityConsistencyAssessment({
+  const RecordedWorkoutAssessment({
     required this.shouldInvalidateResult,
     required this.reason,
     required this.validityFlag,
   });
 }
 
-ActivityConsistencyAssessment assessRecordedWorkout({
+RecordedWorkoutAssessment assessRecordedWorkout({
   required WorkoutGpsAnalysis gpsAnalysis,
 }) {
-  return ActivityConsistencyAssessment(
+  return RecordedWorkoutAssessment(
     shouldInvalidateResult:
         gpsAnalysis.validityFlag == WorkoutValidityFlag.unverified,
     reason: gpsAnalysis.flaggedSegments.isEmpty
@@ -25,12 +25,12 @@ ActivityConsistencyAssessment assessRecordedWorkout({
   );
 }
 
-ActivityConsistencyAssessment assessWorkoutSession(WorkoutSession workout) {
+RecordedWorkoutAssessment assessWorkoutSession(WorkoutSession workout) {
   return assessRecordedWorkout(gpsAnalysis: workout.gpsAnalysis);
 }
 
 String activityConsistencyWarningText(
-  ActivityConsistencyAssessment assessment,
+  RecordedWorkoutAssessment assessment,
 ) {
   switch (assessment.validityFlag) {
     case WorkoutValidityFlag.verified:

@@ -342,6 +342,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           distanceMeters: finalState.distanceMeters,
           avgSpeedKmh: finalState.avgSpeedKmh,
           calories: finalState.caloriesBurned,
+          steps: finalState.stepCount,
           gpsAnalysis: finalState.gpsAnalysis,
           routePoints: finalState.routePoints,
           routeSegments: finalState.routeSegments,

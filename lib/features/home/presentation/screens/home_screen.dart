@@ -40,9 +40,17 @@ final _weeklyHomeStatsProvider = Provider<_WeeklyHomeStats>((ref) {
       .map((workout) => DateTimeHelper.localDateOnly(workout.startedAt))
       .toSet();
 
+  // Use validDistanceKm when available so home stats align with goal progress.
+  // Fall back to distanceKm for indoor/non-GPS workouts that have no GPS analysis.
+  double effectiveDistance(WorkoutSession w) {
+    return w.gpsAnalysis.validDistanceKm > 0
+        ? w.gpsAnalysis.validDistanceKm
+        : w.distanceKm;
+  }
+
   return _WeeklyHomeStats(
     startOfWeek: start,
-    weeklyDistanceKm: weeklyWorkouts.fold(0.0, (sum, w) => sum + w.distanceKm),
+    weeklyDistanceKm: weeklyWorkouts.fold(0.0, (sum, w) => sum + effectiveDistance(w)),
     weeklyCalories: weeklyWorkouts.fold(0.0, (sum, w) => sum + w.caloriesKcal),
     workoutCount: weeklyWorkouts.length,
     activeDayCount: activeDates.length,
@@ -57,9 +65,16 @@ final _todayHomeStatsProvider = Provider<_TodayHomeStats>((ref) {
     return DateTimeHelper.localDateOnly(workout.startedAt) == today;
   });
 
+  // Use validDistanceKm when available, consistent with weekly stats and goal progress.
+  double effectiveDistance(WorkoutSession w) {
+    return w.gpsAnalysis.validDistanceKm > 0
+        ? w.gpsAnalysis.validDistanceKm
+        : w.distanceKm;
+  }
+
   return _TodayHomeStats(
     workoutCount: todayWorkouts.length,
-    distanceKm: todayWorkouts.fold(0.0, (sum, w) => sum + w.distanceKm),
+    distanceKm: todayWorkouts.fold(0.0, (sum, w) => sum + effectiveDistance(w)),
     durationSec: todayWorkouts.fold(0, (sum, w) => sum + w.durationSec),
   );
 });

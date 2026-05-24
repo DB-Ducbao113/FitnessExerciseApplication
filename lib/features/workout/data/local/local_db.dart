@@ -110,11 +110,11 @@ class LocalDB {
           .userIdEqualTo(userId)
           .findAll();
 
-      // Delete GPS points associated with these workouts
+      // Delete GPS points associated with these workouts by sessionId.
       for (final w in workouts) {
         await isar.localGPSPoints
             .filter()
-            .localWorkoutIdEqualTo(w.id)
+            .sessionIdEqualTo(w.sessionId)
             .deleteAll();
       }
 
@@ -136,7 +136,7 @@ class LocalDB {
 
         if (existing == null) {
           // If it doesn't exist locally, add it to the cache
-          final newWorkout = LocalWorkout.fromEntity(remote);
+          final newWorkout = LocalWorkout.fromEntity(remote, isSynced: true);
           await isar.localWorkouts.put(newWorkout);
         } else {
           // If it exists locally, ensure it matches the cloud source of truth
@@ -219,22 +219,30 @@ class LocalDB {
     });
   }
 
+  /// Get all GPS points for a workout by its local Isar integer ID.
+  /// Prefer [getPointsForSession] (uses sessionId index).
   static Future<List<LocalGPSPoint>> getPointsForWorkout(int workoutId) async {
     await init();
     final isar = instance;
+    // Resolve sessionId first so we can use the indexed query path.
+    final workout = await isar.localWorkouts.get(workoutId);
+    if (workout == null) return const [];
     return await isar.localGPSPoints
         .filter()
-        .localWorkoutIdEqualTo(workoutId)
+        .sessionIdEqualTo(workout.sessionId)
         .sortByTimestamp()
         .findAll();
   }
 
+  /// Get unsynced GPS points for a session by its local Isar integer ID.
   static Future<List<LocalGPSPoint>> getUnsyncedPoints(int workoutId) async {
     await init();
     final isar = instance;
+    final workout = await isar.localWorkouts.get(workoutId);
+    if (workout == null) return const [];
     return await isar.localGPSPoints
         .filter()
-        .localWorkoutIdEqualTo(workoutId)
+        .sessionIdEqualTo(workout.sessionId)
         .isSyncedEqualTo(false)
         .sortByTimestamp()
         .findAll();

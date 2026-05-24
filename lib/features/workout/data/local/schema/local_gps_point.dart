@@ -9,8 +9,8 @@ class LocalGPSPoint {
   @Index()
   late String sessionId;
 
-  @Index()
-  late int localWorkoutId; // Foreign key to LocalWorkout.id
+  // Deprecated: was always 0. Use sessionId for joining to LocalWorkout.
+  int localWorkoutId = 0;
 
   late DateTime timestamp;
   late double latitude;
@@ -21,5 +21,5 @@ class LocalGPSPoint {
   double? heading;
   late String confidence;
 
-  bool isSynced = false; // To track if this specific point has been uploaded
+  bool isSynced = false;
 }

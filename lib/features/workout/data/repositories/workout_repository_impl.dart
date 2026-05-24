@@ -28,8 +28,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     WorkoutSession session, {
     bool isSynced = false,
   }) async {
-    final localWorkout = LocalWorkout.fromEntity(session);
-    localWorkout.isSynced = isSynced;
+    final localWorkout = LocalWorkout.fromEntity(session, isSynced: isSynced);
     await LocalDB.saveSession(localWorkout);
   }
 
