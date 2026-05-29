@@ -1,69 +1,108 @@
 #!/bin/zsh
 set -euo pipefail
 
-SUPABASE_URL="YOUR_SUPABASE_URL_HERE"
-SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY_HERE"
-FLUTTER_BIN="/ABSOLUTE/PATH/TO/flutter/bin/flutter"
-POD_BIN="$HOME/.gem/ruby/2.6.0/bin/pod"
-POD_WRAPPER_DIR="/tmp/codex-bin"
-BUNDLE_ID="com.aetron.app"
-APP_PATH_SUFFIX="build/ios/iphoneos/Runner.app"
-DEVICE_ID="YOUR_DEVICE_ID_HERE"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG_FILE="${IOS_BUILD_ENV:-$SCRIPT_DIR/.ios_build.env}"
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLEAN_IOS_PROJECT_DIR="/ABSOLUTE/PATH/TO/CLEAN/IOS/PROJECT"
-
-if [[ -d "$CLEAN_IOS_PROJECT_DIR" && "$PROJECT_DIR" != "$CLEAN_IOS_PROJECT_DIR" ]]; then
-  echo "Using clean iOS project copy to avoid File Provider / codesign issues:"
-  echo "  $CLEAN_IOS_PROJECT_DIR"
-  PROJECT_DIR="$CLEAN_IOS_PROJECT_DIR"
-fi
-
-mkdir -p "$POD_WRAPPER_DIR"
-cat > "$POD_WRAPPER_DIR/pod" <<'EOF'
-#!/bin/zsh
-exec ruby -rlogger "$HOME/.gem/ruby/2.6.0/bin/pod" "$@"
-EOF
-chmod +x "$POD_WRAPPER_DIR/pod"
-
-export PATH="$POD_WRAPPER_DIR:$PATH"
-
-cd "$PROJECT_DIR"
-
-echo "============================================"
-echo " Building iOS Release with Supabase config"
-echo "============================================"
-echo "Project: $PROJECT_DIR"
-
-rm -rf "$PROJECT_DIR/build/ios"
-"$FLUTTER_BIN" pub get
-"$FLUTTER_BIN" clean
-"$FLUTTER_BIN" pub get
-cd ios
-ruby -rlogger "$POD_BIN" install
-cd ..
-
-"$FLUTTER_BIN" build ios --release \
-  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
-
-APP_PATH="$PROJECT_DIR/$APP_PATH_SUFFIX"
-
-if [[ -d "$APP_PATH/Frameworks/objective_c.framework" ]]; then
-  echo
-  echo "[ERROR] objective_c.framework is still present in the built app."
-  echo "The iOS package is not safe to install on device."
+if [[ -f "$CONFIG_FILE" ]]; then
+  set -a
+  source "$CONFIG_FILE"
+  set +a
+else
+  echo "[ERROR] Missing config file: $CONFIG_FILE"
+  echo "Create it with:"
+  echo "  cp .ios_build.env.example .ios_build.env"
+  echo "Then fill SUPABASE_URL and SUPABASE_ANON_KEY."
   exit 1
 fi
 
-echo
-echo "Installing on device: $DEVICE_ID"
-xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
+SUPABASE_URL="${SUPABASE_URL:-}"
+SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-}"
+DEVICE_ID="${DEVICE_ID:-ios}"
+BUILD_MODE="${BUILD_MODE:-release}"
+FLUTTER_BIN="${FLUTTER_BIN:-}"
 
-echo
-echo "Launching app: $BUNDLE_ID"
-xcrun devicectl device process launch --device "$DEVICE_ID" "$BUNDLE_ID"
+if [[ -z "$SUPABASE_URL" || "$SUPABASE_URL" == "YOUR_SUPABASE_URL_HERE" ]]; then
+  echo "[ERROR] SUPABASE_URL is missing in $CONFIG_FILE"
+  exit 1
+fi
 
+if [[ -z "$SUPABASE_ANON_KEY" || "$SUPABASE_ANON_KEY" == "YOUR_SUPABASE_ANON_KEY_HERE" ]]; then
+  echo "[ERROR] SUPABASE_ANON_KEY is missing in $CONFIG_FILE"
+  exit 1
+fi
+
+if [[ -z "$FLUTTER_BIN" ]]; then
+  if command -v flutter >/dev/null 2>&1; then
+    FLUTTER_BIN="$(command -v flutter)"
+  elif [[ -x "$HOME/Development/flutter_sdk/bin/flutter" ]]; then
+    FLUTTER_BIN="$HOME/Development/flutter_sdk/bin/flutter"
+  elif [[ -x "$HOME/flutter-sdk-stable/bin/flutter" ]]; then
+    FLUTTER_BIN="$HOME/flutter-sdk-stable/bin/flutter"
+  else
+    echo "[ERROR] Flutter was not found."
+    echo "Set FLUTTER_BIN in $CONFIG_FILE, for example:"
+    echo "  FLUTTER_BIN=\"$HOME/Development/flutter_sdk/bin/flutter\""
+    exit 1
+  fi
+fi
+
+if [[ ! -x "$FLUTTER_BIN" ]]; then
+  echo "[ERROR] FLUTTER_BIN is not executable: $FLUTTER_BIN"
+  exit 1
+fi
+
+if ! command -v xcodebuild >/dev/null 2>&1; then
+  echo "[ERROR] Xcode command line tools were not found."
+  echo "Open Xcode once, then run: sudo xcode-select -s /Applications/Xcode.app"
+  exit 1
+fi
+
+POD_GEM_BIN="$HOME/.gem/ruby/2.6.0/bin/pod"
+if [[ ! -f "$POD_GEM_BIN" ]] && ! command -v pod >/dev/null 2>&1; then
+  echo "[ERROR] CocoaPods was not found."
+  echo "Install it with:"
+  echo "  gem install --user-install cocoapods"
+  exit 1
+fi
+
+POD_WRAPPER_DIR="$SCRIPT_DIR/.dart_tool/codex-ios-bin"
+mkdir -p "$POD_WRAPPER_DIR"
+if [[ -f "$POD_GEM_BIN" ]]; then
+  cat > "$POD_WRAPPER_DIR/pod" <<EOF
+#!/bin/zsh
+exec ruby -rlogger "$POD_GEM_BIN" "\$@"
+EOF
+else
+  POD_SYSTEM_BIN="$(command -v pod)"
+  cat > "$POD_WRAPPER_DIR/pod" <<EOF
+#!/bin/zsh
+exec ruby -rlogger "$POD_SYSTEM_BIN" "\$@"
+EOF
+fi
+chmod +x "$POD_WRAPPER_DIR/pod"
+
+export PATH="$POD_WRAPPER_DIR:$(dirname "$FLUTTER_BIN"):$PATH"
+export COCOAPODS_DISABLE_STATS=true
+
+cd "$SCRIPT_DIR"
+
+echo "============================================"
+echo " Building and installing Aetron on iPhone"
+echo "============================================"
+echo "Flutter: $FLUTTER_BIN"
+echo "Device:  $DEVICE_ID"
+echo "Mode:    $BUILD_MODE"
 echo
-echo "[OK] iOS release build complete"
-echo "App: $APP_PATH"
+
+"$FLUTTER_BIN" pub get
+
+cd ios
+pod install
+cd ..
+
+"$FLUTTER_BIN" run \
+  --"$BUILD_MODE" \
+  -d "$DEVICE_ID" \
+  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"

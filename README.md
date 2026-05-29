@@ -156,6 +156,18 @@ flutter pub get
 flutter run
 ```
 
+### Build and install on a connected iPhone
+
+```bash
+cp .ios_build.env.example .ios_build.env
+# Fill SUPABASE_URL and SUPABASE_ANON_KEY in .ios_build.env
+
+./build_ios
+```
+
+`./build_ios` uses `build_ios_release.sh`, installs iOS pods, passes the Supabase
+values as Dart defines, and runs the app on the configured `DEVICE_ID`.
+
 ---
 
 Feel free to open issues or pull requests as the project evolves.

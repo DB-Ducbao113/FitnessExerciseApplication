@@ -40,7 +40,28 @@ final supabaseClientProvider = AutoDisposeProvider<SupabaseClient>.internal(
 );
 
 typedef SupabaseClientRef = AutoDisposeProviderRef<SupabaseClient>;
-String _$currentUserIdHash() => r'f68f0318d3a32f57c4a1fa65002ee4250643b1bf';
+String _$authStateChangesHash() => r'0c6d2dd36892936aaef5d1a9253d8052b3c5f8be';
+
+/// Emits whenever Supabase switches auth state.
+///
+/// Providers that depend on the active account should watch this before
+/// reading `auth.currentUser`; the Supabase client object itself is stable, so
+/// watching only [supabaseClientProvider] does not rebuild on login/logout.
+///
+/// Copied from [authStateChanges].
+@ProviderFor(authStateChanges)
+final authStateChangesProvider = AutoDisposeStreamProvider<AuthState>.internal(
+  authStateChanges,
+  name: r'authStateChangesProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$authStateChangesHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef AuthStateChangesRef = AutoDisposeStreamProviderRef<AuthState>;
+String _$currentUserIdHash() => r'988a933ba42f5e2197734a30c2f6e4695c8ceaa2';
 
 /// Current User ID Provider
 ///

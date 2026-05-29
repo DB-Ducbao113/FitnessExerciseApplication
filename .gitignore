@@ -54,6 +54,7 @@ app.*.map.json
 !*.bat.example
 build_ios_release.sh
 !build_ios_release.sh.example
+.ios_build.env
 
 # Local tooling / editor files
 .metadata

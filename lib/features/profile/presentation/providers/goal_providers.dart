@@ -12,7 +12,10 @@ import 'package:fitness_exercise_application/shared/formatters/workout_formatter
 // Goal state
 final userGoalProvider =
     StateNotifierProvider<UserGoalNotifier, AsyncValue<UserGoal?>>(
-      (ref) => UserGoalNotifier(ref.watch(supabaseClientProvider)),
+      (ref) {
+        ref.watch(currentUserIdProvider);
+        return UserGoalNotifier(ref.watch(supabaseClientProvider));
+      },
     );
 
 class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {

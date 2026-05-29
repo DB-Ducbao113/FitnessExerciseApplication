@@ -1,4 +1,7 @@
+import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_setup_screen.dart';
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
@@ -18,6 +21,7 @@ class AuthWrapper extends ConsumerStatefulWidget {
 
 class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   late final Stream<AuthState> _authStream;
+  String? _lastUserId;
 
   @override
   void initState() {
@@ -32,6 +36,19 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       builder: (context, snapshot) {
         final session = Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
+        final currentUserId = session?.user.id;
+
+        if (_lastUserId != currentUserId) {
+          final previousUserId = _lastUserId;
+          _lastUserId = currentUserId;
+          Future.microtask(() {
+            if (!mounted) return;
+            _resetAccountScopedProviders(
+              previousUserId: previousUserId,
+              currentUserId: currentUserId,
+            );
+          });
+        }
 
         // Clear cached workouts on sign-out.
         if (event == AuthChangeEvent.signedOut) {
@@ -45,7 +62,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         }
 
         // Route signed-in users by profile state.
-        final userId = session.user.id;
+        final userId = currentUserId!;
         final hasProfileAsync = ref.watch(hasUserProfileProvider(userId));
 
         return hasProfileAsync.when(
@@ -57,5 +74,27 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         );
       },
     );
+  }
+
+  void _resetAccountScopedProviders({
+    required String? previousUserId,
+    required String? currentUserId,
+  }) {
+    ref.invalidate(currentUserIdProvider);
+    ref.invalidate(workoutListProvider);
+    ref.invalidate(activeWorkoutProvider);
+    ref.invalidate(userGoalProvider);
+    ref.invalidate(avatarUploadProvider);
+    ref.invalidate(currentAvatarDisplayProvider);
+
+    if (previousUserId != null) {
+      ref.invalidate(userProfileProvider(previousUserId));
+      ref.invalidate(hasUserProfileProvider(previousUserId));
+    }
+
+    if (currentUserId != null) {
+      ref.invalidate(userProfileProvider(currentUserId));
+      ref.invalidate(hasUserProfileProvider(currentUserId));
+    }
   }
 }

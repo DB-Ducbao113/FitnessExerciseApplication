@@ -20,7 +20,7 @@ part 'workout_providers.g.dart';
 class WorkoutList extends _$WorkoutList {
   @override
   Future<List<WorkoutSession>> build() async {
-    final user = ref.read(currentUserIdProvider);
+    final user = ref.watch(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
 
     final repository = ref.watch(workoutRepositoryProvider);
