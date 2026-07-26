@@ -1,18 +1,17 @@
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_goal.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_feedback.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const _kBgTop = Color(0xff0a0e1a);
-const _kBgBottom = Color(0xff0d1b2a);
 const _kCardBg = Color(0xcc121b2c);
 const _kCardBorder = Color(0x2200e5ff);
-const _kMutedText = Color(0xff7d8da6);
 const _kNeonCyan = Color(0xff00e5ff);
-const _kNeonBlue = Color(0xff00bfff);
 
 class GoalScreen extends ConsumerStatefulWidget {
   const GoalScreen({super.key});
@@ -44,10 +43,16 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
           ? initialTarget.toInt().toString()
           : initialTarget.toStringAsFixed(1);
     }
+    _targetController.addListener(_refreshTargetPreview);
+  }
+
+  void _refreshTargetPreview() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _targetController.removeListener(_refreshTargetPreview);
     _targetController.dispose();
     super.dispose();
   }
@@ -57,8 +62,10 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     final useMetricUnits =
         ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
     if (raw == null || raw <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid target value')),
+      showAetronNotice(
+        context,
+        message: 'Enter a target value greater than zero.',
+        tone: AetronNoticeTone.error,
       );
       return;
     }
@@ -85,300 +92,131 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     try {
       await ref.read(userGoalProvider.notifier).saveGoal(goal);
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(
+        showAetronNotice(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+          message: 'Could not save goal. Check your connection and try again.',
+          tone: AetronNoticeTone.error,
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     final hasGoal = ref.watch(userGoalProvider).valueOrNull != null;
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
-      backgroundColor: _kBgTop,
-      appBar: AppBar(
-        title: const Text('Goal'),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (hasGoal)
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded),
-              tooltip: 'Remove goal',
-              onPressed: () async {
-                final navigator = Navigator.of(context);
-                await ref.read(userGoalProvider.notifier).deleteGoal();
-                if (mounted) navigator.pop();
-              },
+      backgroundColor: AetronColors.voidBlack,
+      body: AetronBackground(
+        withGrid: false,
+        child: Column(
+          children: [
+            AetronHeader(
+              title: AppTranslations.get('create_goal', currentLang),
+              compact: true,
+              titleSize: 22,
+              leading: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: AetronColors.cyanSoft,
+                ),
+              ),
+              trailing: hasGoal
+                  ? IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      tooltip: 'Remove goal',
+                      onPressed: () async {
+                        final navigator = Navigator.of(context);
+                        await ref.read(userGoalProvider.notifier).deleteGoal();
+                        if (mounted) navigator.pop();
+                      },
+                    )
+                  : const SizedBox(width: 48),
             ),
-        ],
-      ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_kBgTop, _kBgBottom],
-          ),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'GOALS',
-                style: TextStyle(
-                  color: _kMutedText,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.8,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Set goal',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _GlassCard(
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Goal type',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...GoalType.values.map(
-                      (type) => _GoalTypeOption(
-                        type: type,
-                        useMetricUnits: useMetricUnits,
-                        isSelected: _selectedType == type,
-                        onTap: () {
-                          setState(() {
-                            _selectedType = type;
-                            _targetController.text = switch (type) {
-                              GoalType.distance => '50',
-                              GoalType.workouts => '3',
-                              GoalType.calories => '2000',
-                            };
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _GlassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Target value',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    const Text('SELECT GOAL TYPE', style: AetronText.label),
+                    const SizedBox(height: 14),
                     Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _targetController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                            textAlign: TextAlign.center,
-                            decoration: InputDecoration(
-                              filled: true,
-                              fillColor: const Color(0xff101a29),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: const BorderSide(
-                                  color: _kNeonCyan,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [_kNeonBlue, _kNeonCyan],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            _unitLabel(
-                              _selectedType,
-                              useMetricUnits: useMetricUnits,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: _kBgTop,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _GlassCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Period',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: GoalPeriod.values.map((period) {
-                        final selected = _selectedPeriod == period;
+                      children: GoalType.values.map((type) {
                         return Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedPeriod = period),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: selected
-                                      ? const LinearGradient(
-                                          colors: [_kNeonBlue, _kNeonCyan],
-                                        )
-                                      : null,
-                                  color: selected
-                                      ? null
-                                      : const Color(0xff101a29),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: selected ? _kNeonCyan : _kCardBorder,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    period == GoalPeriod.weekly
-                                        ? 'Weekly'
-                                        : 'Monthly',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      color: selected ? _kBgTop : Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
+                            child: _GoalTypeHudOption(
+                              type: type,
+                              useMetricUnits: useMetricUnits,
+                              isSelected: _selectedType == type,
+                              onTap: () {
+                                setState(() {
+                                  _selectedType = type;
+                                  _targetController.text = switch (type) {
+                                    GoalType.distance => '5',
+                                    GoalType.workouts => '3',
+                                    GoalType.calories => '2000',
+                                  };
+                                });
+                              },
                             ),
                           ),
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 24),
+                    const Text('TARGET VALUE', style: AetronText.label),
+                    const SizedBox(height: 14),
+                    _TargetHudPicker(
+                      controller: _targetController,
+                      unit: _unitLabel(
+                        _selectedType,
+                        useMetricUnits: useMetricUnits,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('GOAL FREQUENCY', style: AetronText.label),
+                    const SizedBox(height: 14),
+                    AetronSegmented<GoalPeriod>(
+                      values: GoalPeriod.values,
+                      selected: _selectedPeriod,
+                      labelBuilder: (period) =>
+                          period == GoalPeriod.weekly ? 'Weekly' : 'Monthly',
+                      onChanged: (period) =>
+                          setState(() => _selectedPeriod = period),
+                    ),
+                    const SizedBox(height: 20),
+                    _GoalPreview(
+                      type: _selectedType,
+                      target: double.tryParse(_targetController.text) ?? 0,
+                      period: _selectedPeriod,
+                      useMetricUnits: useMetricUnits,
+                    ),
+                    const SizedBox(height: 24),
+                    _isSaving
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: AetronColors.cyan,
+                            ),
+                          )
+                        : AetronPrimaryButton(
+                            label: 'Save Goal',
+                            icon: Icons.arrow_forward_rounded,
+                            onPressed: _save,
+                          ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              _GoalPreview(
-                type: _selectedType,
-                target: double.tryParse(_targetController.text) ?? 0,
-                period: _selectedPeriod,
-                useMetricUnits: useMetricUnits,
-              ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [_kNeonBlue, _kNeonCyan],
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _kNeonCyan.withValues(alpha: 0.24),
-                        blurRadius: 22,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: _kBgTop,
-                      disabledBackgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: _kBgTop,
-                              strokeWidth: 2.5,
-                            ),
-                          )
-                        : const Text(
-                            'Save Goal',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -395,13 +233,13 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
   }
 }
 
-class _GoalTypeOption extends StatelessWidget {
+class _GoalTypeHudOption extends StatelessWidget {
   final GoalType type;
   final bool useMetricUnits;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _GoalTypeOption({
+  const _GoalTypeHudOption({
     required this.type,
     required this.useMetricUnits,
     required this.isSelected,
@@ -410,75 +248,148 @@ class _GoalTypeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, title, subtitle) = switch (type) {
-      GoalType.distance => (
-        Icons.directions_run_rounded,
-        'Distance',
-        'Track ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)} per week or month',
-      ),
-      GoalType.workouts => (
-        Icons.fitness_center_rounded,
-        'Workouts',
-        'Track completed sessions',
-      ),
-      GoalType.calories => (
-        Icons.local_fire_department_rounded,
-        'Calories',
-        'Track burn across the period',
-      ),
+    final (icon, title) = switch (type) {
+      GoalType.distance => (Icons.route_rounded, 'Distance'),
+      GoalType.workouts => (Icons.fitness_center_rounded, 'Workouts'),
+      GoalType.calories => (Icons.local_fire_department_rounded, 'Calories'),
     };
-
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        height: 116,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? _kNeonCyan.withValues(alpha: 0.08)
-              : const Color(0xff101a29),
-          borderRadius: BorderRadius.circular(16),
+              ? AetronColors.panel.withValues(alpha: 0.92)
+              : AetronColors.panel.withValues(alpha: 0.42),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? _kNeonCyan : _kCardBorder,
-            width: isSelected ? 1.4 : 1,
+            color: isSelected ? AetronColors.cyanSoft : AetronColors.border,
+            width: isSelected ? 1.6 : 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AetronColors.cyan.withValues(alpha: 0.16),
+                    blurRadius: 18,
+                  ),
+                ]
+              : null,
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isSelected ? _kNeonCyan : _kMutedText, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: isSelected ? Colors.white : Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: _kMutedText,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            Icon(
+              icon,
+              color: isSelected ? AetronColors.cyanSoft : AetronColors.muted,
+              size: 28,
+            ),
+            const SizedBox(height: 10),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                maxLines: 1,
+                style: TextStyle(
+                  color: isSelected
+                      ? AetronColors.cyanSoft
+                      : AetronColors.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-            if (isSelected)
-              const Icon(
-                Icons.check_circle_rounded,
-                color: _kNeonCyan,
-                size: 20,
-              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TargetHudPicker extends StatelessWidget {
+  const _TargetHudPicker({required this.controller, required this.unit});
+
+  final TextEditingController controller;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = double.tryParse(controller.text) ?? 0;
+    final prev = (current - 1).clamp(0, 9999).round();
+    final next = (current + 1).round();
+
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: AetronColors.cyan.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AetronColors.border),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Column(
+              children: [
+                Expanded(child: Center(child: _GhostNumber('$prev'))),
+                Container(height: 1.4, color: AetronColors.cyan),
+                Expanded(
+                  child: Center(
+                    child: SizedBox(
+                      width: 180,
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AetronColors.text,
+                          fontSize: 40,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(height: 1.4, color: AetronColors.cyan),
+                Expanded(child: Center(child: _GhostNumber('$next'))),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 22,
+            bottom: 24,
+            child: Text(
+              unit.toUpperCase(),
+              style: AetronText.label.copyWith(
+                color: AetronColors.text.withValues(alpha: 0.75),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GhostNumber extends StatelessWidget {
+  const _GhostNumber(this.value);
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      value,
+      style: TextStyle(
+        color: AetronColors.muted.withValues(alpha: 0.34),
+        fontSize: 32,
+        fontWeight: FontWeight.w900,
       ),
     );
   }

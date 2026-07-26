@@ -48,6 +48,9 @@ app.*.map.json
 /android/.gradle/
 /android/.kotlin/
 /android/build/
+/android/key.properties
+*.jks
+*.keystore
 
 # Ignore local scripts with credentials / machine-specific paths
 *.bat
@@ -63,6 +66,7 @@ devtools_options.yaml
 docs/
 backend/.vscode/
 .env
+.env
 backend/remote_schema_public_dump.sql
 
 # Frontend local files
@@ -73,3 +77,8 @@ frontend/.env
 supabase/.temp/
 backend/supabase/.temp/
 backend/supabase/.branches/
+
+# Temporary plan & checklist files
+RELEASE_CHECKLIST.md
+ai_post_workout_insight_plan.html
+.tools/

@@ -1,17 +1,18 @@
 import 'dart:ui' as ui;
 
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 const _kBgTop = Color(0xFF050816);
-const _kBgBottom = Color(0xFF0B1A29);
 const _kSurface = Color(0xCC121B2C);
 const _kPanelBorder = Color(0x3300E5FF);
 const _kMutedText = Color(0xFF7D8DA6);
@@ -62,6 +63,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
@@ -102,25 +104,35 @@ class WorkoutSummaryScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: _kBgTop,
       appBar: AppBar(
-        title: const Text('Summary'),
+        title: Text(
+          AppTranslations.get('workout_summary', currentLang).toUpperCase(),
+          style: TextStyle(
+            color: AetronColors.cyanSoft,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.4,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_kBgTop, _kBgBottom],
-          ),
-        ),
+      body: AetronBackground(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
           child: Column(
             children: [
               // ── Route map / indoor trail ──────────────────────────────────
+              _CompletionBanner(
+                activityType: activityType,
+                distanceLabel: WorkoutFormatters.formatDistance(
+                  effectiveDistanceKm,
+                  useMetric: useMetricUnits,
+                  decimals: 2,
+                ),
+              ),
+              const SizedBox(height: 14),
               _SummaryHeroCard(
                 activityType: activityType,
                 showRouteMap: effectiveRoutePoints.length >= 2,
@@ -134,7 +146,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('Overview'),
+                    _SectionTitle(AppTranslations.get('overview', currentLang)),
                     const SizedBox(height: 14),
                     Row(
                       children: [
@@ -142,7 +154,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                           child: _PrimaryStatCard(
                             id: 'summary_stat_distance',
                             icon: Icons.straighten_rounded,
-                            label: 'Distance',
+                            label: AppTranslations.get('distance', currentLang),
                             value: WorkoutFormatters.formatDistance(
                               gpsAnalysis.totalDistanceKm > 0
                                   ? gpsAnalysis.totalDistanceKm
@@ -158,7 +170,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                           child: _PrimaryStatCard(
                             id: 'summary_stat_duration',
                             icon: Icons.timer_rounded,
-                            label: 'Duration',
+                            label: AppTranslations.get('duration', currentLang),
                             value: WorkoutFormatters.formatElapsedClock(
                               durationSeconds,
                             ),
@@ -174,7 +186,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                           child: _PrimaryStatCard(
                             id: 'summary_stat_calories',
                             icon: Icons.local_fire_department_rounded,
-                            label: 'Calories',
+                            label: AppTranslations.get('calories', currentLang),
                             value: '$calories kcal',
                             accent: const Color(0xFFFF8CA1),
                           ),
@@ -184,7 +196,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                           child: _PrimaryStatCard(
                             id: 'summary_stat_avg_pace',
                             icon: Icons.speed_rounded,
-                            label: 'Avg Pace',
+                            label: AppTranslations.get('best_pace', currentLang),
                             value: avgPace,
                             accent: const Color(0xFFF8C15C),
                           ),
@@ -201,16 +213,16 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SectionTitle('Details'),
+                    _SectionTitle(AppTranslations.get('details', currentLang)),
                     const SizedBox(height: 12),
                     _SecondaryRow(
-                      label: 'Moving Pace',
+                      label: AppTranslations.get('moving_pace', currentLang),
                       value: movingPace,
                       icon: Icons.directions_run_rounded,
                     ),
                     _divider(),
                     _SecondaryRow(
-                      label: 'Moving Time',
+                      label: AppTranslations.get('moving_time', currentLang),
                       value: WorkoutFormatters.formatElapsedClock(
                         movingTimeSeconds,
                       ),
@@ -218,7 +230,7 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                     ),
                     _divider(),
                     _SecondaryRow(
-                      label: 'Rest Time',
+                      label: AppTranslations.get('rest_time', currentLang),
                       value: WorkoutFormatters.formatElapsedClock(
                         gpsAnalysis.restDurationSec,
                       ),
@@ -244,13 +256,10 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _SectionTitle('Lap Splits'),
+                      _SectionTitle(AppTranslations.get('lap_splits', currentLang)),
                       const SizedBox(height: 14),
                       for (final split in lapSplits) ...[
-                        _SplitRow(
-                          split: split,
-                          useMetricUnits: useMetricUnits,
-                        ),
+                        _SplitRow(split: split, useMetricUnits: useMetricUnits),
                         if (split != lapSplits.last)
                           Divider(
                             height: 18,
@@ -283,9 +292,9 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: const Text(
-                    'Back To History',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  child: Text(
+                    AppTranslations.get('back_to_history', currentLang),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -324,9 +333,9 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    child: const Text(
-                      'View Details',
-                      style: TextStyle(
+                    child: Text(
+                      AppTranslations.get('view_details', currentLang),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -346,16 +355,91 @@ class WorkoutSummaryScreen extends ConsumerWidget {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Widget _divider() => Divider(
-  height: 18,
-  color: Colors.white.withValues(alpha: 0.07),
-);
+Widget _divider() =>
+    Divider(height: 18, color: Colors.white.withValues(alpha: 0.07));
 
 String _formatSteps(int steps) {
   if (steps >= 1000) {
     return '${(steps / 1000).toStringAsFixed(1)}k';
   }
   return '$steps';
+}
+
+class _CompletionBanner extends ConsumerWidget {
+  const _CompletionBanner({
+    required this.activityType,
+    required this.distanceLabel,
+  });
+
+  final String activityType;
+  final String distanceLabel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AetronColors.mint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AetronColors.mint.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AetronColors.mint.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AetronColors.mint.withValues(alpha: 0.52),
+              ),
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: AetronColors.mint,
+              size: 25,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppTranslations.get('workout_saved', currentLang),
+                  style: const TextStyle(
+                    color: AetronColors.mint,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${AppTranslations.get(activityType, currentLang)} / $distanceLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AetronColors.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.verified_rounded,
+            color: AetronColors.cyan,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -561,7 +645,7 @@ class _SummaryHeroCard extends StatelessWidget {
   }
 }
 
-class _IndoorTrailPreview extends StatelessWidget {
+class _IndoorTrailPreview extends ConsumerWidget {
   const _IndoorTrailPreview({required this.activityType});
 
   final String activityType;
@@ -608,7 +692,8 @@ class _IndoorTrailPreview extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final trail = _buildTrail();
     final start = trail.first;
     final end = trail.last;
@@ -667,9 +752,9 @@ class _IndoorTrailPreview extends StatelessWidget {
                       size: 16,
                     ),
                     const SizedBox(width: 6),
-                    const Text(
-                      'INDOOR MOVEMENT',
-                      style: TextStyle(
+                    Text(
+                      AppTranslations.get('indoor_movement', currentLang),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -713,9 +798,9 @@ class _IndoorTrailPreview extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.06),
                   ),
                 ),
-                child: const Text(
-                  'ROUTE NOT AVAILABLE',
-                  style: TextStyle(
+                child: Text(
+                  AppTranslations.get('route_not_available', currentLang),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,

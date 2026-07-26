@@ -15,11 +15,11 @@ class AppHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = Supabase.instance.client.auth.currentUser;
     final avatar = ref.watch(currentAvatarDisplayProvider);
-    final ImageProvider? avatarImage = avatar.localPath != null
+    final ImageProvider avatarImage = avatar.localPath != null
         ? FileImage(File(avatar.localPath!))
         : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
         ? NetworkImage(avatar.remoteUrl!)
-        : null;
+        : const AssetImage('assets/screen.png');
     final displayName = user?.email?.split('@').first ?? 'User';
 
     return SizedBox(
@@ -62,13 +62,6 @@ class AppHeader extends ConsumerWidget {
                   radius: 32,
                   backgroundColor: const Color(0xffe8f7fd),
                   backgroundImage: avatarImage,
-                  child: avatarImage == null
-                      ? const Icon(
-                          Icons.person,
-                          size: 32,
-                          color: Color(0xff18b0e8),
-                        )
-                      : null,
                 ),
               ),
             ),

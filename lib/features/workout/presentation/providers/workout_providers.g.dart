@@ -295,7 +295,7 @@ class _WorkoutRouteProviderElement
   String get id => (origin as WorkoutRouteProvider).id;
 }
 
-String _$workoutListHash() => r'b30f3f083cd9ec0502780f8c5956aec05a6870a8';
+String _$workoutListHash() => r'5c989b1c5609fb0327bba9660b6b1ff324c724b2';
 
 /// Workout List Provider
 ///

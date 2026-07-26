@@ -15,17 +15,17 @@ $files = @(
   "database/raw_tracking.sql",
   "database/processing.sql",
   "database/views.sql",
-  "migrations/20260311_user_goals.sql",
-  "migrations/20260311_add_avatar_url.sql",
-  "migrations/20260324_add_workout_lap_splits.sql",
-  "migrations/20260413_user_profiles_compatibility.sql",
-  "migrations/20260413_workout_processing_metadata.sql",
-  "migrations/20260413_raw_tracking_tables.sql",
-  "migrations/20260413_workout_processing_jobs.sql",
-  "migrations/20260413_workout_processing_logs.sql",
-  "migrations/20260417_workout_route_matching_phase3.sql",
-  "migrations/20260420_add_workout_moving_time.sql",
-  "migrations/20260426_workout_segment_audits.sql"
+  "database/patches/user_goals.sql",
+  "database/patches/profile_avatar.sql",
+  "database/patches/workout_lap_splits.sql",
+  "database/patches/raw_tracking_tables.sql",
+  "database/patches/user_profiles_compatibility.sql",
+  "database/patches/workout_processing_jobs.sql",
+  "database/patches/workout_processing_logs.sql",
+  "database/patches/workout_processing_metadata.sql",
+  "database/patches/route_matching.sql",
+  "database/patches/workout_moving_time.sql",
+  "database/patches/workout_segment_audits.sql"
 )
 
 if ($IncludeSeed) {

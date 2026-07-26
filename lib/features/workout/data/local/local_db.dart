@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/schema/local_step_interval.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_workout.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/route_match_result.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
@@ -26,7 +28,7 @@ class LocalDB {
   static Future<void> _open() async {
     final dir = await getApplicationDocumentsDirectory();
     _isar = await Isar.open(
-      [LocalWorkoutSchema, LocalGPSPointSchema],
+      [LocalWorkoutSchema, LocalGPSPointSchema, LocalStepIntervalSchema],
       directory: dir.path,
       inspector: false,
     );
@@ -90,6 +92,17 @@ class LocalDB {
     await init();
     final isar = instance;
     await isar.writeTxn(() async {
+      final workout = await isar.localWorkouts.get(id);
+      if (workout != null) {
+        await isar.localGPSPoints
+            .filter()
+            .sessionIdEqualTo(workout.sessionId)
+            .deleteAll();
+        await isar.localStepIntervals
+            .filter()
+            .sessionIdEqualTo(workout.sessionId)
+            .deleteAll();
+      }
       await isar.localWorkouts.delete(id);
     });
   }
@@ -113,6 +126,10 @@ class LocalDB {
       // Delete GPS points associated with these workouts by sessionId.
       for (final w in workouts) {
         await isar.localGPSPoints
+            .filter()
+            .sessionIdEqualTo(w.sessionId)
+            .deleteAll();
+        await isar.localStepIntervals
             .filter()
             .sessionIdEqualTo(w.sessionId)
             .deleteAll();
@@ -248,6 +265,19 @@ class LocalDB {
         .findAll();
   }
 
+  static Future<List<LocalGPSPoint>> getUnsyncedGpsPointsForSession(
+    String sessionId,
+  ) async {
+    await init();
+    final isar = instance;
+    return await isar.localGPSPoints
+        .filter()
+        .sessionIdEqualTo(sessionId)
+        .isSyncedEqualTo(false)
+        .sortByTimestamp()
+        .findAll();
+  }
+
   static Future<List<LocalGPSPoint>> getPointsForSession(
     String sessionId,
   ) async {
@@ -261,6 +291,10 @@ class LocalDB {
   }
 
   static Future<void> markPointsAsSynced(List<int> pointIds) async {
+    await markGpsPointsAsSynced(pointIds);
+  }
+
+  static Future<void> markGpsPointsAsSynced(List<int> pointIds) async {
     await init();
     final isar = instance;
     await isar.writeTxn(() async {
@@ -269,6 +303,55 @@ class LocalDB {
         if (point != null) {
           point.isSynced = true;
           await isar.localGPSPoints.put(point);
+        }
+      }
+    });
+  }
+
+  static RawGpsPointPayload rawGpsPointToPayload(LocalGPSPoint point) {
+    return RawGpsPointPayload(
+      workoutId: point.sessionId,
+      timestamp: point.timestamp,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      altitude: point.altitude,
+      speed: point.speed,
+      accuracy: point.accuracy,
+      heading: point.heading,
+      deviceSource: point.deviceSource,
+    );
+  }
+
+  static Future<void> saveRawStepInterval(LocalStepInterval interval) async {
+    await init();
+    final isar = instance;
+    await isar.writeTxn(() async {
+      await isar.localStepIntervals.put(interval);
+    });
+  }
+
+  static Future<List<LocalStepInterval>> getUnsyncedStepIntervalsForSession(
+    String sessionId,
+  ) async {
+    await init();
+    final isar = instance;
+    return await isar.localStepIntervals
+        .filter()
+        .sessionIdEqualTo(sessionId)
+        .isSyncedEqualTo(false)
+        .sortByIntervalStart()
+        .findAll();
+  }
+
+  static Future<void> markStepIntervalsAsSynced(List<int> intervalIds) async {
+    await init();
+    final isar = instance;
+    await isar.writeTxn(() async {
+      for (final id in intervalIds) {
+        final interval = await isar.localStepIntervals.get(id);
+        if (interval != null) {
+          interval.isSynced = true;
+          await isar.localStepIntervals.put(interval);
         }
       }
     });

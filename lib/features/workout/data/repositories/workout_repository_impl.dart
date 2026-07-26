@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
+import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_processing_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_workout.dart';
@@ -12,11 +15,18 @@ import 'package:fitness_exercise_application/features/workout/domain/entities/wo
 
 class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutRemoteDataSource _remoteDataSource;
+  final RawTrackingRemoteDataSource _rawTrackingRemoteDataSource;
+  final WorkoutProcessingRemoteDataSource _processingRemoteDataSource;
   final SupabaseClient _supabase;
   final RouteMatchQualityService _routeMatchQualityService =
       const RouteMatchQualityService();
 
-  WorkoutRepositoryImpl(this._remoteDataSource, this._supabase);
+  WorkoutRepositoryImpl(
+    this._remoteDataSource,
+    this._rawTrackingRemoteDataSource,
+    this._processingRemoteDataSource,
+    this._supabase,
+  );
 
   @override
   Future<void> saveSessionRemote(WorkoutSession session) async {
@@ -116,7 +126,11 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       final unsyncedWorkouts = await LocalDB.getUnsyncedWorkouts();
       for (final workout in unsyncedWorkouts) {
         try {
-          await _remoteDataSource.saveSession(workout.toEntity());
+          final session = workout.toEntity();
+          await _remoteDataSource.saveSession(session);
+          await _syncRawTrackingForSession(workout.sessionId);
+          await _enqueueDeterministicProcessing(session);
+          await _enqueueRouteCorrectionIfNeeded(session);
           workout.isSynced = true;
           await LocalDB.saveSession(workout);
         } catch (e) {
@@ -127,6 +141,106 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       }
     } catch (e) {
       debugPrint('[Sync] syncPendingData error: $e');
+    }
+  }
+
+  Future<void> _syncRawTrackingForSession(String sessionId) async {
+    final unsyncedGpsPoints = await LocalDB.getUnsyncedGpsPointsForSession(
+      sessionId,
+    );
+    if (unsyncedGpsPoints.isNotEmpty) {
+      await _rawTrackingRemoteDataSource.saveRawGpsPoints(
+        unsyncedGpsPoints.map(LocalDB.rawGpsPointToPayload).toList(),
+      );
+      await LocalDB.markGpsPointsAsSynced(
+        unsyncedGpsPoints.map((point) => point.id).toList(),
+      );
+    }
+
+    final unsyncedStepIntervals =
+        await LocalDB.getUnsyncedStepIntervalsForSession(sessionId);
+    if (unsyncedStepIntervals.isNotEmpty) {
+      await _rawTrackingRemoteDataSource.saveRawStepIntervals(
+        unsyncedStepIntervals.map((interval) => interval.toPayload()).toList(),
+      );
+      await LocalDB.markStepIntervalsAsSynced(
+        unsyncedStepIntervals.map((interval) => interval.id).toList(),
+      );
+    }
+  }
+
+  Future<void> _enqueueDeterministicProcessing(WorkoutSession session) async {
+    await _processingRemoteDataSource.enqueueDeterministicJob(
+      workoutId: session.id,
+      payload: {
+        'session_id': session.id,
+        'activity_type': session.activityType,
+        'mode': session.mode,
+        'duration_sec': session.durationSec,
+        'moving_time_sec': session.movingTimeSec,
+        'distance_km': session.distanceKm,
+        'steps': session.steps,
+        'avg_speed_kmh': session.avgSpeedKmh,
+        'calories_kcal': session.caloriesKcal,
+        'source': 'offline_sync',
+      },
+    );
+  }
+
+  Future<void> _enqueueRouteCorrectionIfNeeded(WorkoutSession session) async {
+    final routeSummary = _summarizeRouteSegments(session.filteredRouteJson);
+    if (routeSummary.pointCount < 10 || routeSummary.segmentCount == 0) return;
+
+    try {
+      await _processingRemoteDataSource.enqueueRouteCorrectionJob(
+        workoutId: session.id,
+        payload: {
+          'session_id': session.id,
+          'activity_type': session.activityType,
+          'mode': session.mode,
+          'started_at': session.startedAt.toUtc().toIso8601String(),
+          'ended_at': session.endedAt.toUtc().toIso8601String(),
+          'duration_sec': session.durationSec,
+          'moving_time_sec': session.movingTimeSec,
+          'distance_km_filtered': session.distanceKm,
+          'gps_gap_count': session.gpsAnalysis.gpsGapCount,
+          'gps_gap_duration_sec': session.gpsAnalysis.gpsGapDurationSec,
+          'filtered_route_json': session.filteredRouteJson,
+          'route_match_status': session.routeMatchStatus,
+          'route_distance_source': session.routeDistanceSource,
+          'route_segment_count': routeSummary.segmentCount,
+          'route_point_count': routeSummary.pointCount,
+          'source': 'offline_sync',
+        },
+      );
+    } catch (e) {
+      debugPrint(
+        '[WorkoutRepository] Failed to enqueue route correction for ${session.id}: $e',
+      );
+    }
+  }
+
+  _RouteSegmentSummary _summarizeRouteSegments(String routeJson) {
+    try {
+      final decoded = jsonDecode(routeJson);
+      if (decoded is! List) {
+        return const _RouteSegmentSummary(segmentCount: 0, pointCount: 0);
+      }
+
+      var segmentCount = 0;
+      var pointCount = 0;
+      for (final segment in decoded) {
+        if (segment is! List || segment.isEmpty) continue;
+        segmentCount += 1;
+        pointCount += segment.length;
+      }
+
+      return _RouteSegmentSummary(
+        segmentCount: segmentCount,
+        pointCount: pointCount,
+      );
+    } catch (_) {
+      return const _RouteSegmentSummary(segmentCount: 0, pointCount: 0);
     }
   }
 
@@ -184,4 +298,14 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       debugPrint('[Sync] syncFromCloud error: $e');
     }
   }
+}
+
+class _RouteSegmentSummary {
+  final int segmentCount;
+  final int pointCount;
+
+  const _RouteSegmentSummary({
+    required this.segmentCount,
+    required this.pointCount,
+  });
 }

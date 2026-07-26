@@ -9,13 +9,18 @@ class AppBootstrapService {
 
   AppBootstrapService(this.ref);
 
+  static const _profileHydrationTimeout = Duration(seconds: 8);
+  static const _workoutHydrationTimeout = Duration(seconds: 12);
+
   /// Called upon successful login or app startup with an active session.
   /// Fetches the remote truth and hydrates the local caches.
   Future<void> hydrateUser(String userId) async {
     // 1. Hydrate User Profile
     try {
       final profileRepo = ref.read(userProfileRepositoryProvider);
-      final remoteProfile = await profileRepo.fetchRemote(userId);
+      final remoteProfile = await profileRepo
+          .fetchRemote(userId)
+          .timeout(_profileHydrationTimeout);
       if (remoteProfile != null) {
         await profileRepo.cacheLocal(remoteProfile);
       }
@@ -26,7 +31,7 @@ class AppBootstrapService {
     // 2. Hydrate Workout History
     try {
       final workoutRepo = ref.read(workoutRepositoryProvider);
-      await workoutRepo.syncFromCloud();
+      await workoutRepo.syncFromCloud().timeout(_workoutHydrationTimeout);
     } catch (e) {
       debugPrint('[AppBootstrapService] Failed to hydrate Workout History: $e');
     }

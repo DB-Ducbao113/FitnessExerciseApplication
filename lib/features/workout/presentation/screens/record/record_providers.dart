@@ -1076,8 +1076,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     }
 
     _lastStepTime = now;
-    _setAutoPauseState(false);
-
     final newDistanceM =
         state.distanceMeters + contribution.addedDistanceMeters;
     final newSpeedKmh = _computeSmoothedSpeed();
@@ -1262,6 +1260,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       ..accuracy = 0
       ..speed = 0
       ..heading = headingDeg
+      ..deviceSource = 'indoor_synthetic_route'
       ..confidence = 'synthetic'
       ..isSynced = true;
     await LocalDB.saveRawGpsPoint(localPoint);
@@ -1359,8 +1358,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     );
     _lastAcceptedPositionTime = position.timestamp;
     _distanceAnchorPoint = livePoint;
-    _setAutoPauseState(false);
-
     state = state.copyWith(
       trackingMode: kOutdoorMode,
       environmentHint: 'outdoor',
@@ -1510,7 +1507,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   // UI ticker
 
   void _startTicker() {
-    _setAutoPauseState(false);
     _uiTicker?.cancel();
     _uiTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -1525,7 +1521,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
           DateTime.now().difference(_lastStepTime!).inSeconds >= 3) {
         liveSpeedKmh = 0;
         isAutoPaused = true;
-        _setAutoPauseState(true);
       }
 
       if (state.recordingSource == 'gps' &&
@@ -1534,13 +1529,11 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
               5) {
         liveSpeedKmh = 0;
         isAutoPaused = true;
-        _setAutoPauseState(true);
       }
 
       if (_isMoving(liveSpeedKmh, state.activityType)) {
         movingTimeSec += 1;
         isAutoPaused = false;
-        _setAutoPauseState(false);
       }
 
       final distKm = state.distanceMeters / 1000.0;
@@ -1611,7 +1604,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       'last_gps_event_age_sec': lastGpsAgeSeconds,
       if (silence != null) 'stream_silence_sec': silence.inSeconds,
       if (error != null) 'error': error.toString(),
-      if (payloadOverrides != null) ...payloadOverrides,
+      ...?payloadOverrides,
     };
 
     unawaited(
@@ -1655,16 +1648,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       _nextLapIndex += 1;
     }
     return splits;
-  }
-
-  void _setAutoPauseState(bool isPaused) {
-    if (isPaused) {
-      if (_stopwatch.isRunning) _stopwatch.stop();
-    } else {
-      if (state.status == RecordingState.active && !_stopwatch.isRunning) {
-        _stopwatch.start();
-      }
-    }
   }
 
   // Cleanup

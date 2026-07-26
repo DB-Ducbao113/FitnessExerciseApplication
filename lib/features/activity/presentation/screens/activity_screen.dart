@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_start_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -15,32 +18,32 @@ const _kNeonCyan = Color(0xff00e5ff);
 const _kNeonBlue = Color(0xff00bfff);
 const _kWarning = Color(0xffffb85c);
 
-class ActivityScreen extends StatefulWidget {
+class ActivityScreen extends ConsumerStatefulWidget {
   const ActivityScreen({super.key});
 
   @override
-  State<ActivityScreen> createState() => _ActivityScreenState();
+  ConsumerState<ActivityScreen> createState() => _ActivityScreenState();
 }
 
-class _ActivityScreenState extends State<ActivityScreen>
+class _ActivityScreenState extends ConsumerState<ActivityScreen>
     with WidgetsBindingObserver {
   static const _activities = [
     _ActivityOption(
       type: 'running',
       name: 'Running',
-      imagePath: 'assets/running.jpg',
+      imagePath: 'assets/running_3d.png',
       icon: Icons.directions_run,
     ),
     _ActivityOption(
       type: 'cycling',
       name: 'Cycling',
-      imagePath: 'assets/cycling.jpg',
+      imagePath: 'assets/cycling_3d.png',
       icon: Icons.directions_bike,
     ),
     _ActivityOption(
       type: 'walking',
       name: 'Walking',
-      imagePath: 'assets/walking.jpg',
+      imagePath: 'assets/walking_3d.png',
       icon: Icons.directions_walk,
     ),
   ];
@@ -164,6 +167,7 @@ class _ActivityScreenState extends State<ActivityScreen>
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     return Scaffold(
       backgroundColor: _kBgTop,
       body: Stack(
@@ -183,32 +187,16 @@ class _ActivityScreenState extends State<ActivityScreen>
             top: 0,
             left: 0,
             right: 0,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'ACTIVITY',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    _LocationBadge(
-                      isChecking: _checkingLocation,
-                      gpsEnabled: _gpsEnabled,
-                      hasPermission: _hasLocationPermission,
-                      hasLocation: _currentLocation != null,
-                      onTap: _handleLocationAction,
-                    ),
-                  ],
-                ),
+            child: AetronHeader(
+              title: AppTranslations.get('activity', currentLang),
+              eyebrow: AppTranslations.get('select_your_mode', currentLang),
+              compact: true,
+              trailing: _LocationBadge(
+                isChecking: _checkingLocation,
+                gpsEnabled: _gpsEnabled,
+                hasPermission: _hasLocationPermission,
+                hasLocation: _currentLocation != null,
+                onTap: _handleLocationAction,
               ),
             ),
           ),
@@ -238,7 +226,7 @@ class _ActivityScreenState extends State<ActivityScreen>
   }
 }
 
-class _ActivityBottomPanel extends StatelessWidget {
+class _ActivityBottomPanel extends ConsumerWidget {
   final List<_ActivityOption> activities;
   final int selectedIndex;
   final _ActivityOption selectedActivity;
@@ -264,7 +252,8 @@ class _ActivityBottomPanel extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -295,9 +284,9 @@ class _ActivityBottomPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'READY TO MOVE',
-                      style: TextStyle(
+                    Text(
+                      AppTranslations.get('ready_to_move', currentLang),
+                      style: const TextStyle(
                         color: _kMutedText,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -306,7 +295,7 @@ class _ActivityBottomPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      selectedActivity.name,
+                      AppTranslations.get(selectedActivity.type, currentLang),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -364,7 +353,7 @@ class _ActivityBottomPanel extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: onStart,
                 icon: const Icon(Icons.play_arrow_rounded, size: 26),
-                label: const Text('START WORKOUT'),
+                label: Text(AppTranslations.get('start_workout', currentLang).toUpperCase()),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   foregroundColor: _kBgTop,
@@ -387,7 +376,7 @@ class _ActivityBottomPanel extends StatelessWidget {
   }
 }
 
-class _ActivityChoice extends StatelessWidget {
+class _ActivityChoice extends ConsumerWidget {
   final _ActivityOption activity;
   final bool selected;
   final VoidCallback onTap;
@@ -399,7 +388,8 @@ class _ActivityChoice extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
@@ -428,7 +418,7 @@ class _ActivityChoice extends StatelessWidget {
             ),
             const SizedBox(height: 7),
             Text(
-              activity.name,
+              AppTranslations.get(activity.type, currentLang),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -486,7 +476,7 @@ class _LocationBadge extends StatelessWidget {
   }
 }
 
-class _GpsStatusChip extends StatelessWidget {
+class _GpsStatusChip extends ConsumerWidget {
   final bool checkingLocation;
   final bool gpsEnabled;
   final bool hasPermission;
@@ -502,8 +492,9 @@ class _GpsStatusChip extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final (icon, label, color) = _statusContent();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    final (icon, label, color) = _statusContent(currentLang);
 
     return InkWell(
       onTap: onTap,
@@ -534,20 +525,20 @@ class _GpsStatusChip extends StatelessWidget {
     );
   }
 
-  (IconData, String, Color) _statusContent() {
+  (IconData, String, Color) _statusContent(AppLanguage lang) {
     if (checkingLocation) {
-      return (Icons.location_searching_rounded, 'CHECKING', _kMutedText);
+      return (Icons.location_searching_rounded, AppTranslations.get('checking', lang).toUpperCase(), _kMutedText);
     }
     if (!gpsEnabled) {
-      return (Icons.gps_off_rounded, 'GPS OFF', _kWarning);
+      return (Icons.gps_off_rounded, AppTranslations.get('gps_off', lang).toUpperCase(), _kWarning);
     }
     if (!hasPermission) {
-      return (Icons.lock_outline_rounded, 'ALLOW GPS', _kWarning);
+      return (Icons.lock_outline_rounded, AppTranslations.get('allow_gps', lang).toUpperCase(), _kWarning);
     }
     if (!hasLocation) {
-      return (Icons.location_searching_rounded, 'LOCATING', _kWarning);
+      return (Icons.location_searching_rounded, AppTranslations.get('locating', lang).toUpperCase(), _kWarning);
     }
-    return (Icons.my_location_rounded, 'LIVE MAP', _kNeonCyan);
+    return (Icons.my_location_rounded, AppTranslations.get('live_map', lang).toUpperCase(), _kNeonCyan);
   }
 }
 

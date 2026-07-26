@@ -15,9 +15,13 @@ values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
 
 drop policy if exists "avatars: anyone can view" on storage.objects;
-create policy "avatars: anyone can view"
+create policy "avatars: view own"
   on storage.objects for select
-  using (bucket_id = 'avatars');
+  to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 drop policy if exists "avatars: authenticated users can upload own file" on storage.objects;
 create policy "avatars: authenticated users can upload own file"

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,12 +13,13 @@ const _blue = Color(0xFF0D5DFF);
 
 class ProfileHeader extends ConsumerWidget {
   final String name;
-  final String email;
+  final String handle;
 
-  const ProfileHeader({super.key, required this.name, required this.email});
+  const ProfileHeader({super.key, required this.name, required this.handle});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final avatar = ref.watch(currentAvatarDisplayProvider);
     final ImageProvider? avatarImage = avatar.localPath != null
         ? FileImage(File(avatar.localPath!))
@@ -61,7 +63,14 @@ class ProfileHeader extends ConsumerWidget {
                 backgroundColor: const Color(0xFF102031),
                 backgroundImage: avatarImage,
                 child: avatarImage == null
-                    ? const Icon(Icons.person, size: 30, color: _cyan)
+                    ? ClipOval(
+                        child: Image.asset(
+                          'assets/screen.png',
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                        ),
+                      )
                     : null,
               ),
             ),
@@ -71,9 +80,9 @@ class ProfileHeader extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ACCOUNT',
-                  style: TextStyle(
+                Text(
+                  AppTranslations.get('account', currentLang),
+                  style: const TextStyle(
                     color: _muted,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -89,15 +98,17 @@ class ProfileHeader extends ConsumerWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: _muted,
-                    fontWeight: FontWeight.w600,
+                if (handle.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    handle,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: _muted,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

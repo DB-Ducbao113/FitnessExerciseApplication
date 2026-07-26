@@ -60,7 +60,7 @@ final userProfileRepositoryProvider =
 
 typedef UserProfileRepositoryRef
     = AutoDisposeProviderRef<UserProfileRepository>;
-String _$userProfileHash() => r'e768123558c40c927e310e2a6c601905dcdd71e8';
+String _$userProfileHash() => r'db59fa9504d5251b443362086db39891a7d76e3a';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -209,7 +209,7 @@ class _UserProfileProviderElement
   String get userId => (origin as UserProfileProvider).userId;
 }
 
-String _$hasUserProfileHash() => r'e1e53985107f250a7433e43a07e17944056a59d7';
+String _$hasUserProfileHash() => r'cae22099ecebd5c86fb0c851ce587a1614a344c5';
 
 /// See also [hasUserProfile].
 @ProviderFor(hasUserProfile)

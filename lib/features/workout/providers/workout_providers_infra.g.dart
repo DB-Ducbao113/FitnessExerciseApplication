@@ -24,7 +24,7 @@ final workoutRemoteDataSourceProvider =
 
 typedef WorkoutRemoteDataSourceRef
     = AutoDisposeProviderRef<WorkoutRemoteDataSource>;
-String _$workoutRepositoryHash() => r'99fa6596407d7b616599656a9c5104525e446c97';
+String _$workoutRepositoryHash() => r'ade339bd808a8afebe1ca1069364a672fc27ad80';
 
 /// See also [workoutRepository].
 @ProviderFor(workoutRepository)

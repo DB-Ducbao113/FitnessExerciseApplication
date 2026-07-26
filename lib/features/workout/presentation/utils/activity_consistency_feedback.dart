@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 
 class RecordedWorkoutAssessment {
@@ -42,7 +43,17 @@ String activityConsistencyWarningText(
   }
 }
 
-String workoutValidityLabel(WorkoutValidityFlag flag) {
+String workoutValidityLabel(WorkoutValidityFlag flag, [AppLanguage? lang]) {
+  if (lang == AppLanguage.vi) {
+    switch (flag) {
+      case WorkoutValidityFlag.verified:
+        return 'Đã xác minh';
+      case WorkoutValidityFlag.partial:
+        return 'Một phần';
+      case WorkoutValidityFlag.unverified:
+        return 'Chưa xác minh';
+    }
+  }
   switch (flag) {
     case WorkoutValidityFlag.verified:
       return 'Verified';

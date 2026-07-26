@@ -16,9 +16,14 @@ SupabaseClient supabaseClient(SupabaseClientRef ref) {
   return Supabase.instance.client;
 }
 
+final authStateChangesProvider = StreamProvider<AuthState>((ref) {
+  return ref.watch(supabaseClientProvider).auth.onAuthStateChange;
+});
+
 /// Current User ID Provider
 @riverpod
 String? currentUserId(CurrentUserIdRef ref) {
+  ref.watch(authStateChangesProvider);
   final user = ref.watch(supabaseClientProvider).auth.currentUser;
   return user?.id;
 }

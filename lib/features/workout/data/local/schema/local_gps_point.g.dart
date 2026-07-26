@@ -32,43 +32,48 @@ const LocalGPSPointSchema = CollectionSchema(
       name: r'confidence',
       type: IsarType.string,
     ),
-    r'heading': PropertySchema(
+    r'deviceSource': PropertySchema(
       id: 3,
+      name: r'deviceSource',
+      type: IsarType.string,
+    ),
+    r'heading': PropertySchema(
+      id: 4,
       name: r'heading',
       type: IsarType.double,
     ),
     r'isSynced': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'latitude': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'latitude',
       type: IsarType.double,
     ),
     r'localWorkoutId': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'localWorkoutId',
       type: IsarType.long,
     ),
     r'longitude': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'longitude',
       type: IsarType.double,
     ),
     r'sessionId': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'sessionId',
       type: IsarType.string,
     ),
     r'speed': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'speed',
       type: IsarType.double,
     ),
     r'timestamp': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'timestamp',
       type: IsarType.dateTime,
     )
@@ -91,19 +96,6 @@ const LocalGPSPointSchema = CollectionSchema(
           caseSensitive: true,
         )
       ],
-    ),
-    r'localWorkoutId': IndexSchema(
-      id: 3106055235185044782,
-      name: r'localWorkoutId',
-      unique: false,
-      replace: false,
-      properties: [
-        IndexPropertySchema(
-          name: r'localWorkoutId',
-          type: IndexType.value,
-          caseSensitive: false,
-        )
-      ],
     )
   },
   links: {},
@@ -121,6 +113,12 @@ int _localGPSPointEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.confidence.length * 3;
+  {
+    final value = object.deviceSource;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.sessionId.length * 3;
   return bytesCount;
 }
@@ -134,14 +132,15 @@ void _localGPSPointSerialize(
   writer.writeDouble(offsets[0], object.accuracy);
   writer.writeDouble(offsets[1], object.altitude);
   writer.writeString(offsets[2], object.confidence);
-  writer.writeDouble(offsets[3], object.heading);
-  writer.writeBool(offsets[4], object.isSynced);
-  writer.writeDouble(offsets[5], object.latitude);
-  writer.writeLong(offsets[6], object.localWorkoutId);
-  writer.writeDouble(offsets[7], object.longitude);
-  writer.writeString(offsets[8], object.sessionId);
-  writer.writeDouble(offsets[9], object.speed);
-  writer.writeDateTime(offsets[10], object.timestamp);
+  writer.writeString(offsets[3], object.deviceSource);
+  writer.writeDouble(offsets[4], object.heading);
+  writer.writeBool(offsets[5], object.isSynced);
+  writer.writeDouble(offsets[6], object.latitude);
+  writer.writeLong(offsets[7], object.localWorkoutId);
+  writer.writeDouble(offsets[8], object.longitude);
+  writer.writeString(offsets[9], object.sessionId);
+  writer.writeDouble(offsets[10], object.speed);
+  writer.writeDateTime(offsets[11], object.timestamp);
 }
 
 LocalGPSPoint _localGPSPointDeserialize(
@@ -154,15 +153,16 @@ LocalGPSPoint _localGPSPointDeserialize(
   object.accuracy = reader.readDoubleOrNull(offsets[0]);
   object.altitude = reader.readDoubleOrNull(offsets[1]);
   object.confidence = reader.readString(offsets[2]);
-  object.heading = reader.readDoubleOrNull(offsets[3]);
+  object.deviceSource = reader.readStringOrNull(offsets[3]);
+  object.heading = reader.readDoubleOrNull(offsets[4]);
   object.id = id;
-  object.isSynced = reader.readBool(offsets[4]);
-  object.latitude = reader.readDouble(offsets[5]);
-  object.localWorkoutId = reader.readLong(offsets[6]);
-  object.longitude = reader.readDouble(offsets[7]);
-  object.sessionId = reader.readString(offsets[8]);
-  object.speed = reader.readDoubleOrNull(offsets[9]);
-  object.timestamp = reader.readDateTime(offsets[10]);
+  object.isSynced = reader.readBool(offsets[5]);
+  object.latitude = reader.readDouble(offsets[6]);
+  object.localWorkoutId = reader.readLong(offsets[7]);
+  object.longitude = reader.readDouble(offsets[8]);
+  object.sessionId = reader.readString(offsets[9]);
+  object.speed = reader.readDoubleOrNull(offsets[10]);
+  object.timestamp = reader.readDateTime(offsets[11]);
   return object;
 }
 
@@ -180,20 +180,22 @@ P _localGPSPointDeserializeProp<P>(
     case 2:
       return (reader.readString(offset)) as P;
     case 3:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 4:
-      return (reader.readBool(offset)) as P;
-    case 5:
-      return (reader.readDouble(offset)) as P;
-    case 6:
-      return (reader.readLong(offset)) as P;
-    case 7:
-      return (reader.readDouble(offset)) as P;
-    case 8:
-      return (reader.readString(offset)) as P;
-    case 9:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 5:
+      return (reader.readBool(offset)) as P;
+    case 6:
+      return (reader.readDouble(offset)) as P;
+    case 7:
+      return (reader.readLong(offset)) as P;
+    case 8:
+      return (reader.readDouble(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
     case 10:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 11:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -218,14 +220,6 @@ extension LocalGPSPointQueryWhereSort
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhere> anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
-    });
-  }
-
-  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhere> anyLocalWorkoutId() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        const IndexWhereClause.any(indexName: r'localWorkoutId'),
-      );
     });
   }
 }
@@ -343,99 +337,6 @@ extension LocalGPSPointQueryWhere
               includeUpper: false,
             ));
       }
-    });
-  }
-
-  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-      localWorkoutIdEqualTo(int localWorkoutId) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'localWorkoutId',
-        value: [localWorkoutId],
-      ));
-    });
-  }
-
-  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-      localWorkoutIdNotEqualTo(int localWorkoutId) {
-    return QueryBuilder.apply(this, (query) {
-      if (query.whereSort == Sort.asc) {
-        return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'localWorkoutId',
-              lower: [],
-              upper: [localWorkoutId],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'localWorkoutId',
-              lower: [localWorkoutId],
-              includeLower: false,
-              upper: [],
-            ));
-      } else {
-        return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'localWorkoutId',
-              lower: [localWorkoutId],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'localWorkoutId',
-              lower: [],
-              upper: [localWorkoutId],
-              includeUpper: false,
-            ));
-      }
-    });
-  }
-
-  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-      localWorkoutIdGreaterThan(
-    int localWorkoutId, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'localWorkoutId',
-        lower: [localWorkoutId],
-        includeLower: include,
-        upper: [],
-      ));
-    });
-  }
-
-  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-      localWorkoutIdLessThan(
-    int localWorkoutId, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'localWorkoutId',
-        lower: [],
-        upper: [localWorkoutId],
-        includeUpper: include,
-      ));
-    });
-  }
-
-  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterWhereClause>
-      localWorkoutIdBetween(
-    int lowerLocalWorkoutId,
-    int upperLocalWorkoutId, {
-    bool includeLower = true,
-    bool includeUpper = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.between(
-        indexName: r'localWorkoutId',
-        lower: [lowerLocalWorkoutId],
-        includeLower: includeLower,
-        upper: [upperLocalWorkoutId],
-        includeUpper: includeUpper,
-      ));
     });
   }
 }
@@ -741,6 +642,160 @@ extension LocalGPSPointQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'confidence',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deviceSource',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deviceSource',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deviceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deviceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deviceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deviceSource',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'deviceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'deviceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'deviceSource',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'deviceSource',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deviceSource',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterFilterCondition>
+      deviceSourceIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'deviceSource',
         value: '',
       ));
     });
@@ -1406,6 +1461,20 @@ extension LocalGPSPointQuerySortBy
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      sortByDeviceSource() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deviceSource', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      sortByDeviceSourceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deviceSource', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> sortByHeading() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'heading', Sort.asc);
@@ -1551,6 +1620,20 @@ extension LocalGPSPointQuerySortThenBy
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      thenByDeviceSource() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deviceSource', Sort.asc);
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy>
+      thenByDeviceSourceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deviceSource', Sort.desc);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QAfterSortBy> thenByHeading() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'heading', Sort.asc);
@@ -1688,6 +1771,13 @@ extension LocalGPSPointQueryWhereDistinct
     });
   }
 
+  QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct> distinctByDeviceSource(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deviceSource', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<LocalGPSPoint, LocalGPSPoint, QDistinct> distinctByHeading() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'heading');
@@ -1762,6 +1852,13 @@ extension LocalGPSPointQueryProperty
   QueryBuilder<LocalGPSPoint, String, QQueryOperations> confidenceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'confidence');
+    });
+  }
+
+  QueryBuilder<LocalGPSPoint, String?, QQueryOperations>
+      deviceSourceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deviceSource');
     });
   }
 

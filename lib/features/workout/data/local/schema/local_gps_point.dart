@@ -19,6 +19,7 @@ class LocalGPSPoint {
   double? speed;
   double? accuracy;
   double? heading;
+  String? deviceSource;
   late String confidence;
 
   bool isSynced = false;

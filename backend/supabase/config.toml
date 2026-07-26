@@ -166,7 +166,7 @@ enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
-enable_manual_linking = false
+enable_manual_linking = true
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
 minimum_password_length = 6
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
@@ -255,9 +255,9 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_allow_username_accounts_only"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]
@@ -415,3 +415,15 @@ entrypoint = "./functions/workouts-end/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/workouts-end/*.html" ]
+
+[functions.deterministic-finalize-worker]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deterministic-finalize-worker/deno.json"
+entrypoint = "./functions/deterministic-finalize-worker/index.ts"
+
+[functions.route-correction-worker]
+enabled = true
+verify_jwt = true
+import_map = "./functions/route-correction-worker/deno.json"
+entrypoint = "./functions/route-correction-worker/index.ts"

@@ -84,6 +84,9 @@ dependencies:
   internet_connection_checker: ^1.0.0+1
   shared_preferences: ^2.5.4
   package_info_plus: ^9.0.0
+  flutter_local_notifications: ^22.0.1
+  flutter_timezone: ^5.1.0
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:

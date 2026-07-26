@@ -1,14 +1,17 @@
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/locate_button.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
 import 'package:fitness_exercise_application/core/services/location_tracking_service.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_permission_sheet.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -163,6 +166,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         : Permission.activityRecognition;
     final status = await permission.status;
     if (status.isGranted || status.isLimited) return;
+
+    if (!mounted ||
+        !await showAetronPermissionSheet(
+          context,
+          kind: AetronPermissionKind.motion,
+        )) {
+      throw Exception('activity_permission_denied');
+    }
 
     final requested = await permission.request();
     if (requested.isGranted || requested.isLimited) return;
@@ -326,6 +337,17 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     }
   }
 
+  void _handlePauseResume(RecordingState status) {
+    final notifier = ref.read(workoutSessionProvider.notifier);
+    if (status == RecordingState.paused) {
+      notifier.resumeWorkout();
+      return;
+    }
+    if (status == RecordingState.active) {
+      notifier.pauseWorkout();
+    }
+  }
+
   void _openSummary(WorkoutSessionState finalState) {
     final sessionId = finalState.sessionId;
     if (!mounted || sessionId == null || sessionId.isEmpty) return;
@@ -344,8 +366,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           calories: finalState.caloriesBurned,
           steps: finalState.stepCount,
           gpsAnalysis: finalState.gpsAnalysis,
-          routePoints: finalState.routePoints,
-          routeSegments: finalState.routeSegments,
+          routePoints: finalState.filteredRoutePoints.isNotEmpty
+              ? finalState.filteredRoutePoints
+              : (finalState.smoothedRoutePoints.isNotEmpty
+                    ? finalState.smoothedRoutePoints
+                    : finalState.routePoints),
+          routeSegments: finalState.smoothedRouteSegments.isNotEmpty
+              ? finalState.smoothedRouteSegments
+              : finalState.routeSegments,
           lapSplits: finalState.lapSplits,
         ),
       ),
@@ -354,6 +382,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     final state = ref.watch(workoutSessionProvider);
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
@@ -456,7 +485,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                widget.activityType.toUpperCase(),
+                                AppTranslations.get(widget.activityType, currentLang).toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -464,7 +493,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                                 ),
                               ),
                               Text(
-                                _modeBadgeText(state.trackingMode),
+                                _modeBadgeText(state.trackingMode, currentLang),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: _kMutedText,
@@ -504,6 +533,43 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               maxChildSize: _kSheetMaxSize,
               snap: true,
               builder: (context, scrollController) {
+                if (!isExpandedSheet) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.24),
+                          blurRadius: 22,
+                          offset: const Offset(0, -8),
+                        ),
+                      ],
+                    ),
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        8,
+                        12,
+                        MediaQuery.of(context).padding.bottom + 12,
+                      ),
+                      children: [
+                        _CompactRecordingHud(
+                          state: state,
+                          activityIcon: _activityIcon(widget.activityType),
+                          useMetricUnits: useMetricUnits,
+                          avgPace: avgPace,
+                          onPauseResume: () => _handlePauseResume(state.status),
+                          onStop: _confirmStop,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
                 return Container(
                   decoration: BoxDecoration(
                     color: _kPanelBg,
@@ -541,7 +607,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _SectionLabel('Session'),
+                      _SectionLabel(AppTranslations.get('overview', currentLang)),
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -550,7 +616,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  widget.activityType.toUpperCase(),
+                                  AppTranslations.get(widget.activityType, currentLang).toUpperCase(),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 22,
@@ -560,7 +626,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _modeBadgeText(state.trackingMode),
+                                  _modeBadgeText(state.trackingMode, currentLang),
                                   style: const TextStyle(
                                     color: _kMutedText,
                                     fontSize: 12,
@@ -581,7 +647,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               border: Border.all(color: _kPanelBorder),
                             ),
                             child: Text(
-                              _statusText(state),
+                              _statusText(state, currentLang),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -592,13 +658,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      _SectionLabel('Core Stats'),
+                      _SectionLabel(AppTranslations.get('core_stats', currentLang)),
                       const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'TIME',
+                              label: AppTranslations.get('duration', currentLang).toUpperCase(),
                               value: WorkoutFormatters.formatElapsedClock(
                                 state.durationSeconds,
                               ),
@@ -609,7 +675,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'DISTANCE',
+                              label: AppTranslations.get('distance', currentLang).toUpperCase(),
                               value: WorkoutFormatters.formatDistance(
                                 state.distanceMeters / 1000,
                                 useMetric: useMetricUnits,
@@ -623,13 +689,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      _SectionLabel('Performance'),
+                      _SectionLabel(AppTranslations.get('performance', currentLang)),
                       const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'AVG PACE',
+                              label: AppTranslations.get('best_pace', currentLang).toUpperCase(),
                               value: avgPace,
                               accent: const Color(0xfff8c15c),
                             ),
@@ -637,7 +703,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'MOVING PACE',
+                              label: AppTranslations.get('moving_pace', currentLang).toUpperCase(),
                               value: movingPace,
                               accent: const Color(0xff7df9a8),
                               align: CrossAxisAlignment.end,
@@ -650,7 +716,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         children: [
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'MOVING TIME',
+                              label: AppTranslations.get('moving_time', currentLang).toUpperCase(),
                               value: WorkoutFormatters.formatElapsedClock(
                                 state.movingTimeSeconds,
                               ),
@@ -660,7 +726,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: _FeatureStatCard(
-                              label: 'CALORIES',
+                              label: AppTranslations.get('calories', currentLang).toUpperCase(),
                               value: '${state.caloriesBurned} kcal',
                               accent: const Color(0xffff8ca1),
                               align: CrossAxisAlignment.end,
@@ -670,7 +736,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                       ),
                       if (state.lapSplits.isNotEmpty) ...[
                         const SizedBox(height: 14),
-                        _SectionLabel('Latest Split'),
+                        _SectionLabel(AppTranslations.get('latest_split', currentLang)),
                         const SizedBox(height: 10),
                         Container(
                           width: double.infinity,
@@ -920,25 +986,25 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     return '${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits).toUpperCase()} ${split.index} · ${WorkoutFormatters.formatElapsedClock(split.durationSeconds)} · ${WorkoutFormatters.formatSplitPace(split.paceMinPerKm, useMetric: useMetricUnits)}';
   }
 
-  String _modeBadgeText(String mode) {
+  String _modeBadgeText(String mode, AppLanguage lang) {
     switch (mode) {
       case kOutdoorMode:
-        return 'GPS Tracking';
+        return lang == AppLanguage.vi ? 'Theo dõi GPS' : 'GPS Tracking';
       case kIndoorMode:
-        return 'Step Tracking';
+        return lang == AppLanguage.vi ? 'Đếm bước chân' : 'Step Tracking';
       default:
-        return 'Tracking';
+        return lang == AppLanguage.vi ? 'Đang theo dõi' : 'Tracking';
     }
   }
 
-  String _statusText(WorkoutSessionState state) {
-    if (state.status == RecordingState.paused) return 'Paused';
-    if (state.status == RecordingState.stopping) return 'Saving';
-    if (state.status == RecordingState.finished) return 'Finished';
-    if (state.isAutoPaused) return 'Auto Pause';
-    if (state.trackingMode == kIndoorMode) return 'Indoor';
-    if (state.trackingMode == kOutdoorMode) return 'Outdoor';
-    return 'Tracking';
+  String _statusText(WorkoutSessionState state, AppLanguage lang) {
+    if (state.status == RecordingState.paused) return AppTranslations.get('paused', lang);
+    if (state.status == RecordingState.stopping) return AppTranslations.get('saving', lang);
+    if (state.status == RecordingState.finished) return AppTranslations.get('finish', lang);
+    if (state.isAutoPaused) return AppTranslations.get('auto_pause', lang);
+    if (state.trackingMode == kIndoorMode) return lang == AppLanguage.vi ? 'Trong nhà' : 'Indoor';
+    if (state.trackingMode == kOutdoorMode) return lang == AppLanguage.vi ? 'Ngoài trời' : 'Outdoor';
+    return lang == AppLanguage.vi ? 'Đang theo dõi' : 'Tracking';
   }
 
   IconData _activityIcon(String type) {
@@ -1007,6 +1073,335 @@ class _FeatureStatCard extends StatelessWidget {
               fontSize: isHero ? 24 : 18,
               fontWeight: FontWeight.w900,
               letterSpacing: isHero ? -1.0 : -0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactRecordingHud extends ConsumerWidget {
+  const _CompactRecordingHud({
+    required this.state,
+    required this.activityIcon,
+    required this.useMetricUnits,
+    required this.avgPace,
+    required this.onPauseResume,
+    required this.onStop,
+  });
+
+  final WorkoutSessionState state;
+  final IconData activityIcon;
+  final bool useMetricUnits;
+  final String avgPace;
+  final VoidCallback onPauseResume;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    final canToggle =
+        state.status == RecordingState.active ||
+        state.status == RecordingState.paused;
+    final isPaused = state.status == RecordingState.paused;
+    final isSaving = state.status == RecordingState.stopping;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: AetronColors.space.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.16)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.32),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _RecordingStatusDot(label: _statusLabel(state, currentLang)),
+              const Spacer(),
+              Icon(
+                Icons.bolt_rounded,
+                color: AetronColors.cyanSoft.withValues(alpha: 0.86),
+                size: 13,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'AETRON',
+                style: AetronText.label.copyWith(
+                  color: AetronColors.cyanSoft.withValues(alpha: 0.78),
+                  fontSize: 9,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            AppTranslations.get('session_time', currentLang),
+            style: AetronText.label.copyWith(fontSize: 9, letterSpacing: 1.5),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    WorkoutFormatters.formatElapsedClock(state.durationSeconds),
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: AetronColors.cyanSoft,
+                      fontSize: 38,
+                      height: 0.98,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.4,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AetronColors.panelHigh.withValues(alpha: 0.70),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AetronColors.cyan.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Icon(
+                  activityIcon,
+                  color: AetronColors.cyanSoft,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _CompactMetric(
+                  icon: Icons.route_rounded,
+                  label: AppTranslations.get('dist', currentLang),
+                  value: WorkoutFormatters.formatDistance(
+                    state.distanceMeters / 1000,
+                    useMetric: useMetricUnits,
+                    decimals: 1,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _CompactMetric(
+                  icon: Icons.speed_rounded,
+                  label: AppTranslations.get('pace', currentLang).toUpperCase(),
+                  value: avgPace,
+                ),
+              ),
+              Expanded(
+                child: _CompactMetric(
+                  icon: Icons.local_fire_department_rounded,
+                  label: AppTranslations.get('calories', currentLang).substring(0, 3).toUpperCase(),
+                  value: '${state.caloriesBurned} kcal',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    onPressed: canToggle && !isSaving ? onPauseResume : null,
+                    icon: Icon(
+                      isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                      size: 16,
+                    ),
+                    label: Text(isPaused
+                        ? AppTranslations.get('resume', currentLang).toUpperCase()
+                        : AppTranslations.get('pause', currentLang).toUpperCase()),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AetronColors.cyan.withValues(
+                        alpha: 0.14,
+                      ),
+                      disabledBackgroundColor: Colors.white.withValues(
+                        alpha: 0.05,
+                      ),
+                      foregroundColor: AetronColors.cyan,
+                      disabledForegroundColor: AetronColors.muted,
+                      elevation: 0,
+                      textStyle: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: AetronColors.cyan.withValues(alpha: 0.38),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 48,
+                height: 40,
+                child: ElevatedButton(
+                  onPressed: isSaving ? null : onStop,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    backgroundColor: const Color(0xff2d2028),
+                    disabledBackgroundColor: Colors.white.withValues(
+                      alpha: 0.05,
+                    ),
+                    foregroundColor: const Color(0xffffa0a8),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(
+                        color: const Color(0xffffa0a8).withValues(alpha: 0.28),
+                      ),
+                    ),
+                  ),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AetronColors.muted,
+                          ),
+                        )
+                      : const Icon(Icons.stop_rounded, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: null,
+              minHeight: 3,
+              backgroundColor: AetronColors.panelBright.withValues(alpha: 0.46),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isPaused ? AetronColors.gold : AetronColors.cyan,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _statusLabel(WorkoutSessionState state, AppLanguage lang) {
+    if (state.status == RecordingState.paused) return AppTranslations.get('paused', lang).toUpperCase();
+    if (state.status == RecordingState.stopping) return AppTranslations.get('saving', lang).toUpperCase();
+    if (state.isAutoPaused) return AppTranslations.get('auto_pause', lang).toUpperCase();
+    return AppTranslations.get('recording', lang).toUpperCase();
+  }
+}
+
+class _RecordingStatusDot extends StatelessWidget {
+  const _RecordingStatusDot({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = label == 'PAUSED' ? AetronColors.gold : AetronColors.cyan;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 8),
+            ],
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: AetronText.label.copyWith(
+            color: AetronColors.cyanSoft,
+            fontSize: 9,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactMetric extends StatelessWidget {
+  const _CompactMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AetronColors.muted, size: 11),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AetronText.label.copyWith(
+                    fontSize: 8,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AetronColors.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],

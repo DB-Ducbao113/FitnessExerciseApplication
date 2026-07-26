@@ -38,12 +38,16 @@ UserProfileRepository userProfileRepository(UserProfileRepositoryRef ref) {
 @riverpod
 Future<UserProfile?> userProfile(UserProfileRef ref, String userId) async {
   final repository = ref.watch(userProfileRepositoryProvider);
-  return await repository.getProfile(userId);
+  return await repository
+      .getProfile(userId)
+      .timeout(const Duration(seconds: 10));
 }
 
 // Check if user has profile
 @riverpod
 Future<bool> hasUserProfile(HasUserProfileRef ref, String userId) async {
   final repository = ref.watch(userProfileRepositoryProvider);
-  return await repository.hasProfile(userId);
+  return await repository
+      .hasProfile(userId)
+      .timeout(const Duration(seconds: 10), onTimeout: () => false);
 }

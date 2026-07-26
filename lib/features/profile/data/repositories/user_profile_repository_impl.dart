@@ -10,9 +10,13 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
 
   UserProfileRepositoryImpl(this._localDataSource, this._remoteDataSource);
 
+  static const _remoteProfileTimeout = Duration(seconds: 8);
+
   @override
   Future<UserProfile?> fetchRemote(String userId) async {
-    final remoteProfile = await _remoteDataSource.getProfile(userId);
+    final remoteProfile = await _remoteDataSource
+        .getProfile(userId)
+        .timeout(_remoteProfileTimeout);
     return remoteProfile?.toEntity();
   }
 

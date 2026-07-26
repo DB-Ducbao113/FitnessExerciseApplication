@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/core/legal/legal_documents.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
+
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/widgets/profile_header.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/widgets/settings_section.dart';
@@ -69,6 +72,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           prefs.getBool(kNotificationsPrefKey) ?? _notificationsEnabled;
       _useMetricUnits = prefs.getBool(kMetricUnitsPrefKey) ?? _useMetricUnits;
     });
+  }
+
+  Future<void> _showLanguageSelector(AppLanguage currentLang) async {
+    final selected = await showModalBottomSheet<AppLanguage>(
+      context: context,
+      backgroundColor: const Color(0xFF112033),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text(
+                  AppTranslations.get('select_language', currentLang),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Text('🇻🇳', style: TextStyle(fontSize: 24)),
+                title: const Text('Tiếng Việt', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                trailing: currentLang == AppLanguage.vi ? const Icon(Icons.check_circle_rounded, color: _cyan) : null,
+                onTap: () => Navigator.of(context).pop(AppLanguage.vi),
+              ),
+              const Divider(color: Color(0x12FFFFFF)),
+              ListTile(
+                leading: const Text('🇬🇧', style: TextStyle(fontSize: 24)),
+                title: const Text('English', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                trailing: currentLang == AppLanguage.en ? const Icon(Icons.check_circle_rounded, color: _cyan) : null,
+                onTap: () => Navigator.of(context).pop(AppLanguage.en),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected != null && selected != currentLang) {
+      await ref.read(appLanguageProvider.notifier).setLanguage(selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              selected == AppLanguage.vi
+                  ? 'Đã đổi ngôn ngữ sang Tiếng Việt'
+                  : 'App language set to English',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadVersion() async {
@@ -220,11 +283,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
+    final currentLang = ref.watch(appLanguageProvider);
+    final userMetaName = user?.userMetadata?['display_name'] as String? ??
+        user?.userMetadata?['username'] as String?;
+    final displayName = (userMetaName != null && userMetaName.trim().isNotEmpty)
+        ? userMetaName.trim()
+        : user?.email?.split('@').first ?? 'Athlete';
 
     return Scaffold(
       backgroundColor: _bgBottom,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(AppTranslations.get('settings', currentLang)),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -244,22 +313,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             children: [
               const SizedBox(height: 8),
               ProfileHeader(
-                name: user?.email?.split('@').first ?? 'User',
-                email: user?.email ?? 'No email',
+                name: displayName,
+                handle: '',
               ),
               const SizedBox(height: 8),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.tune_rounded, color: _cyan, size: 16),
-                        SizedBox(width: 6),
+                        const Icon(Icons.tune_rounded, color: _cyan, size: 16),
+                        const SizedBox(width: 6),
                         Text(
-                          'SETTINGS',
-                          style: TextStyle(
+                          AppTranslations.get('settings', currentLang).toUpperCase(),
+                          style: const TextStyle(
                             color: _muted,
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -273,11 +342,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ),
               const SizedBox(height: 8),
               SettingsSection(
-                title: 'APP PREFERENCES',
+                title: AppTranslations.get('app_preferences', currentLang),
                 children: [
                   SettingsTile(
+                    icon: Icons.language_rounded,
+                    title: AppTranslations.get('app_language', currentLang),
+                    subtitle: currentLang == AppLanguage.vi ? '🇻🇳 Tiếng Việt' : '🇬🇧 English',
+                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    onTap: () => _showLanguageSelector(currentLang),
+                  ),
+                  const Divider(height: 1, color: Color(0x12FFFFFF)),
+                  SettingsTile(
                     icon: Icons.notifications,
-                    title: 'Notifications',
+                    title: AppTranslations.get('daily_reminder', currentLang),
                     subtitle: '',
                     trailing: Switch(
                       value: _notificationsEnabled,
@@ -290,7 +367,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   const Divider(height: 1, color: Color(0x12FFFFFF)),
                   SettingsTile(
                     icon: Icons.straighten,
-                    title: 'Units',
+                    title: AppTranslations.get('units', currentLang),
                     subtitle: '',
                     trailing: Switch(
                       value: _useMetricUnits,
@@ -303,66 +380,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               ),
               const SizedBox(height: 12),
               SettingsSection(
-                title: 'PRIVACY ACCESS',
+                title: AppTranslations.get('privacy_access', currentLang),
                 children: [
                   SettingsTile(
                     icon: Icons.camera_alt,
-                    title: 'Camera Access',
+                    title: AppTranslations.get('camera_access', currentLang),
                     subtitle: _loadingPermissions
-                        ? 'Checking access...'
+                        ? AppTranslations.get('checking_access', currentLang)
                         : _permissionDescription(
                             _cameraStatus,
-                            allowed: 'Ready for taking profile photos',
-                            denied:
-                                'Tap to request camera access or open Settings',
+                            allowed: AppTranslations.get('camera_ready', currentLang),
+                            denied: AppTranslations.get('camera_denied', currentLang),
+                            lang: currentLang,
                           ),
-                    trailing: _permissionBadge(_cameraStatus),
+                    trailing: _permissionBadge(_cameraStatus, currentLang),
                     onTap: _handleCameraPermissionTap,
                   ),
                   const Divider(height: 1, color: Color(0x12FFFFFF)),
                   SettingsTile(
                     icon: Icons.photo_library,
-                    title: 'Photo Library Access',
+                    title: AppTranslations.get('photo_access', currentLang),
                     subtitle: _loadingPermissions
-                        ? 'Checking access...'
+                        ? AppTranslations.get('checking_access', currentLang)
                         : _photoPermissionDescription(
                             _photosStatus,
-                            full:
-                                'Full access is ready for choosing profile photos',
-                            denied:
-                                'Tap to request photo access or open Settings',
-                            limited:
-                                'Limited access. Switch to Full Access in Settings',
+                            full: AppTranslations.get('photos_ready', currentLang),
+                            denied: AppTranslations.get('photos_denied', currentLang),
+                            limited: AppTranslations.get('photos_limited', currentLang),
+                            lang: currentLang,
                           ),
-                    trailing: _photoPermissionBadge(_photosStatus),
+                    trailing: _photoPermissionBadge(_photosStatus, currentLang),
                     onTap: _handlePhotoPermissionTap,
                   ),
                   const Divider(height: 1, color: Color(0x12FFFFFF)),
                   SettingsTile(
                     icon: Icons.location_on,
-                    title: 'Location Access',
+                    title: AppTranslations.get('location_access', currentLang),
                     subtitle: _loadingPermissions
-                        ? 'Checking access...'
+                        ? AppTranslations.get('checking_access', currentLang)
                         : _permissionDescription(
                             _locationStatus,
-                            allowed: 'Ready for outdoor workout tracking',
-                            denied:
-                                'Tap to request GPS access or open Settings',
+                            allowed: AppTranslations.get('location_ready', currentLang),
+                            denied: AppTranslations.get('location_denied', currentLang),
+                            lang: currentLang,
                           ),
-                    trailing: _permissionBadge(_locationStatus),
+                    trailing: _permissionBadge(_locationStatus, currentLang),
                     onTap: _handleLocationPermissionTap,
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               SettingsSection(
-                title: 'DATA',
+                title: AppTranslations.get('data', currentLang),
                 children: [
                   SettingsTile(
                     icon: Icons.delete_sweep,
-                    title: 'Clear Cache',
+                    title: AppTranslations.get('clear_cache', currentLang),
                     subtitle: _isClearingCache
-                        ? 'Clearing temporary files...'
+                        ? AppTranslations.get('clearing_cache', currentLang)
                         : '',
                     trailing: _isClearingCache
                         ? const SizedBox(
@@ -371,38 +446,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : null,
-                    onTap: _showClearCacheDialog,
+                    onTap: () => _showClearCacheDialog(currentLang),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               SettingsSection(
-                title: 'ABOUT',
+                title: AppTranslations.get('about_legal', currentLang),
                 children: [
                   SettingsTile(
                     icon: Icons.info,
-                    title: 'Version',
+                    title: AppTranslations.get('version', currentLang),
                     subtitle: _appVersion,
                     trailing: const SizedBox.shrink(),
                   ),
                   const Divider(height: 1, color: Color(0x12FFFFFF)),
                   SettingsTile(
                     icon: Icons.description,
-                    title: 'Terms of Service',
+                    title: AppTranslations.get('terms_of_service', currentLang),
                     subtitle: '',
                     onTap: () => _showDocumentSheet(
-                      title: 'Terms of Service',
-                      content: _termsOfServiceText,
+                      title: AppTranslations.get('terms_of_service', currentLang),
+                      sections: LegalDocuments.getTermsOfService(currentLang),
                     ),
                   ),
                   const Divider(height: 1, color: Color(0x12FFFFFF)),
                   SettingsTile(
                     icon: Icons.privacy_tip,
-                    title: 'Privacy Policy',
+                    title: AppTranslations.get('privacy_policy', currentLang),
                     subtitle: '',
                     onTap: () => _showDocumentSheet(
-                      title: 'Privacy Policy',
-                      content: _privacyPolicyText,
+                      title: AppTranslations.get('privacy_policy', currentLang),
+                      sections: LegalDocuments.getPrivacyPolicy(currentLang),
                     ),
                   ),
                 ],
@@ -415,7 +490,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   child: ElevatedButton.icon(
                     onPressed: () => _logout(context, ref),
                     icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Logout'),
+                    label: Text(AppTranslations.get('logout', currentLang)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _red,
                       foregroundColor: Colors.white,
@@ -436,14 +511,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  Widget _permissionBadge(PermissionStatus status) {
+  Widget _permissionBadge(PermissionStatus status, AppLanguage lang) {
     final label = switch (status) {
-      PermissionStatus.granted => 'Allowed',
-      PermissionStatus.limited => 'Limited',
-      PermissionStatus.provisional => 'Allowed',
-      PermissionStatus.restricted => 'Restricted',
-      PermissionStatus.permanentlyDenied => 'Blocked',
-      PermissionStatus.denied => 'Denied',
+      PermissionStatus.granted => AppTranslations.get('allowed', lang),
+      PermissionStatus.limited => AppTranslations.get('limited', lang),
+      PermissionStatus.provisional => AppTranslations.get('allowed', lang),
+      PermissionStatus.restricted => AppTranslations.get('restricted', lang),
+      PermissionStatus.permanentlyDenied => AppTranslations.get('blocked', lang),
+      PermissionStatus.denied => AppTranslations.get('denied', lang),
     };
 
     final color = switch (status) {
@@ -472,13 +547,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  Widget _photoPermissionBadge(PermissionState status) {
+  Widget _photoPermissionBadge(PermissionState status, AppLanguage lang) {
     final label = switch (status) {
-      PermissionState.authorized => 'Full Access',
-      PermissionState.limited => 'Limited',
-      PermissionState.restricted => 'Restricted',
-      PermissionState.denied => 'Blocked',
-      PermissionState.notDetermined => 'Denied',
+      PermissionState.authorized => AppTranslations.get('full_access', lang),
+      PermissionState.limited => AppTranslations.get('limited', lang),
+      PermissionState.restricted => AppTranslations.get('restricted', lang),
+      PermissionState.denied => AppTranslations.get('blocked', lang),
+      PermissionState.notDetermined => AppTranslations.get('denied', lang),
     };
 
     final color = switch (status) {
@@ -510,13 +585,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     PermissionStatus status, {
     required String allowed,
     required String denied,
+    required AppLanguage lang,
     String? limited,
   }) {
     return switch (status) {
       PermissionStatus.granted => allowed,
       PermissionStatus.provisional => allowed,
       PermissionStatus.limited => limited ?? allowed,
-      PermissionStatus.restricted => 'Restricted by system settings',
+      PermissionStatus.restricted => AppTranslations.get('restricted', lang),
       PermissionStatus.permanentlyDenied => denied,
       PermissionStatus.denied => denied,
     };
@@ -526,29 +602,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     PermissionState status, {
     required String full,
     required String denied,
+    required AppLanguage lang,
     String? limited,
   }) {
     return switch (status) {
       PermissionState.authorized => full,
       PermissionState.limited => limited ?? full,
-      PermissionState.restricted => 'Restricted by system settings',
+      PermissionState.restricted => AppTranslations.get('restricted', lang),
       PermissionState.denied => denied,
       PermissionState.notDetermined => denied,
     };
   }
 
-  void _showClearCacheDialog() {
+  void _showClearCacheDialog(AppLanguage lang) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Cache'),
-        content: const Text(
-          'Are you sure you want to clear temporary files and image cache? Your workouts will not be deleted.',
-        ),
+        title: Text(AppTranslations.get('clear_cache', lang)),
+        content: Text(AppTranslations.get('clear_cache_confirm', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(AppTranslations.get('cancel', lang)),
           ),
           TextButton(
             onPressed: () async {
@@ -556,46 +631,118 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               await _clearCache();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear'),
+            child: Text(AppTranslations.get('clear', lang)),
           ),
         ],
       ),
     );
   }
 
-  void _showDocumentSheet({required String title, required String content}) {
+  void _showDocumentSheet({
+    required String title,
+    required List<LegalDocumentSection> sections,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Text(
-                    content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[800],
-                      height: 1.5,
+      backgroundColor: const Color(0xFF0D1726),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.82,
+        minChildSize: 0.5,
+        maxChildSize: 0.94,
+        expand: false,
+        builder: (context, scrollController) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.verified_user_outlined, color: _cyan, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Aetron Legal & Compliance Telemetry',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _muted,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Color(0x1AFFFFFF), height: 1),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    itemCount: sections.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final item = sections[index];
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF132238),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0x1F19E2FF)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: _cyan,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              item.content,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFFD0D7E3),
+                                height: 1.55,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -603,20 +750,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    final lang = ref.read(appLanguageProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        title: Text(AppTranslations.get('logout', lang)),
+        content: Text(AppTranslations.get('logout_confirm', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppTranslations.get('cancel', lang)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout'),
+            child: Text(AppTranslations.get('logout', lang)),
           ),
         ],
       ),
@@ -635,9 +783,3 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     }
   }
 }
-
-const String _termsOfServiceText =
-    'By using Aetron, you agree to use the app for lawful personal fitness tracking purposes only. You are responsible for the accuracy of the information you enter, and for using workout guidance safely and appropriately for your health condition. The app may provide estimates such as pace, calories, and route summaries, but these are informational only and should not be treated as medical advice. We may update features, availability, and app behavior over time.';
-
-const String _privacyPolicyText =
-    'Aetron stores your workout records, profile information, and route data so you can review progress and sync history across devices. Camera and photo access are used only when you choose a profile image. Location access is used for outdoor workout tracking. Motion access is used for step-based activity tracking and fallback scenarios. Exported files remain on your device unless you choose to share them. We do not present your private data publicly unless a feature explicitly asks you to do so.';

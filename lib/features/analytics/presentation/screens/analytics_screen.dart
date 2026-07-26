@@ -1,13 +1,15 @@
-import 'dart:io';
-
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
-import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,8 +18,6 @@ final selectedPeriodProvider = StateProvider<TimePeriod>(
   (ref) => TimePeriod.week,
 );
 
-const _kBg = Color(0xFF0B111D);
-const _kBgSoft = Color(0xFF121A27);
 const _kCard = Color(0xFF242C3A);
 const _kCardSoft = Color(0xFF1A212D);
 const _kTrack = Color(0xFF343B48);
@@ -33,21 +33,26 @@ class StatsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final workoutsAsync = ref.watch(workoutListProvider);
     final period = ref.watch(selectedPeriodProvider);
+    final isOffline = ref.watch(appConnectionProvider).valueOrNull == false;
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
-      backgroundColor: _kBg,
-      body: SafeArea(
+      backgroundColor: AetronColors.voidBlack,
+      body: AetronBackground(
+        withGrid: false,
         child: workoutsAsync.when(
           data: (workouts) {
+            if (workouts.isEmpty) {
+              return _AnalyticsEmptyExperience(period: period);
+            }
             final filtered = _filterWorkouts(workouts, period);
             final insights = _AnalyticsInsights.fromWorkouts(filtered, period);
             final records = _PersonalRecords.fromWorkouts(workouts);
             final chart = _distanceChartData(filtered, period);
-            final monthlyProgress = _monthlyDistanceByWeek(workouts);
             final breakdown = _activityBreakdown(filtered);
             final average = chart.isEmpty
                 ? 0.0
@@ -62,66 +67,203 @@ class StatsScreen extends ConsumerWidget {
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 28),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 112),
                 children: [
                   const _AnalyticsTopBar(),
-                  const SizedBox(height: 24),
-                  _PeriodSwitcher(
-                    selectedPeriod: period,
-                    onChanged: (value) {
-                      ref.read(selectedPeriodProvider.notifier).state = value;
-                    },
-                  ),
-                  const SizedBox(height: 22),
-                  _OverviewGrid(
-                    insights: insights,
-                    useMetricUnits: useMetricUnits,
-                  ),
-                  const SizedBox(height: 26),
-                  _WeekTrendCard(
-                    chartData: chart,
-                    period: period,
-                    average: average,
-                    useMetricUnits: useMetricUnits,
-                  ),
-                  const SizedBox(height: 24),
-                  _MonthlyProgressCard(
-                    weekData: monthlyProgress,
-                    useMetricUnits: useMetricUnits,
-                  ),
-                  const SizedBox(height: 26),
-                  _GoalProgressSection(
-                    progress: ref.watch(goalProgressProvider),
-                  ),
-                  const SizedBox(height: 28),
-                  const _SectionTitle(title: 'PERSONAL RECORDS'),
-                  const SizedBox(height: 14),
-                  _RecordsList(
-                    records: records,
-                    useMetricUnits: useMetricUnits,
-                  ),
-                  const SizedBox(height: 24),
-                  _ActivityDistributionCard(
-                    breakdown: breakdown,
-                    total: filtered.length,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(AppTranslations.get('analytics', currentLang).toUpperCase(), style: AetronText.label),
+                        if (isOffline) ...[
+                          const SizedBox(height: 12),
+                          const AetronOfflineBanner(),
+                        ],
+                        const SizedBox(height: 14),
+                        _PeriodSwitcher(
+                          selectedPeriod: period,
+                          onChanged: (value) {
+                            ref.read(selectedPeriodProvider.notifier).state =
+                                value;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        if (filtered.isEmpty)
+                          _EmptyAnalyticsPanel(period: period)
+                        else ...[
+                          _SectionTitle(title: AppTranslations.get('overview', currentLang)),
+                          const SizedBox(height: 10),
+                          _OverviewGrid(
+                            insights: insights,
+                            useMetricUnits: useMetricUnits,
+                          ),
+                          const SizedBox(height: 22),
+                          _SectionTitle(title: AppTranslations.get('distance_trend', currentLang)),
+                          const SizedBox(height: 10),
+                          _WeekTrendCard(
+                            chartData: chart,
+                            period: period,
+                            average: average,
+                            useMetricUnits: useMetricUnits,
+                          ),
+                          const SizedBox(height: 22),
+                          _GoalProgressSection(
+                            progress: ref.watch(goalProgressProvider),
+                          ),
+                          const SizedBox(height: 22),
+                          _SectionTitle(title: AppTranslations.get('achievement_records', currentLang)),
+                          const SizedBox(height: 10),
+                          _RecordsList(
+                            records: records,
+                            useMetricUnits: useMetricUnits,
+                          ),
+                          const SizedBox(height: 22),
+                          _SectionTitle(title: AppTranslations.get('activity_mix', currentLang)),
+                          const SizedBox(height: 10),
+                          _ActivityDistributionCard(
+                            breakdown: breakdown,
+                            total: filtered.length,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             );
           },
-          loading: () =>
-              const Center(child: CircularProgressIndicator(color: _kNeonCyan)),
+          loading: () => const Center(
+            child: AetronLoadingPanel(
+              label: 'LOADING ANALYTICS',
+              message: 'Compiling your workout signal.',
+            ),
+          ),
           error: (error, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                'Could not load analytics.\n$error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
+              child: AetronStatePanel(
+                title: 'Analytics unavailable',
+                message:
+                    'Your saved workout data could not be analyzed right now.',
+                tone: AetronStateTone.error,
+                onRetry: () => ref.read(workoutListProvider.notifier).refresh(),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsEmptyExperience extends ConsumerWidget {
+  const _AnalyticsEmptyExperience({required this.period});
+
+  final TimePeriod period;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    return RefreshIndicator(
+      color: _kNeonCyan,
+      backgroundColor: _kCardSoft,
+      onRefresh: () => ref.read(workoutListProvider.notifier).refresh(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Opacity(
+            opacity: .86,
+            child: CustomPaint(painter: _EmptyAnalyticsPainter()),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AetronColors.voidBlack.withValues(alpha: .36),
+                  Colors.transparent,
+                  AetronColors.voidBlack.withValues(alpha: .95),
+                ],
+              ),
+            ),
+          ),
+          CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  children: [
+                    const _AnalyticsTopBar(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
+                      child: _PeriodSwitcher(
+                        selectedPeriod: period,
+                        onChanged: (value) {
+                          ref.read(selectedPeriodProvider.notifier).state =
+                              value;
+                        },
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.query_stats_rounded,
+                      color: _kNeonCyan,
+                      size: 34,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      AppTranslations.get('analysis_standby', currentLang),
+                      style: AetronText.section,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      AppTranslations.get('no_telemetry_yet', currentLang),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Text(
+                        AppTranslations.get('no_telemetry_sub', currentLang),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AetronColors.cyanSoft,
+                          fontSize: 13,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                        child: AetronPrimaryButton(
+                          label: AppTranslations.get('start_workout', currentLang),
+                          icon: Icons.play_arrow_rounded,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ActivityScreen(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -132,49 +274,16 @@ class _AnalyticsTopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final avatar = ref.watch(currentAvatarDisplayProvider);
-    final ImageProvider? avatarImage = avatar.localPath != null
-        ? FileImage(File(avatar.localPath!))
-        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
-        ? NetworkImage(avatar.remoteUrl!)
-        : null;
-
-    return Row(
-      children: [
-        const Text(
-          'ANALYTICS',
-          style: TextStyle(
-            color: _kNeonCyan,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.0,
-          ),
-        ),
-        const Spacer(),
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: const Color(0xFF3A414D),
-            borderRadius: BorderRadius.circular(999),
-            image: avatarImage != null
-                ? DecorationImage(image: avatarImage, fit: BoxFit.cover)
-                : null,
-          ),
-          child: avatarImage == null
-              ? const Icon(
-                  Icons.person_outline_rounded,
-                  color: Color(0xFFD7E9F2),
-                  size: 22,
-                )
-              : null,
-        ),
-      ],
+    final currentLang = ref.watch(appLanguageProvider);
+    return AetronHeader(
+      title: AppTranslations.get('analytics', currentLang),
+      compact: true,
+      titleSize: 22,
     );
   }
 }
 
-class _PeriodSwitcher extends StatelessWidget {
+class _PeriodSwitcher extends ConsumerWidget {
   const _PeriodSwitcher({
     required this.selectedPeriod,
     required this.onChanged,
@@ -184,68 +293,258 @@ class _PeriodSwitcher extends StatelessWidget {
   final ValueChanged<TimePeriod> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    return AetronSegmented<TimePeriod>(
+      values: TimePeriod.values,
+      selected: selectedPeriod,
+      labelBuilder: (p) => _periodLabel(p, currentLang),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _EmptyAnalyticsPanel extends ConsumerWidget {
+  const _EmptyAnalyticsPanel({required this.period});
+
+  final TimePeriod period;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    final periodLabel = _periodLabel(period, currentLang).toUpperCase();
     return Container(
-      padding: const EdgeInsets.all(5),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _kBgSoft,
-        borderRadius: BorderRadius.circular(999),
+        color: const Color(0xFF0D1928),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _kNeonCyan.withValues(alpha: 0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: _kNeonCyan.withValues(alpha: 0.08),
+            blurRadius: 28,
+            spreadRadius: 1,
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final period in TimePeriod.values)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(period),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: selectedPeriod == period
-                        ? _kNeonCyan
-                        : Colors.transparent,
-                    boxShadow: selectedPeriod == period
-                        ? [
-                            BoxShadow(
-                              color: _kNeonCyan.withValues(alpha: 0.35),
-                              blurRadius: 16,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    _periodLabel(period),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selectedPeriod == period ? _kBg : _kMutedText,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _kNeonCyan.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.radar_rounded,
+                  color: _kNeonCyan,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  AppTranslations.get('analysis_standby', currentLang),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
                   ),
                 ),
               ),
+              Text(
+                '$periodLabel / EMPTY',
+                style: const TextStyle(
+                  color: _kNeonCyan,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AspectRatio(
+            aspectRatio: 1.65,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: CustomPaint(painter: _EmptyAnalyticsPainter()),
             ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            AppTranslations.get('no_telemetry_yet', currentLang),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            AppTranslations.get('no_telemetry_sub', currentLang),
+            style: TextStyle(
+              color: _kMutedText.withValues(alpha: 0.9),
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(child: _EmptyTelemetryMetric(label: AppTranslations.get('distance', currentLang).toUpperCase())),
+              const SizedBox(width: 10),
+              Expanded(child: _EmptyTelemetryMetric(label: AppTranslations.get('pace', currentLang).toUpperCase())),
+              const SizedBox(width: 10),
+              Expanded(child: _EmptyTelemetryMetric(label: AppTranslations.get('personal_records', currentLang).toUpperCase())),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _OverviewGrid extends StatelessWidget {
+class _EmptyTelemetryMetric extends StatelessWidget {
+  const _EmptyTelemetryMetric({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '--',
+            style: TextStyle(
+              color: _kNeonCyan,
+              fontSize: 18,
+              height: 1,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _kMutedSoft,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyAnalyticsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF081524), Color(0xFF102B3A)],
+        ).createShader(rect),
+    );
+
+    final grid = Paint()
+      ..color = _kNeonCyan.withValues(alpha: 0.07)
+      ..strokeWidth = 1;
+    for (var x = 0.0; x <= size.width; x += 24) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (var y = 0.0; y <= size.height; y += 24) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    final center = Offset(size.width * 0.5, size.height * 0.52);
+    final radius = size.shortestSide * 0.29;
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = _kNeonCyan.withValues(alpha: 0.22);
+    for (final factor in [0.42, 0.7, 1.0]) {
+      canvas.drawCircle(center, radius * factor, ring);
+    }
+    canvas.drawLine(
+      Offset(center.dx - radius * 1.35, center.dy),
+      Offset(center.dx + radius * 1.35, center.dy),
+      ring,
+    );
+    canvas.drawLine(
+      Offset(center.dx, center.dy - radius * 1.35),
+      Offset(center.dx, center.dy + radius * 1.35),
+      ring,
+    );
+
+    final wave = Path()..moveTo(0, size.height * 0.73);
+    for (var x = 0.0; x <= size.width; x += 8) {
+      final y =
+          size.height * 0.73 +
+          (x == size.width * 0.48 ? -20.0 : (x % 32 == 0 ? -5.0 : 0.0));
+      wave.lineTo(x, y);
+    }
+    canvas.drawPath(
+      wave,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round
+        ..color = _kNeonCyan.withValues(alpha: 0.7),
+    );
+    canvas.drawCircle(center, 7, Paint()..color = _kNeonCyan);
+    canvas.drawCircle(
+      center,
+      14,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = _kNeonCyan.withValues(alpha: 0.45),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _OverviewGrid extends ConsumerWidget {
   const _OverviewGrid({required this.insights, required this.useMetricUnits});
 
   final _AnalyticsInsights insights;
   final bool useMetricUnits;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final cards = [
       _OverviewItem(
         icon: Icons.route_rounded,
-        label: 'AVG DISTANCE',
+        label: AppTranslations.get('avg_distance', currentLang),
         value:
             (useMetricUnits
                     ? insights.averageDistanceKm
@@ -257,7 +556,7 @@ class _OverviewGrid extends StatelessWidget {
       ),
       _OverviewItem(
         icon: Icons.speed_rounded,
-        label: 'BEST PACE',
+        label: AppTranslations.get('best_pace', currentLang),
         value: insights.bestPaceSecPerKm == null
             ? '--'
             : WorkoutFormatters.formatPaceFromSecondsPerKm(
@@ -269,7 +568,7 @@ class _OverviewGrid extends StatelessWidget {
       ),
       _OverviewItem(
         icon: Icons.event_available_rounded,
-        label: '${insights.activeDays}/${insights.expectedDays} DAYS',
+        label: '${insights.activeDays}/${insights.expectedDays} ${AppTranslations.get('days', currentLang)}',
         value: '${insights.consistencyPercent}',
         suffix: '%',
         color: _kRed,
@@ -291,7 +590,7 @@ class _OverviewGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
-        childAspectRatio: 1.18,
+        childAspectRatio: 1.32,
       ),
       itemBuilder: (_, index) => _StatOverviewCard(item: cards[index]),
     );
@@ -306,7 +605,7 @@ class _StatOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _kCard,
         borderRadius: BorderRadius.circular(18),
@@ -323,9 +622,9 @@ class _StatOverviewCard extends StatelessWidget {
                   item.label,
                   style: const TextStyle(
                     color: _kMutedText,
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
+                    letterSpacing: 1,
                   ),
                 ),
               ),
@@ -342,9 +641,9 @@ class _StatOverviewCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFFE8EDF5),
-                    fontSize: 34,
+                    fontSize: 27,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -1.4,
+                    letterSpacing: 0,
                     height: 0.95,
                   ),
                 ),
@@ -356,7 +655,7 @@ class _StatOverviewCard extends StatelessWidget {
                     item.suffix.trim(),
                     style: const TextStyle(
                       color: _kMutedText,
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -369,23 +668,26 @@ class _StatOverviewCard extends StatelessWidget {
   }
 }
 
-class _GoalProgressSection extends StatelessWidget {
+class _GoalProgressSection extends ConsumerWidget {
   const _GoalProgressSection({required this.progress});
 
   final GoalProgress? progress;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     if (progress == null) {
-      return const _CardShell(
+      return _CardShell(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionTitle(title: 'GOAL PROGRESS'),
-            SizedBox(height: 8),
+            _SectionTitle(title: currentLang == AppLanguage.vi ? 'MỤC TIÊU TIẾN ĐỘ' : 'GOAL PROGRESS'),
+            const SizedBox(height: 8),
             Text(
-              'Set a goal to see your progress here.',
-              style: TextStyle(
+              currentLang == AppLanguage.vi
+                  ? 'Hãy đặt mục tiêu để xem tiến độ tại đây.'
+                  : 'Set a goal to see your progress here.',
+              style: const TextStyle(
                 color: _kMutedSoft,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -398,72 +700,74 @@ class _GoalProgressSection extends StatelessWidget {
 
     final goal = progress!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(title: 'GOAL PROGRESS'),
-        const SizedBox(height: 2),
-        Text(
-          (goal.unit == 'km' || goal.unit == 'mi')
-              ? 'MONTHLY DISTANCE'
-              : 'CURRENT GOAL',
-          style: const TextStyle(
-            color: _kMutedText,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            '${goal.percent}%',
+    return _CardShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(title: currentLang == AppLanguage.vi ? 'MỤC TIÊU TIẾN ĐỘ' : 'GOAL PROGRESS'),
+          const SizedBox(height: 4),
+          Text(
+            (goal.unit == 'km' || goal.unit == 'mi')
+                ? (currentLang == AppLanguage.vi ? 'KHOẢNG CÁCH HÀNG THÁNG' : 'MONTHLY DISTANCE')
+                : (currentLang == AppLanguage.vi ? 'MỤC TIÊU HIỆN TẠI' : 'CURRENT GOAL'),
             style: const TextStyle(
-              color: _kNeonCyan,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+              color: _kMutedText,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: goal.ratio,
-            minHeight: 15,
-            backgroundColor: _kTrack,
-            valueColor: const AlwaysStoppedAnimation<Color>(_kNeonCyan),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${goal.percent}%',
+              style: const TextStyle(
+                color: _kNeonCyan,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Text(
-              '${goal.currentLabel} ${goal.unit}'.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: goal.ratio,
+              minHeight: 10,
+              backgroundColor: _kTrack,
+              valueColor: const AlwaysStoppedAnimation<Color>(_kNeonCyan),
             ),
-            const Spacer(),
-            Text(
-              '${goal.targetLabel} ${goal.unit} TARGET'.toUpperCase(),
-              style: const TextStyle(
-                color: _kMutedText,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                '${goal.currentLabel} ${goal.unit}'.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
+              const Spacer(),
+              Text(
+                '${goal.targetLabel} ${goal.unit} TARGET'.toUpperCase(),
+                style: const TextStyle(
+                  color: _kMutedText,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _WeekTrendCard extends StatelessWidget {
+class _WeekTrendCard extends ConsumerWidget {
   const _WeekTrendCard({
     required this.chartData,
     required this.period,
@@ -477,7 +781,8 @@ class _WeekTrendCard extends StatelessWidget {
   final bool useMetricUnits;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final labels = chartData.keys.toList();
     final values = chartData.values
         .map(
@@ -504,10 +809,10 @@ class _WeekTrendCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                '${_periodLabel(period).toUpperCase()} DISTANCE',
+                '${_periodLabel(period, currentLang).toUpperCase()} ${AppTranslations.get('distance', currentLang).toUpperCase()}',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.8,
                 ),
@@ -526,7 +831,7 @@ class _WeekTrendCard extends StatelessWidget {
                   'Avg: ${displayAverage.toStringAsFixed(1)} $unit',
                   style: const TextStyle(
                     color: _kNeonCyan,
-                    fontSize: 13,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -535,7 +840,7 @@ class _WeekTrendCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           SizedBox(
-            height: 210,
+            height: 184,
             child: values.every((value) => value == 0)
                 ? const Center(
                     child: Text(
@@ -630,163 +935,45 @@ class _WeekTrendCard extends StatelessWidget {
   }
 }
 
-class _MonthlyProgressCard extends StatelessWidget {
-  const _MonthlyProgressCard({
-    required this.weekData,
-    required this.useMetricUnits,
-  });
-
-  final Map<String, double> weekData;
-  final bool useMetricUnits;
-
-  @override
-  Widget build(BuildContext context) {
-    final values = weekData.values
-        .map(
-          (value) => useMetricUnits ? value : WorkoutFormatters.kmToMi(value),
-        )
-        .toList();
-    final maxValue = values.isEmpty
-        ? 1.0
-        : values
-              .reduce((a, b) => a > b ? a : b)
-              .clamp(1.0, double.infinity)
-              .toDouble();
-    final total = values.fold<double>(0, (sum, value) => sum + value);
-    final unit = WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits);
-
-    return _CardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const _SectionTitle(title: 'MONTHLY PROGRESS'),
-              const Spacer(),
-              Text(
-                '${total.toStringAsFixed(1)} $unit',
-                style: const TextStyle(
-                  color: _kNeonCyan,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          for (var i = 0; i < weekData.length; i++) ...[
-            _MonthlyProgressRow(
-              label: weekData.keys.elementAt(i),
-              value: values[i],
-              maxValue: maxValue,
-              unit: unit,
-            ),
-            if (i != weekData.length - 1) const SizedBox(height: 12),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _MonthlyProgressRow extends StatelessWidget {
-  const _MonthlyProgressRow({
-    required this.label,
-    required this.value,
-    required this.maxValue,
-    required this.unit,
-  });
-
-  final String label;
-  final double value;
-  final double maxValue;
-  final String unit;
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = maxValue <= 0
-        ? 0.0
-        : (value / maxValue).clamp(0.0, 1.0).toDouble();
-
-    return Row(
-      children: [
-        SizedBox(
-          width: 30,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 10,
-              backgroundColor: _kTrack,
-              valueColor: const AlwaysStoppedAnimation<Color>(_kAmber),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 58,
-          child: Text(
-            '${value.toStringAsFixed(1)} $unit',
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecordsList extends StatelessWidget {
+class _RecordsList extends ConsumerWidget {
   const _RecordsList({required this.records, required this.useMetricUnits});
 
   final _PersonalRecords records;
   final bool useMetricUnits;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final items = [
       _RecordItem(
-        label: 'LONGEST DISTANCE',
-        title: 'Marathon Run',
+        label: currentLang == AppLanguage.vi ? 'KHOẢNG CÁCH DÀI NHẤT' : 'LONGEST DISTANCE',
+        title: currentLang == AppLanguage.vi ? 'Lộ trình đường dài' : 'Marathon Run',
         value: WorkoutFormatters.formatDistance(
           records.longestDistance,
           useMetric: useMetricUnits,
           decimals: 1,
         ),
-        date: 'Best record',
+        date: currentLang == AppLanguage.vi ? 'Kỷ lục tốt nhất' : 'Best record',
         icon: Icons.emoji_events_rounded,
         color: _kAmber,
       ),
       _RecordItem(
-        label: 'LONGEST DURATION',
-        title: 'Endurance Session',
+        label: currentLang == AppLanguage.vi ? 'THỜI GIAN LÂU NHẤT' : 'LONGEST DURATION',
+        title: currentLang == AppLanguage.vi ? 'Buổi tập bền bỉ' : 'Endurance Session',
         value: WorkoutFormatters.formatDurationFromSeconds(
           records.longestDurationSec,
         ),
-        date: 'Best record',
+        date: currentLang == AppLanguage.vi ? 'Kỷ lục tốt nhất' : 'Best record',
         icon: Icons.timer_rounded,
         color: _kNeonCyan,
       ),
       _RecordItem(
-        label: 'MOST CALORIES',
-        title: 'High Burn Session',
+        label: currentLang == AppLanguage.vi ? 'CALO CAO NHẤT' : 'MOST CALORIES',
+        title: currentLang == AppLanguage.vi ? 'Buổi tập tiêu hao cao' : 'High Burn Session',
         value: '${records.highestCalories} kcal',
-        date: records.topActivity,
+        date: records.topActivity == 'No data'
+            ? (currentLang == AppLanguage.vi ? 'Chưa có dữ liệu' : 'No data')
+            : AppTranslations.get(records.topActivity, currentLang),
         icon: Icons.local_fire_department_rounded,
         color: _kRed,
       ),
@@ -846,7 +1033,7 @@ class _RecordCard extends StatelessWidget {
                   item.title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -861,7 +1048,7 @@ class _RecordCard extends StatelessWidget {
                 item.value,
                 style: TextStyle(
                   color: item.color,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -882,7 +1069,7 @@ class _RecordCard extends StatelessWidget {
   }
 }
 
-class _ActivityDistributionCard extends StatelessWidget {
+class _ActivityDistributionCard extends ConsumerWidget {
   const _ActivityDistributionCard({
     required this.breakdown,
     required this.total,
@@ -892,27 +1079,18 @@ class _ActivityDistributionCard extends StatelessWidget {
   final int total;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     return _CardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Center(
-            child: Text(
-              'ACTIVITY DISTRIBUTION',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-          const SizedBox(height: 22),
           if (breakdown.isEmpty)
-            const Text(
-              'No activity data in this period.',
-              style: TextStyle(color: _kMutedSoft),
+            Text(
+              currentLang == AppLanguage.vi
+                  ? 'Chưa có dữ liệu hoạt động trong khoảng thời gian này.'
+                  : 'No activity data in this period.',
+              style: const TextStyle(color: _kMutedSoft),
             )
           else
             ...breakdown.entries.map((entry) {
@@ -925,10 +1103,10 @@ class _ActivityDistributionCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          entry.key,
+                          AppTranslations.get(entry.key, currentLang),
                           style: TextStyle(
                             color: _activityColor(entry.key),
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -937,7 +1115,7 @@ class _ActivityDistributionCard extends StatelessWidget {
                           '$percent%',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -977,7 +1155,7 @@ class _CardShell extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _kCardSoft,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: child,
     );
@@ -995,8 +1173,9 @@ class _SectionTitle extends StatelessWidget {
       title,
       style: const TextStyle(
         color: Color(0xFFE8EDF5),
-        fontSize: 17,
+        fontSize: 14,
         fontWeight: FontWeight.w900,
+        letterSpacing: 0.8,
       ),
     );
   }
@@ -1133,7 +1312,7 @@ class _PersonalRecords {
       highestCalories: workouts
           .map((item) => item.caloriesKcal.round())
           .reduce((a, b) => a > b ? a : b),
-      topActivity: WorkoutFormatters.formatActivityType(top),
+      topActivity: top,
     );
   }
 }
@@ -1226,24 +1405,6 @@ Map<String, double> _distanceChartData(
   return data;
 }
 
-Map<String, double> _monthlyDistanceByWeek(List<WorkoutSession> workouts) {
-  final data = <String, double>{
-    for (var week = 1; week <= 5; week++) 'W$week': 0,
-  };
-  final now = DateTimeHelper.localDateOnly(DateTime.now());
-
-  for (final workout in workouts) {
-    final date = DateTimeHelper.localDateOnly(workout.startedAt);
-    if (date.year != now.year || date.month != now.month) continue;
-
-    final index = ((date.day - 1) ~/ 7) + 1;
-    final key = 'W${index.clamp(1, 5)}';
-    data[key] = (data[key] ?? 0) + _effectiveDistanceKm(workout);
-  }
-
-  return data;
-}
-
 double _effectiveDistanceKm(WorkoutSession workout) {
   final validDistance = workout.gpsAnalysis.validDistanceKm;
   return validDistance > 0 ? validDistance : workout.distanceKm;
@@ -1272,14 +1433,14 @@ Map<String, int> _activityBreakdown(List<WorkoutSession> workouts) {
   return {for (final entry in entries) entry.key: entry.value};
 }
 
-String _periodLabel(TimePeriod period) {
+String _periodLabel(TimePeriod period, AppLanguage lang) {
   switch (period) {
     case TimePeriod.week:
-      return 'Week';
+      return AppTranslations.get('week', lang);
     case TimePeriod.month:
-      return 'Month';
+      return AppTranslations.get('month', lang);
     case TimePeriod.year:
-      return 'Year';
+      return AppTranslations.get('year', lang);
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/schema/local_step_interval.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_processing_remote_datasource.dart';
@@ -123,6 +124,7 @@ class WorkoutRecordingCoordinator {
         ..speed = position.speed >= 0 ? position.speed : null
         ..accuracy = position.accuracy >= 0 ? position.accuracy : null
         ..heading = position.heading >= 0 ? position.heading : null
+        ..deviceSource = deviceSource
         ..confidence = _trackingEngine.confidenceForAccuracy(
           position.accuracy >= 0 ? position.accuracy : null,
         );
@@ -155,6 +157,17 @@ class WorkoutRecordingCoordinator {
     final intervalEnd = nowUtc.isAfter(intervalStart)
         ? nowUtc
         : intervalStart.add(const Duration(milliseconds: 1));
+
+    if (workoutId != null && workoutId.isNotEmpty) {
+      final localInterval = LocalStepInterval()
+        ..sessionId = workoutId
+        ..intervalStart = intervalStart
+        ..intervalEnd = intervalEnd
+        ..stepsCount = stepsCount
+        ..deviceSource = 'pedometer_step_count_stream';
+      unawaited(LocalDB.saveRawStepInterval(localInterval));
+    }
+
     _pendingRawStepIntervals.add(
       _BufferedRawStepInterval(
         intervalStart: intervalStart,

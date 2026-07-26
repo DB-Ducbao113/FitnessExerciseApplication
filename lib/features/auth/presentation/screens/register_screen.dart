@@ -1,17 +1,20 @@
+import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/helpers/username_auth.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 
-const _kRegisterBgTop = Color(0xFF10283D);
-const _kRegisterBgBottom = Color(0xFF091521);
-const _kRegisterNeonBlue = Color(0xFF00D1FF);
-const _kRegisterActionBlue = Color(0xFF007BFF);
-const _kRegisterMutedText = Color(0xFF8C97AA);
-const _kRegisterLabelText = Color(0xFF7E8798);
-const _kRegisterFieldColor = Color(0xFF101C2C);
-const _kRegisterBorderColor = Color(0xFF123A57);
-const _kRegisterHintColor = Color(0xFF7F889B);
+const _bgTop = Color(0xFF101827);
+const _bgBottom = Color(0xFF070B18);
+const _panel = Color(0xFF0D1524);
+const _field = Color(0xFF112033);
+const _cyan = Color(0xFF13DFF7);
+const _cyanSoft = Color(0xFFC3F5FF);
+const _muted = Color(0xFF7D8DA6);
+const _border = Color(0x4413DFF7);
+const _danger = Color(0xFFFF7A8A);
+const _success = Color(0xFF65F2BF);
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -21,17 +24,18 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _acceptedTerms = false;
   String? _errorMessage;
   String? _successMessage;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -39,6 +43,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedTerms) {
+      setState(() {
+        _errorMessage = 'Please accept the Terms & Privacy Policy.';
+        _successMessage = null;
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -47,32 +58,48 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     try {
-      await Supabase.instance.client.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final auth = Supabase.instance.client.auth;
 
-      if (mounted) {
-        setState(() {
-          _successMessage = 'Registration successful! Setting up your profile…';
-          _isLoading = false;
-        });
-
-        // Navigate to AuthWrapper which detects no profile and routes
-        // to ProfileSetupScreen automatically. No artificial delay needed.
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AuthWrapper()),
-          (_) => false,
+      if (auth.currentSession != null) {
+        throw const AuthException(
+          'Sign out of the current account before creating a new one.',
         );
       }
+
+      final response = await auth.signUp(
+        email: internalEmailForUsername(_usernameController.text),
+        password: _passwordController.text,
+        data: {'username': normalizeUsername(_usernameController.text)},
+      );
+
+      if (!mounted) return;
+      final requiresEmailConfirmation = response.session == null;
+      if (requiresEmailConfirmation) {
+        setState(() {
+          _errorMessage =
+              'Username accounts require Confirm email to be disabled in Supabase Auth.';
+          _isLoading = false;
+        });
+        return;
+      }
+      setState(() {
+        _successMessage = 'Registration successful. Preparing your profile.';
+        _isLoading = false;
+      });
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthWrapper()),
+        (_) => false,
+      );
     } on AuthException catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.message;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
-        _errorMessage = 'An unexpected error occurred';
+        _errorMessage = 'An unexpected error occurred.';
         _isLoading = false;
       });
     }
@@ -80,300 +107,311 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLang = ref.watch(appLanguageProvider);
     return Scaffold(
-      backgroundColor: _kRegisterBgBottom,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_kRegisterBgTop, _kRegisterBgBottom],
-          ),
-        ),
+      backgroundColor: _bgBottom,
+      body: _RegisterBackdrop(
         child: SafeArea(
-          child: Stack(
-            children: [
-              const _RegisterGlowOrb(
-                alignment: Alignment.topCenter,
-                color: _kRegisterNeonBlue,
-                size: 220,
-                topOffset: -40,
-              ),
-              const _RegisterCornerAccent(alignment: Alignment.topLeft),
-              const _RegisterCornerAccent(alignment: Alignment.topRight),
-              SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 20,
-                ),
-                child: Form(
-                  key: _formKey,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 18),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: Colors.white,
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.chevron_left_rounded),
+                            color: _cyanSoft,
+                            iconSize: 30,
                           ),
-                        ),
+                          const Spacer(),
+                          const _RegisterLogo(size: 44),
+                          const Spacer(),
+                          const SizedBox(width: 48),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF123B57), Color(0xFF0C233A)],
-                            ),
-                            border: Border.all(
-                              color: _kRegisterNeonBlue.withValues(alpha: 0.55),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _kRegisterNeonBlue.withValues(
-                                  alpha: 0.28,
+                      const SizedBox(height: 28),
+                      _RegisterPanel(
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                AppTranslations.get('register', currentLang).toUpperCase(),
+                                style: const TextStyle(
+                                  color: _cyanSoft,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 2.2,
                                 ),
-                                blurRadius: 28,
-                                spreadRadius: 1,
+                              ),
+                              const SizedBox(height: 7),
+                              Text(
+                                AppTranslations.get('register', currentLang).toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 25,
+                                  height: 1,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  width: 48,
+                                  height: 3,
+                                  color: _cyan,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              _RegisterLabel(AppTranslations.get('username', currentLang).toUpperCase()),
+                              const SizedBox(height: 8),
+                              _RegisterTextField(
+                                controller: _usernameController,
+                                hintText: AppTranslations.get('enter_email', currentLang).toUpperCase(),
+                                prefixIcon: Icons.person_outline_rounded,
+                                validator: validateUsername,
+                              ),
+                              const SizedBox(height: 16),
+                              _RegisterLabel(AppTranslations.get('password', currentLang).toUpperCase()),
+                              const SizedBox(height: 8),
+                              _RegisterTextField(
+                                controller: _passwordController,
+                                hintText: '********',
+                                obscureText: true,
+                                prefixIcon: Icons.lock_outline_rounded,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return AppTranslations.get('enter_password', currentLang);
+                                  }
+                                  if (value.length < 6) {
+                                    return 'Minimum 6 characters';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              _RegisterLabel(AppTranslations.get('confirm_password', currentLang).toUpperCase()),
+                              const SizedBox(height: 8),
+                              _RegisterTextField(
+                                controller: _confirmPasswordController,
+                                hintText: '********',
+                                obscureText: true,
+                                prefixIcon: Icons.verified_user_outlined,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return AppTranslations.get('confirm_password', currentLang);
+                                  }
+                                  if (value != _passwordController.text) {
+                                    return 'Passwords do not match';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              _TermsRow(
+                                value: _acceptedTerms,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _acceptedTerms = value ?? false;
+                                  });
+                                },
+                              ),
+                              if (_errorMessage != null) ...[
+                                const SizedBox(height: 14),
+                                _RegisterMessage.error(_errorMessage!),
+                              ],
+                              if (_successMessage != null) ...[
+                                const SizedBox(height: 14),
+                                _RegisterMessage.success(_successMessage!),
+                              ],
+                              const SizedBox(height: 22),
+                              _RegisterPrimaryButton(
+                                isLoading: _isLoading,
+                                onPressed: _isLoading ? null : _register,
+                              ),
+                              const SizedBox(height: 18),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      '${AppTranslations.get('already_have_account', currentLang)} ',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: _muted,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => Navigator.of(context).pop(),
+                                    child: Text(
+                                      AppTranslations.get('login', currentLang),
+                                      style: const TextStyle(
+                                        color: _cyanSoft,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.person_add_alt_1_rounded,
-                            color: _kRegisterNeonBlue,
-                            size: 44,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'AETRON',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 6,
-                          color: _kRegisterActionBlue,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Create Account',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 28,
-                          height: 1.1,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Start your fitness journey with a profile built for your progress',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: _kRegisterMutedText,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      const Text(
-                        'EMAIL',
-                        style: TextStyle(
-                          color: _kRegisterLabelText,
-                          fontSize: 20,
-                          letterSpacing: 2.4,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _RegisterTextField(
-                        controller: _emailController,
-                        hintText: 'your.email@example.com',
-                        keyboardType: TextInputType.emailAddress,
-                        prefixIcon: Icons.email_outlined,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Please enter a valid email';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'PASSWORD',
-                        style: TextStyle(
-                          color: _kRegisterLabelText,
-                          fontSize: 20,
-                          letterSpacing: 2.4,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _RegisterTextField(
-                        controller: _passwordController,
-                        hintText: 'At least 6 characters',
-                        obscureText: true,
-                        prefixIcon: Icons.lock_outline_rounded,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
-                          }
-                          if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'CONFIRM PASSWORD',
-                        style: TextStyle(
-                          color: _kRegisterLabelText,
-                          fontSize: 20,
-                          letterSpacing: 2.0,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _RegisterTextField(
-                        controller: _confirmPasswordController,
-                        hintText: 'Repeat your password',
-                        obscureText: true,
-                        prefixIcon: Icons.verified_user_outlined,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please confirm your password';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'Passwords do not match';
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_errorMessage != null) ...[
-                        const SizedBox(height: 18),
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF401A24),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color(
-                                0xFFFF6B8A,
-                              ).withValues(alpha: 0.45),
-                            ),
-                          ),
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                              color: Color(0xFFFFB3C3),
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (_successMessage != null) ...[
-                        const SizedBox(height: 18),
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF103125),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color(
-                                0xFF4DE6B3,
-                              ).withValues(alpha: 0.45),
-                            ),
-                          ),
-                          child: Text(
-                            _successMessage!,
-                            style: const TextStyle(
-                              color: Color(0xFFA9F5D8),
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _kRegisterNeonBlue.withValues(alpha: 0.18),
-                              blurRadius: 24,
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _register,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF08111B),
-                            foregroundColor: _kRegisterNeonBlue,
-                            disabledBackgroundColor: const Color(0xFF08111B),
-                            disabledForegroundColor: _kRegisterNeonBlue
-                                .withValues(alpha: 0.6),
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 22),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              side: const BorderSide(
-                                color: _kRegisterActionBlue,
-                                width: 2.2,
-                              ),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.4,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      _kRegisterNeonBlue,
-                                    ),
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'CREATE ACCOUNT',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 2.2,
-                                      ),
-                                    ),
-                                    SizedBox(width: 14),
-                                    Icon(
-                                      Icons.arrow_forward_ios_rounded,
-                                      size: 18,
-                                    ),
-                                  ],
-                                ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RegisterBackdrop extends StatelessWidget {
+  const _RegisterBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_bgTop, _bgBottom],
+        ),
+      ),
+      child: Stack(
+        children: [
+          const Positioned.fill(child: _RegisterGrid()),
+          Positioned(
+            left: -60,
+            right: -60,
+            bottom: -60,
+            height: 190,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [_cyan.withValues(alpha: 0.13), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _RegisterGrid extends StatelessWidget {
+  const _RegisterGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(child: CustomPaint(painter: _RegisterGridPainter()));
+  }
+}
+
+class _RegisterGridPainter extends CustomPainter {
+  const _RegisterGridPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _cyan.withValues(alpha: 0.05)
+      ..strokeWidth = 1;
+    const step = 34.0;
+    for (var x = 0.0; x <= size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (var y = 0.0; y <= size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _RegisterLogo extends StatelessWidget {
+  const _RegisterLogo({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        border: Border.all(color: _cyan.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(color: _cyan.withValues(alpha: 0.22), blurRadius: 20),
+        ],
+      ),
+      child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+    );
+  }
+}
+
+class _RegisterPanel extends StatelessWidget {
+  const _RegisterPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      decoration: BoxDecoration(
+        color: _panel.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(color: _cyan.withValues(alpha: 0.07), blurRadius: 28),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _RegisterLabel extends StatelessWidget {
+  const _RegisterLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: _cyanSoft,
+        fontSize: 10,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 2.1,
       ),
     );
   }
@@ -385,7 +423,6 @@ class _RegisterTextField extends StatelessWidget {
     required this.hintText,
     required this.prefixIcon,
     required this.validator,
-    this.keyboardType,
     this.obscureText = false,
   });
 
@@ -393,126 +430,161 @@ class _RegisterTextField extends StatelessWidget {
   final String hintText;
   final IconData prefixIcon;
   final String? Function(String?) validator;
-  final TextInputType? keyboardType;
   final bool obscureText;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      keyboardType: keyboardType,
       obscureText: obscureText,
-      style: const TextStyle(color: Colors.white, fontSize: 18),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
       validator: validator,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(
-          color: _kRegisterHintColor,
-          fontSize: 18,
-          fontWeight: FontWeight.w300,
+        hintStyle: TextStyle(
+          color: _muted.withValues(alpha: 0.55),
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
         ),
         filled: true,
-        fillColor: _kRegisterFieldColor,
-        prefixIcon: Padding(
-          padding: const EdgeInsets.only(left: 16, right: 12),
-          child: Icon(prefixIcon),
-        ),
-        prefixIconColor: _kRegisterHintColor,
+        fillColor: _field.withValues(alpha: 0.9),
+        prefixIcon: Icon(prefixIcon, color: _cyanSoft.withValues(alpha: 0.72)),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 22,
-          vertical: 24,
+          horizontal: 16,
+          vertical: 16,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _kRegisterBorderColor),
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: _border.withValues(alpha: 0.9)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _kRegisterNeonBlue, width: 1.4),
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: _cyan, width: 1.2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFFF6B8A)),
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: _danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFFF6B8A), width: 1.4),
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: _danger),
         ),
       ),
     );
   }
 }
 
-class _RegisterGlowOrb extends StatelessWidget {
-  const _RegisterGlowOrb({
-    required this.alignment,
-    required this.color,
-    required this.size,
-    this.topOffset = 0,
-  });
+class _TermsRow extends StatelessWidget {
+  const _TermsRow({required this.value, required this.onChanged});
 
-  final Alignment alignment;
-  final Color color;
-  final double size;
-  final double topOffset;
+  final bool value;
+  final ValueChanged<bool?> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      child: Transform.translate(
-        offset: Offset(0, topOffset),
-        child: IgnorePointer(
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.22),
-                  blurRadius: 120,
-                  spreadRadius: 30,
-                ),
-              ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 26,
+          height: 26,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            side: const BorderSide(color: _cyanSoft),
+            checkColor: _bgBottom,
+            activeColor: _cyan,
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            'I agree to the Terms & Privacy Policy',
+            style: TextStyle(
+              color: _cyanSoft,
+              fontSize: 13,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _RegisterCornerAccent extends StatelessWidget {
-  const _RegisterCornerAccent({required this.alignment});
+class _RegisterPrimaryButton extends StatelessWidget {
+  const _RegisterPrimaryButton({
+    required this.onPressed,
+    this.isLoading = false,
+  });
 
-  final Alignment alignment;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    final isLeft = alignment == Alignment.topLeft;
-
-    return Align(
-      alignment: alignment,
-      child: Container(
-        width: 92,
-        height: 74,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isLeft ? 0 : 28),
-            topRight: Radius.circular(isLeft ? 28 : 0),
-          ),
-          border: Border(
-            top: const BorderSide(color: _kRegisterNeonBlue, width: 2),
-            left: isLeft
-                ? const BorderSide(color: _kRegisterNeonBlue, width: 2)
-                : BorderSide.none,
-            right: !isLeft
-                ? const BorderSide(color: _kRegisterNeonBlue, width: 2)
-                : BorderSide.none,
-          ),
-        ),
+    return ElevatedButton(
+      onPressed: isLoading ? null : onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _cyan,
+        foregroundColor: const Color(0xFF00272D),
+        disabledBackgroundColor: _cyan.withValues(alpha: 0.55),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
       ),
+      child: isLoading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00272D)),
+              ),
+            )
+          : const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'SIGN UP',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Icon(Icons.arrow_forward_rounded, size: 20),
+              ],
+            ),
+    );
+  }
+}
+
+class _RegisterMessage extends StatelessWidget {
+  const _RegisterMessage._(this.message, this.color, this.background);
+
+  const _RegisterMessage.error(String message)
+    : this._(message, const Color(0xFFFFB3C3), const Color(0xFF401A24));
+
+  const _RegisterMessage.success(String message)
+    : this._(message, _success, const Color(0xFF103125));
+
+  final String message;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(message, style: TextStyle(color: color, fontSize: 13)),
     );
   }
 }

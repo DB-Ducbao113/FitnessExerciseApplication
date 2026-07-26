@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aetron - Privacy Policy / Chính sách Bảo mật</title>
+  <meta name="description" content="Chính sách bảo mật thông tin chính thức của ứng dụng di động Aetron (Bilingual English & Vietnamese)." />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      max-width: 850px;
+      margin: 0 auto;
+      padding: 30px 20px;
+      background-color: #f9fafb;
+    }
+    .card {
+      background: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    }
+    .lang-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 10px;
+    }
+    .lang-tab {
+      background: #f3f4f6;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #4b5563;
+    }
+    .lang-tab.active {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    h1 { color: #111827; font-size: 26px; margin-bottom: 12px; }
+    h2 { color: #0284c7; font-size: 18px; margin-top: 24px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    .badge { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 14px; }
+    .contact { background: #f3f4f6; padding: 16px; border-radius: 8px; margin-top: 24px; }
+    .section-vi { display: block; }
+    .section-en { display: none; }
+    body.show-en .section-vi { display: none; }
+    body.show-en .section-en { display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="lang-tabs">
+      <button class="lang-tab active" id="btn-tab-vi" onclick="toggleLang('vi')">🇻🇳 Tiếng Việt</button>
+      <button class="lang-tab" id="btn-tab-en" onclick="toggleLang('en')">🇬🇧 English</button>
+    </div>
+
+    <span class="badge">Aetron App Legal Disclosures</span>
+
+    <!-- VIETNAMESE VERSION -->
+    <div class="section-vi">
+      <h1>Chính sách Bảo mật (Privacy Policy)</h1>
+      <p><strong>Ngày có hiệu lực:</strong> 25/07/2026<br>
+      <strong>Ứng dụng:</strong> Aetron (iOS & Android)<br>
+      <strong>Package / Bundle ID:</strong> <code>com.aetron.app</code></p>
+
+      <h2>1. Thu thập Thông tin</h2>
+      <p>Aetron thu thập các loại dữ liệu sau để phục vụ tính năng theo dõi tập luyện thể thao:</p>
+      <ul>
+        <li><strong>Tài khoản:</strong> Email, mật khẩu mã hóa (Supabase Auth), tên hiển thị và ảnh đại diện.</li>
+        <li><strong>Dữ liệu thể chất:</strong> Lịch sử bài tập, thời lượng, số bước chân (Pedometer), lượng calo tiêu thụ và phân tích AI Post-Workout.</li>
+        <li><strong>Tọa độ Vị trí (GPS & Background Location):</strong> Aetron thu thập vị trí thời gian thực và vị trí ở chế độ nền (Background Location) CHỈ khi người dùng kích hoạt bài tập ngoài trời (chạy bộ, đạp xe) nhằm vẽ bản đồ lộ trình và tính khoảng cách di chuyển.</li>
+      </ul>
+
+      <h2>2. Sử dụng & Bảo mật Dữ liệu</h2>
+      <p>Dữ liệu được bảo mật trên cơ sở dữ liệu Supabase theo chính sách Row Level Security (RLS). Chúng tôi KHÔNG bán hay chia sẻ dữ liệu cá nhân cho bên thứ ba vì mục đích thương mại/quảng cáo.</p>
+
+      <h2>3. Quyền Xóa Dữ liệu & Tài khoản</h2>
+      <p>Người dùng có thể thực hiện xóa tài khoản trực tiếp trong ứng dụng tại menu <code>Hồ sơ -> Cài đặt -> Xóa tài khoản</code> hoặc gửi email yêu cầu về <a href="mailto:support@aetron.app">support@aetron.app</a>. Toàn bộ dữ liệu bài tập và vị trí sẽ bị xóa vĩnh viễn khỏi hệ thống.</p>
+    </div>
+
+    <!-- ENGLISH VERSION -->
+    <div class="section-en">
+      <h1>Privacy Policy</h1>
+      <p><strong>Effective Date:</strong> July 25, 2026<br>
+      <strong>Application:</strong> Aetron (iOS & Android)<br>
+      <strong>Package / Bundle ID:</strong> <code>com.aetron.app</code></p>
+
+      <h2>1. Information We Collect</h2>
+      <p>Aetron collects the following types of data to provide fitness tracking features:</p>
+      <ul>
+        <li><strong>Account Data:</strong> Email address, encrypted password (Supabase Auth), display name, profile avatar.</li>
+        <li><strong>Fitness Data:</strong> Workout logs, duration, step counts (Pedometer), estimated calories burned, and AI Post-Workout insights.</li>
+        <li><strong>Location Data (GPS & Background Location):</strong> Real-time and background location coordinates collected ONLY during active outdoor workout sessions (running, cycling) to render route maps and measure distance.</li>
+      </ul>
+
+      <h2>2. Data Usage & Security</h2>
+      <p>Data is stored securely in a Supabase database protected by Row Level Security (RLS). We DO NOT sell or share personal data with third parties for advertising purposes.</p>
+
+      <h2>3. Account & Data Deletion</h2>
+      <p>Users can delete their account directly inside the app under <code>Profile -> Settings -> Delete Account</code> or by emailing <a href="mailto:support@aetron.app">support@aetron.app</a>. All personal workout logs and location points will be permanently deleted.</p>
+    </div>
+
+    <div class="contact">
+      <strong>Support Contact / Liên hệ hỗ trợ:</strong> Email: <a href="mailto:support@aetron.app">support@aetron.app</a>
+    </div>
+  </div>
+
+  <script>
+    function toggleLang(lang) {
+      if (lang === 'en') {
+        document.body.classList.add('show-en');
+        document.getElementById('btn-tab-en').classList.add('active');
+        document.getElementById('btn-tab-vi').classList.remove('active');
+      } else {
+        document.body.classList.remove('show-en');
+        document.getElementById('btn-tab-vi').classList.add('active');
+        document.getElementById('btn-tab-en').classList.remove('active');
+      }
+    }
+  </script>
+</body>
+</html>

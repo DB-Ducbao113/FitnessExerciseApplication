@@ -86,6 +86,7 @@ class RawTrackingRemoteDataSource {
       table: DbTables.rawGpsPoints,
       rows: points.map((point) => point.toJson()).toList(growable: false),
       debugLabel: 'raw GPS points',
+      onConflict: 'workout_id,timestamp,latitude,longitude',
     );
   }
 
@@ -96,6 +97,7 @@ class RawTrackingRemoteDataSource {
           .map((interval) => interval.toJson())
           .toList(growable: false),
       debugLabel: 'raw step intervals',
+      onConflict: 'workout_id,interval_start,interval_end',
     );
   }
 
@@ -103,6 +105,7 @@ class RawTrackingRemoteDataSource {
     required String table,
     required List<Map<String, dynamic>> rows,
     required String debugLabel,
+    required String onConflict,
   }) async {
     if (rows.isEmpty) return;
 
@@ -113,7 +116,13 @@ class RawTrackingRemoteDataSource {
       final chunk = rows.sublist(i, end);
 
       try {
-        await _supabase.from(table).insert(chunk);
+        await _supabase
+            .from(table)
+            .upsert(
+              chunk,
+              onConflict: onConflict,
+              ignoreDuplicates: true,
+            );
       } on PostgrestException catch (e) {
         debugPrint(
           '[RawTrackingRemoteDataSource] save $debugLabel failed: ${e.message}',

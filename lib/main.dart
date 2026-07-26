@@ -1,5 +1,6 @@
 import 'package:fitness_exercise_application/app/app.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
+import 'package:fitness_exercise_application/core/services/training_reminder_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,9 @@ void main() async {
 
     await LocalDB.init();
     debugPrint('[Startup] local db initialized');
+
+    await TrainingReminderService.instance.initialize();
+    debugPrint('[Startup] reminder service initialized');
 
     runApp(const ProviderScope(child: MyApp()));
     debugPrint('[Startup] runApp');
