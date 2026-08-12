@@ -221,7 +221,17 @@ class AppTranslations {
     'clear': {AppLanguage.vi: 'Xóa', AppLanguage.en: 'Clear'},
     'logout_confirm': {
       AppLanguage.vi: 'Bạn có chắc chắn muốn đăng xuất?',
-      AppLanguage.en: 'Are you sure you want to logout?',
+      AppLanguage.en: 'Are you sure you want to log out?',
+    },
+    'logout_title': {
+      AppLanguage.vi: 'ĐĂNG XUẤT KHỎI AETRON',
+      AppLanguage.en: 'LOG OUT OF AETRON',
+    },
+    'logout_sub': {
+      AppLanguage.vi:
+          'Bạn có chắc chắn muốn đăng xuất? Tất cả dữ liệu tập luyện của bạn đã được đồng bộ an toàn.',
+      AppLanguage.en:
+          'Are you sure you want to log out? All your workout telemetry has been safely synced.',
     },
 
     // Auth & Onboarding
@@ -260,12 +270,32 @@ class AppTranslations {
       AppLanguage.en: 'Sign in with Google',
     },
     'enter_email': {
-      AppLanguage.vi: 'Nhập email của bạn',
-      AppLanguage.en: 'Enter your email',
+      AppLanguage.vi: 'Nhập tên người dùng hoặc Email',
+      AppLanguage.en: 'Enter Username or Email',
+    },
+    'enter_username': {
+      AppLanguage.vi: 'Nhập tên người dùng',
+      AppLanguage.en: 'Enter Username',
     },
     'enter_password': {
       AppLanguage.vi: 'Nhập mật khẩu',
-      AppLanguage.en: 'Enter password',
+      AppLanguage.en: 'Enter Password',
+    },
+    'welcome_back': {
+      AppLanguage.vi: 'Chào mừng trở lại',
+      AppLanguage.en: 'Welcome Back',
+    },
+    'create_account': {
+      AppLanguage.vi: 'Tạo tài khoản',
+      AppLanguage.en: 'Create Account',
+    },
+    'signin_subtitle': {
+      AppLanguage.vi: 'Đăng nhập để tiếp tục lộ trình tập luyện của bạn.',
+      AppLanguage.en: 'Sign in to pick up where you left off.',
+    },
+    'register_subtitle': {
+      AppLanguage.vi: 'Tham gia Aetron để bắt đầu theo dõi tập luyện ngay.',
+      AppLanguage.en: 'Join Aetron to track your fitness telemetry.',
     },
     'reset_password': {
       AppLanguage.vi: 'Khôi phục mật khẩu',
@@ -274,10 +304,68 @@ class AppTranslations {
 
     // Home Dashboard
     'home_title': {AppLanguage.vi: 'Trang chủ', AppLanguage.en: 'Home'},
-    'daily_target': {
-      AppLanguage.vi: 'Mục tiêu hàng ngày',
-      AppLanguage.en: 'Daily Target',
+    'running_series': {AppLanguage.vi: 'CHUỖI BÀI TẬP RUNNER', AppLanguage.en: 'RUNNING SERIES'},
+    'aetron_streak': {AppLanguage.vi: 'CHUỖI TẬP AETRON', AppLanguage.en: 'AETRON STREAK'},
+    'days_streak': {AppLanguage.vi: 'NGÀY CHUỖI TẬP', AppLanguage.en: 'DAYS STREAK'},
+    'streak_active': {AppLanguage.vi: 'CHUỖI TẬP ĐANG HOẠT ĐỘNG', AppLanguage.en: 'STREAK ACTIVE'},
+    'start_your_streak': {AppLanguage.vi: 'BẮT ĐẦU CHUỖI TẬP NGAY', AppLanguage.en: 'START YOUR STREAK'},
+    'milestone_unlocked': {AppLanguage.vi: 'ĐÃ MỞ KHÓA CỘT MỐC', AppLanguage.en: 'MILESTONE UNLOCKED'},
+    'days_left': {AppLanguage.vi: 'NGÀY NỮA', AppLanguage.en: 'DAYS LEFT'},
+    'this_week': {AppLanguage.vi: 'TUẦN NÀY', AppLanguage.en: 'THIS WEEK'},
+    'continue_workout': {AppLanguage.vi: 'TIẾP TỤC TẬP LUYỆN →', AppLanguage.en: 'CONTINUE WORKOUT →'},
+    'runner_programs': {AppLanguage.vi: 'GIÁO ÁN CHẠY BỘ', AppLanguage.en: 'RUNNER TRAINING PROGRAMS'},
+    'coaching_guide': {AppLanguage.vi: 'HƯỚNG DẪN CÁCH CHẠY', AppLanguage.en: 'RUNNING & COACHING GUIDE'},
+    'start_program': {AppLanguage.vi: 'BẮT ĐẦU CHẠY NGAY →', AppLanguage.en: 'START PROGRAM NOW →'},
+    'how_to_execute': {AppLanguage.vi: 'Phương pháp thực hiện bài chạy', AppLanguage.en: 'How to execute this workout'},
+    'beginner_runner': {AppLanguage.vi: 'NGƯỜI MỚI BẮT ĐẦU', AppLanguage.en: 'BEGINNER RUNNER'},
+    'couch_to_5k': {AppLanguage.vi: 'Hành trình 5K cho người mới', AppLanguage.en: 'Couch to 5K Program'},
+    'pace_builder_10k': {AppLanguage.vi: 'Xây dựng Tốc độ 10K', AppLanguage.en: '10K Pace Builder'},
+    'easy_base_run': {AppLanguage.vi: 'Chạy Thả lỏng & Phục hồi', AppLanguage.en: 'Easy Recovery Base Run'},
+    'speed_intervals': {AppLanguage.vi: 'Luyện Tốc độ 5K Interval', AppLanguage.en: '5K Speed Intervals'},
+    'spotlight': {AppLanguage.vi: 'Nổi bật', AppLanguage.en: 'Spotlight'},
+    'workout_modes': {AppLanguage.vi: 'Chế độ tập', AppLanguage.en: 'Workout Modes'},
+    'gym': {AppLanguage.vi: 'Gym', AppLanguage.en: 'Gym'},
+    'cardio': {AppLanguage.vi: 'Cardio', AppLanguage.en: 'Cardio'},
+    'yoga': {AppLanguage.vi: 'Yoga', AppLanguage.en: 'Yoga'},
+    'ready_to_move_sub': {
+      AppLanguage.vi: 'Cùng đạt mục tiêu hôm nay nhé',
+      AppLanguage.en: "Let's achieve your goals today",
     },
+    'set_goal_title': {AppLanguage.vi: 'MỤC TIÊU TẬP LUYỆN', AppLanguage.en: 'FITNESS TARGET'},
+    'select_workout': {AppLanguage.vi: 'CHỌN BÀI TẬP', AppLanguage.en: 'SELECT WORKOUT'},
+    'location_context': {AppLanguage.vi: 'VỊ TRÍ GPS HIỆN TẠI', AppLanguage.en: 'LOCATION CONTEXT'},
+    'start_activity': {AppLanguage.vi: 'BẮT ĐẦU CHẠY NGAY →', AppLanguage.en: 'START WORKOUT NOW →'},
+    'what_achievement': {AppLanguage.vi: 'Bạn muốn đạt được mục tiêu nào?', AppLanguage.en: 'What do you want to achieve?'},
+    'your_target': {AppLanguage.vi: 'MỤC TIÊU CỦA BẠN', AppLanguage.en: 'YOUR TARGET'},
+    'goal_period': {AppLanguage.vi: 'THỜI GIAN MỤC TIÊU', AppLanguage.en: 'GOAL PERIOD'},
+    'your_goal_summary': {AppLanguage.vi: 'TỔNG QUAN MỤC TIÊU', AppLanguage.en: 'YOUR GOAL SUMMARY'},
+    'save_goal': {AppLanguage.vi: 'LƯU MỤC TIÊU →', AppLanguage.en: 'SAVE GOAL →'},
+    'update_goal': {AppLanguage.vi: 'CẬP NHẬT MỤC TIÊU →', AppLanguage.en: 'UPDATE GOAL →'},
+    'analytics_title': {AppLanguage.vi: 'THỐNG KÊ HIỆU SUẤT', AppLanguage.en: 'PERFORMANCE ANALYTICS'},
+    'units_subtitle': {AppLanguage.vi: 'Sử dụng hệ mét (KM, KG) hoặc hệ Anh (MI, LB)', AppLanguage.en: 'Use Metric (KM, KG) or Imperial (MI, LB)'},
+    'biometric_stats': {AppLanguage.vi: 'CHỈ SỐ SINH TRẮC', AppLanguage.en: 'BIOMETRIC STATS'},
+    'select_activity_mode': {AppLanguage.vi: 'CHỌN CHẾ ĐỘ TẬP LUYỆN', AppLanguage.en: 'SELECT YOUR ACTIVITY'},
+    'running_desc': {AppLanguage.vi: 'Theo dõi tốc độ, thời gian & khoảng cách chạy bộ', AppLanguage.en: 'Track speed, duration & running distance'},
+    'cycling_desc': {AppLanguage.vi: 'Đo lường vận tốc & hành trình đạp xe', AppLanguage.en: 'Measure outdoor velocity & cycling routes'},
+    'walking_desc': {AppLanguage.vi: 'Đếm bước chân & đi bộ hàng ngày', AppLanguage.en: 'Pedometer & daily active step tracking'},
+    'gps_required': {AppLanguage.vi: 'YÊU CẦU GPS', AppLanguage.en: 'GPS REQUIRED'},
+    'gps_optional': {AppLanguage.vi: 'GPS TÙY CHỌN', AppLanguage.en: 'GPS OPTIONAL'},
+    'start_mode': {AppLanguage.vi: 'BẮT ĐẦU CHẾ ĐỘ →', AppLanguage.en: 'START MODE →'},
+    'gps_ready_status': {AppLanguage.vi: 'HỆ THỐNG GPS ĐÃ SẴN SÀNG', AppLanguage.en: 'GPS SYSTEM IS READY'},
+    'gps_disabled_status': {AppLanguage.vi: 'VỊ TRÍ / GPS CHƯA ĐƯỢC BẬT', AppLanguage.en: 'LOCATION / GPS IS DISABLED'},
+    'enable_gps_action': {AppLanguage.vi: 'BẬT GPS / CẤP QUYỀN VỊ TRÍ', AppLanguage.en: 'ENABLE GPS / GRANT LOCATION'},
+    'security_upgrade_title': {AppLanguage.vi: 'NÂNG CẤP MẬT KHẨU BẢO MẬT', AppLanguage.en: 'SECURITY PASSWORD UPGRADE'},
+    'security_upgrade_desc': {AppLanguage.vi: 'Theo chính sách bảo mật mới, tài khoản cần cập nhật mật khẩu có chữ hoa, chữ thường, số & ký tự đặc biệt.', AppLanguage.en: 'According to new security policy, please update your password to include uppercase, lowercase, number & special char.'},
+    'update_password_action': {AppLanguage.vi: 'CẬP NHẬT MẬT KHẨU NGAY →', AppLanguage.en: 'UPDATE PASSWORD NOW →'},
+    'new_password': {AppLanguage.vi: 'Mật khẩu mới', AppLanguage.en: 'New password'},
+    'password_updated_success': {AppLanguage.vi: 'Mật khẩu đã được nâng cấp bảo mật thành công!', AppLanguage.en: 'Password updated with strong security successfully!'},
+    'your_performance': {AppLanguage.vi: 'Phân tích kết quả tập luyện', AppLanguage.en: 'Your performance analytics'},
+    'personal_bests': {AppLanguage.vi: 'KỶ LỤC CÁ NHÂN', AppLanguage.en: 'PERSONAL BESTS'},
+    'goal_progress': {AppLanguage.vi: 'TIẾN ĐỘ MỤC TIÊU', AppLanguage.en: 'GOAL PROGRESS'},
+    'workout_history': {AppLanguage.vi: 'LỊCH SỬ TẬP LUYỆN', AppLanguage.en: 'WORKOUT HISTORY'},
+    'this_period': {AppLanguage.vi: 'GIAI ĐOẠN NÀY', AppLanguage.en: 'THIS PERIOD'},
+    'no_workouts_yet': {AppLanguage.vi: 'Chưa có buổi tập nào', AppLanguage.en: 'No workouts recorded yet'},
+    'empty_history_desc': {AppLanguage.vi: 'Hoàn thành buổi tập đầu tiên để theo dõi lịch sử tại đây.', AppLanguage.en: 'Complete your first workout to track your history here.'},
     'quick_start': {AppLanguage.vi: 'Tập luyện ngay', AppLanguage.en: 'Quick Start'},
     'ai_insights': {AppLanguage.vi: 'Gợi ý từ AI', AppLanguage.en: 'AI Insights'},
     'recent_activities': {
@@ -657,9 +745,104 @@ class AppTranslations {
     'vietnamese': {AppLanguage.vi: 'Tiếng Việt', AppLanguage.en: 'Vietnamese'},
     'english': {AppLanguage.vi: 'Tiếng Anh', AppLanguage.en: 'English'},
     'back': {AppLanguage.vi: 'Quay lại', AppLanguage.en: 'Back'},
+    'delete_account_confirm_title': {
+      AppLanguage.vi: 'Xóa tài khoản vĩnh viễn?',
+      AppLanguage.en: 'Permanently delete account?',
+    },
+    'delete_account_confirm_msg': {
+      AppLanguage.vi:
+          'Toàn bộ dữ liệu tập luyện, hồ sơ và mục tiêu của bạn sẽ bị xóa vĩnh viễn và không thể khôi phục. Hành động này không thể hoàn tác.',
+      AppLanguage.en:
+          'All your workout history, profile data and goals will be permanently deleted and cannot be recovered. This action cannot be undone.',
+    },
+    'delete_account_type_email': {
+      AppLanguage.vi: 'Nhập email của bạn để xác nhận',
+      AppLanguage.en: 'Type your email to confirm',
+    },
+    'delete_account_btn': {
+      AppLanguage.vi: 'Xóa tài khoản',
+      AppLanguage.en: 'Delete Account',
+    },
+    'delete_account_success': {
+      AppLanguage.vi: 'Tài khoản đã được xóa thành công.',
+      AppLanguage.en: 'Account deleted successfully.',
+    },
+    'delete_account_error': {
+      AppLanguage.vi: 'Xóa tài khoản thất bại. Vui lòng thử lại.',
+      AppLanguage.en: 'Failed to delete account. Please try again.',
+    },
+    'danger_zone': {AppLanguage.vi: 'VÙNG NGUY HIỂM', AppLanguage.en: 'DANGER ZONE'},
+
+    // Segmented Filters & Goal Types
+    'filter_all': {AppLanguage.vi: 'TẤT CẢ', AppLanguage.en: 'ALL'},
+    'filter_week': {AppLanguage.vi: 'TUẦN', AppLanguage.en: 'WEEK'},
+    'filter_month': {AppLanguage.vi: 'THÁNG', AppLanguage.en: 'MONTH'},
+    'filter_year': {AppLanguage.vi: 'NĂM', AppLanguage.en: 'YEAR'},
+    'goal_type_distance': {AppLanguage.vi: 'QUÃNG ĐƯỜNG', AppLanguage.en: 'DISTANCE'},
+    'goal_type_workouts': {AppLanguage.vi: 'BÀI TẬP', AppLanguage.en: 'WORKOUTS'},
+    'goal_type_calories': {AppLanguage.vi: 'CALO', AppLanguage.en: 'CALORIES'},
+
+    // Live Workout & Telemetry
+    'live_stats': {AppLanguage.vi: 'DỮ LIỆU TRỰC TIẾP', AppLanguage.en: 'LIVE TELEMETRY'},
+    'hold_to_finish': {AppLanguage.vi: 'GIỮ ĐỂ HOÀN THÀNH', AppLanguage.en: 'HOLD TO FINISH'},
+    'discard_workout': {AppLanguage.vi: 'HỦY BUỔI TẬP', AppLanguage.en: 'DISCARD WORKOUT'},
+    'confirm_discard_title': {
+      AppLanguage.vi: 'Hủy buổi tập này?',
+      AppLanguage.en: 'Discard this workout?',
+    },
+    'confirm_discard_msg': {
+      AppLanguage.vi: 'Dữ liệu buổi tập hiện tại chưa được lưu và sẽ bị xóa.',
+      AppLanguage.en: 'Current workout data has not been saved and will be lost.',
+    },
+    'keep_workout': {AppLanguage.vi: 'Tiếp tục tập', AppLanguage.en: 'Keep Workout'},
+    'yes_discard': {AppLanguage.vi: 'Đồng ý hủy', AppLanguage.en: 'Discard'},
+
+    // Profile & Personal Records
+    'personal_best': {AppLanguage.vi: 'Thành tích tốt nhất', AppLanguage.en: 'Personal Best'},
+    'total_duration': {AppLanguage.vi: 'Tổng thời lượng', AppLanguage.en: 'Total Duration'},
+    'total_calories': {AppLanguage.vi: 'Tổng calo', AppLanguage.en: 'Total Calories'},
+    'current_pace': {AppLanguage.vi: 'Pace hiện tại', AppLanguage.en: 'Current Pace'},
+    'gps_accuracy': {AppLanguage.vi: 'Độ chính xác GPS', AppLanguage.en: 'GPS Accuracy'},
+
+    // Settings & Legal Subtitles
+    'legal_and_support': {AppLanguage.vi: 'PHÁP LÝ & HỖ TRỢ', AppLanguage.en: 'LEGAL & SUPPORT'},
+    'daily_notifications': {
+      AppLanguage.vi: 'Bật/Tắt nhắc nhở tập luyện & mục tiêu',
+      AppLanguage.en: 'Receive workout reminders & goal alerts',
+    },
+    'open_source_licenses': {
+      AppLanguage.vi: 'Giấy phép Nguồn mở',
+      AppLanguage.en: 'Open Source Licenses',
+    },
+    'open_source_sub': {
+      AppLanguage.vi: 'Phần mềm bên thứ ba được sử dụng trong Aetron',
+      AppLanguage.en: 'Third-party software used by Aetron',
+    },
+    'help_and_support': {
+      AppLanguage.vi: 'Trợ giúp & Hỗ trợ',
+      AppLanguage.en: 'Help & Support',
+    },
+    'help_and_support_sub': {
+      AppLanguage.vi: 'Nhận trợ giúp và giải đáp thắc mắc về Aetron',
+      AppLanguage.en: 'Get help with Aetron',
+    },
+    'privacy_sub': {
+      AppLanguage.vi: 'Cách Aetron thu thập, sử dụng và bảo vệ dữ liệu của bạn',
+      AppLanguage.en: 'How Aetron collects, uses and protects your data',
+    },
+    'terms_sub': {
+      AppLanguage.vi: 'Các quy định và điều kiện khi sử dụng Aetron',
+      AppLanguage.en: 'Rules and conditions for using Aetron',
+    },
   };
 
   static String get(String key, AppLanguage lang) {
-    return _keys[key]?[lang] ?? _keys[key]?[AppLanguage.en] ?? key;
+    final translation = _keys[key]?[lang] ?? _keys[key]?[AppLanguage.en];
+    if (translation != null) return translation;
+    return key
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .join(' ');
   }
 }

@@ -216,6 +216,20 @@ class LocalDB {
           await isar.localWorkouts.put(existing);
         }
       }
+
+      if (remotes.isNotEmpty) {
+        final userId = remotes.first.userId;
+        final remoteIds = remotes.map((r) => r.id).toSet();
+        final localForUser = await isar.localWorkouts
+            .filter()
+            .userIdEqualTo(userId)
+            .findAll();
+        for (final local in localForUser) {
+          if (local.isSynced && !remoteIds.contains(local.sessionId)) {
+            await isar.localWorkouts.delete(local.id);
+          }
+        }
+      }
     });
   }
 
@@ -241,7 +255,6 @@ class LocalDB {
   static Future<List<LocalGPSPoint>> getPointsForWorkout(int workoutId) async {
     await init();
     final isar = instance;
-    // Resolve sessionId first so we can use the indexed query path.
     final workout = await isar.localWorkouts.get(workoutId);
     if (workout == null) return const [];
     return await isar.localGPSPoints

@@ -1,7 +1,5 @@
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
-
-const _panel = Color(0xFF112033);
-const _border = Color(0x2200E5FF);
 
 class SettingsSection extends StatelessWidget {
   final String title;
@@ -25,7 +23,7 @@ class SettingsSection extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF8A96A9),
+              color: AetronColors.cyanSoft,
               letterSpacing: 1.8,
             ),
           ),
@@ -33,19 +31,25 @@ class SettingsSection extends StatelessWidget {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: _panel,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _border),
+            border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.35), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: AetronColors.cyan.withValues(alpha: 0.12),
+                blurRadius: 16,
+                spreadRadius: -2,
               ),
             ],
           ),
-          child: ClipRRect(
+          child: Material(
+            color: AetronColors.panelHigh,
             borderRadius: BorderRadius.circular(24),
+            clipBehavior: Clip.antiAlias,
             child: Column(children: children),
           ),
         ),

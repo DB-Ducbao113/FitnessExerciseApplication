@@ -1,4 +1,4 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +37,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Future<void> _sendResetEmail() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final lang = ref.read(appLanguageProvider);
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -51,8 +53,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
       if (!mounted) return;
       setState(() {
-        _successMessage =
-            'We sent a secure reset link to your email. Open it to set a new password.';
+        _successMessage = lang == AppLanguage.vi
+            ? 'Liên kết khôi phục mật khẩu đã được gửi đến email của bạn. Vui lòng mở email để đặt lại mật khẩu.'
+            : 'We sent a secure reset link to your email. Open it to set a new password.';
         _isLoading = false;
       });
     } on AuthException catch (e) {
@@ -64,7 +67,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Could not send reset email. Please try again.';
+        _errorMessage = lang == AppLanguage.vi
+            ? 'Không thể gửi email khôi phục. Vui lòng thử lại.'
+            : 'Could not send reset email. Please try again.';
         _isLoading = false;
       });
     }
@@ -98,15 +103,41 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.white,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
+                      TextButton.icon(
+                        onPressed: () {
+                          final next = currentLang == AppLanguage.vi
+                              ? AppLanguage.en
+                              : AppLanguage.vi;
+                          ref
+                              .read(appLanguageProvider.notifier)
+                              .setLanguage(next);
+                        },
+                        icon: Text(
+                          currentLang == AppLanguage.vi ? '🇻🇳' : '🇬🇧',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        label: Text(
+                          currentLang == AppLanguage.vi
+                              ? 'Tiếng Việt'
+                              : 'English',
+                          style: const TextStyle(
+                            color: neonBlue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   Center(

@@ -1,14 +1,15 @@
 import 'dart:io';
 
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
-import 'package:fitness_exercise_application/core/legal/legal_documents.dart';
-import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
-
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/core/services/notification_service.dart';
+import 'package:fitness_exercise_application/core/services/notification_scheduler.dart';
+import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
+import 'package:fitness_exercise_application/features/legal/presentation/screens/privacy_policy_screen.dart';
+import 'package:fitness_exercise_application/features/legal/presentation/screens/terms_of_service_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
-import 'package:fitness_exercise_application/features/settings/presentation/widgets/profile_header.dart';
-import 'package:fitness_exercise_application/features/settings/presentation/widgets/settings_section.dart';
-import 'package:fitness_exercise_application/features/settings/presentation/widgets/settings_tile.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -16,13 +17,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-const _bgTop = Color(0xFF0A1320);
-const _bgBottom = Color(0xFF08111B);
-const _muted = Color(0xFF8A96A9);
-const _cyan = Color(0xFF19E2FF);
-const _red = Color(0xFFE33C49);
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -77,40 +71,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Future<void> _showLanguageSelector(AppLanguage currentLang) async {
     final selected = await showModalBottomSheet<AppLanguage>(
       context: context,
-      backgroundColor: const Color(0xFF112033),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AetronColors.panelHigh,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 20,
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Text(
-                  AppTranslations.get('select_language', currentLang),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+              Text(
+                AppTranslations.get('select_language', currentLang),
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AetronColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 12),
-              ListTile(
-                leading: const Text('🇻🇳', style: TextStyle(fontSize: 24)),
-                title: const Text('Tiếng Việt', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                trailing: currentLang == AppLanguage.vi ? const Icon(Icons.check_circle_rounded, color: _cyan) : null,
+              const SizedBox(height: 16),
+              _LanguageOptionTile(
+                flag: '🇻🇳',
+                name: 'Tiếng Việt',
+                isSelected: currentLang == AppLanguage.vi,
                 onTap: () => Navigator.of(context).pop(AppLanguage.vi),
               ),
-              const Divider(color: Color(0x12FFFFFF)),
-              ListTile(
-                leading: const Text('🇬🇧', style: TextStyle(fontSize: 24)),
-                title: const Text('English', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                trailing: currentLang == AppLanguage.en ? const Icon(Icons.check_circle_rounded, color: _cyan) : null,
+              const SizedBox(height: 10),
+              _LanguageOptionTile(
+                flag: '🇬🇧',
+                name: 'English',
+                isSelected: currentLang == AppLanguage.en,
                 onTap: () => Navigator.of(context).pop(AppLanguage.en),
               ),
             ],
@@ -143,10 +144,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _setNotificationsEnabled(bool value) async {
+    if (value) {
+      final allowed = await NotificationService.instance.requestPermissions();
+      if (!allowed && mounted) {
+        openAppSettings();
+      }
+    }
     setState(() => _notificationsEnabled = value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(kNotificationsPrefKey, value);
     ref.invalidate(notificationsPreferenceProvider);
+
+    final lang = ref.read(appLanguageProvider);
+    final workouts = ref.read(workoutListProvider).valueOrNull ?? [];
+    final activeGoal = ref.read(userGoalProvider).valueOrNull;
+    final streak = ref.read(streakProvider).currentStreak;
+    final useMetric = _useMetricUnits;
+
+    NotificationScheduler.refreshSchedules(
+      notificationsEnabled: value,
+      workoutRemindersEnabled: value,
+      morningReminderTime: '08:00',
+      goalProgressEnabled: value,
+      eveningCheckInEnabled: value,
+      eveningCheckInTime: '20:00',
+      achievementEnabled: value,
+      streakRemindersEnabled: value,
+      inactivityRemindersEnabled: value,
+      quietHoursEnabled: true,
+      quietHoursStart: '22:00',
+      quietHoursEnd: '07:00',
+      lang: lang,
+      workouts: workouts,
+      activeGoal: activeGoal,
+      currentStreak: streak,
+      useMetricUnits: useMetric,
+    );
   }
 
   Future<void> _setUseMetricUnits(bool value) async {
@@ -255,7 +288,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            deletedEntries > 0 ? 'Cache cleared' : 'No cache to clear',
+            deletedEntries > 0 ? 'Cache cleared successfully' : 'No temporary files to clear',
           ),
         ),
       );
@@ -282,57 +315,234 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
     final currentLang = ref.watch(appLanguageProvider);
-    final userMetaName = user?.userMetadata?['display_name'] as String? ??
-        user?.userMetadata?['username'] as String?;
-    final displayName = (userMetaName != null && userMetaName.trim().isNotEmpty)
-        ? userMetaName.trim()
-        : user?.email?.split('@').first ?? 'Athlete';
 
     return Scaffold(
-      backgroundColor: _bgBottom,
-      appBar: AppBar(
-        title: Text(AppTranslations.get('settings', currentLang)),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_bgTop, _bgBottom],
-          ),
-        ),
-        child: RefreshIndicator(
-          onRefresh: _refreshPermissions,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 28),
-            children: [
-              const SizedBox(height: 8),
-              ProfileHeader(
-                name: displayName,
-                handle: '',
+      backgroundColor: AetronColors.voidBlack,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 3D Top Header Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    color: AetronColors.cyanSoft,
+                    iconSize: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppTranslations.get('settings', currentLang).toUpperCase(),
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        AppTranslations.get('settings', currentLang),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: AetronColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+
+            Expanded(
+              child: RefreshIndicator(
+                color: AetronColors.cyan,
+                backgroundColor: AetronColors.panelHigh,
+                onRefresh: _refreshPermissions,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
-                    Row(
+                    // SECTION 1: APP PREFERENCES
+                    _Settings3DGroup(
+                      title: AppTranslations.get('app_preferences', currentLang),
                       children: [
-                        const Icon(Icons.tune_rounded, color: _cyan, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          AppTranslations.get('settings', currentLang).toUpperCase(),
-                          style: const TextStyle(
-                            color: _muted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 2,
+                        _Settings3DTile(
+                          icon: Icons.language_rounded,
+                          title: AppTranslations.get('app_language', currentLang),
+                          subtitle: currentLang == AppLanguage.vi ? '🇻🇳 Tiếng Việt' : '🇬🇧 English',
+                          accentColor: AetronColors.cyan,
+                          trailing: const Icon(Icons.chevron_right_rounded, color: AetronColors.textSecondary),
+                          onTap: () => _showLanguageSelector(currentLang),
+                        ),
+                        _Settings3DTile(
+                          icon: Icons.notifications_active_rounded,
+                          title: AppTranslations.get('daily_reminder', currentLang),
+                          subtitle: AppTranslations.get('daily_notifications', currentLang),
+                          accentColor: AetronColors.mint,
+                          trailing: Switch(
+                            value: _notificationsEnabled,
+                            onChanged: _setNotificationsEnabled,
+                            activeThumbColor: AetronColors.cyan,
+                          ),
+                          onTap: () => _setNotificationsEnabled(!_notificationsEnabled),
+                        ),
+                        _Settings3DTile(
+                          icon: Icons.straighten_rounded,
+                          title: AppTranslations.get('units', currentLang),
+                          subtitle: AppTranslations.get('units_subtitle', currentLang),
+                          accentColor: AetronColors.blue,
+                          trailing: Switch(
+                            value: _useMetricUnits,
+                            onChanged: _setUseMetricUnits,
+                            activeThumbColor: AetronColors.cyan,
+                          ),
+                          onTap: () => _setUseMetricUnits(!_useMetricUnits),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // SECTION 2: PRIVACY & PERMISSIONS ACCESS
+                    _Settings3DGroup(
+                      title: AppTranslations.get('privacy_access', currentLang),
+                      children: [
+                        _Settings3DTile(
+                          icon: Icons.camera_alt_rounded,
+                          title: AppTranslations.get('camera_access', currentLang),
+                          subtitle: _loadingPermissions
+                              ? AppTranslations.get('checking_access', currentLang)
+                              : _permissionDescription(
+                                  _cameraStatus,
+                                  allowed: AppTranslations.get('camera_ready', currentLang),
+                                  denied: AppTranslations.get('camera_denied', currentLang),
+                                  lang: currentLang,
+                                ),
+                          accentColor: AetronColors.cyan,
+                          trailing: _permission3DBadge(_cameraStatus, currentLang),
+                          onTap: _handleCameraPermissionTap,
+                        ),
+                        _Settings3DTile(
+                          icon: Icons.photo_library_rounded,
+                          title: AppTranslations.get('photo_access', currentLang),
+                          subtitle: _loadingPermissions
+                              ? AppTranslations.get('checking_access', currentLang)
+                              : _photoPermissionDescription(
+                                  _photosStatus,
+                                  full: AppTranslations.get('photos_ready', currentLang),
+                                  denied: AppTranslations.get('photos_denied', currentLang),
+                                  limited: AppTranslations.get('photos_limited', currentLang),
+                                  lang: currentLang,
+                                ),
+                          accentColor: AetronColors.mint,
+                          trailing: _photoPermission3DBadge(_photosStatus, currentLang),
+                          onTap: _handlePhotoPermissionTap,
+                        ),
+                        _Settings3DTile(
+                          icon: Icons.location_on_rounded,
+                          title: AppTranslations.get('location_access', currentLang),
+                          subtitle: _loadingPermissions
+                              ? AppTranslations.get('checking_access', currentLang)
+                              : _permissionDescription(
+                                  _locationStatus,
+                                  allowed: AppTranslations.get('location_ready', currentLang),
+                                  denied: AppTranslations.get('location_denied', currentLang),
+                                  lang: currentLang,
+                                ),
+                          accentColor: AetronColors.gold,
+                          trailing: _permission3DBadge(_locationStatus, currentLang),
+                          onTap: _handleLocationPermissionTap,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // SECTION 3: DATA & STORAGE
+                    _Settings3DGroup(
+                      title: AppTranslations.get('data', currentLang),
+                      children: [
+                        _Settings3DTile(
+                          icon: Icons.delete_sweep_rounded,
+                          title: AppTranslations.get('clear_cache', currentLang),
+                          subtitle: _isClearingCache
+                              ? AppTranslations.get('clearing_cache', currentLang)
+                              : (currentLang == AppLanguage.vi ? 'Xóa tệp tạm và bộ nhớ đệm hình ảnh' : 'Clear temporary files and cached images'),
+                          accentColor: AetronColors.warning,
+                          trailing: _isClearingCache
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AetronColors.cyan,
+                                  ),
+                                )
+                              : const Icon(Icons.chevron_right_rounded, color: AetronColors.textSecondary),
+                          onTap: _clearCache,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // SECTION 4: LEGAL & SUPPORT
+                    _Settings3DGroup(
+                      title: AppTranslations.get('legal_and_support', currentLang),
+                      children: [
+                        _Settings3DTile(
+                          icon: Icons.privacy_tip_outlined,
+                          title: AppTranslations.get('privacy_policy', currentLang),
+                          subtitle: AppTranslations.get('privacy_sub', currentLang),
+                          accentColor: AetronColors.cyan,
+                          trailing: const Icon(Icons.chevron_right_rounded, color: AetronColors.textSecondary),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                            );
+                          },
+                        ),
+                        _Settings3DTile(
+                          icon: Icons.description_outlined,
+                          title: AppTranslations.get('terms_of_service', currentLang),
+                          subtitle: AppTranslations.get('terms_sub', currentLang),
+                          accentColor: AetronColors.blue,
+                          trailing: const Icon(Icons.chevron_right_rounded, color: AetronColors.textSecondary),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const TermsOfServiceScreen()),
+                            );
+                          },
+                        ),
+                        _Settings3DTile(
+                          icon: Icons.info_outline_rounded,
+                          title: currentLang == AppLanguage.vi ? 'Phiên bản ứng dụng' : 'App Version',
+                          subtitle: _appVersion,
+                          accentColor: AetronColors.mint,
+                          onTap: () {},
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AetronColors.mint.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AetronColors.mint.withValues(alpha: 0.4)),
+                            ),
+                            child: const Text(
+                              'AETRON',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: AetronColors.mint,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -340,242 +550,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
-              SettingsSection(
-                title: AppTranslations.get('app_preferences', currentLang),
-                children: [
-                  SettingsTile(
-                    icon: Icons.language_rounded,
-                    title: AppTranslations.get('app_language', currentLang),
-                    subtitle: currentLang == AppLanguage.vi ? '🇻🇳 Tiếng Việt' : '🇬🇧 English',
-                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white54),
-                    onTap: () => _showLanguageSelector(currentLang),
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
-                  SettingsTile(
-                    icon: Icons.notifications,
-                    title: AppTranslations.get('daily_reminder', currentLang),
-                    subtitle: '',
-                    trailing: Switch(
-                      value: _notificationsEnabled,
-                      onChanged: _setNotificationsEnabled,
-                      activeThumbColor: _cyan,
-                    ),
-                    onTap: () =>
-                        _setNotificationsEnabled(!_notificationsEnabled),
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
-                  SettingsTile(
-                    icon: Icons.straighten,
-                    title: AppTranslations.get('units', currentLang),
-                    subtitle: '',
-                    trailing: Switch(
-                      value: _useMetricUnits,
-                      onChanged: _setUseMetricUnits,
-                      activeThumbColor: _cyan,
-                    ),
-                    onTap: () => _setUseMetricUnits(!_useMetricUnits),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SettingsSection(
-                title: AppTranslations.get('privacy_access', currentLang),
-                children: [
-                  SettingsTile(
-                    icon: Icons.camera_alt,
-                    title: AppTranslations.get('camera_access', currentLang),
-                    subtitle: _loadingPermissions
-                        ? AppTranslations.get('checking_access', currentLang)
-                        : _permissionDescription(
-                            _cameraStatus,
-                            allowed: AppTranslations.get('camera_ready', currentLang),
-                            denied: AppTranslations.get('camera_denied', currentLang),
-                            lang: currentLang,
-                          ),
-                    trailing: _permissionBadge(_cameraStatus, currentLang),
-                    onTap: _handleCameraPermissionTap,
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
-                  SettingsTile(
-                    icon: Icons.photo_library,
-                    title: AppTranslations.get('photo_access', currentLang),
-                    subtitle: _loadingPermissions
-                        ? AppTranslations.get('checking_access', currentLang)
-                        : _photoPermissionDescription(
-                            _photosStatus,
-                            full: AppTranslations.get('photos_ready', currentLang),
-                            denied: AppTranslations.get('photos_denied', currentLang),
-                            limited: AppTranslations.get('photos_limited', currentLang),
-                            lang: currentLang,
-                          ),
-                    trailing: _photoPermissionBadge(_photosStatus, currentLang),
-                    onTap: _handlePhotoPermissionTap,
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
-                  SettingsTile(
-                    icon: Icons.location_on,
-                    title: AppTranslations.get('location_access', currentLang),
-                    subtitle: _loadingPermissions
-                        ? AppTranslations.get('checking_access', currentLang)
-                        : _permissionDescription(
-                            _locationStatus,
-                            allowed: AppTranslations.get('location_ready', currentLang),
-                            denied: AppTranslations.get('location_denied', currentLang),
-                            lang: currentLang,
-                          ),
-                    trailing: _permissionBadge(_locationStatus, currentLang),
-                    onTap: _handleLocationPermissionTap,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SettingsSection(
-                title: AppTranslations.get('data', currentLang),
-                children: [
-                  SettingsTile(
-                    icon: Icons.delete_sweep,
-                    title: AppTranslations.get('clear_cache', currentLang),
-                    subtitle: _isClearingCache
-                        ? AppTranslations.get('clearing_cache', currentLang)
-                        : '',
-                    trailing: _isClearingCache
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    onTap: () => _showClearCacheDialog(currentLang),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SettingsSection(
-                title: AppTranslations.get('about_legal', currentLang),
-                children: [
-                  SettingsTile(
-                    icon: Icons.info,
-                    title: AppTranslations.get('version', currentLang),
-                    subtitle: _appVersion,
-                    trailing: const SizedBox.shrink(),
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
-                  SettingsTile(
-                    icon: Icons.description,
-                    title: AppTranslations.get('terms_of_service', currentLang),
-                    subtitle: '',
-                    onTap: () => _showDocumentSheet(
-                      title: AppTranslations.get('terms_of_service', currentLang),
-                      sections: LegalDocuments.getTermsOfService(currentLang),
-                    ),
-                  ),
-                  const Divider(height: 1, color: Color(0x12FFFFFF)),
-                  SettingsTile(
-                    icon: Icons.privacy_tip,
-                    title: AppTranslations.get('privacy_policy', currentLang),
-                    subtitle: '',
-                    onTap: () => _showDocumentSheet(
-                      title: AppTranslations.get('privacy_policy', currentLang),
-                      sections: LegalDocuments.getPrivacyPolicy(currentLang),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _logout(context, ref),
-                    icon: const Icon(Icons.logout_rounded),
-                    label: Text(AppTranslations.get('logout', currentLang)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _red,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _permissionBadge(PermissionStatus status, AppLanguage lang) {
-    final label = switch (status) {
-      PermissionStatus.granted => AppTranslations.get('allowed', lang),
-      PermissionStatus.limited => AppTranslations.get('limited', lang),
-      PermissionStatus.provisional => AppTranslations.get('allowed', lang),
-      PermissionStatus.restricted => AppTranslations.get('restricted', lang),
-      PermissionStatus.permanentlyDenied => AppTranslations.get('blocked', lang),
-      PermissionStatus.denied => AppTranslations.get('denied', lang),
-    };
-
-    final color = switch (status) {
-      PermissionStatus.granted => Colors.green,
-      PermissionStatus.limited => Colors.orange,
-      PermissionStatus.provisional => Colors.green,
-      PermissionStatus.restricted => Colors.grey,
-      PermissionStatus.permanentlyDenied => Colors.red,
-      PermissionStatus.denied => Colors.red,
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
+  Widget _permission3DBadge(PermissionStatus status, AppLanguage lang) {
+    if (status.isGranted) {
+      return _statusBadge(AppTranslations.get('allowed', lang), AetronColors.mint);
+    }
+    if (status.isLimited) {
+      return _statusBadge(AppTranslations.get('limited', lang), AetronColors.warning);
+    }
+    if (status.isRestricted) {
+      return _statusBadge(AppTranslations.get('restricted', lang), AetronColors.warning);
+    }
+    return _statusBadge(AppTranslations.get('denied', lang), AetronColors.danger);
   }
 
-  Widget _photoPermissionBadge(PermissionState status, AppLanguage lang) {
-    final label = switch (status) {
-      PermissionState.authorized => AppTranslations.get('full_access', lang),
-      PermissionState.limited => AppTranslations.get('limited', lang),
-      PermissionState.restricted => AppTranslations.get('restricted', lang),
-      PermissionState.denied => AppTranslations.get('blocked', lang),
-      PermissionState.notDetermined => AppTranslations.get('denied', lang),
-    };
+  Widget _photoPermission3DBadge(PermissionState status, AppLanguage lang) {
+    if (status == PermissionState.authorized) {
+      return _statusBadge(AppTranslations.get('full_access', lang), AetronColors.mint);
+    }
+    if (status == PermissionState.limited) {
+      return _statusBadge(AppTranslations.get('limited', lang), AetronColors.warning);
+    }
+    return _statusBadge(AppTranslations.get('denied', lang), AetronColors.danger);
+  }
 
-    final color = switch (status) {
-      PermissionState.authorized => Colors.green,
-      PermissionState.limited => Colors.orange,
-      PermissionState.restricted => Colors.grey,
-      PermissionState.denied => Colors.red,
-      PermissionState.notDetermined => Colors.red,
-    };
-
+  Widget _statusBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
-        label,
+        text.toUpperCase(),
         style: TextStyle(
+          fontFamily: 'Outfit',
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
           color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -586,200 +606,198 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     required String allowed,
     required String denied,
     required AppLanguage lang,
-    String? limited,
   }) {
-    return switch (status) {
-      PermissionStatus.granted => allowed,
-      PermissionStatus.provisional => allowed,
-      PermissionStatus.limited => limited ?? allowed,
-      PermissionStatus.restricted => AppTranslations.get('restricted', lang),
-      PermissionStatus.permanentlyDenied => denied,
-      PermissionStatus.denied => denied,
-    };
+    if (status.isGranted) return allowed;
+    if (status.isLimited) return AppTranslations.get('photos_limited', lang);
+    if (status.isRestricted) return AppTranslations.get('location_blocked', lang);
+    return denied;
   }
 
   String _photoPermissionDescription(
     PermissionState status, {
     required String full,
     required String denied,
+    required String limited,
     required AppLanguage lang,
-    String? limited,
   }) {
-    return switch (status) {
-      PermissionState.authorized => full,
-      PermissionState.limited => limited ?? full,
-      PermissionState.restricted => AppTranslations.get('restricted', lang),
-      PermissionState.denied => denied,
-      PermissionState.notDetermined => denied,
-    };
+    if (status == PermissionState.authorized) return full;
+    if (status == PermissionState.limited) return limited;
+    return denied;
   }
+}
 
-  void _showClearCacheDialog(AppLanguage lang) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTranslations.get('clear_cache', lang)),
-        content: Text(AppTranslations.get('clear_cache_confirm', lang)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(AppTranslations.get('cancel', lang)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await _clearCache();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(AppTranslations.get('clear', lang)),
-          ),
-        ],
-      ),
-    );
-  }
+class _Settings3DGroup extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
 
-  void _showDocumentSheet({
-    required String title,
-    required List<LegalDocumentSection> sections,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1726),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.82,
-        minChildSize: 0.5,
-        maxChildSize: 0.94,
-        expand: false,
-        builder: (context, scrollController) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(Icons.verified_user_outlined, color: _cyan, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Aetron Legal & Compliance Telemetry',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: _muted,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Divider(color: Color(0x1AFFFFFF), height: 1),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView.separated(
-                    controller: scrollController,
-                    itemCount: sections.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
-                      final item = sections[index];
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF132238),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0x1F19E2FF)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: _cyan,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              item.content,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFFD0D7E3),
-                                height: 1.55,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+  const _Settings3DGroup({
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: AetronColors.cyanSoft,
+              letterSpacing: 1.5,
             ),
           ),
         ),
-      ),
+        Container(
+          decoration: BoxDecoration(
+            color: AetronColors.panelHigh,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AetronColors.cyan.withValues(alpha: 0.25),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                children[i],
+                if (i != children.length - 1)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AetronColors.borderSubtle,
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
+}
 
-  Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final lang = ref.read(appLanguageProvider);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTranslations.get('logout', lang)),
-        content: Text(AppTranslations.get('logout_confirm', lang)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppTranslations.get('cancel', lang)),
+class _Settings3DTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accentColor;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const _Settings3DTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+    this.trailing,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: accentColor.withValues(alpha: 0.15),
+          border: Border.all(color: accentColor.withValues(alpha: 0.4)),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.15),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Icon(icon, color: accentColor, size: 18),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontFamily: 'Outfit',
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          color: AetronColors.textPrimary,
+        ),
+      ),
+      subtitle: subtitle.isNotEmpty
+          ? Text(
+              subtitle,
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 11,
+                color: AetronColors.textSecondary,
+              ),
+            )
+          : null,
+      trailing: trailing,
+    );
+  }
+}
+
+class _LanguageOptionTile extends StatelessWidget {
+  final String flag;
+  final String name;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _LanguageOptionTile({
+    required this.flag,
+    required this.name,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AetronColors.panelHigh : AetronColors.space,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AetronColors.cyan : AetronColors.borderSubtle,
+            width: isSelected ? 1.5 : 1,
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(AppTranslations.get('logout', lang)),
-          ),
-        ],
+        ),
+        child: Row(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? AetronColors.cyan : AetronColors.textPrimary,
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: AetronColors.cyan, size: 20),
+          ],
+        ),
       ),
     );
-
-    if (confirmed == true && context.mounted) {
-      ref.invalidate(workoutListProvider);
-      await Supabase.instance.client.auth.signOut();
-
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      }
-    }
   }
 }

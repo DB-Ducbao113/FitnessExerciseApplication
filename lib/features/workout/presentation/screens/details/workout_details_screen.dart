@@ -1,108 +1,135 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
-import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_feedback.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
-const _kBgTop = Color(0xff070b18);
-const _kBgBottom = Color(0xff0a1020);
-const _kPanel = Color(0xff101728);
-const _kPanelDeep = Color(0xff0e1424);
-const _kBorder = Color(0x553a4a63);
-const _kMuted = Color(0xff7d8da6);
-const _kText = Color(0xffd9e6f2);
-const _kCyan = Color(0xff00e5ff);
-const _kGreen = Color(0xff6be39b);
-const _kRed = Color(0xffff7a8a);
+const _kNeonCyan = Color(0xff00e5ff);
+const _kValidGreen = Color(0xFF6BE39B);
+const _kDangerRed = Color(0xFFFF7A8A);
 
+// Whether this activity type tracks steps.
 bool _hasSteps(String activityType) {
   final t = activityType.toLowerCase();
   return t == 'running' || t == 'walking';
 }
 
 class WorkoutDetailsScreen extends ConsumerWidget {
-  const WorkoutDetailsScreen({super.key, required this.workoutId});
-
   final String workoutId;
+
+  const WorkoutDetailsScreen({super.key, required this.workoutId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final workoutAsync = ref.watch(workoutProvider(workoutId));
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
-      backgroundColor: _kBgTop,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_kBgTop, _kBgBottom],
-          ),
-        ),
-        child: workoutAsync.when(
-          data: (workout) {
-            if (workout == null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: AetronStatePanel(
-                    title: 'Workout unavailable',
-                    message: 'This saved workout is no longer available.',
-                    tone: AetronStateTone.error,
-                    onRetry: () => ref.invalidate(workoutProvider(workoutId)),
+      backgroundColor: AetronColors.background,
+      body: SafeArea(
+        top: false,
+        child: AetronBackground(
+          child: Column(
+            children: [
+              // ── 3D Top Navigation Bar ─────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AetronSpacing.page,
+                  AetronSpacing.lg + 8,
+                  AetronSpacing.page,
+                  AetronSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Aetron3DOrbButton(
+                      icon: Icons.arrow_back_rounded,
+                      size: 44,
+                      iconSize: 20,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        AppTranslations.get('workout_details', currentLang),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          color: AetronColors.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Aetron3DOrbButton(
+                      icon: Icons.delete_outline_rounded,
+                      size: 44,
+                      iconSize: 20,
+                      color: AetronColors.danger,
+                      backgroundColor: AetronColors.danger.withValues(alpha: 0.12),
+                      onTap: () => _showDeleteConfirmation(context, ref, workoutId),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Scrollable 3D Body ───────────────────────────────────────
+              Expanded(
+                child: workoutAsync.when(
+                  data: (workout) {
+                    if (workout == null) {
+                      return Center(
+                        child: Text(
+                          currentLang == AppLanguage.vi
+                              ? 'Không tìm thấy buổi tập'
+                              : 'Workout not found',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      );
+                    }
+
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AetronSpacing.page,
+                        AetronSpacing.sm,
+                        AetronSpacing.page,
+                        AetronSpacing.xxl,
+                      ),
+                      children: [
+                        _WorkoutHeroSection(
+                          workoutId: workout.id,
+                          workout: workout,
+                          useMetricUnits: useMetricUnits,
+                          dateLabel: _formatWorkoutDetailsDate(
+                            workout.startedAt,
+                            currentLang,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                  loading: () => const Center(
+                    child: LoadingState(label: 'LOADING WORKOUT DATA'),
+                  ),
+                  error: (error, _) => Center(
+                    child: Text(
+                      'Error: $error',
+                      style: const TextStyle(color: AetronColors.danger),
+                    ),
                   ),
                 ),
-              );
-            }
-
-            return ListView(
-              padding: EdgeInsets.fromLTRB(
-                14,
-                MediaQuery.of(context).padding.top,
-                14,
-                24,
               ),
-              children: [
-                _DetailsHeader(
-                  onBack: () => Navigator.of(context).maybePop(),
-                  onDelete: () =>
-                      _showDeleteConfirmation(context, ref, workoutId),
-                ),
-                const SizedBox(height: 10),
-                _DetailsContent(
-                  workoutId: workoutId,
-                  workout: workout,
-                  useMetricUnits: useMetricUnits,
-                ),
-              ],
-            );
-          },
-          loading: () => const Center(
-            child: AetronLoadingPanel(
-              label: 'LOADING DETAILS',
-              message: 'Rebuilding your route recap.',
-            ),
-          ),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: AetronStatePanel(
-                title: 'Details unavailable',
-                message: 'This workout could not be loaded right now.',
-                tone: AetronStateTone.error,
-                onRetry: () => ref.invalidate(workoutProvider(workoutId)),
-              ),
-            ),
+            ],
           ),
         ),
       ),
@@ -110,71 +137,28 @@ class WorkoutDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _DetailsHeader extends ConsumerWidget {
-  const _DetailsHeader({required this.onBack, required this.onDelete});
-
-  final VoidCallback onBack;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return SizedBox(
-      height: 54,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              onPressed: onBack,
-              icon: const Icon(Icons.chevron_left_rounded),
-              color: _kText,
-              iconSize: 32,
-            ),
-          ),
-          Text(
-            AppTranslations.get('workout_details', currentLang).toUpperCase(),
-            style: const TextStyle(
-              color: _kText,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2.4,
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline_rounded),
-              color: _kMuted,
-              iconSize: 22,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailsContent extends ConsumerWidget {
-  const _DetailsContent({
-    required this.workoutId,
-    required this.workout,
-    required this.useMetricUnits,
-  });
-
+class _WorkoutHeroSection extends ConsumerWidget {
   final String workoutId;
   final WorkoutSession workout;
   final bool useMetricUnits;
+  final String dateLabel;
+
+  const _WorkoutHeroSection({
+    required this.workoutId,
+    required this.workout,
+    required this.useMetricUnits,
+    required this.dateLabel,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
     final routeAsync = ref.watch(workoutRoutePresentationProvider(workoutId));
-    final displayDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
+    final displayDistanceKm = workout.distanceKm;
+    final effectiveDistanceKm = workout.gpsAnalysis.validDistanceKm > 0
         ? workout.gpsAnalysis.validDistanceKm
-        : workout.distanceKm;
+        : displayDistanceKm;
+
     final avgPace = WorkoutFormatters.formatPaceFromDistanceAndDuration(
       distanceKm: displayDistanceKm,
       durationSec: workout.durationSec,
@@ -182,340 +166,498 @@ class _DetailsContent extends ConsumerWidget {
     );
     final movingPace =
         WorkoutFormatters.formatMovingPaceFromDistanceAndDuration(
-          distanceKm: displayDistanceKm,
+          distanceKm: effectiveDistanceKm,
           durationSec: workout.movingTimeSec,
           restDurationSec: 0,
           useMetric: useMetricUnits,
         );
+
     final showSteps = _hasSteps(workout.activityType) && workout.steps > 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _RouteRecapCard(
-          child: routeAsync.when(
-            data: (route) => route.routePoints.length >= 2
-                ? _RouteMapHero(
-                    routePoints: route.routePoints,
-                    activityType: workout.activityType,
-                  )
-                : _RouteUnavailable(
-                    activityType: workout.activityType,
-                    durationSec: workout.durationSec,
-                    distanceKm: displayDistanceKm,
-                    useMetricUnits: useMetricUnits,
-                  ),
-            loading: () => const Center(
-              child: AetronLoadingPanel(label: 'ROUTE SCAN', size: 126),
-            ),
-            error: (_, _) => _RouteUnavailable(
-              activityType: workout.activityType,
-              durationSec: workout.durationSec,
-              distanceKm: displayDistanceKm,
-              useMetricUnits: useMetricUnits,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: AetronColors.cyan.withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 36,
+            offset: const Offset(0, 18),
           ),
-        ),
-        const SizedBox(height: 16),
-        _ActivityTitleRow(
-          activityType: workout.activityType,
-          dateLabel: _formatDate(workout.startedAt, currentLang),
-        ),
-        const SizedBox(height: 18),
-        _DistanceReadout(
-          distanceKm: displayDistanceKm,
-          useMetricUnits: useMetricUnits,
-        ),
-        const SizedBox(height: 22),
-        _StatsPanel(
-          children: [
-            _HudMetric(
-              label: AppTranslations.get('duration', currentLang),
-              value: WorkoutFormatters.formatDurationFromSeconds(
-                workout.durationSec,
-              ),
-            ),
-            _HudMetric(label: AppTranslations.get('best_pace', currentLang), value: avgPace, alignRight: true),
-            _HudMetric(label: AppTranslations.get('moving_pace', currentLang), value: movingPace),
-            _HudMetric(
-              label: AppTranslations.get('moving_time', currentLang),
-              value: WorkoutFormatters.formatElapsedClock(
-                workout.movingTimeSec,
-              ),
-              alignRight: true,
-            ),
-            _HudMetric(
-              label: AppTranslations.get('calories', currentLang),
-              value: '${workout.caloriesKcal.round()} kcal',
-            ),
-            _HudMetric(
-              label: showSteps
-                  ? (currentLang == AppLanguage.vi ? 'Số bước' : 'Steps')
-                  : AppTranslations.get('rest_time', currentLang),
-              value: showSteps
-                  ? _formatSteps(workout.steps)
-                  : WorkoutFormatters.formatElapsedClock(
-                      workout.gpsAnalysis.restDurationSec,
-                    ),
-              alignRight: true,
-            ),
-            _HudMetric(
-              label: currentLang == AppLanguage.vi ? 'Bắt đầu' : 'Started',
-              value: DateFormat('HH:mm:ss').format(workout.startedAt.toLocal()),
-            ),
-            _HudMetric(
-              label: currentLang == AppLanguage.vi ? 'Hoàn thành' : 'Finished',
-              value: DateFormat('HH:mm:ss').format(workout.endedAt.toLocal()),
-              alignRight: true,
-            ),
-            _HudMetric(
-              label: currentLang == AppLanguage.vi ? 'Đã lưu' : 'Saved',
-              value: _formatDate(workout.createdAt, currentLang, includeTime: true),
-              wide: true,
-            ),
-          ],
-        ),
-        if (workout.lapSplits.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          _StatsPanel(
-            children: [
-              for (final split in workout.lapSplits)
-                _HudMetric(
-                  label:
-                      '${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits).toUpperCase()} ${split.index}',
-                  value:
-                      '${WorkoutFormatters.formatDurationFromSeconds(split.durationSeconds)}  ${WorkoutFormatters.formatSplitPace(split.paceMinPerKm, useMetric: useMetricUnits)}',
-                  wide: true,
-                ),
-            ],
+          BoxShadow(
+            color: AetronColors.cyan.withValues(alpha: 0.16),
+            blurRadius: 24,
+            spreadRadius: -2,
           ),
         ],
-        const SizedBox(height: 18),
-        const Center(child: _SignalBadge()),
-        const SizedBox(height: 12),
-        const Center(
-          child: Text(
-            'A E T R O N   T E L E M E T R Y   H U D   V.2.0.4',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _kCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RouteRecapCard extends StatelessWidget {
-  const _RouteRecapCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 252,
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: _kPanel,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _kBorder),
       ),
-      child: child,
-    );
-  }
-}
-
-class _ActivityTitleRow extends ConsumerWidget {
-  const _ActivityTitleRow({
-    required this.activityType,
-    required this.dateLabel,
-  });
-
-  final String activityType;
-  final String dateLabel;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return Row(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: const Color(0xff063a4d),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(_activityIcon(activityType), color: _kCyan, size: 30),
-        ),
-        const SizedBox(width: 13),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppTranslations.get(activityType, currentLang).toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+      child: Column(
+        children: [
+          // ── 3D Route Map Container ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: AetronColors.cyan.withValues(alpha: 0.30),
+                  width: 1.2,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AetronColors.cyan.withValues(alpha: 0.18),
+                    blurRadius: 16,
+                  ),
+                ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                dateLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _kText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DistanceReadout extends ConsumerWidget {
-  const _DistanceReadout({
-    required this.distanceKm,
-    required this.useMetricUnits,
-  });
-
-  final double distanceKm;
-  final bool useMetricUnits;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    final value = useMetricUnits
-        ? distanceKm
-        : WorkoutFormatters.kmToMi(distanceKm);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              value.toStringAsFixed(2),
-              style: const TextStyle(
-                color: Color(0xff8fdcff),
-                fontSize: 41,
-                height: 0.9,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1.6,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits),
-                style: const TextStyle(
-                  color: _kText,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: SizedBox(
+                  height: 300,
+                  width: double.infinity,
+                  child: routeAsync.when(
+                    data: (routePresentation) =>
+                        routePresentation.routePoints.length >= 2
+                        ? _DetailsRouteMapHero(
+                            routePoints: routePresentation.routePoints,
+                            activityType: workout.activityType,
+                          )
+                        : _DetailsRouteUnavailableState(
+                            activityType: workout.activityType,
+                            durationSec: workout.durationSec,
+                            distanceKm: displayDistanceKm,
+                            useMetricUnits: useMetricUnits,
+                          ),
+                    loading: () => const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF122437), Color(0xFF0B1522)],
+                        ),
+                      ),
+                      child: Center(
+                        child: LoadingState(label: 'LOADING ROUTE'),
+                      ),
+                    ),
+                    error: (_, _) => _DetailsRouteUnavailableState(
+                      activityType: workout.activityType,
+                      durationSec: workout.durationSec,
+                      distanceKm: displayDistanceKm,
+                      useMetricUnits: useMetricUnits,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          currentLang == AppLanguage.vi
-              ? 'KHOẢNG CÁCH GHI NHẬN'
-              : 'RECORDED DISTANCE',
-          style: const TextStyle(
-            color: _kMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
           ),
-        ),
-      ],
-    );
-  }
-}
 
-class _StatsPanel extends StatelessWidget {
-  const _StatsPanel({required this.children});
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── 3D Activity Icon & Header ──────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: AetronColors.cyan.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AetronColors.cyan.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AetronColors.cyan.withValues(alpha: 0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _activityIcon(workout.activityType),
+                        color: AetronColors.cyan,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            WorkoutFormatters.formatActivityType(
+                              workout.activityType,
+                              currentLang,
+                            ).toUpperCase(),
+                            style: const TextStyle(
+                              fontFamily: 'Outfit',
+                              color: AetronColors.textPrimary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dateLabel,
+                            style: const TextStyle(
+                              fontFamily: 'Outfit',
+                              color: AetronColors.cyanSoft,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
 
-  final List<Widget> children;
+                // ── 3D Distance Hero Display ────────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      (useMetricUnits
+                              ? displayDistanceKm
+                              : WorkoutFormatters.kmToMi(displayDistanceKm))
+                          .toStringAsFixed(2),
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        color: AetronColors.textPrimary,
+                        fontSize: 58,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -2.0,
+                        height: 0.95,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AetronColors.cyan.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AetronRadius.pill),
+                        border: Border.all(
+                          color: AetronColors.cyan.withValues(alpha: 0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        WorkoutFormatters.distanceUnitLabel(
+                          useMetric: useMetricUnits,
+                        ).toUpperCase(),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          color: AetronColors.cyan,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  currentLang == AppLanguage.vi
+                      ? 'quãng đường ghi nhận'
+                      : 'recorded distance',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textSecondary.withValues(alpha: 0.85),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 17, 18, 18),
-      decoration: BoxDecoration(
-        color: _kPanelDeep,
-        borderRadius: BorderRadius.circular(3),
+                // ── Primary 3D Telemetry Cards Grid (2x2) ───────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DetailsPrimary3DCard(
+                        id: 'details_stat_duration',
+                        icon: Icons.timer_rounded,
+                        label: AppTranslations.get('duration', currentLang),
+                        value: WorkoutFormatters.formatDurationFromSeconds(
+                          workout.durationSec,
+                        ),
+                        accent: AetronColors.mint,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _DetailsPrimary3DCard(
+                        id: 'details_stat_avg_pace',
+                        icon: Icons.speed_rounded,
+                        label: currentLang == AppLanguage.vi ? 'Pace TB' : 'Avg Pace',
+                        value: avgPace,
+                        accent: AetronColors.gold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DetailsPrimary3DCard(
+                        id: 'details_stat_calories',
+                        icon: Icons.local_fire_department_rounded,
+                        label: AppTranslations.get('calories', currentLang),
+                        value: '${workout.caloriesKcal.round()} kcal',
+                        accent: const Color(0xFFFF7A8A),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    if (showSteps)
+                      Expanded(
+                        child: _DetailsPrimary3DCard(
+                          id: 'details_stat_steps',
+                          icon: Icons.transfer_within_a_station_rounded,
+                          label: currentLang == AppLanguage.vi ? 'Số bước' : 'Steps',
+                          value: _formatSteps(workout.steps),
+                          accent: AetronColors.cyan,
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: _DetailsPrimary3DCard(
+                          id: 'details_stat_moving_pace',
+                          icon: Icons.directions_run_rounded,
+                          label: currentLang == AppLanguage.vi ? 'Pace di chuyển' : 'Moving Pace',
+                          value: movingPace,
+                          accent: AetronColors.cyan,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // ── 3D Secondary Telemetry Panel & Lap Splits ────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AetronColors.space,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: AetronColors.borderSubtle,
+                      width: 1.2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black38,
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      if (showSteps) ...[
+                        _DetailsSecondaryRow(
+                          label: currentLang == AppLanguage.vi ? 'Pace di chuyển' : 'Moving Pace',
+                          value: movingPace,
+                          icon: Icons.directions_run_rounded,
+                        ),
+                        _detailsDivider(),
+                      ],
+                      _DetailsSecondaryRow(
+                        label: currentLang == AppLanguage.vi ? 'Thời gian di chuyển' : 'Moving Time',
+                        value: WorkoutFormatters.formatElapsedClock(
+                          workout.movingTimeSec,
+                        ),
+                        icon: Icons.play_circle_outline_rounded,
+                      ),
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
+                        label: currentLang == AppLanguage.vi ? 'Thời gian nghỉ' : 'Rest Time',
+                        value: WorkoutFormatters.formatElapsedClock(
+                          workout.gpsAnalysis.restDurationSec,
+                        ),
+                        icon: Icons.pause_circle_outline_rounded,
+                      ),
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
+                        label: currentLang == AppLanguage.vi ? 'Hoạt động' : 'Activity',
+                        value: WorkoutFormatters.formatActivityType(
+                          workout.activityType,
+                          currentLang,
+                        ),
+                        icon: _activityIcon(workout.activityType),
+                      ),
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
+                        label: currentLang == AppLanguage.vi ? 'Bắt đầu' : 'Started',
+                        value: DateFormat('HH:mm:ss').format(workout.startedAt.toLocal()),
+                        icon: Icons.login_rounded,
+                      ),
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
+                        label: currentLang == AppLanguage.vi ? 'Kết thúc' : 'Finished',
+                        value: DateFormat('HH:mm:ss').format(workout.endedAt.toLocal()),
+                        icon: Icons.logout_rounded,
+                      ),
+                      _detailsDivider(),
+                      _DetailsSecondaryRow(
+                        label: currentLang == AppLanguage.vi ? 'Đã lưu' : 'Saved',
+                        value: DateFormat('dd/MM/yyyy HH:mm').format(workout.createdAt.toLocal()),
+                        icon: Icons.save_rounded,
+                      ),
+
+                      // ── 3D Lap Splits Section ──────────────────────────────
+                      if (workout.lapSplits.isNotEmpty) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(
+                            height: 1,
+                            color: AetronColors.borderSubtle,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            currentLang == AppLanguage.vi ? 'VÒNG LẶP (LAPS)' : 'LAP SPLITS',
+                            style: const TextStyle(
+                              fontFamily: 'Outfit',
+                              color: AetronColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        for (final split in workout.lapSplits) ...[
+                          _LapSplitRow(
+                            split: split,
+                            useMetricUnits: useMetricUnits,
+                          ),
+                          if (split != workout.lapSplits.last)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Divider(
+                                height: 1,
+                                color: AetronColors.borderSubtle,
+                              ),
+                            ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      child: Wrap(runSpacing: 20, children: children),
     );
   }
 }
 
-class _HudMetric extends StatelessWidget {
-  const _HudMetric({
-    required this.label,
-    required this.value,
-    this.alignRight = false,
-    this.wide = false,
-  });
+// ---------------------------------------------------------------------------
+// Primary 3D Stat Card
+// ---------------------------------------------------------------------------
 
+class _DetailsPrimary3DCard extends StatelessWidget {
+  final String id;
+  final IconData icon;
   final String label;
   final String value;
-  final bool alignRight;
-  final bool wide;
+  final Color accent;
+
+  const _DetailsPrimary3DCard({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: wide
-          ? double.infinity
-          : (MediaQuery.of(context).size.width - 64) / 2,
-      child: Column(
-        crossAxisAlignment: alignRight
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          Text(
-            label.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _kMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.8,
-            ),
+    return Container(
+      key: ValueKey(id),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(height: 5),
+          const BoxShadow(
+            color: Colors.black38,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: accent, size: 14),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    color: accent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
             value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: alignRight ? TextAlign.right : TextAlign.left,
             style: const TextStyle(
-              color: _kText,
-              fontSize: 18,
+              fontFamily: 'Outfit',
+              color: AetronColors.textPrimary,
+              fontSize: 19,
               fontWeight: FontWeight.w900,
-              letterSpacing: 0.4,
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -524,41 +666,88 @@ class _HudMetric extends StatelessWidget {
   }
 }
 
-class _SignalBadge extends ConsumerWidget {
-  const _SignalBadge();
+// ---------------------------------------------------------------------------
+// Secondary metric row
+// ---------------------------------------------------------------------------
+
+Widget _detailsDivider() => const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Divider(
+        height: 1,
+        color: AetronColors.borderSubtle,
+      ),
+    );
+
+class _DetailsSecondaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _DetailsSecondaryRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      decoration: BoxDecoration(
-        color: _kCyan.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _kCyan.withValues(alpha: 0.32)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.verified_rounded, color: _kCyan, size: 15),
-          const SizedBox(width: 8),
-          Text(
-            AppTranslations.get('high_precision_signal', currentLang),
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 20,
+          child: Icon(icon, size: 16, color: AetronColors.cyanSoft),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            color: AetronColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: _kCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.4,
+              fontFamily: 'Outfit',
+              color: AetronColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _RouteMapHero extends StatelessWidget {
-  const _RouteMapHero({required this.routePoints, required this.activityType});
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+String _formatSteps(int steps) {
+  if (steps >= 1000) {
+    return '${(steps / 1000).toStringAsFixed(1)}k';
+  }
+  return '$steps';
+}
+
+// ---------------------------------------------------------------------------
+// Route map / 3D unavailable state
+// ---------------------------------------------------------------------------
+
+class _DetailsRouteMapHero extends StatelessWidget {
+  const _DetailsRouteMapHero({
+    required this.routePoints,
+    required this.activityType,
+  });
 
   final List<LatLng> routePoints;
   final String activityType;
@@ -569,19 +758,19 @@ class _RouteMapHero extends StatelessWidget {
       routePoints: routePoints,
       activityType: activityType,
       icon: _activityIcon(activityType),
-      accentColor: _kCyan,
-      glowColor: _kCyan.withValues(alpha: 0.22),
+      accentColor: _kNeonCyan,
+      glowColor: _kNeonCyan.withValues(alpha: 0.22),
       highlightColor: Colors.white.withValues(alpha: 0.74),
-      startColor: _kGreen,
-      endColor: _kRed,
+      startColor: _kValidGreen,
+      endColor: _kDangerRed,
       badgeText: 'ROUTE RECAP',
       footerText: '${routePoints.length} points recorded',
     );
   }
 }
 
-class _RouteUnavailable extends ConsumerWidget {
-  const _RouteUnavailable({
+class _DetailsRouteUnavailableState extends ConsumerWidget {
+  const _DetailsRouteUnavailableState({
     required this.activityType,
     required this.durationSec,
     required this.distanceKm,
@@ -601,7 +790,7 @@ class _RouteUnavailable extends ConsumerWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xff13263a), Color(0xff0b1725)],
+          colors: [Color(0xFF13263A), Color(0xFF0B1725)],
         ),
       ),
       child: Center(
@@ -610,25 +799,76 @@ class _RouteUnavailable extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(_activityIcon(activityType), color: _kCyan, size: 42),
-              const SizedBox(height: 14),
-              Text(
-                currentLang == AppLanguage.vi
-                    ? 'KHÔNG CÓ LỘ TRÌNH GPS'
-                    : 'GPS ROUTE UNAVAILABLE',
-                style: const TextStyle(
-                  color: _kText,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.4,
+              AetronRadialGlow(
+                glowColor: AetronColors.cyan,
+                glowRadius: 40,
+                child: Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: AetronColors.cyan.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AetronColors.cyan.withValues(alpha: 0.45),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AetronColors.cyan.withValues(alpha: 0.3),
+                        blurRadius: 16,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _activityIcon(activityType),
+                    color: AetronColors.cyan,
+                    size: 32,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Text(
-                '${WorkoutFormatters.formatDistance(distanceKm, useMetric: useMetricUnits, decimals: 2)} / ${WorkoutFormatters.formatElapsedClock(durationSec)}',
+                currentLang == AppLanguage.vi
+                    ? 'Không có dữ liệu lộ trình trên thiết bị này'
+                    : 'Route unavailable on this device',
+                textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: _kMuted,
-                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Outfit',
+                  color: AetronColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                currentLang == AppLanguage.vi
+                    ? 'Buổi tập này vẫn lưu trữ dữ liệu hiệu suất, nhưng chi tiết lộ trình chưa được lưu trên thiết bị.'
+                    : 'This workout still keeps its performance data, but detailed route history was not stored locally.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AetronColors.panelHigh,
+                  borderRadius: BorderRadius.circular(AetronRadius.pill),
+                  border: Border.all(color: AetronColors.borderSubtle),
+                ),
+                child: Text(
+                  '${WorkoutFormatters.formatDistance(distanceKm, useMetric: useMetricUnits, decimals: 2)}  •  ${WorkoutFormatters.formatElapsedClock(durationSec)}',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.cyanSoft,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
@@ -639,31 +879,79 @@ class _RouteUnavailable extends ConsumerWidget {
   }
 }
 
-String _formatDate(DateTime dt, AppLanguage lang, {bool includeTime = false}) {
-  final local = dt.toLocal();
+String _formatWorkoutDetailsDate(DateTime date, AppLanguage lang) {
+  final d = date.toLocal();
   if (lang == AppLanguage.vi) {
-    const daysVi = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-    final dayOfWeek = daysVi[local.weekday % 7];
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year;
-    if (includeTime) {
-      final hour = local.hour.toString().padLeft(2, '0');
-      final minute = local.minute.toString().padLeft(2, '0');
-      return '$day/$month/$year $hour:$minute';
-    }
-    return '$dayOfWeek, $day/$month/$year';
+    const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    final dayName = days[d.weekday % 7];
+    final day = d.day.toString().padLeft(2, '0');
+    final month = d.month.toString().padLeft(2, '0');
+    return '$dayName, $day/$month/${d.year}';
   }
-  if (includeTime) {
-    return DateFormat('MMM dd, yyyy HH:mm').format(local);
-  }
-  return DateFormat('EEEE, MMM dd, yyyy').format(local);
+  return DateFormat('EEEE, MMM dd, yyyy').format(d);
 }
 
-String _formatSteps(int steps) {
-  if (steps >= 1000) return '${(steps / 1000).toStringAsFixed(1)}k';
-  return '$steps';
+// ---------------------------------------------------------------------------
+// Lap split row
+// ---------------------------------------------------------------------------
+
+class _LapSplitRow extends StatelessWidget {
+  final WorkoutLapSplit split;
+  final bool useMetricUnits;
+
+  const _LapSplitRow({required this.split, required this.useMetricUnits});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AetronColors.cyan.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(AetronRadius.pill),
+          ),
+          child: Text(
+            '${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits).toUpperCase()} ${split.index}',
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              color: AetronColors.cyan,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          WorkoutFormatters.formatDurationFromSeconds(split.durationSeconds),
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            color: AetronColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Text(
+          WorkoutFormatters.formatSplitPace(
+            split.paceMinPerKm,
+            useMetric: useMetricUnits,
+          ),
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            color: AetronColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
 
 IconData _activityIcon(String activityType) {
   switch (activityType.toLowerCase()) {
@@ -678,31 +966,159 @@ IconData _activityIcon(String activityType) {
   }
 }
 
-Future<void> _showDeleteConfirmation(
+void _showDeleteConfirmation(
   BuildContext context,
   WidgetRef ref,
   String workoutId,
-) async {
-  final confirmed = await showAetronConfirmDialog(
-    context,
-    title: 'Delete workout',
-    message:
-        'This removes the workout, route, and saved telemetry from your account. This cannot be undone.',
-    confirmLabel: 'Delete',
-    icon: Icons.delete_forever_rounded,
-    destructive: true,
-  );
-  if (!confirmed) return;
+) {
+  final lang = ref.read(appLanguageProvider);
 
-  try {
-    await ref.read(workoutListProvider.notifier).deleteWorkout(workoutId);
-    if (context.mounted) Navigator.of(context).pop();
-  } catch (_) {
-    if (!context.mounted) return;
-    showAetronNotice(
-      context,
-      message: 'Could not delete this workout. Please try again.',
-      tone: AetronNoticeTone.error,
-    );
-  }
+  showDialog(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AetronColors.panelHigh,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: AetronColors.danger.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AetronColors.danger.withValues(alpha: 0.2),
+              blurRadius: 24,
+            ),
+            const BoxShadow(
+              color: Colors.black87,
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AetronColors.danger.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: AetronColors.danger,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    AppTranslations.get('delete_workout', lang),
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      color: AetronColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              AppTranslations.get('confirm_delete_workout', lang),
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                color: AetronColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  child: Text(
+                    AppTranslations.get('cancel', lang),
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      color: AetronColors.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    try {
+                      await ref
+                          .read(workoutListProvider.notifier)
+                          .deleteWorkout(workoutId);
+
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              lang == AppLanguage.vi
+                                  ? 'Đã xóa buổi tập'
+                                  : 'Workout deleted',
+                              style: const TextStyle(fontFamily: 'Outfit'),
+                            ),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: AetronColors.danger,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AetronColors.danger,
+                    foregroundColor: AetronColors.space,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AetronRadius.pill),
+                    ),
+                    elevation: 6,
+                    shadowColor: AetronColors.danger.withValues(alpha: 0.5),
+                  ),
+                  child: Text(
+                    AppTranslations.get('delete_workout', lang),
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

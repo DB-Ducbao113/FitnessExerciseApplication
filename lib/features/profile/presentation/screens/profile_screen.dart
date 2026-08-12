@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/helpers/password_validator.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
@@ -11,6 +12,8 @@ import 'package:fitness_exercise_application/features/settings/presentation/prov
 import 'package:fitness_exercise_application/features/settings/presentation/screens/settings_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_logout_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -157,6 +160,7 @@ class ProfileScreen extends ConsumerWidget {
                   label: AppTranslations.get('achievements', currentLang),
                   onTap: () => _openAchievements(
                     context,
+                    currentLang: currentLang,
                     totalWorkouts: workoutsAsync.valueOrNull?.length ?? 0,
                     currentStreak: streak.currentStreak,
                     longestStreak: streak.longestStreak,
@@ -261,6 +265,11 @@ class ProfileScreen extends ConsumerWidget {
     String accountUsername,
     AppLanguage currentLang,
   ) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final userMetadata = user?.userMetadata ?? {};
+    final isGoogleUser = user?.appMetadata['provider'] == 'google';
+    final isPasswordUpgraded = isGoogleUser || (userMetadata['password_upgraded_v1'] == true);
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -276,38 +285,194 @@ class ProfileScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(999),
+              Align(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 AppTranslations.get('security', currentLang),
                 style: const TextStyle(
+                  fontFamily: 'Outfit',
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 '@$accountUsername',
                 style: const TextStyle(
+                  fontFamily: 'Outfit',
                   color: _muted,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
+
+              // DYNAMIC 3D SECURITY STATUS CARD
+              if (!isPasswordUpgraded) ...[
+                // Gold Warning Card for accounts requiring upgrade
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AetronColors.panelHigh,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AetronColors.gold.withValues(alpha: 0.4), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AetronColors.gold.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AetronColors.gold.withValues(alpha: 0.15),
+                              border: Border.all(color: AetronColors.gold.withValues(alpha: 0.4)),
+                            ),
+                            child: const Icon(Icons.security_update_good_rounded, color: AetronColors.gold, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              AppTranslations.get('security_upgrade_title', currentLang),
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: AetronColors.gold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        AppTranslations.get('security_upgrade_desc', currentLang),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 11,
+                          color: AetronColors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Aetron3DPrimaryButton(
+                        label: AppTranslations.get('update_password_action', currentLang),
+                        icon: Icons.lock_reset_rounded,
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _showUpdatePasswordSheet(context, currentLang);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ] else ...[
+                // Mint Green Optimal Security Card when password is up to date
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AetronColors.panelHigh,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AetronColors.mint.withValues(alpha: 0.4), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AetronColors.mint.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AetronColors.mint.withValues(alpha: 0.15),
+                          border: Border.all(color: AetronColors.mint.withValues(alpha: 0.4)),
+                        ),
+                        child: const Icon(Icons.verified_user_rounded, color: AetronColors.mint, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              currentLang == AppLanguage.vi
+                                  ? 'BẢO MẬT ĐÃ ĐẠT CHUẨN TỐI ƯU'
+                                  : 'STRONG SECURITY ACTIVE',
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: AetronColors.mint,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              currentLang == AppLanguage.vi
+                                  ? 'Tài khoản đã được bảo vệ với mật khẩu đủ tiêu chuẩn mạnh (chữ hoa, thường, số, ký tự đặc biệt).'
+                                  : 'Your account is protected with strong password security standards.',
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 11,
+                                color: AetronColors.textSecondary,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              _SecurityOption(
+                icon: Icons.shield_rounded,
+                title: currentLang == AppLanguage.vi
+                    ? 'Đổi mật khẩu mới'
+                    : 'Change password',
+                subtitle: currentLang == AppLanguage.vi
+                    ? 'Cập nhật lại mật khẩu đăng nhập tài khoản.'
+                    : 'Update your account login password.',
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _showUpdatePasswordSheet(context, currentLang);
+                },
+              ),
+              const SizedBox(height: 10),
               _SecurityOption(
                 icon: Icons.account_circle_outlined,
-                title: 'Google Gmail recovery',
-                subtitle:
-                    'Link a Google account to sign back in if you lose access.',
+                title: currentLang == AppLanguage.vi
+                    ? 'Khôi phục qua Google Gmail'
+                    : 'Google Gmail recovery',
+                subtitle: currentLang == AppLanguage.vi
+                    ? 'Liên kết tài khoản Google để khôi phục khi quên mật khẩu.'
+                    : 'Link a Google account to sign back in if you lose access.',
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _showGoogleGmailRecoverySheet(context);
@@ -317,6 +482,15 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showUpdatePasswordSheet(BuildContext context, AppLanguage currentLang) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _UpdatePasswordSheet(currentLang: currentLang),
     );
   }
 
@@ -331,6 +505,7 @@ class ProfileScreen extends ConsumerWidget {
 
   void _openAchievements(
     BuildContext context, {
+    required AppLanguage currentLang,
     required int totalWorkouts,
     required int currentStreak,
     required int longestStreak,
@@ -338,58 +513,76 @@ class ProfileScreen extends ConsumerWidget {
   }) {
     final achievements = <_AchievementData>[
       _AchievementData(
-        title: 'First Signal',
-        description: 'Complete your first recorded workout.',
+        title: currentLang == AppLanguage.vi ? 'Tín hiệu đầu tiên' : 'First Signal',
+        description: currentLang == AppLanguage.vi
+            ? 'Hoàn thành buổi tập đầu tiên được ghi nhận.'
+            : 'Complete your first recorded workout.',
         icon: Icons.bolt_rounded,
         current: totalWorkouts.toDouble(),
         target: 1,
-        progressLabel: 'workout',
-        reward: 'Starter Signal badge',
+        progressLabel: currentLang == AppLanguage.vi ? 'buổi tập' : 'workout',
+        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Tín hiệu đầu tiên' : 'Starter Signal badge',
+        lang: currentLang,
       ),
       _AchievementData(
-        title: 'Three Day Flow',
-        description: 'Build a 3-day training streak.',
+        title: currentLang == AppLanguage.vi ? 'Chuỗi 3 ngày' : 'Three Day Flow',
+        description: currentLang == AppLanguage.vi
+            ? 'Xây dựng chuỗi 3 ngày tập luyện liên tục.'
+            : 'Build a 3-day training streak.',
         icon: Icons.local_fire_department_rounded,
         current: longestStreak.toDouble(),
         target: 3,
-        progressLabel: 'days',
-        reward: 'Flow State badge',
+        progressLabel: currentLang == AppLanguage.vi ? 'ngày' : 'days',
+        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Trạng thái tập luyện' : 'Flow State badge',
+        lang: currentLang,
       ),
       _AchievementData(
-        title: 'Distance Builder',
-        description: 'Accumulate 25 km across your sessions.',
+        title: currentLang == AppLanguage.vi ? 'Tích lũy quãng đường' : 'Distance Builder',
+        description: currentLang == AppLanguage.vi
+            ? 'Tích lũy tổng cộng 25 km qua các buổi tập.'
+            : 'Accumulate 25 km across your sessions.',
         icon: Icons.route_rounded,
         current: totalDistanceKm,
         target: 25,
         progressLabel: 'km',
-        reward: 'Distance Builder badge',
+        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Tích lũy quãng đường' : 'Distance Builder badge',
+        lang: currentLang,
       ),
       _AchievementData(
-        title: 'Committed Athlete',
-        description: 'Log 10 workouts on Aetron.',
+        title: currentLang == AppLanguage.vi ? 'Vận động viên kiên trì' : 'Committed Athlete',
+        description: currentLang == AppLanguage.vi
+            ? 'Ghi nhận 10 buổi tập trên Aetron.'
+            : 'Log 10 workouts on Aetron.',
         icon: Icons.emoji_events_rounded,
         current: totalWorkouts.toDouble(),
         target: 10,
-        progressLabel: 'workouts',
-        reward: 'Committed Athlete badge',
+        progressLabel: currentLang == AppLanguage.vi ? 'buổi tập' : 'workouts',
+        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Vận động viên kiên trì' : 'Committed Athlete badge',
+        lang: currentLang,
       ),
       _AchievementData(
-        title: 'Elite Rhythm',
-        description: 'Keep a 7-day training streak alive.',
+        title: currentLang == AppLanguage.vi ? 'Nhịp điệu đẳng cấp' : 'Elite Rhythm',
+        description: currentLang == AppLanguage.vi
+            ? 'Duy trì chuỗi tập luyện 7 ngày liên tục.'
+            : 'Keep a 7-day training streak alive.',
         icon: Icons.workspace_premium_rounded,
         current: longestStreak.toDouble(),
         target: 7,
-        progressLabel: 'days',
-        reward: 'Elite Rhythm badge',
+        progressLabel: currentLang == AppLanguage.vi ? 'ngày' : 'days',
+        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Nhịp điệu đẳng cấp' : 'Elite Rhythm badge',
+        lang: currentLang,
       ),
       _AchievementData(
-        title: 'Century Mark',
-        description: 'Travel 100 km through recorded activity.',
+        title: currentLang == AppLanguage.vi ? 'Cột mốc 100 km' : 'Century Mark',
+        description: currentLang == AppLanguage.vi
+            ? 'Chinh phục tổng cộng 100 km qua các hoạt động.'
+            : 'Travel 100 km through recorded activity.',
         icon: Icons.explore_rounded,
         current: totalDistanceKm,
         target: 100,
         progressLabel: 'km',
-        reward: 'Century Explorer badge',
+        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Thám hiểm 100 km' : 'Century Explorer badge',
+        lang: currentLang,
       ),
     ];
     final unlockedCount = achievements.where((item) => item.unlocked).length;
@@ -408,25 +601,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0F1726),
-        title: const Text('Log out'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: _muted)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: _red),
-            child: const Text('Log out'),
-          ),
-        ],
-      ),
-    );
+    final confirmed = await AetronLogoutDialog.show(context);
     if (confirmed == true && context.mounted) {
       ref.invalidate(workoutListProvider);
       await Supabase.instance.client.auth.signOut();
@@ -482,11 +657,23 @@ class _AccountCard extends ConsumerWidget {
     );
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
-      padding: const EdgeInsets.fromLTRB(18, 28, 18, 18),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
       decoration: BoxDecoration(
-        color: _panel,
-        borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: _border),
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.35), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.40),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AetronColors.cyan.withValues(alpha: 0.12),
+            blurRadius: 18,
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -494,8 +681,8 @@ class _AccountCard extends ConsumerWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 118,
-                height: 118,
+                width: 88,
+                height: 88,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
@@ -520,8 +707,8 @@ class _AccountCard extends ConsumerWidget {
                     key: ValueKey(
                       localImagePath ?? imageUrl ?? 'default-avatar',
                     ),
-                    width: 82,
-                    height: 82,
+                    width: 68,
+                    height: 68,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: const Color(0xFF102031),
@@ -878,23 +1065,36 @@ class _ActionTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: _panel,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _border),
+              color: AetronColors.panelHigh,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: color.withValues(alpha: 0.34)),
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.15),
+                    border: Border.all(color: color.withValues(alpha: 0.4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                   child: Icon(icon, color: color, size: 18),
                 ),
@@ -903,15 +1103,16 @@ class _ActionTile extends StatelessWidget {
                   child: Text(
                     label,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
+                      fontFamily: 'Outfit',
+                      color: AetronColors.textPrimary,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 const Icon(
                   Icons.chevron_right_rounded,
-                  color: _muted,
+                  color: AetronColors.textSecondary,
                   size: 22,
                 ),
               ],
@@ -938,11 +1139,23 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _panelAlt,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _border),
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 8,
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -951,9 +1164,15 @@ class _InfoTile extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: color.withValues(alpha: 0.28)),
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.15),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                ),
+              ],
             ),
             child: Icon(icon, color: color, size: 18),
           ),
@@ -961,17 +1180,19 @@ class _InfoTile extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
+              fontFamily: 'Outfit',
+              color: AetronColors.textPrimary,
+              fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: _mutedSoft,
-              fontSize: 11,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              color: color,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.1,
             ),
@@ -996,17 +1217,20 @@ class _SheetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: _panel,
-        child: Icon(Icons.image_outlined, color: color),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _panel,
+          child: Icon(Icons.image_outlined, color: color),
+        ),
+        title: Text(label, style: const TextStyle(color: Colors.white)),
+        onTap: onTap,
+        iconColor: color,
+        textColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        trailing: Icon(icon, color: color),
       ),
-      title: Text(label, style: const TextStyle(color: Colors.white)),
-      onTap: onTap,
-      iconColor: color,
-      textColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      trailing: Icon(icon, color: color),
     );
   }
 }
@@ -1046,7 +1270,10 @@ class _GoogleGmailRecoverySheetState extends State<_GoogleGmailRecoverySheet> {
     super.initState();
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
       _,
-    ) {
+    ) async {
+      try {
+        await Supabase.instance.client.auth.getUser();
+      } catch (_) {}
       if (mounted) setState(() {});
     });
   }
@@ -1761,6 +1988,7 @@ class _AchievementData {
     required this.target,
     required this.progressLabel,
     required this.reward,
+    this.lang = AppLanguage.en,
   });
 
   final String title;
@@ -1770,6 +1998,7 @@ class _AchievementData {
   final double target;
   final String progressLabel;
   final String reward;
+  final AppLanguage lang;
 
   bool get unlocked => current >= target;
   double get progress => (current / target).clamp(0, 1);
@@ -1783,16 +2012,20 @@ class _AchievementData {
   }
 
   String get remainingText {
-    if (unlocked) return 'Milestone secured';
+    if (unlocked) {
+      return lang == AppLanguage.vi ? 'Đã hoàn thành cột mốc' : 'Milestone secured';
+    }
     final remaining = target - current;
     final number = progressLabel == 'km'
         ? remaining.toStringAsFixed(remaining >= 10 ? 0 : 1)
         : remaining.toStringAsFixed(0);
-    return '$number $progressLabel to go';
+    return lang == AppLanguage.vi
+        ? 'Còn $number $progressLabel nữa'
+        : '$number $progressLabel to go';
   }
 }
 
-class _AchievementsPage extends StatelessWidget {
+class _AchievementsPage extends ConsumerWidget {
   const _AchievementsPage({
     required this.achievements,
     required this.unlockedCount,
@@ -1808,7 +2041,8 @@ class _AchievementsPage extends StatelessWidget {
   final double totalDistanceKm;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
     final nextAchievement = achievements
         .where((achievement) => !achievement.unlocked)
         .fold<_AchievementData?>(null, (nearest, achievement) {
@@ -1818,124 +2052,141 @@ class _AchievementsPage extends StatelessWidget {
           return nearest;
         });
     return Scaffold(
-      backgroundColor: _bgBottom,
-      body: AetronBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              _AchievementsHeader(
-                unlockedCount: unlockedCount,
-                total: achievements.length,
-              ),
-              const Divider(height: 1, color: _border),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
-                  itemCount: achievements.length + 3,
-                  separatorBuilder: (_, index) =>
-                      SizedBox(height: index == 0 ? 18 : 10),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return _AchievementTelemetry(
-                        totalWorkouts: totalWorkouts,
-                        currentStreak: currentStreak,
-                        totalDistanceKm: totalDistanceKm,
-                      );
-                    }
-                    if (index == 1) {
-                      return _NextMilestoneCard(achievement: nextAchievement);
-                    }
-                    if (index == 2) {
-                      return const Text(
-                        'MILESTONE VAULT',
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.25,
-                        ),
-                      );
-                    }
-                    return _AchievementCard(
-                      achievement: achievements[index - 3],
+      backgroundColor: AetronColors.voidBlack,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _AchievementsHeader(
+              unlockedCount: unlockedCount,
+              total: achievements.length,
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                itemCount: achievements.length + 3,
+                separatorBuilder: (_, index) =>
+                    SizedBox(height: index == 0 ? 18 : 12),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _AchievementTelemetry(
+                      totalWorkouts: totalWorkouts,
+                      currentStreak: currentStreak,
+                      totalDistanceKm: totalDistanceKm,
                     );
-                  },
-                ),
+                  }
+                  if (index == 1) {
+                    return _NextMilestoneCard(achievement: nextAchievement);
+                  }
+                  if (index == 2) {
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 4, top: 4),
+                      child: Text(
+                        currentLang == AppLanguage.vi
+                            ? 'KHO THÀNH TỰU'
+                            : 'MILESTONE VAULT',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          color: AetronColors.cyanSoft,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    );
+                  }
+                  return _AchievementCard(
+                    achievement: achievements[index - 3],
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _AchievementsHeader extends StatelessWidget {
+class _AchievementsHeader extends ConsumerWidget {
   const _AchievementsHeader({required this.unlockedCount, required this.total});
 
   final int unlockedCount;
   final int total;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 58,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           IconButton(
             tooltip: 'Back to profile',
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-            color: _cyan,
+            color: AetronColors.cyanSoft,
           ),
-          const Expanded(
+          const SizedBox(width: 4),
+          Expanded(
             child: Text(
-              'ACHIEVEMENTS',
+              AppTranslations.get('achievements', currentLang).toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                color: AetronColors.textPrimary,
+                fontSize: 18,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.15,
               ),
             ),
           ),
           _UnlockCount(unlocked: unlockedCount, total: total),
-          const SizedBox(width: 14),
         ],
       ),
     );
   }
 }
 
-class _NextMilestoneCard extends StatelessWidget {
+class _NextMilestoneCard extends ConsumerWidget {
   const _NextMilestoneCard({required this.achievement});
 
   final _AchievementData? achievement;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
     if (achievement == null) {
       return Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _amber.withValues(alpha: 0.1),
-          border: Border.all(color: _amber.withValues(alpha: 0.35)),
-          borderRadius: BorderRadius.circular(10),
+          color: AetronColors.panelHigh,
+          border: Border.all(color: AetronColors.gold.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AetronColors.gold.withValues(alpha: 0.15),
+              blurRadius: 14,
+            ),
+          ],
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.workspace_premium_rounded, color: _amber),
-            SizedBox(width: 10),
+            const Icon(Icons.workspace_premium_rounded, color: AetronColors.gold, size: 24),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'ALL CURRENT MILESTONES SECURED',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
+                currentLang == AppLanguage.vi
+                    ? 'ĐÃ HOÀN THÀNH TẤT CẢ CỘT MỐC'
+                    : 'ALL CURRENT MILESTONES SECURED',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.gold,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: .7,
+                  letterSpacing: 0.8,
                 ),
               ),
             ),
@@ -1945,62 +2196,67 @@ class _NextMilestoneCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _cyan.withValues(alpha: 0.08),
-        border: Border.all(color: _cyan.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(10),
+        color: AetronColors.panelHigh,
+        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1.2),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _cyan.withValues(alpha: 0.08),
-            blurRadius: 22,
-            spreadRadius: 1,
+            color: AetronColors.cyan.withValues(alpha: 0.15),
+            blurRadius: 16,
+            spreadRadius: -2,
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: _cyan.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(9),
+              shape: BoxShape.circle,
+              color: AetronColors.cyan.withValues(alpha: 0.15),
+              border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4)),
             ),
-            child: Icon(achievement!.icon, color: _cyan, size: 21),
+            child: Icon(achievement!.icon, color: AetronColors.cyan, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'NEXT MILESTONE',
-                  style: TextStyle(
-                    color: _cyan,
-                    fontSize: 8,
+                Text(
+                  currentLang == AppLanguage.vi
+                      ? 'CỘT MỐC TIẾP THEO'
+                      : 'NEXT MILESTONE',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.cyan,
+                    fontSize: 9,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
+                    letterSpacing: 1.2,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   achievement!.title,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textPrimary,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${achievement!.remainingText} - ${achievement!.reward}',
+                  '${achievement!.remainingText} • ${achievement!.reward}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: _muted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textSecondary,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -2009,8 +2265,9 @@ class _NextMilestoneCard extends StatelessWidget {
           Text(
             '${(achievement!.progress * 100).round()}%',
             style: const TextStyle(
-              color: _cyan,
-              fontSize: 14,
+              fontFamily: 'Outfit',
+              color: AetronColors.cyan,
+              fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -2029,16 +2286,17 @@ class _UnlockCount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _cyan.withValues(alpha: 0.1),
-        border: Border.all(color: _cyan.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(8),
+        color: AetronColors.cyan.withValues(alpha: 0.15),
+        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4)),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         '$unlocked / $total',
         style: const TextStyle(
-          color: _cyan,
+          fontFamily: 'Outfit',
+          color: AetronColors.cyan,
           fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
@@ -2047,7 +2305,7 @@ class _UnlockCount extends StatelessWidget {
   }
 }
 
-class _AchievementTelemetry extends StatelessWidget {
+class _AchievementTelemetry extends ConsumerWidget {
   const _AchievementTelemetry({
     required this.totalWorkouts,
     required this.currentStreak,
@@ -2059,29 +2317,40 @@ class _AchievementTelemetry extends StatelessWidget {
   final double totalDistanceKm;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
-        color: _panel,
-        border: Border.all(color: _border),
-        borderRadius: BorderRadius.circular(10),
+        color: AetronColors.panelHigh,
+        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3), width: 1.2),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          _TelemetryValue(label: 'SESSIONS', value: '$totalWorkouts'),
-          const _TelemetryDivider(),
           _TelemetryValue(
-            label: 'STREAK',
-            value: '${currentStreak}D',
-            accent: _cyan,
+            label: currentLang == AppLanguage.vi ? 'BUỔI TẬP' : 'SESSIONS',
+            value: '$totalWorkouts',
           ),
           const _TelemetryDivider(),
           _TelemetryValue(
-            label: 'DISTANCE',
-            value:
-                '${totalDistanceKm.toStringAsFixed(totalDistanceKm >= 10 ? 0 : 1)} KM',
-            accent: _green,
+            label: currentLang == AppLanguage.vi ? 'CHUỖI' : 'STREAK',
+            value: '$currentStreak${currentLang == AppLanguage.vi ? 'N' : 'D'}',
+            accent: AetronColors.cyan,
+          ),
+          const _TelemetryDivider(),
+          _TelemetryValue(
+            label: currentLang == AppLanguage.vi ? 'QUÃNG ĐƯỜNG' : 'DISTANCE',
+            value: '${totalDistanceKm.toStringAsFixed(totalDistanceKm >= 10 ? 0 : 1)} KM',
+            accent: AetronColors.mint,
           ),
         ],
       ),
@@ -2093,7 +2362,7 @@ class _TelemetryValue extends StatelessWidget {
   const _TelemetryValue({
     required this.label,
     required this.value,
-    this.accent = Colors.white,
+    this.accent = AetronColors.textPrimary,
   });
 
   final String label;
@@ -2110,17 +2379,19 @@ class _TelemetryValue extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: _muted,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .8,
+              fontFamily: 'Outfit',
+              color: AetronColors.textSecondary,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           FittedBox(
             child: Text(
               value,
               style: TextStyle(
+                fontFamily: 'Outfit',
                 color: accent,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
@@ -2138,7 +2409,7 @@ class _TelemetryDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, height: 30, color: _border);
+    return Container(width: 1, height: 28, color: AetronColors.borderSubtle);
   }
 }
 
@@ -2150,107 +2421,130 @@ class _AchievementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unlocked = achievement.unlocked;
-    final accent = unlocked ? _amber : _cyan;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _showAchievementDetail(context, achievement),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          height: 106,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: unlocked ? _panelAlt : _panel,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: unlocked ? _amber.withValues(alpha: 0.48) : _border,
-            ),
+    final accent = unlocked ? AetronColors.gold : AetronColors.cyan;
+
+    return GestureDetector(
+      onTap: () => _showAchievementDetail(context, achievement),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AetronColors.panelHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: unlocked ? AetronColors.gold.withValues(alpha: 0.5) : AetronColors.borderSubtle,
+            width: unlocked ? 1.4 : 1.0,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: accent.withValues(alpha: 0.2)),
-                ),
-                child: Icon(
-                  unlocked ? achievement.icon : Icons.lock_outline_rounded,
-                  size: 20,
-                  color: accent,
-                ),
+          boxShadow: [
+            BoxShadow(
+              color: (unlocked ? AetronColors.gold : Colors.black).withValues(alpha: unlocked ? 0.15 : 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.15),
+                border: Border.all(color: accent.withValues(alpha: 0.4)),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              achievement.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                              ),
+              child: Icon(
+                unlocked ? achievement.icon : Icons.lock_outline_rounded,
+                size: 22,
+                color: accent,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            achievement.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Outfit',
+                              color: AetronColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          Text(
-                            unlocked ? 'UNLOCKED' : 'TRACKING',
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: accent.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            unlocked
+                                ? (achievement.lang == AppLanguage.vi ? 'ĐÃ MỞ KHÓA' : 'UNLOCKED')
+                                : (achievement.lang == AppLanguage.vi ? 'ĐANG THEO DÕI' : 'TRACKING'),
                             style: TextStyle(
+                              fontFamily: 'Outfit',
                               color: accent,
                               fontSize: 8,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: .65,
+                              letterSpacing: 0.8,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        achievement.description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _muted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      achievement.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        color: AetronColors.textSecondary,
+                        fontSize: 11,
                       ),
-                      const Spacer(),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
-                        child: LinearProgressIndicator(
-                          value: achievement.progress,
-                          minHeight: 5,
-                          color: accent,
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                        ),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: achievement.progress,
+                        minHeight: 6,
+                        color: accent,
+                        backgroundColor: AetronColors.space,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        achievement.progressText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: unlocked ? _amber : _muted,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      achievement.progressText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        color: unlocked ? AetronColors.gold : AetronColors.cyanSoft,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2263,6 +2557,8 @@ void _showAchievementDetail(
 ) {
   final unlocked = achievement.unlocked;
   final accent = unlocked ? _amber : _cyan;
+  final isVi = achievement.lang == AppLanguage.vi;
+
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -2316,8 +2612,8 @@ void _showAchievementDetail(
                       const SizedBox(height: 3),
                       Text(
                         unlocked
-                            ? 'MILESTONE SECURED'
-                            : 'MILESTONE IN PROGRESS',
+                            ? (isVi ? 'CỘT MỐC ĐÃ CHINH PHỤC' : 'MILESTONE SECURED')
+                            : (isVi ? 'CỘT MỐC ĐANG THỰC HIỆN' : 'MILESTONE IN PROGRESS'),
                         style: TextStyle(
                           color: accent,
                           fontSize: 9,
@@ -2342,18 +2638,20 @@ void _showAchievementDetail(
             ),
             const SizedBox(height: 16),
             _AchievementDetailLine(
-              label: 'PROGRESS',
+              label: isVi ? 'TIẾN ĐỘ' : 'PROGRESS',
               value: achievement.progressText,
             ),
             const SizedBox(height: 10),
             _AchievementDetailLine(
-              label: unlocked ? 'REWARD EARNED' : 'REWARD',
+              label: unlocked
+                  ? (isVi ? 'PHẦN THƯỞNG ĐÃ NHẬN' : 'REWARD EARNED')
+                  : (isVi ? 'PHẦN THƯỞNG' : 'REWARD'),
               value: achievement.reward,
               accent: accent,
             ),
             const SizedBox(height: 10),
             _AchievementDetailLine(
-              label: 'STATUS',
+              label: isVi ? 'TRẠNG THÁI' : 'STATUS',
               value: achievement.remainingText,
               accent: unlocked ? _green : _cyan,
             ),
@@ -2370,7 +2668,11 @@ void _showAchievementDetail(
                   ),
                 ),
                 onPressed: () => Navigator.of(sheetContext).pop(),
-                child: Text(unlocked ? 'SECURED' : 'KEEP TRAINING'),
+                child: Text(
+                  unlocked
+                      ? (isVi ? 'ĐÃ MỞ KHÓA' : 'SECURED')
+                      : (isVi ? 'TIẾP TỤC RÈN LUYỆN' : 'KEEP TRAINING'),
+                ),
               ),
             ),
           ],
@@ -2494,4 +2796,260 @@ String _formatHeightImperial(double meters) {
   final feet = totalInches ~/ 12;
   final inches = (totalInches - (feet * 12)).round();
   return '$feet ft $inches in';
+}
+
+class _UpdatePasswordSheet extends StatefulWidget {
+  final AppLanguage currentLang;
+
+  const _UpdatePasswordSheet({required this.currentLang});
+
+  @override
+  State<_UpdatePasswordSheet> createState() => _UpdatePasswordSheetState();
+}
+
+class _UpdatePasswordSheetState extends State<_UpdatePasswordSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updatePassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(
+          password: _passwordController.text,
+          data: {'password_upgraded_v1': true},
+        ),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppTranslations.get('password_updated_success', widget.currentLang),
+          ),
+          backgroundColor: AetronColors.mint,
+        ),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.message;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = widget.currentLang == AppLanguage.vi
+            ? 'Không thể cập nhật mật khẩu. Vui lòng thử lại.'
+            : 'Could not update password. Please try again.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = widget.currentLang;
+
+    return SafeArea(
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AetronColors.panelHigh,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(top: BorderSide(color: AetronColors.cyan, width: 1.2)),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  AppTranslations.get('security_upgrade_title', lang),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  AppTranslations.get('security_upgrade_desc', lang),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // New Password Field
+                Text(
+                  AppTranslations.get('new_password', lang).toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.cyanSoft,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  validator: (val) => validatePasswordStrict(val, lang),
+                  decoration: InputDecoration(
+                    hintText: '••••••••',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Outfit',
+                      color: AetronColors.textSecondary.withValues(alpha: 0.5),
+                    ),
+                    filled: true,
+                    fillColor: AetronColors.space,
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: AetronColors.cyanSoft, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        color: AetronColors.cyanSoft,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AetronColors.borderSubtle),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AetronColors.cyan, width: 1.5),
+                    ),
+                  ),
+                ),
+                PasswordSecurityMeter(
+                  password: _passwordController.text,
+                  lang: lang,
+                ),
+                const SizedBox(height: 12),
+
+                // Confirm New Password
+                Text(
+                  AppTranslations.get('confirm_password', lang).toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.cyanSoft,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  validator: (val) {
+                    if (val != _passwordController.text) {
+                      return AppTranslations.get('password_mismatch', lang);
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: '••••••••',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Outfit',
+                      color: AetronColors.textSecondary.withValues(alpha: 0.5),
+                    ),
+                    filled: true,
+                    fillColor: AetronColors.space,
+                    prefixIcon: const Icon(Icons.lock_clock_outlined, color: AetronColors.cyanSoft, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        color: AetronColors.cyanSoft,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AetronColors.borderSubtle),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AetronColors.cyan, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                if (_errorMessage != null) ...[
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AetronColors.danger, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                Aetron3DPrimaryButton(
+                  label: AppTranslations.get('update_password_action', lang),
+                  icon: Icons.shield_rounded,
+                  isLoading: _isLoading,
+                  onPressed: _isLoading ? null : _updatePassword,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

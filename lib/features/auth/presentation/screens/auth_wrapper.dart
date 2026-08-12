@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:fitness_exercise_application/app/bootstrap.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/force_password_upgrade_screen.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:fitness_exercise_application/features/onboarding/presentation/screens/account_onboarding_gate.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
@@ -34,18 +38,15 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
     _authStream = Supabase.instance.client.auth.onAuthStateChange;
   }
 
-  void _resetAccountScopedState({String? previousUserId, String? userId}) {
-    Future.microtask(() {
+  void _resetAccountScopedState({String? previousUserId}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.invalidate(workoutListProvider);
       ref.invalidate(userGoalProvider);
       ref.invalidate(avatarUploadProvider);
       if (previousUserId != null) {
         ref.invalidate(userProfileProvider(previousUserId));
         ref.invalidate(hasUserProfileProvider(previousUserId));
-      }
-      if (userId != null) {
-        ref.invalidate(userProfileProvider(userId));
-        ref.invalidate(hasUserProfileProvider(userId));
       }
     });
   }
@@ -86,15 +87,22 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           );
         }
 
+        // Check if user has upgraded to strong password policy
+        final userMetadata = session.user.userMetadata ?? {};
+        final isGoogleUser = session.user.appMetadata['provider'] == 'google';
+        final isPasswordUpgraded = isGoogleUser || (userMetadata['password_upgraded_v1'] == true);
+
+        if (!isPasswordUpgraded) {
+          return const ForcePasswordUpgradeScreen();
+        }
+
         // Route signed-in users by profile state.
         final userId = session.user.id;
         if (_activeUserId != userId) {
           final previousUserId = _activeUserId;
           _activeUserId = userId;
-          _resetAccountScopedState(
-            previousUserId: previousUserId,
-            userId: userId,
-          );
+          _resetAccountScopedState(previousUserId: previousUserId);
+          unawaited(ref.read(appBootstrapServiceProvider).hydrateUser(userId));
         }
         final hasProfileAsync = ref.watch(hasUserProfileProvider(userId));
 

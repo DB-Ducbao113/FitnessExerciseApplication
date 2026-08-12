@@ -12,4 +12,5 @@ abstract class UserProfileRepository {
   Future<UserProfile?> getProfile(String userId);
   Future<void> updateProfile(UserProfile profile);
   Future<void> createProfile(UserProfile profile);
+  Future<void> deleteAccount(String userId);
 }

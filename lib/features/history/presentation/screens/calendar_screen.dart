@@ -1,23 +1,21 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
-import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
-import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
-import 'package:fitness_exercise_application/features/history/presentation/widgets/daily_workout_list.dart';
+import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
+import 'package:fitness_exercise_application/features/history/presentation/widgets/daily_workout_list.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
-import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final historyRangeProvider = StateProvider<_HistoryRange>(
   (ref) => _HistoryRange.all,
 );
-
-const _kPanel = Color(0xFF102033);
-const _kNeonCyan = Color(0xFF19E2FF);
 
 class CalendarScreen extends ConsumerWidget {
   const CalendarScreen({super.key});
@@ -28,13 +26,11 @@ class CalendarScreen extends ConsumerWidget {
     final workoutsAsync = ref.watch(workoutListProvider);
     final range = ref.watch(historyRangeProvider);
     final isOffline = ref.watch(appConnectionProvider).valueOrNull == false;
-    final useMetricUnits =
-        ref.watch(metricUnitsPreferenceProvider).value ?? true;
+    final useMetricUnits = ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
-      body: AetronBackground(
-        withGrid: false,
+      body: SafeArea(
         child: workoutsAsync.when(
           data: (workouts) {
             if (workouts.isEmpty) {
@@ -45,55 +41,68 @@ class CalendarScreen extends ConsumerWidget {
             final summary = _HistorySummary.fromWorkouts(filtered);
 
             return RefreshIndicator(
-              color: _kNeonCyan,
-              backgroundColor: _kPanel,
+              color: AetronColors.cyan,
+              backgroundColor: AetronColors.panelHigh,
               onRefresh: () async {
                 await ref.read(workoutListProvider.notifier).refresh();
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 112),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
                 children: [
-                  const _BrandHeader(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppTranslations.get('calendar', currentLang).toUpperCase(),
-                          style: const TextStyle(
-                            color: AetronColors.text,
-                            fontSize: 20,
-                            height: 1,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
+                  // 3D Header Bar
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppTranslations.get('workout_history', currentLang),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AetronColors.textPrimary,
+                          letterSpacing: 1.2,
                         ),
-                        if (isOffline) ...[
-                          const SizedBox(height: 14),
-                          const AetronOfflineBanner(),
-                        ],
-                        const SizedBox(height: 20),
-                        _RangeTabs(
-                          selected: range,
-                          onChanged: (value) {
-                            ref.read(historyRangeProvider.notifier).state =
-                                value;
-                          },
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        currentLang == AppLanguage.vi
+                            ? 'Lịch sử tập luyện đã ghi nhận'
+                            : 'Recorded fitness timeline',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 12,
+                          color: AetronColors.cyanSoft,
                         ),
-                        const SizedBox(height: 20),
-                        _HistoryOverview(
-                          summary: summary,
-                          useMetricUnits: useMetricUnits,
-                        ),
-                        const SizedBox(height: 20),
-                        DailyWorkoutList(
-                          workouts: filtered,
-                          range: range.getLabel(currentLang),
-                        ),
+                      ),
+                      if (isOffline) ...[
+                        const SizedBox(height: 12),
+                        const AetronOfflineBanner(),
                       ],
-                    ),
+                      const SizedBox(height: 16),
+
+                      // 3D Range Tabs Segmented Control
+                      _RangeTabs(
+                        selected: range,
+                        onChanged: (value) {
+                          ref.read(historyRangeProvider.notifier).state = value;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 3D Summary Overview Card
+                      _History3DOverview(
+                        summary: summary,
+                        useMetricUnits: useMetricUnits,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 3D Workout Timeline List grouped by date
+                      DailyWorkoutList(
+                        workouts: filtered,
+                        range: range.getLabel(currentLang),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -102,7 +111,7 @@ class CalendarScreen extends ConsumerWidget {
           loading: () => const Center(
             child: AetronLoadingPanel(
               label: 'LOADING HISTORY',
-              message: 'Indexing recorded sessions.',
+              message: 'Retrieving your workout records.',
             ),
           ),
           error: (error, _) => Center(
@@ -110,7 +119,7 @@ class CalendarScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               child: AetronStatePanel(
                 title: 'History unavailable',
-                message: 'Your workout history could not be loaded right now.',
+                message: 'Your saved workouts could not be loaded right now.',
                 tone: AetronStateTone.error,
                 onRetry: () => ref.read(workoutListProvider.notifier).refresh(),
               ),
@@ -122,185 +131,9 @@ class CalendarScreen extends ConsumerWidget {
   }
 }
 
-
-class _HistoryEmptyExperience extends ConsumerWidget {
-  const _HistoryEmptyExperience({required this.range});
-
-  final _HistoryRange range;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return RefreshIndicator(
-      color: _kNeonCyan,
-      backgroundColor: _kPanel,
-      onRefresh: () => ref.read(workoutListProvider.notifier).refresh(),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Opacity(
-            opacity: 0.78,
-            child: CustomPaint(painter: _FullHistorySignalPainter()),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AetronColors.voidBlack.withValues(alpha: 0.32),
-                  Colors.transparent,
-                  AetronColors.voidBlack.withValues(alpha: 0.94),
-                ],
-              ),
-            ),
-          ),
-          CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Column(
-                  children: [
-                    const _BrandHeader(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-                      child: _RangeTabs(
-                        selected: range,
-                        onChanged: (value) {
-                          ref.read(historyRangeProvider.notifier).state = value;
-                        },
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.route_rounded,
-                      color: _kNeonCyan,
-                      size: 34,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      AppTranslations.get('route_timeline_standby', currentLang),
-                      style: AetronText.section,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      AppTranslations.get('no_activity_recorded', currentLang),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .35,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 28),
-                      child: Text(
-                        AppTranslations.get('no_activity_sub', currentLang),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AetronColors.cyanSoft,
-                          fontSize: 13,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                        child: AetronPrimaryButton(
-                          label: AppTranslations.get('record_activity', currentLang),
-                          icon: Icons.play_arrow_rounded,
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ActivityScreen(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FullHistorySignalPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final grid = Paint()
-      ..color = _kNeonCyan.withValues(alpha: 0.055)
-      ..strokeWidth = 1;
-    const step = 34.0;
-    for (var x = 0.0; x <= size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
-    }
-    for (var y = 0.0; y <= size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
-    }
-
-    final route = Path()
-      ..moveTo(size.width * .04, size.height * .78)
-      ..cubicTo(
-        size.width * .24,
-        size.height * .34,
-        size.width * .52,
-        size.height * .86,
-        size.width * .70,
-        size.height * .48,
-      )
-      ..cubicTo(
-        size.width * .84,
-        size.height * .19,
-        size.width * .94,
-        size.height * .30,
-        size.width * .90,
-        size.height * .66,
-      );
-    final glow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 18
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16)
-      ..color = _kNeonCyan.withValues(alpha: .16);
-    final line = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..color = _kNeonCyan.withValues(alpha: .62);
-    canvas.drawPath(route, glow);
-    canvas.drawPath(route, line);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BrandHeader extends ConsumerWidget {
-  const _BrandHeader();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return AetronHeader(
-      title: AppTranslations.get('nav_history', currentLang),
-      compact: true,
-      titleSize: 22,
-    );
-  }
-}
-
-class _HistoryOverview extends ConsumerWidget {
-  const _HistoryOverview({
+// ─── 3D Overview Card for Selected Period ───────────────────────────────────
+class _History3DOverview extends ConsumerWidget {
+  const _History3DOverview({
     required this.summary,
     required this.useMetricUnits,
   });
@@ -311,44 +144,91 @@ class _HistoryOverview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    final distance = WorkoutFormatters.formatDistance(
+    final distanceStr = WorkoutFormatters.formatDistance(
       summary.distanceKm,
       useMetric: useMetricUnits,
       decimals: 1,
     );
-    final duration = WorkoutFormatters.formatDurationFromSeconds(
+    final durationStr = WorkoutFormatters.formatDurationFromSeconds(
       summary.durationSec,
     );
-    final workoutLabel = currentLang == AppLanguage.vi ? 'buổi tập' : 'workouts';
+    final workoutUnit = currentLang == AppLanguage.vi
+        ? 'buổi'
+        : (summary.workouts == 1 ? 'workout' : 'workouts');
 
-    return AetronGlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      radius: 18,
-      child: Row(
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AetronColors.cyan.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AetronColors.cyan.withValues(alpha: 0.12),
+            blurRadius: 14,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.history_rounded, color: AetronColors.cyan, size: 28),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              '${summary.workouts} $workoutLabel / $distance / $duration',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AetronColors.text,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-              ),
+          Text(
+            AppTranslations.get('this_period', currentLang),
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(width: 12),
-          FittedBox(
-            child: Text(
-              '${summary.calories} KCAL',
-              style: AetronText.label.copyWith(
-                color: AetronColors.text,
-                fontSize: 11,
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${summary.workouts} $workoutUnit   •   $distanceStr ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}   •   $durationStr',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: AetronColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
+              if (summary.calories > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AetronColors.gold.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AetronColors.gold.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    '${summary.calories} kcal',
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 11,
+                      color: AetronColors.gold,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -356,6 +236,7 @@ class _HistoryOverview extends ConsumerWidget {
   }
 }
 
+// ─── Range Tabs 3D Segmented Selector ──────────────────────────────────────────
 class _RangeTabs extends ConsumerWidget {
   const _RangeTabs({required this.selected, required this.onChanged});
 
@@ -365,11 +246,95 @@ class _RangeTabs extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    return AetronSegmented<_HistoryRange>(
-      values: _HistoryRange.values,
-      selected: selected,
-      labelBuilder: (value) => value.getLabel(currentLang),
-      onChanged: onChanged,
+    final values = _HistoryRange.values;
+    final selectedIdx = values.indexOf(selected);
+
+    return AetronSegmentedControl(
+      selectedIndex: selectedIdx,
+      tabs: values.map((r) => r.getLabel(currentLang)).toList(),
+      onTabChanged: (idx) => onChanged(values[idx]),
+    );
+  }
+}
+
+// ─── 3D Empty History Experience ───────────────────────────────────────────────
+class _HistoryEmptyExperience extends ConsumerWidget {
+  const _HistoryEmptyExperience({required this.range});
+
+  final _HistoryRange range;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
+    return RefreshIndicator(
+      color: AetronColors.cyan,
+      backgroundColor: AetronColors.panelHigh,
+      onRefresh: () => ref.read(workoutListProvider.notifier).refresh(),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              _RangeTabs(
+                selected: range,
+                onChanged: (value) {
+                  ref.read(historyRangeProvider.notifier).state = value;
+                },
+              ),
+              const Spacer(),
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AetronColors.panelHigh,
+                  border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AetronColors.cyan.withValues(alpha: 0.2),
+                      blurRadius: 18,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  size: 44,
+                  color: AetronColors.cyan,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                AppTranslations.get('no_workouts_yet', currentLang),
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AetronColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                AppTranslations.get('empty_history_desc', currentLang),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 13,
+                  color: AetronColors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Aetron3DPrimaryButton(
+                label: AppTranslations.get('start_workout', currentLang).toUpperCase(),
+                icon: Icons.play_arrow_rounded,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ActivityScreen()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -389,7 +354,6 @@ extension on _HistoryRange {
         return AppTranslations.get('year', lang);
     }
   }
-
 }
 
 class _HistorySummary {
@@ -422,27 +386,46 @@ List<WorkoutSession> _filterWorkouts(
   List<WorkoutSession> workouts,
   _HistoryRange range,
 ) {
-  if (range == _HistoryRange.all) return List<WorkoutSession>.from(workouts);
-
-  final now = DateTimeHelper.localDateOnly(DateTime.now());
-  late final DateTime start;
-
-  switch (range) {
-    case _HistoryRange.week:
-      start = now.subtract(Duration(days: now.weekday - 1));
-      break;
-    case _HistoryRange.month:
-      start = DateTime(now.year, now.month, 1);
-      break;
-    case _HistoryRange.year:
-      start = DateTime(now.year, 1, 1);
-      break;
-    case _HistoryRange.all:
-      start = DateTime(2000);
-      break;
+  if (workouts.isEmpty || range == _HistoryRange.all) {
+    return List<WorkoutSession>.from(workouts);
   }
 
-  return workouts.where((workout) {
-    return !DateTimeHelper.localDateOnly(workout.startedAt).isBefore(start);
-  }).toList();
+  final now = DateTime.now();
+
+  List<WorkoutSession> getForWindow(DateTime referenceDate) {
+    final refDay = DateTimeHelper.localDateOnly(referenceDate);
+    switch (range) {
+      case _HistoryRange.week:
+        final start = refDay.subtract(const Duration(days: 6));
+        return workouts.where((w) {
+          final d = DateTimeHelper.localDateOnly(w.startedAt);
+          return !d.isBefore(start) && !d.isAfter(refDay);
+        }).toList();
+
+      case _HistoryRange.month:
+        final start = refDay.subtract(const Duration(days: 29));
+        return workouts.where((w) {
+          final d = DateTimeHelper.localDateOnly(w.startedAt);
+          return !d.isBefore(start) && !d.isAfter(refDay);
+        }).toList();
+
+      case _HistoryRange.year:
+        final start = DateTime(refDay.year, 1, 1);
+        return workouts.where((w) {
+          final d = DateTimeHelper.localDateOnly(w.startedAt);
+          return !d.isBefore(start) && d.year == refDay.year;
+        }).toList();
+
+      case _HistoryRange.all:
+        return List<WorkoutSession>.from(workouts);
+    }
+  }
+
+  final currentFiltered = getForWindow(now);
+  if (currentFiltered.isNotEmpty) {
+    return currentFiltered;
+  }
+
+  final latestWorkoutDate = workouts.first.startedAt;
+  return getForWindow(latestWorkoutDate);
 }

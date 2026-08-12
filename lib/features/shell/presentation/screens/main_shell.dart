@@ -1,4 +1,5 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'dart:ui';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/history/presentation/screens/calendar_screen.dart';
 import 'package:fitness_exercise_application/features/home/presentation/screens/home_screen.dart';
@@ -6,20 +7,21 @@ import 'package:fitness_exercise_application/features/profile/presentation/scree
 import 'package:fitness_exercise_application/features/analytics/presentation/screens/analytics_screen.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MainShell extends StatefulWidget {
+final mainTabControllerProvider = StateProvider<int>((ref) => 0);
+
+class MainShell extends ConsumerStatefulWidget {
   final int initialIndex;
 
   const MainShell({super.key, this.initialIndex = 0});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
-  late int _currentIndex;
-
+class _MainShellState extends ConsumerState<MainShell> {
   static const _screens = [
     HomeScreen(),
     ActivityScreen(),
@@ -31,17 +33,30 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, _screens.length - 1);
+    if (widget.initialIndex != 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(mainTabControllerProvider.notifier).state = widget.initialIndex;
+      });
+    }
+  }
+
+  void _onTabSelected(int index) {
+    if (ref.read(mainTabControllerProvider) != index) {
+      HapticFeedback.selectionClick();
+      ref.read(mainTabControllerProvider.notifier).state = index;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(mainTabControllerProvider);
+
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: currentIndex, children: _screens),
       bottomNavigationBar: _AetronDock(
-        currentIndex: _currentIndex,
-        onChanged: (i) => setState(() => _currentIndex = i),
+        currentIndex: currentIndex,
+        onChanged: _onTabSelected,
       ),
     );
   }
@@ -55,9 +70,9 @@ class _AetronDock extends ConsumerWidget {
 
   static const _items = [
     (Icons.home_outlined, Icons.home_rounded, 'nav_home'),
-    (Icons.grid_view_outlined, Icons.grid_view_rounded, 'nav_activity'),
-    (Icons.history_outlined, Icons.history_rounded, 'nav_history'),
-    (Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'nav_analytics'),
+    (Icons.directions_run_outlined, Icons.directions_run_rounded, 'nav_activity'),
+    (Icons.calendar_month_outlined, Icons.calendar_month_rounded, 'nav_history'),
+    (Icons.analytics_outlined, Icons.analytics_rounded, 'nav_analytics'),
     (Icons.person_outline, Icons.person_rounded, 'nav_profile'),
   ];
 
@@ -65,36 +80,52 @@ class _AetronDock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
     final bottom = MediaQuery.of(context).padding.bottom;
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, 0, 0, bottom > 0 ? 0 : 8),
-      child: Container(
-        padding: EdgeInsets.fromLTRB(14, 12, 14, 12 + bottom),
-        decoration: BoxDecoration(
-          color: AetronColors.space.withValues(alpha: 0.96),
-          border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.62)),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.40),
-              blurRadius: 24,
-              offset: const Offset(0, -10),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            for (var i = 0; i < _items.length; i++)
-              Expanded(
-                child: _DockItem(
-                  icon: _items[i].$1,
-                  selectedIcon: _items[i].$2,
-                  label: AppTranslations.get(_items[i].$3, currentLang),
-                  selected: i == currentIndex,
-                  onTap: () => onChanged(i),
-                ),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: AetronColors.space.withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: AetronColors.cyan.withValues(alpha: 0.25),
+                width: 1.2,
               ),
-          ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.60),
+                  blurRadius: 30,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: AetronColors.cyan.withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (var i = 0; i < _items.length; i++)
+                  Expanded(
+                    child: _DockItem(
+                      icon: _items[i].$1,
+                      selectedIcon: _items[i].$2,
+                      label: AppTranslations.get(_items[i].$3, currentLang),
+                      selected: i == currentIndex,
+                      onTap: () => onChanged(i),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -127,21 +158,24 @@ class _DockItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
-              width: selected ? 68 : 48,
-              height: 54,
+              width: selected ? 52 : 38,
+              height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected
-                    ? AetronColors.cyan.withValues(alpha: 0.23)
+                    ? AetronColors.cyan.withValues(alpha: 0.22)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
+                border: selected
+                    ? Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1)
+                    : null,
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: AetronColors.cyan.withValues(alpha: 0.22),
-                          blurRadius: 22,
+                          color: AetronColors.cyan.withValues(alpha: 0.25),
+                          blurRadius: 14,
                         ),
                       ]
                     : null,
@@ -149,7 +183,7 @@ class _DockItem extends StatelessWidget {
               child: Icon(
                 selected ? selectedIcon : icon,
                 color: selected ? AetronColors.cyanSoft : AetronColors.muted,
-                size: 28,
+                size: selected ? 21 : 19,
               ),
             ),
             const SizedBox(height: 3),
@@ -159,8 +193,9 @@ class _DockItem extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: selected ? AetronColors.cyanSoft : AetronColors.muted,
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                letterSpacing: 0.2,
               ),
             ),
           ],
@@ -169,3 +204,4 @@ class _DockItem extends StatelessWidget {
     );
   }
 }
+

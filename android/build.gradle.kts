@@ -25,15 +25,15 @@ tasks.register<Delete>("clean") {
 }
 
 subprojects {
-    if (path == ":isar_flutter_libs") {
-        afterEvaluate {
-            pluginManager.withPlugin("com.android.library") {
-                val android = extensions.findByName("android")
-                if (android != null) {
-                    val ext = android as com.android.build.gradle.BaseExtension
-                    ext.namespace = "dev.isar.isar_flutter_libs"
-                    ext.compileSdkVersion(34)
-                }
+    pluginManager.withPlugin("com.android.library") {
+        val android = extensions.findByName("android")
+        if (android != null) {
+            val ext = android as com.android.build.gradle.BaseExtension
+            if (path == ":isar_flutter_libs") {
+                ext.namespace = "dev.isar.isar_flutter_libs"
+                ext.compileSdkVersion(34)
+            } else {
+                ext.compileSdkVersion(36)
             }
         }
     }

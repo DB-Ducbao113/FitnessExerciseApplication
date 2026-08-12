@@ -1,6 +1,8 @@
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_setup_screen.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AthleteSetupFlow extends StatefulWidget {
@@ -16,8 +18,9 @@ class _AthleteSetupFlowState extends State<AthleteSetupFlow> {
   @override
   void initState() {
     super.initState();
+    final meta = Supabase.instance.client.auth.currentUser?.userMetadata;
     final displayName =
-        Supabase.instance.client.auth.currentUser?.userMetadata?['display_name']
+        (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name'])
             as String?;
     _hasDisplayName = displayName != null && displayName.trim().isNotEmpty;
   }
@@ -39,16 +42,16 @@ class _AthleteSetupFlowState extends State<AthleteSetupFlow> {
   }
 }
 
-class _AthleteNameScreen extends StatefulWidget {
+class _AthleteNameScreen extends ConsumerStatefulWidget {
   const _AthleteNameScreen({required this.onComplete});
 
   final VoidCallback onComplete;
 
   @override
-  State<_AthleteNameScreen> createState() => _AthleteNameScreenState();
+  ConsumerState<_AthleteNameScreen> createState() => _AthleteNameScreenState();
 }
 
-class _AthleteNameScreenState extends State<_AthleteNameScreen> {
+class _AthleteNameScreenState extends ConsumerState<_AthleteNameScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   bool _isSaving = false;
@@ -62,6 +65,7 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
 
   Future<void> _continue() async {
     if (!_formKey.currentState!.validate()) return;
+    final lang = ref.read(appLanguageProvider);
     setState(() {
       _isSaving = true;
       _errorMessage = null;
@@ -76,7 +80,9 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
       if (mounted) setState(() => _errorMessage = error.message);
     } catch (_) {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not save your name. Try again.');
+        setState(() => _errorMessage = lang == AppLanguage.vi
+            ? 'Không thể lưu tên. Vui lòng thử lại.'
+            : 'Could not save your name. Try again.');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -85,6 +91,8 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = ref.watch(appLanguageProvider);
+
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
       body: AetronBackground(
@@ -94,9 +102,9 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const AetronHeader(
-                  title: 'Athlete Setup',
-                  eyebrow: 'Identity calibration',
+                AetronHeader(
+                  title: lang == AppLanguage.vi ? 'Thiết lập Vận động viên' : 'Athlete Setup',
+                  eyebrow: lang == AppLanguage.vi ? 'Hiệu chỉnh danh tính' : 'Identity calibration',
                   compact: true,
                   titleSize: 22,
                 ),
@@ -123,9 +131,9 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
                   ),
                 ),
                 const SizedBox(height: 26),
-                const Text(
-                  'WHAT SHOULD\nWE CALL YOU?',
-                  style: TextStyle(
+                Text(
+                  lang == AppLanguage.vi ? 'BẠN TÊN LÀ GÌ?' : 'WHAT SHOULD\nWE CALL YOU?',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 30,
                     height: 1.02,
@@ -134,9 +142,11 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'This is how Aetron will greet you during your training.',
-                  style: TextStyle(
+                Text(
+                  lang == AppLanguage.vi
+                      ? 'Đây là tên Aetron sẽ dùng để chào bạn khi tập luyện.'
+                      : 'This is how Aetron will greet you during your training.',
+                  style: const TextStyle(
                     color: AetronColors.muted,
                     fontSize: 14,
                     height: 1.35,
@@ -158,12 +168,12 @@ class _AthleteNameScreenState extends State<_AthleteNameScreen> {
                     ),
                     validator: (value) {
                       final name = value?.trim() ?? '';
-                      if (name.length < 2) return 'Enter at least 2 characters';
-                      if (name.length > 24) return 'Use 24 characters or fewer';
+                      if (name.length < 2) return lang == AppLanguage.vi ? 'Nhập ít nhất 2 ký tự' : 'Enter at least 2 characters';
+                      if (name.length > 24) return lang == AppLanguage.vi ? 'Nhập tối đa 24 ký tự' : 'Use 24 characters or fewer';
                       return null;
                     },
                     decoration: InputDecoration(
-                      hintText: 'YOUR NAME',
+                      hintText: lang == AppLanguage.vi ? 'HỌ VÀ TÊN' : 'YOUR NAME',
                       hintStyle: const TextStyle(
                         color: AetronColors.muted,
                         fontWeight: FontWeight.w800,

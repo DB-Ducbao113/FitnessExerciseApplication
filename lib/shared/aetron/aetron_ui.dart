@@ -1,10 +1,19 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+
+export 'app_badge.dart';
+export 'app_button.dart';
+export 'app_card.dart';
+export 'app_progress_bar.dart';
+export 'app_states.dart';
+export 'app_text_field.dart';
+export 'section_header.dart';
+export 'stat_card.dart';
 
 class AetronColors {
   const AetronColors._();
 
+  // Core Palette
   static const voidBlack = Color(0xff0a0d1c);
   static const space = Color(0xff0f1321);
   static const panel = Color(0xff171b2a);
@@ -20,49 +29,170 @@ class AetronColors {
   static const muted = Color(0xff7d8da6);
   static const text = Color(0xffdfe1f6);
   static const border = Color(0x3300e5ff);
+
+  // Semantic Tokens
+  static const primary = cyan;
+  static const secondary = blue;
+  static const background = voidBlack;
+  static const surface = space;
+  static const card = panel;
+  static const cardElevated = panelHigh;
+  static const textPrimary = text;
+  static const textSecondary = muted;
+  static const borderSubtle = Color(0x22ffffff);
+  static const borderAccent = border;
+  static const success = mint;
+  static const warning = gold;
+  static const error = danger;
+  static const disabled = Color(0xff4a5568);
+  static const workoutActive = mint;
 }
 
 class AetronSpacing {
   const AetronSpacing._();
 
-  static const page = 24.0;
-  static const gutter = 16.0;
-  static const cardRadius = 24.0;
-  static const controlRadius = 18.0;
+  static const double xxs = 4.0;
+  static const double xs = 8.0;
+  static const double sm = 12.0;
+  static const double md = 16.0;
+  static const double lg = 24.0;
+  static const double xl = 32.0;
+  static const double xxl = 48.0;
+
+  static const page = 16.0;
+  static const gutter = 12.0;
+  static const cardRadius = 14.0;
+  static const controlRadius = 12.0;
+}
+
+class AetronRadius {
+  const AetronRadius._();
+
+  static const double small = 8.0;
+  static const double medium = 12.0;
+  static const double large = 16.0;
+  static const double extraLarge = 24.0;
+  static const double pill = 999.0;
+}
+
+class AetronTypography {
+  const AetronTypography._();
+
+  static const display = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textPrimary,
+    fontSize: 32,
+    fontWeight: FontWeight.w900,
+    letterSpacing: -0.5,
+  );
+
+  static const headingLarge = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.cyanSoft,
+    fontSize: 24,
+    fontWeight: FontWeight.w900,
+    letterSpacing: 1.5,
+  );
+
+  static const headingMedium = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textPrimary,
+    fontSize: 18,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.5,
+  );
+
+  static const headingSmall = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.cyan,
+    fontSize: 14,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 1.0,
+  );
+
+  static const bodyLarge = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textPrimary,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  static const body = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textPrimary,
+    fontSize: 14,
+    fontWeight: FontWeight.normal,
+  );
+
+  static const bodySmall = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textSecondary,
+    fontSize: 12,
+    fontWeight: FontWeight.normal,
+  );
+
+  static const caption = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textSecondary,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.8,
+  );
+
+  static const label = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.textSecondary,
+    fontSize: 10,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 1.2,
+  );
+
+  static const button = TextStyle(
+    fontFamily: 'Outfit',
+    color: AetronColors.space,
+    fontSize: 15,
+    fontWeight: FontWeight.w900,
+    letterSpacing: 1.2,
+  );
 }
 
 class AetronText {
   const AetronText._();
 
   static const header = TextStyle(
+    fontFamily: 'Outfit',
     color: AetronColors.cyanSoft,
-    fontSize: 42,
+    fontSize: 26,
     height: 1,
     fontWeight: FontWeight.w900,
-    letterSpacing: 5.2,
+    letterSpacing: 2.0,
   );
 
   static const section = TextStyle(
+    fontFamily: 'Outfit',
     color: AetronColors.cyan,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: FontWeight.w900,
-    letterSpacing: 4,
+    letterSpacing: 1.8,
   );
 
   static const label = TextStyle(
+    fontFamily: 'Outfit',
     color: AetronColors.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: FontWeight.w800,
-    letterSpacing: 2.4,
+    letterSpacing: 1.2,
   );
 
   static const metric = TextStyle(
+    fontFamily: 'Outfit',
     color: AetronColors.text,
-    fontSize: 34,
+    fontSize: 24,
     height: 1,
     fontWeight: FontWeight.w900,
   );
 }
+
 
 class AetronBackground extends StatelessWidget {
   const AetronBackground({
@@ -235,14 +365,14 @@ class AetronHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context);
     final style = AetronText.header.copyWith(
-      fontSize: titleSize ?? (compact ? 26 : 34),
+      fontSize: titleSize ?? (compact ? 20 : 24),
     );
     return Container(
       padding: EdgeInsets.fromLTRB(
         AetronSpacing.page,
-        MediaQuery.of(context).padding.top + 20,
+        MediaQuery.of(context).padding.top + 10,
         AetronSpacing.page,
-        20,
+        10,
       ),
       decoration: BoxDecoration(
         color: AetronColors.space.withValues(alpha: 0.86),
@@ -266,7 +396,7 @@ class AetronHeader extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.70),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                 ],
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -274,8 +404,8 @@ class AetronHeader extends StatelessWidget {
                   child: Text(
                     title.toUpperCase(),
                     maxLines: 1,
-                    style: scale.scale(style.fontSize!) > 48
-                        ? style.copyWith(fontSize: 34)
+                    style: scale.scale(style.fontSize!) > 36
+                        ? style.copyWith(fontSize: 24)
                         : style,
                   ),
                 ),
@@ -293,7 +423,7 @@ class AetronGlassCard extends StatelessWidget {
   const AetronGlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(18),
+    this.padding = const EdgeInsets.all(12),
     this.radius = AetronSpacing.cardRadius,
     this.borderColor = AetronColors.border,
     this.color,
@@ -354,11 +484,10 @@ class AetronLoadingScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
-      body: AetronBackground(
-        withGrid: withGrid,
+      body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(28),
+            padding: const EdgeInsets.all(24),
             child: AetronLoadingPanel(label: label, message: message),
           ),
         ),
@@ -372,7 +501,7 @@ class AetronLoadingPanel extends StatefulWidget {
     super.key,
     this.label = 'LOADING',
     this.message,
-    this.size = 176,
+    this.size = 190,
   });
 
   final String label;
@@ -392,7 +521,7 @@ class _AetronLoadingPanelState extends State<AetronLoadingPanel>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 2400),
     )..repeat();
   }
 
@@ -408,83 +537,95 @@ class _AetronLoadingPanelState extends State<AetronLoadingPanel>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox.square(
-          dimension: widget.size,
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return CustomPaint(
-                painter: _AetronLoaderPainter(progress: _controller.value),
-                child: Center(
-                  child: Container(
-                    width: widget.size * 0.42,
-                    height: widget.size * 0.42,
-                    padding: EdgeInsets.all(widget.size * 0.09),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AetronColors.space.withValues(alpha: 0.84),
-                      border: Border.all(
-                        color: AetronColors.cyan.withValues(alpha: 0.55),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AetronColors.cyan.withValues(alpha: 0.28),
-                          blurRadius: 28,
-                        ),
-                      ],
+          SizedBox.square(
+            dimension: widget.size,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                final floatOffset = math.sin(_controller.value * math.pi * 2) * 4;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: Size.square(widget.size),
+                      painter: _AetronLoaderPainter(progress: _controller.value),
                     ),
-                    child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-                  ),
+                    Transform.translate(
+                      offset: Offset(0, floatOffset),
+                      child: Container(
+                        width: widget.size * 0.45,
+                        height: widget.size * 0.45,
+                        padding: EdgeInsets.all(widget.size * 0.09),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AetronColors.space,
+                          border: Border.all(
+                            color: AetronColors.cyan.withValues(alpha: 0.6),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AetronColors.cyan.withValues(alpha: 0.35),
+                              blurRadius: 22,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            widget.label.toUpperCase(),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              color: AetronColors.textPrimary,
+              fontSize: scale.scale(15) > 18 ? 13 : 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 3.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 140,
+            height: 5,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 5,
+                backgroundColor: AetronColors.space,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AetronColors.cyan,
                 ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          widget.label.toUpperCase(),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AetronColors.cyanSoft,
-            fontSize: scale.scale(14) > 18 ? 12 : 14,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 3.2,
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: 132,
-          height: 4,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 4,
-              backgroundColor: AetronColors.panelBright.withValues(alpha: 0.45),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                AetronColors.cyan.withValues(alpha: 0.92),
               ),
             ),
           ),
-        ),
-        if (widget.message != null) ...[
-          const SizedBox(height: 14),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
-            child: Text(
-              widget.message!,
-              textAlign: TextAlign.center,
-              style: AetronText.label.copyWith(
-                color: AetronColors.muted,
-                height: 1.35,
-                letterSpacing: 1.4,
+          if (widget.message != null) ...[
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                widget.message!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.textSecondary,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
-    );
+      );
   }
 }
 
@@ -496,33 +637,33 @@ class _AetronLoaderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.37;
+    final radius = math.min(size.width, size.height) * 0.38;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
     final glow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
-      ..color = AetronColors.cyan.withValues(alpha: 0.35);
+      ..strokeWidth = 5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
+      ..color = AetronColors.cyan.withValues(alpha: 0.4);
     canvas.drawCircle(center, radius, glow);
 
     final baseRing = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = AetronColors.cyan.withValues(alpha: 0.22);
-    canvas.drawCircle(center, radius * 0.78, baseRing);
+      ..color = AetronColors.cyan.withValues(alpha: 0.25);
+    canvas.drawCircle(center, radius * 0.75, baseRing);
     canvas.drawCircle(center, radius, baseRing);
-    canvas.drawCircle(center, radius * 1.17, baseRing);
+    canvas.drawCircle(center, radius * 1.18, baseRing);
 
     final tickPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
+      ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..color = AetronColors.cyan.withValues(alpha: 0.48);
-    for (var i = 0; i < 42; i++) {
-      final angle = (math.pi * 2 / 42) * i + progress * math.pi * 2;
+      ..color = AetronColors.cyan.withValues(alpha: 0.5);
+    for (var i = 0; i < 36; i++) {
+      final angle = (math.pi * 2 / 36) * i + progress * math.pi * 2;
       final inner = radius * (i % 3 == 0 ? 1.02 : 1.1);
-      final outer = radius * 1.2;
+      final outer = radius * 1.22;
       canvas.drawLine(
         Offset(
           center.dx + math.cos(angle) * inner,
@@ -538,7 +679,7 @@ class _AetronLoaderPainter extends CustomPainter {
 
     final arcPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 4.5
       ..strokeCap = StrokeCap.round
       ..shader = SweepGradient(
         startAngle: 0,
@@ -546,46 +687,34 @@ class _AetronLoaderPainter extends CustomPainter {
         colors: [
           AetronColors.cyan.withValues(alpha: 0),
           AetronColors.cyan,
+          AetronColors.mint,
           AetronColors.cyan.withValues(alpha: 0.08),
         ],
-        stops: const [0, 0.62, 1],
+        stops: const [0, 0.5, 0.8, 1],
         transform: GradientRotation(progress * math.pi * 2),
       ).createShader(rect);
-    canvas.drawArc(rect, -math.pi / 2, math.pi * 1.45, false, arcPaint);
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 1.5, false, arcPaint);
 
     final orbitPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..color = AetronColors.cyan.withValues(alpha: 0.54);
+      ..strokeWidth = 1.5
+      ..color = AetronColors.cyan.withValues(alpha: 0.6);
     for (final tilt in [-0.62, 0.62]) {
       canvas.save();
       canvas.translate(center.dx, center.dy);
-      canvas.rotate(tilt + progress * math.pi * 0.32);
+      canvas.rotate(tilt + progress * math.pi * 0.4);
       canvas.drawOval(
         Rect.fromCenter(
           center: Offset.zero,
-          width: radius * 2.58,
-          height: radius * 0.62,
+          width: radius * 2.55,
+          height: radius * 0.65,
         ),
         orbitPaint,
       );
       canvas.restore();
     }
 
-    final sweepPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1
-      ..color = AetronColors.cyan.withValues(alpha: 0.32);
     final sweepAngle = -math.pi / 2 + progress * math.pi * 2;
-    canvas.drawLine(
-      center,
-      Offset(
-        center.dx + math.cos(sweepAngle) * radius * 1.24,
-        center.dy + math.sin(sweepAngle) * radius * 1.24,
-      ),
-      sweepPaint,
-    );
-
     final dotPaint = Paint()..color = AetronColors.cyanSoft;
     final dotAngle = sweepAngle + math.pi * 0.22;
     canvas.drawCircle(
@@ -593,7 +722,7 @@ class _AetronLoaderPainter extends CustomPainter {
         center.dx + math.cos(dotAngle) * radius,
         center.dy + math.sin(dotAngle) * radius,
       ),
-      3,
+      3.5,
       dotPaint,
     );
   }
@@ -675,21 +804,23 @@ class AetronSegmented<T> extends StatelessWidget {
     required this.selected,
     required this.labelBuilder,
     required this.onChanged,
+    this.height = 48,
   });
 
   final List<T> values;
   final T selected;
   final String Function(T value) labelBuilder;
   final ValueChanged<T> onChanged;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AetronColors.panelHigh.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: values.map((value) {
@@ -698,24 +829,29 @@ class AetronSegmented<T> extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onChanged(value),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
+                duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
-                height: 58,
+                height: height,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: active ? AetronColors.cyan : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   border: active
-                      ? Border.all(color: AetronColors.cyanSoft)
+                      ? Border.all(color: AetronColors.cyanSoft.withValues(alpha: 0.6))
                       : null,
                 ),
-                child: Text(
-                  labelBuilder(value).toUpperCase(),
-                  style: TextStyle(
-                    color: active ? AetronColors.space : AetronColors.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    labelBuilder(value).toUpperCase(),
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: active ? AetronColors.space : AetronColors.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
                   ),
                 ),
               ),

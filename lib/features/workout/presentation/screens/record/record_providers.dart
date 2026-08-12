@@ -28,7 +28,7 @@ import 'package:fitness_exercise_application/features/workout/domain/services/wo
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+
 import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
@@ -600,14 +600,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       //    actually exists before we try to insert FK-constrained job rows.
       final repo = _ref.read(workoutRepositoryProvider);
       bool savedRemotely = false;
-      if (await InternetConnectionChecker().hasConnection) {
-        try {
-          await repo.saveSessionRemote(finalization.session);
-          savedRemotely = true;
-          debugPrint('[Workout] Remote session save succeeded');
-        } catch (e) {
-          debugPrint('[Workout] Remote session save failed: $e');
-        }
+      try {
+        await repo.saveSessionRemote(finalization.session);
+        savedRemotely = true;
+        debugPrint('[Workout] Remote session save succeeded');
+      } catch (e) {
+        debugPrint('[Workout] Remote session save failed: $e');
       }
 
       // 2. Cache locally with the correct sync status so syncPendingData

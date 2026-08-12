@@ -1,4 +1,4 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/summary/workout_summary_screen.dart';
@@ -1039,30 +1039,56 @@ class _FeatureStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _kPanelBorder),
+        color: AetronColors.space.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.12),
+            blurRadius: 16,
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: align,
         children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.6),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AetronColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Text(
             value,
             textAlign: align == CrossAxisAlignment.end
@@ -1070,9 +1096,9 @@ class _FeatureStatCard extends StatelessWidget {
                 : TextAlign.left,
             style: TextStyle(
               color: Colors.white,
-              fontSize: isHero ? 24 : 18,
+              fontSize: isHero ? 28 : 20,
               fontWeight: FontWeight.w900,
-              letterSpacing: isHero ? -1.0 : -0.3,
+              letterSpacing: isHero ? -1.2 : -0.5,
             ),
           ),
         ],
@@ -1109,16 +1135,21 @@ class _CompactRecordingHud extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: AetronColors.space.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.16)),
+        color: AetronColors.space.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.35), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.32),
-            blurRadius: 22,
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 28,
             offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: AetronColors.cyan.withValues(alpha: 0.14),
+            blurRadius: 20,
+            spreadRadius: -2,
           ),
         ],
       ),
@@ -1132,28 +1163,34 @@ class _CompactRecordingHud extends ConsumerWidget {
               const Spacer(),
               Icon(
                 Icons.bolt_rounded,
-                color: AetronColors.cyanSoft.withValues(alpha: 0.86),
-                size: 13,
+                color: AetronColors.cyan,
+                size: 15,
               ),
               const SizedBox(width: 4),
               Text(
-                'AETRON',
-                style: AetronText.label.copyWith(
-                  color: AetronColors.cyanSoft.withValues(alpha: 0.78),
-                  fontSize: 9,
+                'AETRON LIVE',
+                style: AetronTypography.caption.copyWith(
+                  color: AetronColors.cyanSoft,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
                   letterSpacing: 1.4,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
-            AppTranslations.get('session_time', currentLang),
-            style: AetronText.label.copyWith(fontSize: 9, letterSpacing: 1.5),
+            AppTranslations.get('session_time', currentLang).toUpperCase(),
+            style: AetronTypography.caption.copyWith(
+              color: AetronColors.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: FittedBox(
@@ -1164,25 +1201,26 @@ class _CompactRecordingHud extends ConsumerWidget {
                     maxLines: 1,
                     style: const TextStyle(
                       color: AetronColors.cyanSoft,
-                      fontSize: 38,
+                      fontSize: 44,
                       height: 0.98,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: -1.4,
+                      letterSpacing: -1.5,
+                      shadows: [
+                        Shadow(
+                          color: AetronColors.cyan,
+                          blurRadius: 16,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 14),
               Container(
-                width: 34,
-                height: 34,
+                width: 40,
+                height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AetronColors.panelHigh.withValues(alpha: 0.70),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AetronColors.cyan.withValues(alpha: 0.18),
-                  ),
                 ),
                 child: Icon(
                   activityIcon,

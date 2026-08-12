@@ -1,61 +1,322 @@
 import 'dart:async';
 
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/screens/workout_start_screen.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
-const _kBgTop = Color(0xff0a0e1a);
-const _kPanelBg = Color(0xee0f1726);
-const _kCardBg = Color(0xcc121b2c);
-const _kCardBorder = Color(0x2200e5ff);
-const _kMutedText = Color(0xff7d8da6);
-const _kNeonCyan = Color(0xff00e5ff);
-const _kNeonBlue = Color(0xff00bfff);
-const _kWarning = Color(0xffffb85c);
+class ActivityOption {
+  final String type;
+  final String nameKey;
+  final String descKey;
+  final String imagePath;
+  final IconData icon;
+  final Color accentColor;
+  final bool requireGps;
 
-class ActivityScreen extends ConsumerStatefulWidget {
+  const ActivityOption({
+    required this.type,
+    required this.nameKey,
+    required this.descKey,
+    required this.imagePath,
+    required this.icon,
+    required this.accentColor,
+    required this.requireGps,
+  });
+}
+
+const _kActivities = [
+  ActivityOption(
+    type: 'running',
+    nameKey: 'running',
+    descKey: 'running_desc',
+    imagePath: 'assets/running_3d.png',
+    icon: Icons.directions_run_rounded,
+    accentColor: AetronColors.cyan,
+    requireGps: true,
+  ),
+  ActivityOption(
+    type: 'cycling',
+    nameKey: 'cycling',
+    descKey: 'cycling_desc',
+    imagePath: 'assets/cycling_3d.png',
+    icon: Icons.directions_bike_rounded,
+    accentColor: AetronColors.blue,
+    requireGps: true,
+  ),
+  ActivityOption(
+    type: 'walking',
+    nameKey: 'walking',
+    descKey: 'walking_desc',
+    imagePath: 'assets/walking_3d.png',
+    icon: Icons.directions_walk_rounded,
+    accentColor: AetronColors.mint,
+    requireGps: false,
+  ),
+];
+
+/// 1. MAIN ACTIVITY SCREEN: MODE SELECTION HUB
+class ActivityScreen extends ConsumerWidget {
   const ActivityScreen({super.key});
 
   @override
-  ConsumerState<ActivityScreen> createState() => _ActivityScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
+    return Scaffold(
+      backgroundColor: AetronColors.voidBlack,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Header Bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppTranslations.get('select_activity_mode', currentLang),
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          AppTranslations.get('nav_activity', currentLang),
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: AetronColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Activity Modes 3D Cards List
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: _kActivities.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final activity = _kActivities[index];
+                  return _ActivityMode3DCard(
+                    activity: activity,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ActivityDetailScreen(activity: activity),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ActivityScreenState extends ConsumerState<ActivityScreen>
-    with WidgetsBindingObserver {
-  static const _activities = [
-    _ActivityOption(
-      type: 'running',
-      name: 'Running',
-      imagePath: 'assets/running_3d.png',
-      icon: Icons.directions_run,
-    ),
-    _ActivityOption(
-      type: 'cycling',
-      name: 'Cycling',
-      imagePath: 'assets/cycling_3d.png',
-      icon: Icons.directions_bike,
-    ),
-    _ActivityOption(
-      type: 'walking',
-      name: 'Walking',
-      imagePath: 'assets/walking_3d.png',
-      icon: Icons.directions_walk,
-    ),
-  ];
+/// 3D ACTIVITY CARD IN SELECTION HUB
+class _ActivityMode3DCard extends ConsumerWidget {
+  final ActivityOption activity;
+  final VoidCallback onTap;
 
-  int _selectedIndex = 0;
+  const _ActivityMode3DCard({
+    required this.activity,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    final activityName = AppTranslations.get(activity.nameKey, currentLang);
+    final activityDesc = AppTranslations.get(activity.descKey, currentLang);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 165,
+        decoration: BoxDecoration(
+          color: AetronColors.panelHigh,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: activity.accentColor.withValues(alpha: 0.35),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: activity.accentColor.withValues(alpha: 0.10),
+              blurRadius: 14,
+              spreadRadius: -2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              // Radial Glow Backdrop
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      colors: [
+                        activity.accentColor.withValues(alpha: 0.22),
+                        activity.accentColor.withValues(alpha: 0.04),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+              // 3D Character Image (Right aligned)
+              Positioned(
+                right: -10,
+                top: -10,
+                bottom: -10,
+                width: 170,
+                child: Image.asset(
+                  activity.imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Center(
+                    child: Icon(
+                      activity.icon,
+                      size: 72,
+                      color: activity.accentColor.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Card Text & Information (Left side)
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Badge Pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: activity.accentColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: activity.accentColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          activity.requireGps
+                              ? AppTranslations.get('gps_required', currentLang)
+                              : AppTranslations.get('gps_optional', currentLang),
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: activity.accentColor,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        activityName.toUpperCase(),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AetronColors.textPrimary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: 170,
+                        child: Text(
+                          activityDesc,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 11,
+                            color: AetronColors.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Text(
+                            AppTranslations.get('start_mode', currentLang),
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: activity.accentColor,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 2. DEDICATED PRE-WORKOUT & GPS PREPARATION SCREEN
+class ActivityDetailScreen extends ConsumerStatefulWidget {
+  final ActivityOption activity;
+
+  const ActivityDetailScreen({
+    super.key,
+    required this.activity,
+  });
+
+  @override
+  ConsumerState<ActivityDetailScreen> createState() => _ActivityDetailScreenState();
+}
+
+class _ActivityDetailScreenState extends ConsumerState<ActivityDetailScreen>
+    with WidgetsBindingObserver {
   bool _gpsEnabled = false;
   bool _checkingLocation = true;
   LocationPermission _permission = LocationPermission.denied;
   LatLng? _currentLocation;
   int _recenterRequestId = 0;
-
-  _ActivityOption get _selectedActivity => _activities[_selectedIndex];
 
   bool get _hasLocationPermission =>
       _permission == LocationPermission.always ||
@@ -109,19 +370,18 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
   Future<LatLng?> _getBestKnownLocation() async {
     try {
       final lastKnown = await Geolocator.getLastKnownPosition();
-      final current =
-          await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.bestForNavigation,
-              timeLimit: Duration(seconds: 4),
-            ),
-          ).timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              if (lastKnown != null) return lastKnown;
-              throw TimeoutException('location_timeout');
-            },
-          );
+      final current = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: Duration(seconds: 4),
+        ),
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          if (lastKnown != null) return lastKnown;
+          throw TimeoutException('location_timeout');
+        },
+      );
       return LatLng(current.latitude, current.longitude);
     } catch (_) {
       try {
@@ -156,10 +416,9 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
   void _startWorkout() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => WorkoutStartScreen(
-          activityType: _selectedActivity.type,
-          activityName: _selectedActivity.name,
-          activityImagePath: _selectedActivity.imagePath,
+        builder: (_) => RecordScreen(
+          activityType: widget.activity.type,
+          requireGps: widget.activity.requireGps,
         ),
       ),
     );
@@ -168,390 +427,294 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
   @override
   Widget build(BuildContext context) {
     final currentLang = ref.watch(appLanguageProvider);
+    final activityName = AppTranslations.get(widget.activity.nameKey, currentLang);
+    final isGpsReady = _gpsEnabled && _hasLocationPermission && _currentLocation != null;
+
     return Scaffold(
-      backgroundColor: _kBgTop,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: TrackingMapWidget(
-              routePoints: const [],
-              activityType: _selectedActivity.type,
-              initialPosition: _currentLocation,
-              currentLocation: _currentLocation,
-              followUser: true,
-              recenterRequestId: _recenterRequestId,
-              showRoute: false,
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AetronHeader(
-              title: AppTranslations.get('activity', currentLang),
-              eyebrow: AppTranslations.get('select_your_mode', currentLang),
-              compact: true,
-              trailing: _LocationBadge(
-                isChecking: _checkingLocation,
-                gpsEnabled: _gpsEnabled,
-                hasPermission: _hasLocationPermission,
-                hasLocation: _currentLocation != null,
-                onTap: _handleLocationAction,
+      backgroundColor: AetronColors.voidBlack,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Header Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                    color: AetronColors.cyanSoft,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          currentLang == AppLanguage.vi ? 'CHUẨN BỊ BUỔI TẬP' : 'PRE-WORKOUT LAUNCH',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: widget.activity.accentColor,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          activityName.toUpperCase(),
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: AetronColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: _ActivityBottomPanel(
-                activities: _activities,
-                selectedIndex: _selectedIndex,
-                selectedActivity: _selectedActivity,
-                checkingLocation: _checkingLocation,
-                gpsEnabled: _gpsEnabled,
-                hasPermission: _hasLocationPermission,
-                hasLocation: _currentLocation != null,
-                onSelect: (index) => setState(() => _selectedIndex = index),
-                onLocationAction: _handleLocationAction,
-                onStart: _startWorkout,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-class _ActivityBottomPanel extends ConsumerWidget {
-  final List<_ActivityOption> activities;
-  final int selectedIndex;
-  final _ActivityOption selectedActivity;
-  final bool checkingLocation;
-  final bool gpsEnabled;
-  final bool hasPermission;
-  final bool hasLocation;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onLocationAction;
-  final VoidCallback onStart;
-
-  const _ActivityBottomPanel({
-    required this.activities,
-    required this.selectedIndex,
-    required this.selectedActivity,
-    required this.checkingLocation,
-    required this.gpsEnabled,
-    required this.hasPermission,
-    required this.hasLocation,
-    required this.onSelect,
-    required this.onLocationAction,
-    required this.onStart,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      decoration: BoxDecoration(
-        color: _kPanelBg,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _kCardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.34),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-          BoxShadow(
-            color: _kNeonCyan.withValues(alpha: 0.08),
-            blurRadius: 28,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      AppTranslations.get('ready_to_move', currentLang),
-                      style: const TextStyle(
-                        color: _kMutedText,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.8,
+                    // 1. CLEAN 3D MODE INFOBAR
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AetronColors.panelHigh,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: widget.activity.accentColor.withValues(alpha: 0.3),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: widget.activity.accentColor.withValues(alpha: 0.15),
+                              border: Border.all(color: widget.activity.accentColor.withValues(alpha: 0.4)),
+                            ),
+                            child: Icon(widget.activity.icon, color: widget.activity.accentColor, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  activityName.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: AetronColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  AppTranslations.get(widget.activity.descKey, currentLang),
+                                  style: const TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 11,
+                                    color: AetronColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      AppTranslations.get(selectedActivity.type, currentLang),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
+                    const SizedBox(height: 12),
+
+                    // 2. GPS DIAGNOSTIC STATUS CARD
+                    GestureDetector(
+                      onTap: _handleLocationAction,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AetronColors.panelHigh,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: (isGpsReady ? AetronColors.mint : AetronColors.gold).withValues(alpha: 0.4),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isGpsReady ? AetronColors.mint : AetronColors.gold).withValues(alpha: 0.1),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: (isGpsReady ? AetronColors.mint : AetronColors.gold).withValues(alpha: 0.15),
+                                border: Border.all(
+                                  color: (isGpsReady ? AetronColors.mint : AetronColors.gold).withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: _checkingLocation
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AetronColors.cyan,
+                                      ),
+                                    )
+                                  : Icon(
+                                      isGpsReady ? Icons.gps_fixed_rounded : Icons.gps_off_rounded,
+                                      color: isGpsReady ? AetronColors.mint : AetronColors.gold,
+                                      size: 20,
+                                    ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isGpsReady
+                                        ? AppTranslations.get('gps_ready_status', currentLang)
+                                        : AppTranslations.get('gps_disabled_status', currentLang),
+                                    style: TextStyle(
+                                      fontFamily: 'Outfit',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      color: isGpsReady ? AetronColors.mint : AetronColors.gold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isGpsReady
+                                        ? (currentLang == AppLanguage.vi ? 'Sẵn sàng ghi nhận lộ trình GPS' : 'Ready for real-time GPS telemetry')
+                                        : AppTranslations.get('enable_gps_action', currentLang),
+                                    style: const TextStyle(
+                                      fontFamily: 'Outfit',
+                                      fontSize: 10,
+                                      color: AetronColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!isGpsReady)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AetronColors.cyan.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4)),
+                                ),
+                                child: const Text(
+                                  'FIX GPS',
+                                  style: TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: AetronColors.cyan,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // 3. LIVE MAP CONTEXT PREVIEW
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AetronColors.panelHigh,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: widget.activity.accentColor.withValues(alpha: 0.3),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Stack(
+                            children: [
+                              SizedBox.expand(
+                                child: TrackingMapWidget(
+                                  routePoints: const [],
+                                  activityType: widget.activity.type,
+                                  initialPosition: _currentLocation,
+                                  currentLocation: _currentLocation,
+                                  followUser: true,
+                                  recenterRequestId: _recenterRequestId,
+                                  showRoute: false,
+                                ),
+                              ),
+                              Positioned(
+                                top: 12,
+                                right: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AetronColors.space.withValues(alpha: 0.90),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: widget.activity.accentColor.withValues(alpha: 0.4)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.map_rounded,
+                                        color: widget.activity.accentColor,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        AppTranslations.get('location_context', currentLang),
+                                        style: const TextStyle(
+                                          fontFamily: 'Outfit',
+                                          fontSize: 9,
+                                          color: AetronColors.cyanSoft,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 4. PRIMARY 3D START WORKOUT BUTTON
+                    Aetron3DPrimaryButton(
+                      label: '${AppTranslations.get('start_workout', currentLang).toUpperCase()} ($activityName)',
+                      icon: Icons.play_arrow_rounded,
+                      onPressed: _startWorkout,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              _GpsStatusChip(
-                checkingLocation: checkingLocation,
-                gpsEnabled: gpsEnabled,
-                hasPermission: hasPermission,
-                hasLocation: hasLocation,
-                onTap: onLocationAction,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              for (var i = 0; i < activities.length; i++) ...[
-                Expanded(
-                  child: _ActivityChoice(
-                    activity: activities[i],
-                    selected: i == selectedIndex,
-                    onTap: () => onSelect(i),
-                  ),
-                ),
-                if (i != activities.length - 1) const SizedBox(width: 10),
-              ],
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 58,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_kNeonBlue, _kNeonCyan],
-                ),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: _kNeonCyan.withValues(alpha: 0.25),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ElevatedButton.icon(
-                onPressed: onStart,
-                icon: const Icon(Icons.play_arrow_rounded, size: 26),
-                label: Text(AppTranslations.get('start_workout', currentLang).toUpperCase()),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: _kBgTop,
-                  shadowColor: Colors.transparent,
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivityChoice extends ConsumerWidget {
-  final _ActivityOption activity;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ActivityChoice({
-    required this.activity,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        height: 76,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? _kNeonCyan.withValues(alpha: 0.14)
-              : _kCardBg.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? _kNeonCyan : Colors.white.withValues(alpha: 0.08),
-            width: selected ? 1.4 : 1,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              activity.icon,
-              color: selected ? _kNeonCyan : Colors.white,
-              size: 24,
-            ),
-            const SizedBox(height: 7),
-            Text(
-              AppTranslations.get(activity.type, currentLang),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? Colors.white : _kMutedText,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-class _LocationBadge extends StatelessWidget {
-  final bool isChecking;
-  final bool gpsEnabled;
-  final bool hasPermission;
-  final bool hasLocation;
-  final VoidCallback onTap;
-
-  const _LocationBadge({
-    required this.isChecking,
-    required this.gpsEnabled,
-    required this.hasPermission,
-    required this.hasLocation,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = gpsEnabled && hasPermission && hasLocation;
-    final color = isChecking ? _kMutedText : (ready ? _kNeonCyan : _kWarning);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-          decoration: BoxDecoration(
-            color: const Color(0xe60f1726),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: color.withValues(alpha: 0.34)),
-          ),
-          child: Icon(
-            ready ? Icons.my_location_rounded : Icons.location_searching,
-            color: color,
-            size: 19,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GpsStatusChip extends ConsumerWidget {
-  final bool checkingLocation;
-  final bool gpsEnabled;
-  final bool hasPermission;
-  final bool hasLocation;
-  final VoidCallback onTap;
-
-  const _GpsStatusChip({
-    required this.checkingLocation,
-    required this.gpsEnabled,
-    required this.hasPermission,
-    required this.hasLocation,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    final (icon, label, color) = _statusContent(currentLang);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: 0.30)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 15),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  (IconData, String, Color) _statusContent(AppLanguage lang) {
-    if (checkingLocation) {
-      return (Icons.location_searching_rounded, AppTranslations.get('checking', lang).toUpperCase(), _kMutedText);
-    }
-    if (!gpsEnabled) {
-      return (Icons.gps_off_rounded, AppTranslations.get('gps_off', lang).toUpperCase(), _kWarning);
-    }
-    if (!hasPermission) {
-      return (Icons.lock_outline_rounded, AppTranslations.get('allow_gps', lang).toUpperCase(), _kWarning);
-    }
-    if (!hasLocation) {
-      return (Icons.location_searching_rounded, AppTranslations.get('locating', lang).toUpperCase(), _kWarning);
-    }
-    return (Icons.my_location_rounded, AppTranslations.get('live_map', lang).toUpperCase(), _kNeonCyan);
-  }
-}
-
-class _ActivityOption {
-  final String type;
-  final String name;
-  final String imagePath;
-  final IconData icon;
-
-  const _ActivityOption({
-    required this.type,
-    required this.name,
-    required this.imagePath,
-    required this.icon,
-  });
 }

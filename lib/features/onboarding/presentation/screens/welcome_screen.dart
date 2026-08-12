@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
@@ -139,45 +139,50 @@ class _ResourceLoadingScreenState extends State<ResourceLoadingScreen>
 
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
-      body: AetronBackground(
-        withGrid: true,
-        child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                   SizedBox.square(
                     dimension: 190,
-                    child: CustomPaint(
-                      painter: _ResourceLoaderPainter(progress: progress),
-                      child: Center(
-                        child: Container(
-                          width: 82,
-                          height: 82,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AetronColors.space.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: AetronColors.cyan.withValues(alpha: 0.55),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AetronColors.cyan.withValues(
-                                  alpha: 0.24,
-                                ),
-                                blurRadius: 32,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CustomPaint(
+                          size: const Size.square(190),
+                          painter: _ResourceLoaderPainter(progress: progress),
+                        ),
+                        Transform.translate(
+                          offset: Offset(0, math.sin(progress * math.pi * 4) * 4),
+                          child: Container(
+                            width: 84,
+                            height: 84,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AetronColors.space,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: AetronColors.cyan.withValues(alpha: 0.65),
+                                width: 1.5,
                               ),
-                            ],
-                          ),
-                          child: Image.asset(
-                            'assets/logo.png',
-                            fit: BoxFit.contain,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AetronColors.cyan.withValues(alpha: 0.38),
+                                  blurRadius: 24,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Image.asset(
+                              'assets/logo.png',
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -185,48 +190,86 @@ class _ResourceLoadingScreenState extends State<ResourceLoadingScreen>
                     'LOADING RESOURCES',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AetronColors.cyanSoft,
-                      fontSize: 15,
+                      fontFamily: 'Outfit',
+                      color: AetronColors.textPrimary,
+                      fontSize: 16,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 3.2,
+                      letterSpacing: 3.5,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    _steps[stepIndex].toUpperCase(),
-                    textAlign: TextAlign.center,
-                    style: AetronText.label.copyWith(
-                      color: AetronColors.muted,
-                      letterSpacing: 1.8,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AetronColors.space,
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AetronColors.mint,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AetronColors.mint,
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _steps[stepIndex].toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            color: AetronColors.cyanSoft,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.6,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 24),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(999),
                     child: LinearProgressIndicator(
                       value: progress,
-                      minHeight: 7,
-                      backgroundColor: AetronColors.panelBright.withValues(
-                        alpha: 0.35,
-                      ),
+                      minHeight: 6,
+                      backgroundColor: AetronColors.space,
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         AetronColors.cyan,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '${(progress * 100).round().clamp(0, 100)}%',
-                    style: const TextStyle(
-                      color: AetronColors.cyan,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.4,
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AetronColors.cyan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      '${(progress * 100).round().clamp(0, 100)}%',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        color: AetronColors.cyan,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
           ),
         ),
       ),
@@ -470,7 +513,7 @@ class _OnboardingPageData {
   final _OnboardingHeroType heroType;
 }
 
-class _WelcomeTopBar extends StatelessWidget {
+class _WelcomeTopBar extends ConsumerWidget {
   const _WelcomeTopBar({
     required this.canGoBack,
     required this.onBack,
@@ -484,15 +527,17 @@ class _WelcomeTopBar extends StatelessWidget {
   final bool isProcessing;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
     return SizedBox(
       height: 56,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
             SizedBox(
-              width: 64,
+              width: 56,
               height: 44,
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -514,27 +559,43 @@ class _WelcomeTopBar extends StatelessWidget {
               'AETRON',
               style: AetronText.header.copyWith(
                 color: AetronColors.cyan,
-                fontSize: 24,
+                fontSize: 22,
                 letterSpacing: 4.4,
               ),
             ),
             const Spacer(),
-            SizedBox(
-              width: 64,
-              height: 44,
-              child: TextButton(
-                onPressed: isProcessing ? null : onSkip,
-                style: TextButton.styleFrom(
-                  foregroundColor: AetronColors.cyan,
-                  padding: EdgeInsets.zero,
+            TextButton(
+              onPressed: () {
+                final next = currentLang == AppLanguage.vi
+                    ? AppLanguage.en
+                    : AppLanguage.vi;
+                ref.read(appLanguageProvider.notifier).setLanguage(next);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: AetronColors.cyan,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              child: Text(
+                currentLang == AppLanguage.vi ? '🇻🇳 VI' : '🇬🇧 EN',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.0,
                 ),
-                child: const Text(
-                  'SKIP',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
+              ),
+            ),
+            TextButton(
+              onPressed: isProcessing ? null : onSkip,
+              style: TextButton.styleFrom(
+                foregroundColor: AetronColors.cyanSoft,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              child: Text(
+                currentLang == AppLanguage.vi ? 'BỎ QUA' : 'SKIP',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
                 ),
               ),
             ),

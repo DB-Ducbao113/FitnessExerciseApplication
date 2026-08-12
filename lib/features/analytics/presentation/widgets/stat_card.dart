@@ -1,12 +1,13 @@
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 
-class StatCard extends StatelessWidget {
+class StatCardWidget extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final Color? color;
 
-  const StatCard({
+  const StatCardWidget({
     super.key,
     required this.icon,
     required this.label,
@@ -16,34 +17,11 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = color ?? const Color(0xff18b0e8);
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: cardColor, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: cardColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return StatCard(
+      label: label,
+      value: value,
+      icon: icon,
+      accentColor: color ?? AetronColors.cyan,
     );
   }
 }

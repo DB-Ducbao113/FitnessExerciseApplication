@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 
@@ -36,10 +37,18 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
     )
     @Default(WorkoutGpsAnalysis())
     WorkoutGpsAnalysis gpsAnalysis,
-    @JsonKey(name: 'filtered_route_json')
+    @JsonKey(
+      name: 'filtered_route_json',
+      fromJson: _jsonFieldToString,
+    )
     @Default('[]')
     String filteredRouteJson,
-    @JsonKey(name: 'matched_route_json') @Default('[]') String matchedRouteJson,
+    @JsonKey(
+      name: 'matched_route_json',
+      fromJson: _jsonFieldToString,
+    )
+    @Default('[]')
+    String matchedRouteJson,
     @JsonKey(name: 'route_match_status')
     @Default('pending')
     String routeMatchStatus,
@@ -48,7 +57,10 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
     @Default('filtered')
     String routeDistanceSource,
     @JsonKey(name: 'matched_distance_km') double? matchedDistanceKm,
-    @JsonKey(name: 'route_match_metrics_json')
+    @JsonKey(
+      name: 'route_match_metrics_json',
+      fromJson: _jsonMetricsFieldToString,
+    )
     @Default('{}')
     String routeMatchMetricsJson,
   }) = _WorkoutSessionModel;
@@ -111,9 +123,38 @@ class WorkoutSessionModel with _$WorkoutSessionModel {
   }
 }
 
+String _jsonFieldToString(dynamic json) {
+  if (json == null) return '[]';
+  if (json is String) return json;
+  try {
+    return jsonEncode(json);
+  } catch (_) {
+    return '[]';
+  }
+}
+
+String _jsonMetricsFieldToString(dynamic json) {
+  if (json == null) return '{}';
+  if (json is String) return json;
+  try {
+    return jsonEncode(json);
+  } catch (_) {
+    return '{}';
+  }
+}
+
 List<WorkoutLapSplit> _lapSplitsFromJson(dynamic json) {
-  if (json is! List) return const <WorkoutLapSplit>[];
-  return json
+  if (json == null) return const <WorkoutLapSplit>[];
+  dynamic data = json;
+  if (data is String) {
+    try {
+      data = jsonDecode(data);
+    } catch (_) {
+      return const <WorkoutLapSplit>[];
+    }
+  }
+  if (data is! List) return const <WorkoutLapSplit>[];
+  return data
       .whereType<Map>()
       .map((item) => WorkoutLapSplit.fromJson(Map<String, dynamic>.from(item)))
       .toList();
@@ -124,8 +165,17 @@ List<Map<String, dynamic>> _lapSplitsToJson(List<WorkoutLapSplit> splits) {
 }
 
 WorkoutGpsAnalysis _gpsAnalysisFromJson(dynamic json) {
-  if (json is! Map) return const WorkoutGpsAnalysis();
-  return WorkoutGpsAnalysis.fromJson(Map<String, dynamic>.from(json));
+  if (json == null) return const WorkoutGpsAnalysis();
+  dynamic data = json;
+  if (data is String) {
+    try {
+      data = jsonDecode(data);
+    } catch (_) {
+      return const WorkoutGpsAnalysis();
+    }
+  }
+  if (data is! Map) return const WorkoutGpsAnalysis();
+  return WorkoutGpsAnalysis.fromJson(Map<String, dynamic>.from(data));
 }
 
 Map<String, dynamic> _gpsAnalysisToJson(WorkoutGpsAnalysis analysis) {

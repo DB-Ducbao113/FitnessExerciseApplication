@@ -78,6 +78,10 @@ supabase/.temp/
 backend/supabase/.temp/
 backend/supabase/.branches/
 
+# Agent local skills & customizations
+.agents/
+
+
 # Temporary plan & checklist files
 RELEASE_CHECKLIST.md
 ai_post_workout_insight_plan.html

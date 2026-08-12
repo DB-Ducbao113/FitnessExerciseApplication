@@ -1,15 +1,17 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
-import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
+import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
+import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
-import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,16 +19,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final selectedPeriodProvider = StateProvider<TimePeriod>(
   (ref) => TimePeriod.week,
 );
-
-const _kCard = Color(0xFF242C3A);
-const _kCardSoft = Color(0xFF1A212D);
-const _kTrack = Color(0xFF343B48);
-const _kMutedText = Color(0xFFB7C0CC);
-const _kMutedSoft = Color(0xFF7D8DA6);
-const _kNeonCyan = Color(0xFF21D9F8);
-const _kAmber = Color(0xFFFFB85C);
-const _kRed = Color(0xFFE02431);
-const _kSlate = Color(0xFF6F7F8F);
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
@@ -37,97 +29,133 @@ class StatsScreen extends ConsumerWidget {
     final workoutsAsync = ref.watch(workoutListProvider);
     final period = ref.watch(selectedPeriodProvider);
     final isOffline = ref.watch(appConnectionProvider).valueOrNull == false;
-    final useMetricUnits =
-        ref.watch(metricUnitsPreferenceProvider).value ?? true;
+    final useMetricUnits = ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
-      body: AetronBackground(
-        withGrid: false,
+      body: SafeArea(
         child: workoutsAsync.when(
           data: (workouts) {
             if (workouts.isEmpty) {
-              return _AnalyticsEmptyExperience(period: period);
+              return _EmptyAnalyticsPanel(period: period);
             }
             final filtered = _filterWorkouts(workouts, period);
-            final insights = _AnalyticsInsights.fromWorkouts(filtered, period);
+            final comparison = _calculateComparison(workouts, period);
             final records = _PersonalRecords.fromWorkouts(workouts);
-            final chart = _distanceChartData(filtered, period);
+            final chart = _distanceChartData(filtered, period, currentLang);
             final breakdown = _activityBreakdown(filtered);
-            final average = chart.isEmpty
-                ? 0.0
-                : chart.values.fold<double>(0, (sum, v) => sum + v) /
-                      chart.length;
 
             return RefreshIndicator(
-              color: _kNeonCyan,
-              backgroundColor: _kCardSoft,
+              color: AetronColors.cyan,
+              backgroundColor: AetronColors.panelHigh,
               onRefresh: () async {
                 await ref.read(workoutListProvider.notifier).refresh();
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 112),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
                 children: [
-                  const _AnalyticsTopBar(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(AppTranslations.get('analytics', currentLang).toUpperCase(), style: AetronText.label),
-                        if (isOffline) ...[
-                          const SizedBox(height: 12),
-                          const AetronOfflineBanner(),
-                        ],
-                        const SizedBox(height: 14),
-                        _PeriodSwitcher(
-                          selectedPeriod: period,
-                          onChanged: (value) {
-                            ref.read(selectedPeriodProvider.notifier).state =
-                                value;
-                          },
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header: ANALYTICS
+                      Text(
+                        AppTranslations.get('analytics_title', currentLang),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AetronColors.textPrimary,
+                          letterSpacing: 1.2,
                         ),
-                        const SizedBox(height: 18),
-                        if (filtered.isEmpty)
-                          _EmptyAnalyticsPanel(period: period)
-                        else ...[
-                          _SectionTitle(title: AppTranslations.get('overview', currentLang)),
-                          const SizedBox(height: 10),
-                          _OverviewGrid(
-                            insights: insights,
-                            useMetricUnits: useMetricUnits,
-                          ),
-                          const SizedBox(height: 22),
-                          _SectionTitle(title: AppTranslations.get('distance_trend', currentLang)),
-                          const SizedBox(height: 10),
-                          _WeekTrendCard(
-                            chartData: chart,
-                            period: period,
-                            average: average,
-                            useMetricUnits: useMetricUnits,
-                          ),
-                          const SizedBox(height: 22),
-                          _GoalProgressSection(
-                            progress: ref.watch(goalProgressProvider),
-                          ),
-                          const SizedBox(height: 22),
-                          _SectionTitle(title: AppTranslations.get('achievement_records', currentLang)),
-                          const SizedBox(height: 10),
-                          _RecordsList(
-                            records: records,
-                            useMetricUnits: useMetricUnits,
-                          ),
-                          const SizedBox(height: 22),
-                          _SectionTitle(title: AppTranslations.get('activity_mix', currentLang)),
-                          const SizedBox(height: 10),
-                          _ActivityDistributionCard(
-                            breakdown: breakdown,
-                            total: filtered.length,
-                          ),
-                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        AppTranslations.get('your_performance', currentLang),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 12,
+                          color: AetronColors.cyanSoft,
+                        ),
+                      ),
+                      if (isOffline) ...[
+                        const SizedBox(height: 12),
+                        const AetronOfflineBanner(),
                       ],
-                    ),
+                      const SizedBox(height: 16),
+
+                      // 3D Period Switcher (Week / Month / Year)
+                      _PeriodSwitcher(
+                        selectedPeriod: period,
+                        onChanged: (value) {
+                          ref.read(selectedPeriodProvider.notifier).state = value;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      if (filtered.isEmpty) ...[
+                        _EmptyAnalyticsPanel(period: period),
+                      ] else ...[
+                        // 1. Performance Summary Card
+                        _Performance3DSummaryCard(
+                          period: period,
+                          comparison: comparison,
+                          useMetricUnits: useMetricUnits,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 2. 4 Key Metrics 3D Grid (Distance, Duration, Calories, Workouts)
+                        _KeyMetrics3DGrid(
+                          workouts: filtered,
+                          useMetricUnits: useMetricUnits,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 3. Distance Trend Section
+                        _SectionHeader3D(
+                          title: AppTranslations.get('distance_trend', currentLang),
+                        ),
+                        const SizedBox(height: 10),
+                        _DistanceTrend3DCard(
+                          chartData: chart,
+                          period: period,
+                          comparison: comparison,
+                          useMetricUnits: useMetricUnits,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 4. Goal Progress Section
+                        _SectionHeader3D(
+                          title: AppTranslations.get('goal_progress', currentLang),
+                        ),
+                        const SizedBox(height: 10),
+                        _GoalProgress3DCard(
+                          progress: ref.watch(goalProgressProvider),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 5. Activity Mix Section
+                        _SectionHeader3D(
+                          title: AppTranslations.get('activity_mix', currentLang),
+                        ),
+                        const SizedBox(height: 10),
+                        _ActivityMix3DCard(
+                          breakdown: breakdown,
+                          total: filtered.length,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 6. Personal Bests Section
+                        _SectionHeader3D(
+                          title: AppTranslations.get('personal_bests', currentLang),
+                        ),
+                        const SizedBox(height: 10),
+                        _PersonalBests3DCard(
+                          records: records,
+                          useMetricUnits: useMetricUnits,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -136,7 +164,7 @@ class StatsScreen extends ConsumerWidget {
           loading: () => const Center(
             child: AetronLoadingPanel(
               label: 'LOADING ANALYTICS',
-              message: 'Compiling your workout signal.',
+              message: 'Compiling your workout performance.',
             ),
           ),
           error: (error, _) => Center(
@@ -144,8 +172,7 @@ class StatsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               child: AetronStatePanel(
                 title: 'Analytics unavailable',
-                message:
-                    'Your saved workout data could not be analyzed right now.',
+                message: 'Your saved workout data could not be analyzed right now.',
                 tone: AetronStateTone.error,
                 onRetry: () => ref.read(workoutListProvider.notifier).refresh(),
               ),
@@ -157,132 +184,41 @@ class StatsScreen extends ConsumerWidget {
   }
 }
 
-class _AnalyticsEmptyExperience extends ConsumerWidget {
-  const _AnalyticsEmptyExperience({required this.period});
+// ─── 3D Section Header ──────────────────────────────────────────────────────
+class _SectionHeader3D extends StatelessWidget {
+  final String title;
 
-  final TimePeriod period;
+  const _SectionHeader3D({required this.title});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return RefreshIndicator(
-      color: _kNeonCyan,
-      backgroundColor: _kCardSoft,
-      onRefresh: () => ref.read(workoutListProvider.notifier).refresh(),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Opacity(
-            opacity: .86,
-            child: CustomPaint(painter: _EmptyAnalyticsPainter()),
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 14,
+          decoration: BoxDecoration(
+            color: AetronColors.cyan,
+            borderRadius: BorderRadius.circular(2),
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AetronColors.voidBlack.withValues(alpha: .36),
-                  Colors.transparent,
-                  AetronColors.voidBlack.withValues(alpha: .95),
-                ],
-              ),
-            ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: AetronColors.cyanSoft,
+            letterSpacing: 1.5,
           ),
-          CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Column(
-                  children: [
-                    const _AnalyticsTopBar(),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-                      child: _PeriodSwitcher(
-                        selectedPeriod: period,
-                        onChanged: (value) {
-                          ref.read(selectedPeriodProvider.notifier).state =
-                              value;
-                        },
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.query_stats_rounded,
-                      color: _kNeonCyan,
-                      size: 34,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      AppTranslations.get('analysis_standby', currentLang),
-                      style: AetronText.section,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      AppTranslations.get('no_telemetry_yet', currentLang),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .35,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 28),
-                      child: Text(
-                        AppTranslations.get('no_telemetry_sub', currentLang),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AetronColors.cyanSoft,
-                          fontSize: 13,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-                        child: AetronPrimaryButton(
-                          label: AppTranslations.get('start_workout', currentLang),
-                          icon: Icons.play_arrow_rounded,
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ActivityScreen(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _AnalyticsTopBar extends ConsumerWidget {
-  const _AnalyticsTopBar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return AetronHeader(
-      title: AppTranslations.get('analytics', currentLang),
-      compact: true,
-      titleSize: 22,
-    );
-  }
-}
-
+// ─── Period Switcher ────────────────────────────────────────────────────────
 class _PeriodSwitcher extends ConsumerWidget {
   const _PeriodSwitcher({
     required this.selectedPeriod,
@@ -295,36 +231,303 @@ class _PeriodSwitcher extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    return AetronSegmented<TimePeriod>(
-      values: TimePeriod.values,
-      selected: selectedPeriod,
-      labelBuilder: (p) => _periodLabel(p, currentLang),
-      onChanged: onChanged,
+    final values = TimePeriod.values;
+    final selectedIdx = values.indexOf(selectedPeriod);
+
+    return AetronSegmentedControl(
+      selectedIndex: selectedIdx,
+      tabs: values.map((p) => _periodLabel(p, currentLang)).toList(),
+      onTabChanged: (index) => onChanged(values[index]),
     );
   }
 }
 
-class _EmptyAnalyticsPanel extends ConsumerWidget {
-  const _EmptyAnalyticsPanel({required this.period});
+// ─── 3D Performance Summary Card ────────────────────────────────────────────────
+class _Performance3DSummaryCard extends ConsumerWidget {
+  const _Performance3DSummaryCard({
+    required this.period,
+    required this.comparison,
+    required this.useMetricUnits,
+  });
 
   final TimePeriod period;
+  final _PeriodComparison comparison;
+  final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    final periodLabel = _periodLabel(period, currentLang).toUpperCase();
+    final distanceVal = useMetricUnits
+        ? comparison.currentDistanceKm
+        : WorkoutFormatters.kmToMi(comparison.currentDistanceKm);
+    final unit = WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits);
+    final periodTitle = switch (period) {
+      TimePeriod.week => currentLang == AppLanguage.vi ? '7 NGÀY QUA' : 'LAST 7 DAYS',
+      TimePeriod.month => currentLang == AppLanguage.vi ? '30 NGÀY QUA' : 'LAST 30 DAYS',
+      TimePeriod.year => currentLang == AppLanguage.vi ? 'NĂM NÀY' : 'THIS YEAR',
+    };
+
+    final changePercent = comparison.percentageChange;
+    final isPositive = changePercent != null && changePercent >= 0;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1928),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _kNeonCyan.withValues(alpha: 0.22)),
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AetronColors.cyan.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: _kNeonCyan.withValues(alpha: 0.08),
-            blurRadius: 28,
-            spreadRadius: 1,
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AetronColors.cyan.withValues(alpha: 0.12),
+            blurRadius: 14,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                periodTitle,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+                  letterSpacing: 1.5,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (changePercent != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isPositive ? AetronColors.mint : AetronColors.error)
+                        .withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: (isPositive ? AetronColors.mint : AetronColors.error)
+                          .withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                        size: 14,
+                        color: isPositive ? AetronColors.mint : AetronColors.error,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${isPositive ? '+' : ''}${changePercent.abs().toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: isPositive ? AetronColors.mint : AetronColors.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                distanceVal > 0 ? distanceVal.toStringAsFixed(1) : '—',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 42,
+                  fontWeight: FontWeight.w900,
+                  color: AetronColors.textPrimary,
+                  height: 1,
+                  shadows: [
+                    Shadow(color: AetronColors.cyan, blurRadius: 16),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                distanceVal > 0
+                    ? unit.toUpperCase()
+                    : (currentLang == AppLanguage.vi
+                        ? 'CHƯA CÓ DỮ LIỆU QUÃNG ĐƯỜNG'
+                        : 'NO DISTANCE DATA'),
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: distanceVal > 0 ? AetronColors.cyan : AetronColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            currentLang == AppLanguage.vi
+                ? 'Tổng quãng đường đã tập trong giai đoạn này'
+                : 'Total distance tracked in this period',
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              color: AetronColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 4 Key Metrics 3D Grid ──────────────────────────────────────────────────
+class _KeyMetrics3DGrid extends ConsumerWidget {
+  const _KeyMetrics3DGrid({
+    required this.workouts,
+    required this.useMetricUnits,
+  });
+
+  final List<WorkoutSession> workouts;
+  final bool useMetricUnits;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
+    final totalDistKm = workouts.fold(
+      0.0,
+      (sum, item) => sum + _effectiveDistanceKm(item),
+    );
+    final totalDurationSec = workouts.fold(
+      0,
+      (sum, item) => sum + item.durationSec,
+    );
+    final totalCalories = workouts.fold(
+      0,
+      (sum, item) => sum + item.caloriesKcal.round(),
+    );
+    final totalWorkouts = workouts.length;
+
+    final distVal = totalDistKm > 0
+        ? (useMetricUnits
+            ? totalDistKm.toStringAsFixed(1)
+            : WorkoutFormatters.kmToMi(totalDistKm).toStringAsFixed(1))
+        : '—';
+    final distUnit = totalDistKm > 0
+        ? WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)
+        : (currentLang == AppLanguage.vi ? 'Chưa có dữ liệu' : 'No data');
+
+    final durVal = totalDurationSec > 0
+        ? WorkoutFormatters.formatDurationFromSeconds(totalDurationSec)
+        : '—';
+
+    final calVal = totalCalories > 0 ? '$totalCalories' : '—';
+    final workVal = '$totalWorkouts';
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard3D(
+                label: AppTranslations.get('distance', currentLang),
+                value: distVal,
+                unit: distUnit.toUpperCase(),
+                icon: Icons.route_rounded,
+                accentColor: AetronColors.cyan,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatCard3D(
+                label: AppTranslations.get('duration', currentLang),
+                value: durVal,
+                unit: currentLang == AppLanguage.vi ? 'THỜI GIAN' : 'TIME',
+                icon: Icons.timer_rounded,
+                accentColor: AetronColors.blue,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 10, height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard3D(
+                label: AppTranslations.get('calories', currentLang),
+                value: calVal,
+                unit: currentLang == AppLanguage.vi ? 'CALO' : 'KCAL',
+                icon: Icons.local_fire_department_rounded,
+                accentColor: AetronColors.gold,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatCard3D(
+                label: currentLang == AppLanguage.vi ? 'Buổi tập' : 'Workouts',
+                value: workVal,
+                unit: currentLang == AppLanguage.vi ? 'BUỔI' : 'SESSIONS',
+                icon: Icons.fitness_center_rounded,
+                accentColor: AetronColors.mint,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard3D extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final IconData icon;
+  final Color accentColor;
+
+  const _StatCard3D({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.icon,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: -2,
           ),
         ],
       ),
@@ -334,121 +537,51 @@ class _EmptyAnalyticsPanel extends ConsumerWidget {
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: _kNeonCyan.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  shape: BoxShape.circle,
+                  color: accentColor.withValues(alpha: 0.15),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.4)),
                 ),
-                child: const Icon(
-                  Icons.radar_rounded,
-                  color: _kNeonCyan,
-                  size: 20,
-                ),
+                child: Icon(icon, color: accentColor, size: 16),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  AppTranslations.get('analysis_standby', currentLang),
+                  label.toUpperCase(),
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.1,
+                    fontFamily: 'Outfit',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AetronColors.textSecondary,
+                    letterSpacing: 0.8,
                   ),
-                ),
-              ),
-              Text(
-                '$periodLabel / EMPTY',
-                style: const TextStyle(
-                  color: _kNeonCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          AspectRatio(
-            aspectRatio: 1.65,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: CustomPaint(painter: _EmptyAnalyticsPainter()),
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           Text(
-            AppTranslations.get('no_telemetry_yet', currentLang),
+            value,
             style: const TextStyle(
-              color: Colors.white,
+              fontFamily: 'Outfit',
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            AppTranslations.get('no_telemetry_sub', currentLang),
-            style: TextStyle(
-              color: _kMutedText.withValues(alpha: 0.9),
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(child: _EmptyTelemetryMetric(label: AppTranslations.get('distance', currentLang).toUpperCase())),
-              const SizedBox(width: 10),
-              Expanded(child: _EmptyTelemetryMetric(label: AppTranslations.get('pace', currentLang).toUpperCase())),
-              const SizedBox(width: 10),
-              Expanded(child: _EmptyTelemetryMetric(label: AppTranslations.get('personal_records', currentLang).toUpperCase())),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyTelemetryMetric extends StatelessWidget {
-  const _EmptyTelemetryMetric({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.035),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '--',
-            style: TextStyle(
-              color: _kNeonCyan,
-              fontSize: 18,
+              color: AetronColors.textPrimary,
               height: 1,
-              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _kMutedSoft,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
+            unit,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: accentColor,
               letterSpacing: 0.8,
             ),
           ),
@@ -458,209 +591,204 @@ class _EmptyTelemetryMetric extends StatelessWidget {
   }
 }
 
-class _EmptyAnalyticsPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF081524), Color(0xFF102B3A)],
-        ).createShader(rect),
-    );
+// ─── 3D Distance Trend Card ─────────────────────────────────────────────────
+class _DistanceTrend3DCard extends ConsumerWidget {
+  const _DistanceTrend3DCard({
+    required this.chartData,
+    required this.period,
+    required this.comparison,
+    required this.useMetricUnits,
+  });
 
-    final grid = Paint()
-      ..color = _kNeonCyan.withValues(alpha: 0.07)
-      ..strokeWidth = 1;
-    for (var x = 0.0; x <= size.width; x += 24) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
-    }
-    for (var y = 0.0; y <= size.height; y += 24) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
-    }
-
-    final center = Offset(size.width * 0.5, size.height * 0.52);
-    final radius = size.shortestSide * 0.29;
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..color = _kNeonCyan.withValues(alpha: 0.22);
-    for (final factor in [0.42, 0.7, 1.0]) {
-      canvas.drawCircle(center, radius * factor, ring);
-    }
-    canvas.drawLine(
-      Offset(center.dx - radius * 1.35, center.dy),
-      Offset(center.dx + radius * 1.35, center.dy),
-      ring,
-    );
-    canvas.drawLine(
-      Offset(center.dx, center.dy - radius * 1.35),
-      Offset(center.dx, center.dy + radius * 1.35),
-      ring,
-    );
-
-    final wave = Path()..moveTo(0, size.height * 0.73);
-    for (var x = 0.0; x <= size.width; x += 8) {
-      final y =
-          size.height * 0.73 +
-          (x == size.width * 0.48 ? -20.0 : (x % 32 == 0 ? -5.0 : 0.0));
-      wave.lineTo(x, y);
-    }
-    canvas.drawPath(
-      wave,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeJoin = StrokeJoin.round
-        ..color = _kNeonCyan.withValues(alpha: 0.7),
-    );
-    canvas.drawCircle(center, 7, Paint()..color = _kNeonCyan);
-    canvas.drawCircle(
-      center,
-      14,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = _kNeonCyan.withValues(alpha: 0.45),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _OverviewGrid extends ConsumerWidget {
-  const _OverviewGrid({required this.insights, required this.useMetricUnits});
-
-  final _AnalyticsInsights insights;
+  final Map<String, double> chartData;
+  final TimePeriod period;
+  final _PeriodComparison comparison;
   final bool useMetricUnits;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    final cards = [
-      _OverviewItem(
-        icon: Icons.route_rounded,
-        label: AppTranslations.get('avg_distance', currentLang),
-        value:
-            (useMetricUnits
-                    ? insights.averageDistanceKm
-                    : WorkoutFormatters.kmToMi(insights.averageDistanceKm))
-                .toStringAsFixed(1),
-        suffix:
-            ' ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}',
-        color: _kAmber,
-      ),
-      _OverviewItem(
-        icon: Icons.speed_rounded,
-        label: AppTranslations.get('best_pace', currentLang),
-        value: insights.bestPaceSecPerKm == null
-            ? '--'
-            : WorkoutFormatters.formatPaceFromSecondsPerKm(
-                insights.bestPaceSecPerKm!,
-                useMetric: useMetricUnits,
+    final values = chartData.values
+        .map((v) => useMetricUnits ? v : WorkoutFormatters.kmToMi(v))
+        .toList();
+    final labels = chartData.keys.toList();
+    final hasData = values.any((v) => v > 0);
+
+    if (!hasData) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AetronColors.panelHigh,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AetronColors.borderSubtle),
+        ),
+        child: SizedBox(
+          height: 120,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.show_chart_rounded,
+                color: AetronColors.muted,
+                size: 32,
               ),
-        suffix: '',
-        color: _kNeonCyan,
-      ),
-      _OverviewItem(
-        icon: Icons.event_available_rounded,
-        label: '${insights.activeDays}/${insights.expectedDays} ${AppTranslations.get('days', currentLang)}',
-        value: '${insights.consistencyPercent}',
-        suffix: '%',
-        color: _kRed,
-      ),
-      _OverviewItem(
-        icon: Icons.fitness_center_rounded,
-        label: 'WORKOUTS',
-        value: '${insights.totalWorkouts}',
-        suffix: '',
-        color: _kNeonCyan,
-      ),
-    ];
+              const SizedBox(height: 8),
+              Text(
+                currentLang == AppLanguage.vi
+                    ? 'Hoàn thành thêm buổi tập để xem biểu đồ xu hướng.'
+                    : 'Complete more workouts to see your distance trend.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 12,
+                  color: AetronColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cards.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 1.32,
-      ),
-      itemBuilder: (_, index) => _StatOverviewCard(item: cards[index]),
-    );
-  }
-}
+    final maxY = (values.reduce((a, b) => a > b ? a : b) * 1.25).clamp(1.0, 9999.0);
+    final maxIdx = values.indexOf(values.reduce((a, b) => a >= b ? a : b));
 
-class _StatOverviewCard extends StatelessWidget {
-  const _StatOverviewCard({required this.item});
-
-  final _OverviewItem item;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(18),
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AetronColors.cyan.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(item.icon, color: item.color, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: const TextStyle(
-                    color: _kMutedText,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  ),
+              Text(
+                AppTranslations.get('distance_trend', currentLang),
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Text(
+                '${values.fold(0.0, (s, v) => s + v).toStringAsFixed(1)} ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: AetronColors.cyan,
                 ),
               ),
             ],
           ),
-          const Spacer(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Flexible(
-                child: Text(
-                  item.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFE8EDF5),
-                    fontSize: 27,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                    height: 0.95,
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 160,
+            child: BarChart(
+              BarChartData(
+                maxY: maxY,
+                alignment: BarChartAlignment.spaceAround,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => AetronColors.space,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        '${rod.toY.toStringAsFixed(1)} ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}',
+                        const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 12,
+                          color: AetronColors.cyan,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-              if (item.suffix.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 4),
-                  child: Text(
-                    item.suffix.trim(),
-                    style: const TextStyle(
-                      color: _kMutedText,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                borderData: FlBorderData(show: false),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: AetronColors.borderSubtle,
+                    strokeWidth: 1,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (val, _) {
+                        final idx = val.toInt();
+                        if (idx < 0 || idx >= labels.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final isPeak = idx == maxIdx;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            labels[idx],
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 10,
+                              color: isPeak ? AetronColors.cyan : AetronColors.textSecondary,
+                              fontWeight: isPeak ? FontWeight.w800 : FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
-            ],
+                barGroups: [
+                  for (var i = 0; i < values.length; i++)
+                    BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: values[i],
+                          width: 22,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                          gradient: i == maxIdx
+                              ? const LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [AetronColors.cyanSoft, AetronColors.cyan],
+                                )
+                              : LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    AetronColors.muted.withValues(alpha: 0.2),
+                                    AetronColors.muted.withValues(alpha: 0.5),
+                                  ],
+                                ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -668,30 +796,68 @@ class _StatOverviewCard extends StatelessWidget {
   }
 }
 
-class _GoalProgressSection extends ConsumerWidget {
-  const _GoalProgressSection({required this.progress});
+// ─── 3D Goal Progress Card ──────────────────────────────────────────────────
+class _GoalProgress3DCard extends ConsumerWidget {
+  const _GoalProgress3DCard({required this.progress});
 
   final GoalProgress? progress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
+
     if (progress == null) {
-      return _CardShell(
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AetronColors.panelHigh,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AetronColors.borderSubtle),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionTitle(title: currentLang == AppLanguage.vi ? 'MỤC TIÊU TIẾN ĐỘ' : 'GOAL PROGRESS'),
-            const SizedBox(height: 8),
+            Text(
+              AppTranslations.get('goal_progress', currentLang),
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              currentLang == AppLanguage.vi ? 'Đặt mục tiêu tập luyện đầu tiên' : 'Set your fitness goal',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: AetronColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
             Text(
               currentLang == AppLanguage.vi
-                  ? 'Hãy đặt mục tiêu để xem tiến độ tại đây.'
-                  : 'Set a goal to see your progress here.',
+                  ? 'Tạo mục tiêu để theo dõi tiến độ tuần/tháng của bạn.'
+                  : 'Create a goal to start tracking your progress.',
               style: const TextStyle(
-                color: _kMutedSoft,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontFamily: 'Outfit',
+                fontSize: 12,
+                color: AetronColors.textSecondary,
               ),
+            ),
+            const SizedBox(height: 16),
+            Aetron3DPrimaryButton(
+              label: currentLang == AppLanguage.vi ? 'ĐẶT MỤC TIÊU →' : 'SET A GOAL →',
+              icon: Icons.flag_rounded,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const GoalScreen()),
+                );
+              },
             ),
           ],
         ),
@@ -699,67 +865,81 @@ class _GoalProgressSection extends ConsumerWidget {
     }
 
     final goal = progress!;
+    final remaining = (goal.target - goal.current).clamp(0, 99999);
+    final remainingLabel = remaining == 0
+        ? (currentLang == AppLanguage.vi ? 'Đã hoàn thành mục tiêu!' : 'Goal achieved! Great job!')
+        : '${goal.unit == 'km' || goal.unit == 'mi' ? remaining.toStringAsFixed(1) : remaining.toInt()} ${goal.unit} ${currentLang == AppLanguage.vi ? 'còn lại' : 'remaining'}';
 
-    return _CardShell(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: goal.isAchieved ? AetronColors.mint : AetronColors.cyan.withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (goal.isAchieved ? AetronColors.mint : AetronColors.cyan).withValues(alpha: 0.15),
+            blurRadius: 16,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(title: currentLang == AppLanguage.vi ? 'MỤC TIÊU TIẾN ĐỘ' : 'GOAL PROGRESS'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                AppTranslations.get('goal_progress', currentLang),
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.cyanSoft.withValues(alpha: 0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Text(
+                '${goal.percent}%',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: goal.isAchieved ? AetronColors.mint : AetronColors.cyan,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${goal.currentLabel} / ${goal.targetLabel} ${goal.unit}',
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: AetronColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
-            (goal.unit == 'km' || goal.unit == 'mi')
-                ? (currentLang == AppLanguage.vi ? 'KHOẢNG CÁCH HÀNG THÁNG' : 'MONTHLY DISTANCE')
-                : (currentLang == AppLanguage.vi ? 'MỤC TIÊU HIỆN TẠI' : 'CURRENT GOAL'),
-            style: const TextStyle(
-              color: _kMutedText,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
+            remainingLabel,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              color: goal.isAchieved ? AetronColors.mint : AetronColors.textSecondary,
+              fontWeight: goal.isAchieved ? FontWeight.w800 : FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${goal.percent}%',
-              style: const TextStyle(
-                color: _kNeonCyan,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: goal.ratio,
-              minHeight: 10,
-              backgroundColor: _kTrack,
-              valueColor: const AlwaysStoppedAnimation<Color>(_kNeonCyan),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Text(
-                '${goal.currentLabel} ${goal.unit}'.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${goal.targetLabel} ${goal.unit} TARGET'.toUpperCase(),
-                style: const TextStyle(
-                  color: _kMutedText,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          const SizedBox(height: 14),
+          AppProgressBar(
+            progress: (goal.percent / 100.0).clamp(0.0, 1.0),
+            color: goal.isAchieved ? AetronColors.mint : AetronColors.cyan,
+            showPercentage: false,
           ),
         ],
       ),
@@ -767,310 +947,9 @@ class _GoalProgressSection extends ConsumerWidget {
   }
 }
 
-class _WeekTrendCard extends ConsumerWidget {
-  const _WeekTrendCard({
-    required this.chartData,
-    required this.period,
-    required this.average,
-    required this.useMetricUnits,
-  });
-
-  final Map<String, double> chartData;
-  final TimePeriod period;
-  final double average;
-  final bool useMetricUnits;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    final labels = chartData.keys.toList();
-    final values = chartData.values
-        .map(
-          (value) => useMetricUnits ? value : WorkoutFormatters.kmToMi(value),
-        )
-        .toList();
-    final displayAverage = useMetricUnits
-        ? average
-        : WorkoutFormatters.kmToMi(average);
-    final unit = WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits);
-    final maxY = values.isEmpty
-        ? 1.0
-        : (values.reduce((a, b) => a > b ? a : b) * 1.2)
-              .clamp(1.0, 9999.0)
-              .toDouble();
-    final selectedIndex = values.isEmpty
-        ? -1
-        : values.indexOf(values.reduce((a, b) => a >= b ? a : b));
-
-    return _CardShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '${_periodLabel(period, currentLang).toUpperCase()} ${AppTranslations.get('distance', currentLang).toUpperCase()}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF133444),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Avg: ${displayAverage.toStringAsFixed(1)} $unit',
-                  style: const TextStyle(
-                    color: _kNeonCyan,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 184,
-            child: values.every((value) => value == 0)
-                ? const Center(
-                    child: Text(
-                      'No activity in this period',
-                      style: TextStyle(color: _kMutedSoft),
-                    ),
-                  )
-                : BarChart(
-                    BarChartData(
-                      maxY: maxY,
-                      alignment: BarChartAlignment.spaceAround,
-                      barTouchData: BarTouchData(enabled: false),
-                      borderData: FlBorderData(show: false),
-                      gridData: const FlGridData(show: false),
-                      titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        leftTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (value, _) {
-                              final index = value.toInt();
-                              if (index < 0 || index >= labels.length) {
-                                return const SizedBox.shrink();
-                              }
-                              final selected = index == selectedIndex;
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Text(
-                                  labels[index],
-                                  style: TextStyle(
-                                    color: selected ? _kNeonCyan : _kMutedText,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      barGroups: [
-                        for (var i = 0; i < values.length; i++)
-                          BarChartGroupData(
-                            x: i,
-                            barRods: [
-                              BarChartRodData(
-                                toY: values[i],
-                                width: 36,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  topRight: Radius.circular(10),
-                                ),
-                                gradient: i == selectedIndex
-                                    ? LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [
-                                          _kNeonCyan.withValues(alpha: 0.55),
-                                          _kNeonCyan,
-                                        ],
-                                      )
-                                    : LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [
-                                          const Color(
-                                            0xFF173140,
-                                          ).withValues(alpha: 0.55),
-                                          const Color(
-                                            0xFF1F7D90,
-                                          ).withValues(alpha: 0.85),
-                                        ],
-                                      ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecordsList extends ConsumerWidget {
-  const _RecordsList({required this.records, required this.useMetricUnits});
-
-  final _PersonalRecords records;
-  final bool useMetricUnits;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    final items = [
-      _RecordItem(
-        label: currentLang == AppLanguage.vi ? 'KHOẢNG CÁCH DÀI NHẤT' : 'LONGEST DISTANCE',
-        title: currentLang == AppLanguage.vi ? 'Lộ trình đường dài' : 'Marathon Run',
-        value: WorkoutFormatters.formatDistance(
-          records.longestDistance,
-          useMetric: useMetricUnits,
-          decimals: 1,
-        ),
-        date: currentLang == AppLanguage.vi ? 'Kỷ lục tốt nhất' : 'Best record',
-        icon: Icons.emoji_events_rounded,
-        color: _kAmber,
-      ),
-      _RecordItem(
-        label: currentLang == AppLanguage.vi ? 'THỜI GIAN LÂU NHẤT' : 'LONGEST DURATION',
-        title: currentLang == AppLanguage.vi ? 'Buổi tập bền bỉ' : 'Endurance Session',
-        value: WorkoutFormatters.formatDurationFromSeconds(
-          records.longestDurationSec,
-        ),
-        date: currentLang == AppLanguage.vi ? 'Kỷ lục tốt nhất' : 'Best record',
-        icon: Icons.timer_rounded,
-        color: _kNeonCyan,
-      ),
-      _RecordItem(
-        label: currentLang == AppLanguage.vi ? 'CALO CAO NHẤT' : 'MOST CALORIES',
-        title: currentLang == AppLanguage.vi ? 'Buổi tập tiêu hao cao' : 'High Burn Session',
-        value: '${records.highestCalories} kcal',
-        date: records.topActivity == 'No data'
-            ? (currentLang == AppLanguage.vi ? 'Chưa có dữ liệu' : 'No data')
-            : AppTranslations.get(records.topActivity, currentLang),
-        icon: Icons.local_fire_department_rounded,
-        color: _kRed,
-      ),
-    ];
-
-    return Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          _RecordCard(item: items[i]),
-          if (i != items.length - 1) const SizedBox(height: 12),
-        ],
-      ],
-    );
-  }
-}
-
-class _RecordCard extends StatelessWidget {
-  const _RecordCard({required this.item});
-
-  final _RecordItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Icon(item.icon, color: item.color, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.label,
-                  style: const TextStyle(
-                    color: _kMutedText,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                item.value,
-                style: TextStyle(
-                  color: item.color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.date,
-                style: const TextStyle(
-                  color: _kMutedText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivityDistributionCard extends ConsumerWidget {
-  const _ActivityDistributionCard({
+// ─── 3D Activity Mix Card ────────────────────────────────────────────────────
+class _ActivityMix3DCard extends ConsumerWidget {
+  const _ActivityMix3DCard({
     required this.breakdown,
     required this.total,
   });
@@ -1080,361 +959,320 @@ class _ActivityDistributionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    return _CardShell(
+    if (total == 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AetronColors.borderSubtle),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (breakdown.isEmpty)
-            Text(
-              currentLang == AppLanguage.vi
-                  ? 'Chưa có dữ liệu hoạt động trong khoảng thời gian này.'
-                  : 'No activity data in this period.',
-              style: const TextStyle(color: _kMutedSoft),
-            )
-          else
-            ...breakdown.entries.map((entry) {
-              final ratio = total == 0 ? 0.0 : entry.value / total;
-              final percent = (ratio * 100).round();
+          Column(
+            children: breakdown.entries.map((entry) {
+              final type = entry.key;
+              final count = entry.value;
+              final pct = ((count / total) * 100).round();
+              final label = WorkoutFormatters.formatActivityType(type, ref.watch(appLanguageProvider));
+              final color = _activityColor(type);
+
               return Padding(
-                padding: const EdgeInsets.only(bottom: 18),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Column(
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          AppTranslations.get(entry.key, currentLang),
-                          style: TextStyle(
-                            color: _activityColor(entry.key),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        Row(
+                          children: [
+                            Icon(_activityIcon(type), color: color, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: AetronColors.textPrimary,
+                              ),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
                         Text(
-                          '$percent%',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          '$count ($pct%)',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
+                            color: color,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: ratio,
-                        minHeight: 8,
-                        backgroundColor: _kTrack,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          _activityColor(entry.key),
-                        ),
-                      ),
+                    const SizedBox(height: 6),
+                    AppProgressBar(
+                      progress: (count / total).clamp(0.0, 1.0),
+                      color: color,
+                      showPercentage: false,
                     ),
                   ],
                 ),
               );
-            }),
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _activityColor(String type) {
+    return switch (type.toLowerCase()) {
+      'running' => AetronColors.cyan,
+      'cycling' => AetronColors.mint,
+      'walking' => AetronColors.blue,
+      _ => AetronColors.gold,
+    };
+  }
+
+  IconData _activityIcon(String type) {
+    return switch (type.toLowerCase()) {
+      'running' => Icons.directions_run_rounded,
+      'cycling' => Icons.directions_bike_rounded,
+      'walking' => Icons.directions_walk_rounded,
+      _ => Icons.fitness_center_rounded,
+    };
+  }
+}
+
+// ─── 3D Personal Bests Card ─────────────────────────────────────────────────
+class _PersonalBests3DCard extends ConsumerWidget {
+  const _PersonalBests3DCard({
+    required this.records,
+    required this.useMetricUnits,
+  });
+
+  final _PersonalRecords records;
+  final bool useMetricUnits;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+
+    final longestDistStr = records.longestDistanceKm > 0
+        ? WorkoutFormatters.formatDistance(records.longestDistanceKm, useMetric: useMetricUnits, decimals: 1)
+        : '—';
+    final longestDurStr = records.longestDurationSec > 0
+        ? WorkoutFormatters.formatDurationFromSeconds(records.longestDurationSec)
+        : '—';
+    final maxCalStr = records.maxCalories > 0 ? '${records.maxCalories} kcal' : '—';
+    final topPaceStr = records.bestPaceKmh > 0
+        ? WorkoutFormatters.formatPaceFromSpeedKmh(records.bestPaceKmh, useMetric: useMetricUnits)
+        : '—';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AetronColors.gold.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AetronColors.gold.withValues(alpha: 0.12),
+            blurRadius: 14,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _RecordItem3D(
+                  title: currentLang == AppLanguage.vi ? 'Đường chạy dài nhất' : 'Longest Distance',
+                  value: longestDistStr,
+                  icon: Icons.emoji_events_rounded,
+                  color: AetronColors.gold,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RecordItem3D(
+                  title: currentLang == AppLanguage.vi ? 'Thời gian lâu nhất' : 'Longest Duration',
+                  value: longestDurStr,
+                  icon: Icons.timer_rounded,
+                  color: AetronColors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _RecordItem3D(
+                  title: currentLang == AppLanguage.vi ? 'Calo đốt nhiều nhất' : 'Max Calories',
+                  value: maxCalStr,
+                  icon: Icons.local_fire_department_rounded,
+                  color: AetronColors.mint,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RecordItem3D(
+                  title: currentLang == AppLanguage.vi ? 'Pace tốt nhất' : 'Best Pace',
+                  value: topPaceStr,
+                  icon: Icons.speed_rounded,
+                  color: AetronColors.cyan,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _CardShell extends StatelessWidget {
-  const _CardShell({required this.child});
+class _RecordItem3D extends StatelessWidget {
+  const _RecordItem3D({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
-  final Widget child;
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _kCardSoft,
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF0F1524),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: AetronColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
+// ─── Empty Analytics Panel ──────────────────────────────────────────────────
+class _EmptyAnalyticsPanel extends ConsumerWidget {
+  const _EmptyAnalyticsPanel({required this.period});
 
-  final String title;
+  final TimePeriod period;
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Color(0xFFE8EDF5),
-        fontSize: 14,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.8,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLang = ref.watch(appLanguageProvider);
+    final label = _periodLabel(period, currentLang);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AetronColors.panelHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AetronColors.borderSubtle),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.analytics_outlined,
+            size: 44,
+            color: AetronColors.textSecondary,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            currentLang == AppLanguage.vi
+                ? 'Không có dữ liệu cho ($label)'
+                : 'No workouts in this period ($label)',
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: AetronColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            currentLang == AppLanguage.vi
+                ? 'Hãy hoàn thành thêm bài tập để xem thống kê.'
+                : 'Complete workouts during this time frame to unlock performance charts.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              color: AetronColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Aetron3DPrimaryButton(
+            label: AppTranslations.get('start_workout', currentLang).toUpperCase(),
+            icon: Icons.play_arrow_rounded,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ActivityScreen()),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
-class _OverviewItem {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String suffix;
-  final Color color;
-
-  const _OverviewItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.suffix,
-    required this.color,
-  });
-}
-
-class _RecordItem {
-  final String label;
-  final String title;
-  final String value;
-  final String date;
-  final IconData icon;
-  final Color color;
-
-  const _RecordItem({
-    required this.label,
-    required this.title,
-    required this.value,
-    required this.date,
-    required this.icon,
-    required this.color,
-  });
-}
-
-class _AnalyticsInsights {
-  final int totalWorkouts;
-  final double averageDistanceKm;
-  final double? bestPaceSecPerKm;
-  final int activeDays;
-  final int expectedDays;
-  final int consistencyPercent;
-
-  const _AnalyticsInsights({
-    required this.totalWorkouts,
-    required this.averageDistanceKm,
-    required this.bestPaceSecPerKm,
-    required this.activeDays,
-    required this.expectedDays,
-    required this.consistencyPercent,
-  });
-
-  factory _AnalyticsInsights.fromWorkouts(
-    List<WorkoutSession> workouts,
-    TimePeriod period,
-  ) {
-    final totalDistance = workouts.fold(
-      0.0,
-      (sum, item) => sum + _effectiveDistanceKm(item),
-    );
-    final pacedWorkouts = workouts.where((workout) {
-      return _effectiveDistanceKm(workout) > 0 && workout.durationSec > 0;
-    }).toList();
-    final bestPace = pacedWorkouts.isEmpty
-        ? null
-        : pacedWorkouts
-              .map((workout) {
-                return workout.durationSec / _effectiveDistanceKm(workout);
-              })
-              .reduce((a, b) => a < b ? a : b);
-    final activeDates = workouts
-        .map((workout) => DateTimeHelper.localDateOnly(workout.startedAt))
-        .toSet();
-    final expectedDays = _elapsedDaysInPeriod(period);
-    final consistency = expectedDays <= 0
-        ? 0
-        : ((activeDates.length / expectedDays) * 100).clamp(0, 100).round();
-
-    return _AnalyticsInsights(
-      totalWorkouts: workouts.length,
-      averageDistanceKm: workouts.isEmpty ? 0 : totalDistance / workouts.length,
-      bestPaceSecPerKm: bestPace,
-      activeDays: activeDates.length,
-      expectedDays: expectedDays,
-      consistencyPercent: consistency,
-    );
-  }
-}
-
-class _PersonalRecords {
-  final double longestDistance;
-  final int longestDurationSec;
-  final int highestCalories;
-  final String topActivity;
-
-  const _PersonalRecords({
-    required this.longestDistance,
-    required this.longestDurationSec,
-    required this.highestCalories,
-    required this.topActivity,
-  });
-
-  factory _PersonalRecords.fromWorkouts(List<WorkoutSession> workouts) {
-    if (workouts.isEmpty) {
-      return const _PersonalRecords(
-        longestDistance: 0,
-        longestDurationSec: 0,
-        highestCalories: 0,
-        topActivity: 'No data',
-      );
-    }
-
-    final counts = <String, int>{};
-    for (final workout in workouts) {
-      counts.update(
-        workout.activityType,
-        (value) => value + 1,
-        ifAbsent: () => 1,
-      );
-    }
-    final top = counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
-
-    return _PersonalRecords(
-      longestDistance: workouts
-          .map((item) => item.distanceKm)
-          .reduce((a, b) => a > b ? a : b),
-      longestDurationSec: workouts
-          .map((item) => item.durationSec)
-          .reduce((a, b) => a > b ? a : b),
-      highestCalories: workouts
-          .map((item) => item.caloriesKcal.round())
-          .reduce((a, b) => a > b ? a : b),
-      topActivity: top,
-    );
-  }
-}
-
-List<WorkoutSession> _filterWorkouts(
-  List<WorkoutSession> workouts,
-  TimePeriod period,
-) {
-  final now = DateTime.now();
-  switch (period) {
-    case TimePeriod.week:
-      final start = DateTimeHelper.localDateOnly(
-        now,
-      ).subtract(Duration(days: DateTimeHelper.localDateOnly(now).weekday - 1));
-      return workouts.where((workout) {
-        return !DateTimeHelper.localDateOnly(workout.startedAt).isBefore(start);
-      }).toList();
-    case TimePeriod.month:
-      final start = DateTime(now.year, now.month, 1);
-      return workouts.where((workout) {
-        return !DateTimeHelper.localDateOnly(workout.startedAt).isBefore(start);
-      }).toList();
-    case TimePeriod.year:
-      final start = DateTime(now.year, 1, 1);
-      return workouts.where((workout) {
-        return !DateTimeHelper.localDateOnly(workout.startedAt).isBefore(start);
-      }).toList();
-  }
-}
-
-Map<String, double> _distanceChartData(
-  List<WorkoutSession> workouts,
-  TimePeriod period,
-) {
-  final data = <String, double>{};
-  final now = DateTimeHelper.localDateOnly(DateTime.now());
-
-  switch (period) {
-    case TimePeriod.week:
-      for (var i = 0; i < 7; i++) {
-        final day = now.subtract(Duration(days: now.weekday - 1 - i));
-        data[_weekdayLabel(day)] = 0;
-      }
-      for (final workout in workouts) {
-        final key = _weekdayLabel(
-          DateTimeHelper.localDateOnly(workout.startedAt),
-        );
-        if (data.containsKey(key)) {
-          data[key] = data[key]! + _effectiveDistanceKm(workout);
-        }
-      }
-      break;
-    case TimePeriod.month:
-      for (var week = 1; week <= 5; week++) {
-        data['W$week'] = 0;
-      }
-      for (final workout in workouts) {
-        final date = DateTimeHelper.localDateOnly(workout.startedAt);
-        final index = ((date.day - 1) ~/ 7) + 1;
-        final key = 'W${index.clamp(1, 5)}';
-        data[key] = (data[key] ?? 0) + _effectiveDistanceKm(workout);
-      }
-      break;
-    case TimePeriod.year:
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      for (var i = 0; i < 12; i++) {
-        data[months[i]] = 0;
-      }
-      for (final workout in workouts) {
-        final date = DateTimeHelper.localDateOnly(workout.startedAt);
-        final key = months[date.month - 1];
-        data[key] = (data[key] ?? 0) + _effectiveDistanceKm(workout);
-      }
-      break;
-  }
-
-  return data;
-}
-
-double _effectiveDistanceKm(WorkoutSession workout) {
-  final validDistance = workout.gpsAnalysis.validDistanceKm;
-  return validDistance > 0 ? validDistance : workout.distanceKm;
-}
-
-int _elapsedDaysInPeriod(TimePeriod period) {
-  final now = DateTimeHelper.localDateOnly(DateTime.now());
-  switch (period) {
-    case TimePeriod.week:
-      return now.weekday;
-    case TimePeriod.month:
-      return now.day;
-    case TimePeriod.year:
-      return now.difference(DateTime(now.year, 1, 1)).inDays + 1;
-  }
-}
-
-Map<String, int> _activityBreakdown(List<WorkoutSession> workouts) {
-  final map = <String, int>{};
-  for (final workout in workouts) {
-    final key = WorkoutFormatters.formatActivityType(workout.activityType);
-    map.update(key, (value) => value + 1, ifAbsent: () => 1);
-  }
-  final entries = map.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
-  return {for (final entry in entries) entry.key: entry.value};
-}
-
-String _periodLabel(TimePeriod period, AppLanguage lang) {
-  switch (period) {
+// ─── Helper Functions & Models ──────────────────────────────────────────────
+String _periodLabel(TimePeriod p, AppLanguage lang) {
+  switch (p) {
     case TimePeriod.week:
       return AppTranslations.get('week', lang);
     case TimePeriod.month:
@@ -1444,20 +1282,235 @@ String _periodLabel(TimePeriod period, AppLanguage lang) {
   }
 }
 
-String _weekdayLabel(DateTime day) {
-  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  return labels[day.weekday - 1];
+double _effectiveDistanceKm(WorkoutSession w) {
+  return w.gpsAnalysis.validDistanceKm > 0
+      ? w.gpsAnalysis.validDistanceKm
+      : w.distanceKm;
 }
 
-Color _activityColor(String activity) {
-  switch (activity.toLowerCase()) {
-    case 'running':
-      return _kNeonCyan;
-    case 'cycling':
-      return _kAmber;
-    case 'walking':
-      return Colors.white;
-    default:
-      return _kSlate;
+List<WorkoutSession> _filterWorkouts(
+  List<WorkoutSession> workouts,
+  TimePeriod period,
+) {
+  if (workouts.isEmpty) return [];
+  final now = DateTime.now();
+
+  List<WorkoutSession> getForRef(DateTime refDate) {
+    final refDay = DateTimeHelper.localDateOnly(refDate);
+    switch (period) {
+      case TimePeriod.week:
+        final start = refDay.subtract(const Duration(days: 6));
+        return workouts.where((w) {
+          final d = DateTimeHelper.localDateOnly(w.startedAt);
+          return !d.isBefore(start) && !d.isAfter(refDay);
+        }).toList();
+
+      case TimePeriod.month:
+        final start = refDay.subtract(const Duration(days: 29));
+        return workouts.where((w) {
+          final d = DateTimeHelper.localDateOnly(w.startedAt);
+          return !d.isBefore(start) && !d.isAfter(refDay);
+        }).toList();
+
+      case TimePeriod.year:
+        final start = DateTime(refDay.year, 1, 1);
+        return workouts.where((w) {
+          final d = DateTimeHelper.localDateOnly(w.startedAt);
+          return !d.isBefore(start) && d.year == refDay.year;
+        }).toList();
+    }
   }
+
+  final currentFiltered = getForRef(now);
+  if (currentFiltered.isNotEmpty) return currentFiltered;
+
+  final latestDate = workouts.first.startedAt;
+  return getForRef(latestDate);
+}
+
+class _PeriodComparison {
+  final double currentDistanceKm;
+  final double? percentageChange;
+
+  const _PeriodComparison({
+    required this.currentDistanceKm,
+    this.percentageChange,
+  });
+}
+
+_PeriodComparison _calculateComparison(
+  List<WorkoutSession> workouts,
+  TimePeriod period,
+) {
+  final current = _filterWorkouts(workouts, period);
+  final currentDist = current.fold(
+    0.0,
+    (sum, item) => sum + _effectiveDistanceKm(item),
+  );
+
+  if (workouts.isEmpty) {
+    return const _PeriodComparison(currentDistanceKm: 0.0);
+  }
+
+  final now = DateTime.now();
+  final refDay = DateTimeHelper.localDateOnly(now);
+
+  List<WorkoutSession> previous = [];
+  switch (period) {
+    case TimePeriod.week:
+      final prevEnd = refDay.subtract(const Duration(days: 7));
+      final prevStart = prevEnd.subtract(const Duration(days: 6));
+      previous = workouts.where((w) {
+        final d = DateTimeHelper.localDateOnly(w.startedAt);
+        return !d.isBefore(prevStart) && !d.isAfter(prevEnd);
+      }).toList();
+      break;
+
+    case TimePeriod.month:
+      final prevEnd = refDay.subtract(const Duration(days: 30));
+      final prevStart = prevEnd.subtract(const Duration(days: 29));
+      previous = workouts.where((w) {
+        final d = DateTimeHelper.localDateOnly(w.startedAt);
+        return !d.isBefore(prevStart) && !d.isAfter(prevEnd);
+      }).toList();
+      break;
+
+    case TimePeriod.year:
+      final prevYear = refDay.year - 1;
+      previous = workouts.where((w) {
+        return DateTimeHelper.localDateOnly(w.startedAt).year == prevYear;
+      }).toList();
+      break;
+  }
+
+  final prevDist = previous.fold(
+    0.0,
+    (sum, item) => sum + _effectiveDistanceKm(item),
+  );
+
+  if (prevDist == 0.0) {
+    return _PeriodComparison(
+      currentDistanceKm: currentDist,
+      percentageChange: currentDist > 0 ? 100.0 : null,
+    );
+  }
+
+  final pct = ((currentDist - prevDist) / prevDist) * 100.0;
+  return _PeriodComparison(
+    currentDistanceKm: currentDist,
+    percentageChange: pct,
+  );
+}
+
+class _PersonalRecords {
+  final double longestDistanceKm;
+  final int longestDurationSec;
+  final int maxCalories;
+  final double bestPaceKmh;
+
+  const _PersonalRecords({
+    required this.longestDistanceKm,
+    required this.longestDurationSec,
+    required this.maxCalories,
+    required this.bestPaceKmh,
+  });
+
+  factory _PersonalRecords.fromWorkouts(List<WorkoutSession> workouts) {
+    if (workouts.isEmpty) {
+      return const _PersonalRecords(
+        longestDistanceKm: 0,
+        longestDurationSec: 0,
+        maxCalories: 0,
+        bestPaceKmh: 0,
+      );
+    }
+
+    double maxDist = 0;
+    int maxDur = 0;
+    int maxCal = 0;
+    double maxSpeed = 0;
+
+    for (final w in workouts) {
+      final d = _effectiveDistanceKm(w);
+      if (d > maxDist) maxDist = d;
+      if (w.durationSec > maxDur) maxDur = w.durationSec;
+      final cal = w.caloriesKcal.round();
+      if (cal > maxCal) maxCal = cal;
+      if (w.avgSpeedKmh > maxSpeed) maxSpeed = w.avgSpeedKmh;
+    }
+
+    return _PersonalRecords(
+      longestDistanceKm: maxDist,
+      longestDurationSec: maxDur,
+      maxCalories: maxCal,
+      bestPaceKmh: maxSpeed,
+    );
+  }
+}
+
+Map<String, double> _distanceChartData(
+  List<WorkoutSession> workouts,
+  TimePeriod period,
+  AppLanguage lang,
+) {
+  final map = <String, double>{};
+
+  if (period == TimePeriod.week) {
+    final now = DateTime.now();
+    for (var i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final key = switch (date.weekday) {
+        1 => 'Mon',
+        2 => 'Tue',
+        3 => 'Wed',
+        4 => 'Thu',
+        5 => 'Fri',
+        6 => 'Sat',
+        _ => 'Sun',
+      };
+      map[key] = 0.0;
+
+      for (final w in workouts) {
+        final wd = w.startedAt.toLocal();
+        if (wd.year == date.year && wd.month == date.month && wd.day == date.day) {
+          map[key] = (map[key] ?? 0.0) + _effectiveDistanceKm(w);
+        }
+      }
+    }
+  } else if (period == TimePeriod.month) {
+    for (var wIdx = 1; wIdx <= 4; wIdx++) {
+      map['W$wIdx'] = 0.0;
+    }
+    final now = DateTime.now();
+    for (final w in workouts) {
+      final wd = w.startedAt.toLocal();
+      final diffDays = now.difference(wd).inDays;
+      if (diffDays >= 0 && diffDays < 28) {
+        final wNum = 4 - (diffDays ~/ 7);
+        final key = 'W${wNum.clamp(1, 4)}';
+        map[key] = (map[key] ?? 0.0) + _effectiveDistanceKm(w);
+      }
+    }
+  } else {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (final m in months) {
+      map[m] = 0.0;
+    }
+    for (final w in workouts) {
+      final wd = w.startedAt.toLocal();
+      final mKey = months[wd.month - 1];
+      map[mKey] = (map[mKey] ?? 0.0) + _effectiveDistanceKm(w);
+    }
+  }
+
+  return map;
+}
+
+Map<String, int> _activityBreakdown(List<WorkoutSession> workouts) {
+  final map = <String, int>{};
+  for (final w in workouts) {
+    final type = w.activityType.toLowerCase();
+    map[type] = (map[type] ?? 0) + 1;
+  }
+  return map;
 }

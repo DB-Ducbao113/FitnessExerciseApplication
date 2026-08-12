@@ -10,7 +10,7 @@ import 'package:fitness_exercise_application/features/profile/presentation/provi
 import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:uuid/uuid.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+
 import 'package:latlong2/latlong.dart';
 
 part 'workout_providers.g.dart';
@@ -23,8 +23,16 @@ class WorkoutList extends _$WorkoutList {
     final user = ref.read(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
 
-    final repository = ref.watch(workoutRepositoryProvider);
-    // Bootstrap/login hydration owns the initial remote sync.
+    final repository = ref.read(workoutRepositoryProvider);
+
+    // Always sync from Cloud first so all devices see the same dataset.
+    // Falls through gracefully if offline (Supabase request will throw and we catch).
+    try {
+      await repository.syncFromCloud();
+    } catch (e) {
+      debugPrint('[WorkoutList] syncFromCloud error: $e');
+    }
+
     return await repository.getSessionsLocal(user);
   }
 
@@ -63,10 +71,8 @@ class WorkoutList extends _$WorkoutList {
     final repository = ref.read(workoutRepositoryProvider);
     bool savedRemotely = false;
     try {
-      if (await InternetConnectionChecker().hasConnection) {
-        await repository.saveSessionRemote(session);
-        savedRemotely = true;
-      }
+      await repository.saveSessionRemote(session);
+      savedRemotely = true;
     } catch (e) {
       debugPrint('[WorkoutList] saveSession remote failed: $e');
     }

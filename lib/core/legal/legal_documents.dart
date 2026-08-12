@@ -1,4 +1,4 @@
-import 'package:fitness_exercise_application/core/l10n/app_translations.dart';
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 
 class LegalDocumentSection {
   final String title;

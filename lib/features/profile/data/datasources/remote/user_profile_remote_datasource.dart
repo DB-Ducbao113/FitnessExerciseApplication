@@ -111,7 +111,30 @@ class UserProfileRemoteDataSource {
     await updateAvatarUrl(userId, null);
     await deleteAvatarObject(userId);
   }
+
+  /// Delete all user data from every table (cascade before account removal).
+  Future<void> deleteAllUserData(String userId) async {
+    // Workout-related data first (FK ordering)
+    await _supabase
+        .from(DbTables.workoutSessions)
+        .delete()
+        .eq('user_id', userId);
+
+    await _supabase
+        .from(DbTables.userGoals)
+        .delete()
+        .eq('user_id', userId);
+
+    await _supabase
+        .from(DbTables.userProfiles)
+        .delete()
+        .eq('user_id', userId);
+
+    // Remove avatar from Storage
+    await deleteAvatarObject(userId);
+  }
 }
+
 
 String? _avatarStoragePathFromUrl(String? avatarUrl) {
   if (avatarUrl == null || avatarUrl.isEmpty) return null;

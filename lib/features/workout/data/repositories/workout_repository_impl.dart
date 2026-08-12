@@ -10,7 +10,7 @@ import 'package:fitness_exercise_application/features/workout/domain/entities/ro
 import 'package:fitness_exercise_application/features/workout/domain/repositories/workout_repository.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/route_match_quality_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 
 class WorkoutRepositoryImpl implements WorkoutRepository {
@@ -91,13 +91,11 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       await LocalDB.deleteWorkout(w.id);
     }
 
-    // Try deleting remote
-    if (await InternetConnectionChecker().hasConnection) {
-      try {
-        await _remoteDataSource.deleteSession(sessionId);
-      } catch (e) {
-        debugPrint('[WorkoutRepository] Failed to delete remote session: $e');
-      }
+    // Try deleting remote (gracefully handles offline)
+    try {
+      await _remoteDataSource.deleteSession(sessionId);
+    } catch (e) {
+      debugPrint('[WorkoutRepository] Failed to delete remote session: $e');
     }
   }
 
@@ -106,21 +104,18 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     // Clear local cache completely
     await LocalDB.clearAllForUser(userId);
 
-    // Try deleting remote
-    if (await InternetConnectionChecker().hasConnection) {
-      try {
-        await _remoteDataSource.deleteAllSessions(userId);
-      } catch (e) {
-        debugPrint(
-          '[WorkoutRepository] Failed to delete all remote sessions: $e',
-        );
-      }
+    // Try deleting remote (gracefully handles offline)
+    try {
+      await _remoteDataSource.deleteAllSessions(userId);
+    } catch (e) {
+      debugPrint(
+        '[WorkoutRepository] Failed to delete all remote sessions: $e',
+      );
     }
   }
 
   @override
   Future<void> syncPendingData() async {
-    if (!await InternetConnectionChecker().hasConnection) return;
 
     try {
       final unsyncedWorkouts = await LocalDB.getUnsyncedWorkouts();
@@ -246,7 +241,6 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<bool> syncRouteMatchResult(String sessionId) async {
-    if (!await InternetConnectionChecker().hasConnection) return false;
 
     try {
       final payload = await _remoteDataSource.getRouteMatchPayload(sessionId);
@@ -279,20 +273,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-    if (!await InternetConnectionChecker().hasConnection) return;
-
     try {
       await syncPendingData();
       final remoteWorkouts = await fetchSessionsRemote(userId);
-      final localWorkouts = await getSessionsLocal(userId);
-
-      if (remoteWorkouts.isEmpty && localWorkouts.isNotEmpty) {
-        debugPrint(
-          '[Sync] syncFromCloud skipped empty remote refresh to preserve local cache.',
-        );
-        return;
-      }
-
       await LocalDB.syncRemoteSessions(remoteWorkouts);
     } catch (e) {
       debugPrint('[Sync] syncFromCloud error: $e');

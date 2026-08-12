@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_metrics_calculator.dart';
 
 // Shared workout formatters.
@@ -164,9 +165,26 @@ class WorkoutFormatters {
     return speed.toStringAsFixed(speed >= 10 ? 0 : 1);
   }
 
-  /// Format activity label.
-  static String formatActivityType(String activityType) {
+  /// Format activity label with translation support.
+  static String formatActivityType(String activityType, [AppLanguage? lang]) {
     if (activityType.isEmpty) return activityType;
+    final lower = activityType.toLowerCase();
+    if (lang == AppLanguage.vi) {
+      switch (lower) {
+        case 'running':
+        case 'run':
+          return 'Chạy bộ';
+        case 'walking':
+        case 'walk':
+          return 'Đi bộ';
+        case 'cycling':
+        case 'cycle':
+        case 'bike':
+          return 'Đạp xe';
+        default:
+          return activityType[0].toUpperCase() + activityType.substring(1);
+      }
+    }
     return activityType[0].toUpperCase() + activityType.substring(1);
   }
 }
