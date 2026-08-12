@@ -4,7 +4,7 @@
 
   # ⚡ Aetron - Next-Gen Fitness & Exercise Application
   
-  **Nền tảng theo dõi và phân tích luyện tập thông minh thế hệ mới tích hợp 3D Visuals & AI Analytics**
+  **A Smart Fitness Tracking & Analytics Platform Powered by Flutter, Supabase & 3D Visual Design**
 
   [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
   [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
@@ -16,113 +16,113 @@
 
 ---
 
-## 🌟 Giới thiệu Sản phẩm (Product Overview)
+## 🌟 Product Overview
 
-**Aetron** là ứng dụng di động theo dõi thể thao & sức khỏe cá nhân hàng đầu được xây dựng trên nền tảng **Flutter & Supabase Engine**. Aetron mang đến trải nghiệm luyện tập hoàn hảo: từ việc **đo đạc chính xác lộ trình GPS ngoài trời**, **tự động chuyển đổi chế độ indoor/outdoor**, **tính toán calo thông minh theo chuẩn MET**, đến **hệ thống giao diện 3D phong cách Aetron UI độc đáo** giúp truyền cảm hứng luyện tập mỗi ngày.
-
----
-
-## 🔥 Tính năng Nổi bật (Key Product Features)
-
-### 1. 🏃 Theo dõi Lộ trình Realtime & GPS Thông minh (Precision Tracking Engine)
-- **Định vị & Lọc nhiễu GPS tự động:** Tự động loại bỏ các điểm nhiễu (`<0.25m`), lọc mượt vận tốc (`Smoothed Speed`) và tự động nhận diện tạm dừng (`Auto-Pause`).
-- **Phân loại môi trường (Indoor vs Outdoor Classifier):** Tự động phát hiện khi người dùng tập luyện trong nhà (chạy trên máy Treadmill) để chuyển sang đo đạc qua cảm biến Pedometer/Gia tốc kế, giúp tiết kiệm pin hiệu quả.
-- **Bản đồ lộ trình tương tác:** Hiển thị trực quan tuyến đường chạy/đạp xe với marker 3D sinh động.
-
-### 2. 🎨 Giao diện Aetron 3D Visual & Trải nghiệm Người dùng Premium
-- **Hệ thống thiết kế Aetron Design System:** Phong cách Dark/Glassmorphism hiện đại, tỉ mỉ với hiệu ứng bóng đổ mượt mà, typography tối ưu và micro-animations.
-- **Biểu tượng & Mascot 3D sống động:** Đồ họa 3D phong cách nhân vật Shiba & bộ nhận diện môn thể thao (*Chạy bộ, Đạp xe, Đi bộ*).
-
-### 3. 📊 Phân tích & Thống kê Tối ưu (Smart Analytics & Calorie MET)
-- **Công thức tính Calo chuẩn y khoa:** Tính toán năng lượng tiêu hao dựa trên chỉ số sinh học cá nhân (Chiều cao, Cân nặng, MET index theo tốc độ).
-- **Biểu đồ xu hướng & Lịch sử tập luyện:** Trực quan hóa tiến trình qua biểu đồ tương tác (`fl_chart`), lịch thống kê ngày/tuần/tháng (`table_calendar`).
-- **Phản hồi tính kiên trì (Consistency Feedback):** Hệ thống đánh giá mức độ đều đặn của bài tập để đưa ra lời khuyên cá nhân hóa.
-
-### 4. 🎯 Mục tiêu & Lịch trình Nhắc nhở (Goals & Smart Notifications)
-- **Đặt mục tiêu cá nhân:** Cho phép thiết lập và theo dõi tiến độ mục tiêu (*Quãng đường, Calo tiêu thụ, Thời lượng tập*).
-- **Hệ thống thông báo nhắc nhở thông minh:** Đặt lịch thông báo đẩy (Push Notifications) giúp duy trì thói quen tập luyện hàng ngày.
-
-### 5. 🔒 Bảo mật & Hoạt động Ngoại tuyến (Offline-First Architecture)
-- **Kiến trúc Offline-First:** Dữ liệu buổi tập được lưu trữ an toàn tại bộ nhớ cục bộ (Isar DB & SQLite) ngay cả khi không có kết nối mạng.
-- **Đồng bộ đám mây Supabase:** Tự động đồng bộ lộ trình & chỉ số lên Cloud một cách an toàn và bảo mật khi có kết nối Internet.
-- **Bảo mật tài khoản nâng cao:** Hỗ trợ đăng nhập Google OAuth, Email/Password với luồng xác thực nâng cấp mật khẩu an toàn.
+**Aetron** is a modern, product-focused fitness & activity tracking mobile application built with **Flutter & Supabase**. Engineered for seamless workout experiences, Aetron combines **high-precision GPS route tracking**, **smart indoor/outdoor environment auto-detection**, **MET-based medical calorie calculations**, and a **stunning 3D visual design system** to empower users on their daily fitness journey.
 
 ---
 
-## 📸 Hình ảnh Giao diện (App Screenshots & Visual Assets)
+## 🔥 Key Product Features
 
-| Chạy bộ 3D (Running) | Đạp xe 3D (Cycling) | Đi bộ 3D (Walking) | Mascot Shiba 3D |
+### 1. 🏃 Realtime Route & Precision GPS Engine
+- **Intelligent GPS Filtering:** Automatically filters location noise (`<0.25m` displacement rejection), applies velocity smoothing (`Smoothed Speed`), and detects auto-pause states.
+- **Environment Classifier (Indoor vs. Outdoor):** Dynamically detects indoor workouts (e.g., treadmill running) and intelligently transitions tracking to pedometer/accelerometer sensors to optimize battery consumption.
+- **Interactive Map Routes:** Renders live route lines and dynamic 3D location markers with real-time feedback.
+
+### 2. 🎨 Aetron 3D Visuals & Premium User Experience
+- **Aetron Design System:** Modern dark mode with sleek glassmorphism elements, refined typography, elevation depth, and fluid micro-animations.
+- **Vibrant 3D Visual Assets:** Features customized 3D character avatars (Shiba mascot) and activity-specific 3D badges (*Running, Cycling, Walking*).
+
+### 3. 📊 Medical-Grade MET Analytics & Calorie Estimation
+- **Biometric Calorie Calculation:** Computes burned energy based on user profile parameters (Height, Weight) and real-time velocity MET multipliers.
+- **Progress Visualization & History:** Interactive analytical charts powered by `fl_chart` and structured calendar views via `table_calendar`.
+- **Consistency Feedback System:** Analyzes workout frequency and patterns to deliver personalized habit-building insights.
+
+### 4. 🎯 Personal Goals & Smart Notifications
+- **Goal Setting:** Define and track progress towards personal milestones (*Distance, Burned Calories, Active Duration*).
+- **Smart Push Reminders:** Configurable local push notifications designed to keep users accountable and motivated.
+
+### 5. 🔒 Offline-First Architecture & Enterprise Security
+- **Offline-First Storage:** Local database layer powered by **Isar DB & SQLite** ensures seamless workout recording even without network connectivity.
+- **Cloud Sync Engine:** Securely synchronizes provisional and finalized workout sessions with Supabase Cloud backend once online.
+- **Enhanced Account Security:** Built-in Google OAuth integration, email/password authentication, and enforced strong password upgrade policies.
+
+---
+
+## 📸 Product Visual Showcase
+
+| 3D Running | 3D Cycling | 3D Walking | 3D Shiba Mascot |
 | :---: | :---: | :---: | :---: |
 | <img src="assets/running_3d.png" width="160" /> | <img src="assets/cycling_3d.png" width="160" /> | <img src="assets/walking_3d.png" width="160" /> | <img src="assets/shiba_3d.png" width="160" /> |
 
 ---
 
-## 🛠️ Công nghệ Sử dụng (Tech Stack)
+## 🛠️ Technology Stack
 
-| Phân loại | Công nghệ / Thư viện |
+| Category | Technologies / Libraries |
 | :--- | :--- |
-| **Framework Mobile** | [Flutter 3.x](https://flutter.dev) (Dart 3.x) |
+| **Mobile Framework** | [Flutter 3.x](https://flutter.dev) (Dart 3.x) |
 | **State Management** | [Riverpod 2.x](https://riverpod.dev) with `riverpod_generator` |
-| **Backend & Cloud** | [Supabase](https://supabase.com) (Auth, PostgreSQL Database, Storage, Edge Functions) |
-| **Local Storage** | [Isar Database](https://isar.dev) & `sqflite` (NoSQL & SQLite offline engine) |
-| **GPS & Sensors** | `geolocator`, `flutter_map`, `pedometer`, `sensors_plus` |
-| **UI & Charts** | `fl_chart`, `table_calendar`, custom Aetron Design System |
-| **Data Generation** | `freezed`, `json_serializable` |
+| **Backend & Cloud** | [Supabase](https://supabase.com) (Auth, PostgreSQL DB, Storage, Edge Functions) |
+| **Local Persistence** | [Isar Database](https://isar.dev) & `sqflite` (NoSQL & SQLite offline engine) |
+| **Location & Sensors** | `geolocator`, `flutter_map`, `pedometer`, `sensors_plus` |
+| **UI & Data Viz** | `fl_chart`, `table_calendar`, Custom Aetron UI Design Tokens |
+| **Model Generation** | `freezed`, `json_serializable` |
 
 ---
 
-## ⚡ Hướng dẫn Cài đặt & Trải nghiệm (Getting Started)
+## ⚡ Getting Started
 
-### Yêu cầu môi trường:
+### Prerequisites:
 * **Flutter SDK:** `>= 3.19.0`
 * **Dart SDK:** `>= 3.3.0`
-* **Android Studio / Xcode** cho lập trình di động.
+* **Android Studio / Xcode** for mobile device emulation or deployment.
 
-### Các bước thực hiện:
+### Quick Setup Steps:
 
-1. **Clone repository:**
+1. **Clone the Repository:**
    ```bash
    git clone https://github.com/DB-Ducbao113/FitnessExerciseApplication.git
    cd FitnessExerciseApplication
    ```
 
-2. **Cài đặt các gói phụ thuộc (Dependencies):**
+2. **Install Dependencies:**
    ```bash
    flutter pub get
    ```
 
-3. **Cấu hình môi trường (Mẫu .env):**
-   Tạo file `.env` tại thư mục gốc của dự án và khai báo thông tin kết nối Supabase:
+3. **Configure Environment Variables (.env):**
+   Create a `.env` file in the project root directory and add your Supabase credentials:
    ```env
    SUPABASE_URL=https://your-supabase-project.supabase.co
    SUPABASE_ANON_KEY=your-anon-key
    ```
 
-4. **Khởi chạy ứng dụng:**
+4. **Launch the Application:**
    ```bash
-   # Chạy trên thiết bị Android / iOS
+   # Run on connected Android / iOS device or emulator
    flutter run
    ```
 
 ---
 
-## 🛣️ Định hướng Phát triển (Product Roadmap)
+## 🛣️ Product Roadmap
 
-- [x] Tích hợp GPS Tracking & Bộ lọc nhiễu tự động.
-- [x] Giao diện Aetron 3D Visual & Hệ thống thiết kế chuẩn hóa.
-- [x] Đồng bộ dữ liệu Offline-First với Supabase Cloud.
-- [x] Hệ thống Nhắc nhở & Thiết lập mục tiêu luyện tập.
-- [ ] **AI Personal Coach (Sắp ra mắt):** Phân tích và đưa ra khuyến nghị bài tập bằng AI dựa trên lịch sử nhịp tim và hiệu suất chạy.
-- [ ] **Social Leaderboard & Challenges:** Thách đấu và chia sẻ thành tích luyện tập cùng bạn bè.
+- [x] High-precision GPS tracking & automatic noise rejection pipeline.
+- [x] Aetron 3D Visual UI Design System & glassmorphism theme.
+- [x] Offline-First local database architecture with Supabase Cloud Sync.
+- [x] Custom goal setting & smart push notifications system.
+- [ ] **AI Personal Coach (Upcoming):** Real-time AI post-workout insights based on heart rate trends & pace performance.
+- [ ] **Social Leaderboards & Challenges:** Connect with friends and participate in community fitness challenges.
 
 ---
 
-## 📄 Giấy phép (License)
+## 📄 License
 
-Dự án được phát hành dưới giấy phép **MIT License**.
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
 
 <div align="center">
-  <sub>Phát triển bởi <b>Nguyễn Đức Bảo (DB-Ducbao113)</b> 🚀</sub>
+  <sub>Engineered with ❤️ by <b>Nguyen Duc Bao (DB-Ducbao113)</b> 🚀</sub>
 </div>
