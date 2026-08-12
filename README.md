@@ -1,161 +1,128 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Aetron logo" width="120" />
 
-  # Aetron
+  <img src="assets/logo.png" alt="Aetron Logo" width="140" />
 
-  ### A modern fitness tracking app built with Flutter
+  # ⚡ Aetron - Next-Gen Fitness & Exercise Application
+  
+  **Nền tảng theo dõi và phân tích luyện tập thông minh thế hệ mới tích hợp 3D Visuals & AI Analytics**
 
-  Track workouts, monitor progress, set goals, and keep your fitness journey organized in one clean mobile experience.
+  [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
+  [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
+  [![Supabase](https://img.shields.io/badge/Supabase-Cloud%20Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+  [![Riverpod](https://img.shields.io/badge/Riverpod-State%20Management-0E7490?style=for-the-badge)](https://riverpod.dev)
+  [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)]()
 
-  ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)
-  ![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)
-  ![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
-  ![Riverpod](https://img.shields.io/badge/Riverpod-State%20Management-0E7490?style=for-the-badge)
 </div>
 
 ---
 
-## Overview
+## 🌟 Giới thiệu Sản phẩm (Product Overview)
 
-Aetron is a Flutter‑based fitness application designed to help users build consistent workout habits by combining workout tracking, goals, history, and analytics into a single product‑focused experience.  
-It supports both indoor and outdoor activities, offers offline‑friendly local persistence, and synchronizes important user data through Supabase.
-
-## Features
-
-- Email/password authentication and account management via Supabase Auth  
-- Personal profile setup with avatar management  
-- Workout session tracking with live metrics  
-- GPS‑based tracking for outdoor activities  
-- Step‑based tracking for supported workout flows  
-- Workout history and detail screens for later review  
-- Progress visualization through analytics and summary views  
-- Goal tracking to help users stay consistent
-
-## User Experience
-
-- Clean, fitness‑first mobile interface focused on workout flows  
-- Feature‑first Flutter architecture for easier scaling and maintenance  
-- Offline‑capable local storage for smoother day‑to‑day usage  
-- Remote sync with Supabase for account and workout data  
-- Modular state management powered by Riverpod
-
-## Tech Stack
-
-- **Flutter** for cross‑platform mobile app development  
-- **Riverpod** + `riverpod_generator` for state management  
-- **Supabase** for authentication, database, storage, and edge functions  
-- **Isar** for local workout persistence  
-- **sqflite** for local profile‑related storage  
-- **Freezed** + `json_serializable` for immutable models and code generation  
-- **Geolocator**, **flutter_map**, **pedometer** for tracking/location features  
-- **fl_chart**, **table_calendar** for analytics and history UI
-
-## Project Structure
-
-```text
-lib/
-  app/        App bootstrap and app-level wiring
-  core/       Shared services, providers, constants, storage, and utilities
-  features/   Feature modules organized by domain/data/presentation
-  shared/     Reusable helpers, widgets, and formatters
-
-backend/
-  database/   SQL reference files
-  migrations/ Database migrations
-  seed/       Seed data
-  supabase/   Supabase functions and related configuration
-```
-
-More details are available in:
-
-- `docs/architecture/ARCHITECTURE.md`  
-- `docs/api/api_contract.md`
-
-## Core Workflow
-
-Aetron is designed around treating each workout as a well‑defined data pipeline, from recording on device to deterministic processing on the backend.
-
-### 1. Create workout session (client)
-
-- The app creates an initial “shell” workout on the backend.  
-- Processing status is set to indicate the session is in client‑side recording.
-
-### 2. Capture realtime tracking data (client)
-
-- GPS: capture GPS points in realtime for outdoor activities.  
-- Steps: record step‑based movement for supported workouts.  
-- All realtime tracking is stored as raw samples for later deterministic computation.
-
-### 3. End workout session (client)
-
-- The app ends the session and sends a provisional snapshot of key metrics.  
-- The backend enqueues a job to compute deterministic canonical metrics.
-
-### 4. Deterministic processing & quality checks (backend)
-
-- Backend reads raw tracking data and recomputes metrics based on valid segments.  
-- The system records audit/quality evidence at the segment level.  
-- Processing status is updated so the UI can distinguish “provisional” vs “finalized” workouts.
-
-### 5. Display history (client)
-
-- UI reads canonical data from workout session tables by default.  
-- The `processing_status` field indicates whether a workout is still processing or fully finalized.
-
-For the current API contract, see `docs/api/api_contract.md`.
-
-## Architecture Overview
-
-### Feature‑first + core/shared
-
-- `lib/features/`: each feature owns its domain, data layer, and presentation.  
-- `lib/core/`: infrastructure shared across features (providers, constants, platform services, storage helpers, utilities).  
-- `lib/shared/`: reusable UI components and formatting logic shared between features.
-
-More details: `docs/architecture/ARCHITECTURE.md`.
-
-### MVVM for workout recording
-
-The workout recording flow showcases the app’s MVVM‑style separation of concerns:
-
-- **View**: renders UI and sends user intents (start/pause/resume/stop) to the ViewModel.  
-- **ViewModel**: manages `WorkoutSessionState`, consumes callbacks from sensors/classifiers, coordinates helper classes.  
-- **Controllers**: handle GPS/step lifecycle and environment classification.  
-- **Domain services**: apply rules for filtering and evaluating GPS/step updates.  
-- **Coordinator**: orchestrates raw data buffering, upload, and enqueueing of processing jobs.
-
-Detailed documentation: `docs/architecture/MVVM_WORKOUT_RECORDING.md`.
-
-## Project Goal
-
-This repository is intended to be more than a Flutter codebase: it is the foundation for a fitness product that helps users:
-
-- move consistently  
-- understand workout progress  
-- stay motivated via goals and history  
-- keep their data available and consistent across sessions and devices  
-
-## Status
-
-The project is actively evolving, with ongoing work on workout flows, tracking reliability, local persistence, and overall product polish.
-
-## Getting Started
-
-```bash
-# Clone the repository
-git clone https://github.com/DB-Ducbao113/FitnessExerciseApplication.git
-cd FitnessExerciseApplication
-
-# Install Flutter dependencies
-flutter pub get
-
-# (Optional) Set up Supabase and environment config
-# See docs/backend/setup.md (coming soon)
-
-# Run the app
-flutter run
-```
+**Aetron** là ứng dụng di động theo dõi thể thao & sức khỏe cá nhân hàng đầu được xây dựng trên nền tảng **Flutter & Supabase Engine**. Aetron mang đến trải nghiệm luyện tập hoàn hảo: từ việc **đo đạc chính xác lộ trình GPS ngoài trời**, **tự động chuyển đổi chế độ indoor/outdoor**, **tính toán calo thông minh theo chuẩn MET**, đến **hệ thống giao diện 3D phong cách Aetron UI độc đáo** giúp truyền cảm hứng luyện tập mỗi ngày.
 
 ---
 
-Feel free to open issues or pull requests as the project evolves.
+## 🔥 Tính năng Nổi bật (Key Product Features)
+
+### 1. 🏃 Theo dõi Lộ trình Realtime & GPS Thông minh (Precision Tracking Engine)
+- **Định vị & Lọc nhiễu GPS tự động:** Tự động loại bỏ các điểm nhiễu (`<0.25m`), lọc mượt vận tốc (`Smoothed Speed`) và tự động nhận diện tạm dừng (`Auto-Pause`).
+- **Phân loại môi trường (Indoor vs Outdoor Classifier):** Tự động phát hiện khi người dùng tập luyện trong nhà (chạy trên máy Treadmill) để chuyển sang đo đạc qua cảm biến Pedometer/Gia tốc kế, giúp tiết kiệm pin hiệu quả.
+- **Bản đồ lộ trình tương tác:** Hiển thị trực quan tuyến đường chạy/đạp xe với marker 3D sinh động.
+
+### 2. 🎨 Giao diện Aetron 3D Visual & Trải nghiệm Người dùng Premium
+- **Hệ thống thiết kế Aetron Design System:** Phong cách Dark/Glassmorphism hiện đại, tỉ mỉ với hiệu ứng bóng đổ mượt mà, typography tối ưu và micro-animations.
+- **Biểu tượng & Mascot 3D sống động:** Đồ họa 3D phong cách nhân vật Shiba & bộ nhận diện môn thể thao (*Chạy bộ, Đạp xe, Đi bộ*).
+
+### 3. 📊 Phân tích & Thống kê Tối ưu (Smart Analytics & Calorie MET)
+- **Công thức tính Calo chuẩn y khoa:** Tính toán năng lượng tiêu hao dựa trên chỉ số sinh học cá nhân (Chiều cao, Cân nặng, MET index theo tốc độ).
+- **Biểu đồ xu hướng & Lịch sử tập luyện:** Trực quan hóa tiến trình qua biểu đồ tương tác (`fl_chart`), lịch thống kê ngày/tuần/tháng (`table_calendar`).
+- **Phản hồi tính kiên trì (Consistency Feedback):** Hệ thống đánh giá mức độ đều đặn của bài tập để đưa ra lời khuyên cá nhân hóa.
+
+### 4. 🎯 Mục tiêu & Lịch trình Nhắc nhở (Goals & Smart Notifications)
+- **Đặt mục tiêu cá nhân:** Cho phép thiết lập và theo dõi tiến độ mục tiêu (*Quãng đường, Calo tiêu thụ, Thời lượng tập*).
+- **Hệ thống thông báo nhắc nhở thông minh:** Đặt lịch thông báo đẩy (Push Notifications) giúp duy trì thói quen tập luyện hàng ngày.
+
+### 5. 🔒 Bảo mật & Hoạt động Ngoại tuyến (Offline-First Architecture)
+- **Kiến trúc Offline-First:** Dữ liệu buổi tập được lưu trữ an toàn tại bộ nhớ cục bộ (Isar DB & SQLite) ngay cả khi không có kết nối mạng.
+- **Đồng bộ đám mây Supabase:** Tự động đồng bộ lộ trình & chỉ số lên Cloud một cách an toàn và bảo mật khi có kết nối Internet.
+- **Bảo mật tài khoản nâng cao:** Hỗ trợ đăng nhập Google OAuth, Email/Password với luồng xác thực nâng cấp mật khẩu an toàn.
+
+---
+
+## 📸 Hình ảnh Giao diện (App Screenshots & Visual Assets)
+
+| Chạy bộ 3D (Running) | Đạp xe 3D (Cycling) | Đi bộ 3D (Walking) | Mascot Shiba 3D |
+| :---: | :---: | :---: | :---: |
+| <img src="assets/running_3d.png" width="160" /> | <img src="assets/cycling_3d.png" width="160" /> | <img src="assets/walking_3d.png" width="160" /> | <img src="assets/shiba_3d.png" width="160" /> |
+
+---
+
+## 🛠️ Công nghệ Sử dụng (Tech Stack)
+
+| Phân loại | Công nghệ / Thư viện |
+| :--- | :--- |
+| **Framework Mobile** | [Flutter 3.x](https://flutter.dev) (Dart 3.x) |
+| **State Management** | [Riverpod 2.x](https://riverpod.dev) with `riverpod_generator` |
+| **Backend & Cloud** | [Supabase](https://supabase.com) (Auth, PostgreSQL Database, Storage, Edge Functions) |
+| **Local Storage** | [Isar Database](https://isar.dev) & `sqflite` (NoSQL & SQLite offline engine) |
+| **GPS & Sensors** | `geolocator`, `flutter_map`, `pedometer`, `sensors_plus` |
+| **UI & Charts** | `fl_chart`, `table_calendar`, custom Aetron Design System |
+| **Data Generation** | `freezed`, `json_serializable` |
+
+---
+
+## ⚡ Hướng dẫn Cài đặt & Trải nghiệm (Getting Started)
+
+### Yêu cầu môi trường:
+* **Flutter SDK:** `>= 3.19.0`
+* **Dart SDK:** `>= 3.3.0`
+* **Android Studio / Xcode** cho lập trình di động.
+
+### Các bước thực hiện:
+
+1. **Clone repository:**
+   ```bash
+   git clone https://github.com/DB-Ducbao113/FitnessExerciseApplication.git
+   cd FitnessExerciseApplication
+   ```
+
+2. **Cài đặt các gói phụ thuộc (Dependencies):**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Cấu hình môi trường (Mẫu .env):**
+   Tạo file `.env` tại thư mục gốc của dự án và khai báo thông tin kết nối Supabase:
+   ```env
+   SUPABASE_URL=https://your-supabase-project.supabase.co
+   SUPABASE_ANON_KEY=your-anon-key
+   ```
+
+4. **Khởi chạy ứng dụng:**
+   ```bash
+   # Chạy trên thiết bị Android / iOS
+   flutter run
+   ```
+
+---
+
+## 🛣️ Định hướng Phát triển (Product Roadmap)
+
+- [x] Tích hợp GPS Tracking & Bộ lọc nhiễu tự động.
+- [x] Giao diện Aetron 3D Visual & Hệ thống thiết kế chuẩn hóa.
+- [x] Đồng bộ dữ liệu Offline-First với Supabase Cloud.
+- [x] Hệ thống Nhắc nhở & Thiết lập mục tiêu luyện tập.
+- [ ] **AI Personal Coach (Sắp ra mắt):** Phân tích và đưa ra khuyến nghị bài tập bằng AI dựa trên lịch sử nhịp tim và hiệu suất chạy.
+- [ ] **Social Leaderboard & Challenges:** Thách đấu và chia sẻ thành tích luyện tập cùng bạn bè.
+
+---
+
+## 📄 Giấy phép (License)
+
+Dự án được phát hành dưới giấy phép **MIT License**.
+
+---
+
+<div align="center">
+  <sub>Phát triển bởi <b>Nguyễn Đức Bảo (DB-Ducbao113)</b> 🚀</sub>
+</div>
