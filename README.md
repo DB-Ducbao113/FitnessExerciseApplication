@@ -4,7 +4,7 @@
 
   # ⚡ Aetron - Next-Gen Fitness & Exercise Application
   
-  **Nền tảng theo dõi và phân tích luyện tập thể thao thông minh thế hệ mới, tích hợp Flutter, Supabase & AI Insights**
+  **Nền tảng theo dõi và phân tích luyện tập thể thao thông minh thế hệ mới, tích hợp Flutter & Supabase**
 
   [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
   [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
@@ -55,7 +55,7 @@ Người dùng Android có thể lựa chọn 1 trong 2 cách trải nghiệm ti
 
 ## 🌟 Tổng quan sản phẩm (Product Overview)
 
-**Aetron** là ứng dụng di động & web app chuyên sâu phục vụ theo dõi lộ trình thể thao (*Chạy bộ, Đạp xe, Đi bộ*). Ứng dụng kết hợp **bộ lọc GPS chống nhiễu đa tầng**, **bộ phân loại môi trường thông minh (Trong nhà / Ngoài trời)**, **tính toán năng lượng tiêu hao chuẩn MET y khoa**, **chương trình chạy bộ có cấu trúc (Intervals, Tempo, LSD)** cùng **hệ thống phân tích AI Insights** và **bảng thành tích vinh danh Trophy Wall**.
+**Aetron** là ứng dụng di động & web app chuyên sâu phục vụ theo dõi lộ trình thể thao (*Chạy bộ, Đạp xe, Đi bộ*). Ứng dụng kết hợp **bộ lọc GPS chống nhiễu đa tầng**, **bộ phân loại môi trường thông minh (Trong nhà / Ngoài trời)**, **tính toán năng lượng tiêu hao chuẩn MET y khoa**, **chương trình chạy bộ có cấu trúc (Intervals, Tempo, LSD)** và **bảng thành tích vinh danh Trophy Wall**.
 
 ---
 
@@ -66,22 +66,18 @@ Người dùng Android có thể lựa chọn 1 trong 2 cách trải nghiệm ti
 - **Phân loại môi trường (Indoor / Outdoor Classifier):** Tự động phát hiện khi chạy trong nhà (máy chạy bộ) và chuyển đổi sang cảm biến bước chân Pedometer/Gia tốc kế để tối ưu pin.
 - **Bản đồ trực quan & Nén Polyline:** Hiển thị đường chạy thời gian thực và thuật toán nén Polyline giảm >90% dung lượng đồng bộ.
 
-### 2. 🤖 AI Workout Insights & Phân tích chuyên sâu
-- **AI Phân tích sau buổi tập:** Tự động nhận diện tín hiệu thành tích (PB pace, streak, phục hồi, độ bền) và đưa ra lời khuyên cá nhân hóa.
-- **Giao diện thẻ AI 3D cao cấp:** Thẻ tóm tắt và trang chi tiết phân tích chuyển động trực quan.
-
-### 3. 🏆 Bảng thành tích (Trophy Wall) & Kỷ lục cá nhân (PRs)
+### 2. 🏆 Bảng thành tích (Trophy Wall) & Kỷ lục cá nhân (PRs)
 - **Hệ thống huy hiệu tự động:** Tự động mở khóa các danh hiệu theo khoảng cách (5K, 10K, Half Marathon, Marathon), chuỗi ngày tập luyện (Streak) và cột mốc lịch sử.
 - **Trophy Wall:** Khu vực vinh danh thành tích cá nhân với giao diện sang trọng.
 
-### 4. 🧭 Chương trình chạy bộ có cấu trúc (Structured Running Programs)
+### 3. 🧭 Chương trình chạy bộ có cấu trúc (Structured Running Programs)
 - **Kế hoạch tập luyện bài bản:** Các bài tập Chạy nhẹ (Easy Run), Biến tốc (Intervals), Nhịp độ (Tempo), Phục hồi (Recovery) và Chạy dài (Long Run).
 - **HUD Hướng dẫn trực tiếp:** Đếm ngược 3D, thanh tiến độ mục tiêu và thông báo vòng chạy (Live Lap HUD) trong suốt buổi tập.
 
-### 5. 📸 Thẻ chia sẻ mạng xã hội (Social Workout Share Card)
+### 4. 📸 Thẻ chia sẻ mạng xã hội (Social Workout Share Card)
 - Tạo ngay ảnh tổng kết buổi tập với thống kê quãng đường, thời gian, pace, calo và bản đồ để chia sẻ lên Story / mạng xã hội.
 
-### 6. 🔒 Kiến trúc Offline-First & Bảo mật Supabase
+### 5. 🔒 Kiến trúc Offline-First & Bảo mật Supabase
 - **Lưu trữ cục bộ an toàn:** Sử dụng SQLite & Isar DB giúp ghi nhận bài tập mượt mà ngay cả khi không có mạng.
 - **Đồng bộ đám mây:** Tự động đồng bộ lên Supabase Cloud khi có kết nối trở lại.
 - **Đăng nhập Google OAuth & Email:** Hỗ trợ đăng nhập nhanh Google trên cả Mobile và Web PWA.
