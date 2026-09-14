@@ -9,8 +9,8 @@
   [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
   [![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
   [![Supabase](https://img.shields.io/badge/Supabase-Cloud%20Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-  [![Riverpod](https://img.shields.io/badge/Riverpod-State%20Management-0E7490?style=for-the-badge)](https://riverpod.dev)
-  [![PWA](https://img.shields.io/badge/PWA-Ready%20for%20iOS%20%26%20Android-FF6F00?style=for-the-badge&logo=pwa&logoColor=white)]()
+  [![Download APK](https://img.shields.io/badge/Android%20APK-Tải%20về%20(Google%20Drive)-34A853?style=for-the-badge&logo=google-drive&logoColor=white)](https://drive.google.com/drive/u/1/folders/18ez4C2HK8CwyL7eStFa6fUMWuSv1KDPp)
+  [![iOS PWA](https://img.shields.io/badge/iOS%20PWA-Thêm%20vào%20MH%20Chính-FF6F00?style=for-the-badge&logo=apple&logoColor=white)]()
 
 </div>
 
@@ -35,10 +35,11 @@ Aetron hỗ trợ chuẩn Progressive Web App (PWA) cao cấp với icon HD, Spl
 ### 🤖 2. Dành cho người dùng Android
 Người dùng Android có thể lựa chọn 1 trong 2 cách trải nghiệm tiện lợi:
 
-* **📥 Cách 1: Tải trực tiếp file APK (Khuyên dùng)**
-  - Tải file **`Aetron-Android.apk`** trực tiếp từ mục [Releases](https://github.com/DB-Ducbao113/FitnessExerciseApplication/releases).
-  - Nhấn mở file vừa tải và chọn **Cài đặt** *(cho phép cài đặt ứng dụng từ nguồn này nếu điện thoại yêu cầu)*.
-  - Tận hưởng đầy đủ tính năng theo dõi GPS nền, cảm biến bước chân và đồng bộ dữ liệu.
+* **📥 Cách 1: Tải trực tiếp file APK qua Google Drive (Khuyên dùng)**
+  - 🔗 **Link tải APK chính thức:** [**Tải file cài đặt Aetron APK (Google Drive)**](https://drive.google.com/drive/u/1/folders/18ez4C2HK8CwyL7eStFa6fUMWuSv1KDPp)
+  - Tải file **`app-release.apk`** về điện thoại.
+  - Nhấn mở file vừa tải và chọn **Cài đặt** *(cho phép cài đặt ứng dụng từ nguồn không xác định/trình duyệt nếu điện thoại yêu cầu)*.
+  - Mở app và tận hưởng đầy đủ tính năng theo dõi GPS nền, cảm biến bước chân thời gian thực và đồng bộ dữ liệu.
 
 * **🌐 Cách 2: Cài đặt PWA qua Google Chrome**
   - Mở **Google Chrome** trên điện thoại Android và truy cập đường link Web App.
