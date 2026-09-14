@@ -109,38 +109,6 @@ Người dùng Android có thể lựa chọn 1 trong 2 cách trải nghiệm ti
 
 ---
 
-## ⚡ Hướng dẫn cho Lập trình viên (Developer Quick Start)
-
-### Yêu cầu môi trường:
-* **Flutter SDK:** `>= 3.19.0`
-* **Dart SDK:** `>= 3.3.0`
-* **Android Studio / Xcode** (nếu build native)
-
-### Các bước cài đặt:
-
-1. **Clone repository:**
-   ```bash
-   git clone https://github.com/DB-Ducbao113/FitnessExerciseApplication.git
-   cd FitnessExerciseApplication
-   ```
-
-2. **Cài đặt thư viện:**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Chạy ứng dụng:**
-   ```bash
-   flutter run
-   ```
-
-4. **Chạy bộ kiểm thử (Tests):**
-   ```bash
-   flutter test
-   ```
-
----
-
 ## 📄 Bản quyền (License)
 
 Dự án được phân phối theo giấy phép **MIT License**.
