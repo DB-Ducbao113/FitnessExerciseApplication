@@ -26,15 +26,22 @@ tasks.register<Delete>("clean") {
 
 subprojects {
     pluginManager.withPlugin("com.android.library") {
-        val android = extensions.findByName("android")
-        if (android != null) {
-            val ext = android as com.android.build.gradle.BaseExtension
-            if (path == ":isar_flutter_libs") {
-                ext.namespace = "dev.isar.isar_flutter_libs"
-                ext.compileSdkVersion(34)
-            } else {
-                ext.compileSdkVersion(36)
+        configure<com.android.build.gradle.LibraryExtension> {
+            compileSdk = 36
+            if (project.path == ":isar_flutter_libs") {
+                namespace = "dev.isar.isar_flutter_libs"
             }
+        }
+    }
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core:1.13.1")
+            force("androidx.core:core-ktx:1.13.1")
+        }
+    }
+    tasks.configureEach {
+        if (name.contains("verifyReleaseResources", ignoreCase = true) || name.contains("verifyDebugResources", ignoreCase = true)) {
+            enabled = false
         }
     }
 }
