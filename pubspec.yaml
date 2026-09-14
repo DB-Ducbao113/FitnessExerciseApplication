@@ -54,6 +54,7 @@ dependencies:
   # Utilities
   uuid: ^4.0.0
   intl: ^0.20.2
+  crypto: ^3.0.3
 
   # Charts
   fl_chart: ^0.69.0
@@ -82,11 +83,17 @@ dependencies:
 
   # Connectivity
   internet_connection_checker: ^1.0.0+1
+  connectivity_plus: ^6.1.4
   shared_preferences: ^2.5.4
   package_info_plus: ^9.0.0
   flutter_local_notifications: ^22.0.1
   flutter_timezone: ^5.1.0
   timezone: ^0.11.1
+
+  # Social Sharing & Auth
+  share_plus: ^10.1.4
+  url_launcher: ^6.3.1
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:
@@ -126,7 +133,6 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/
-    - assets/logo.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -40,7 +40,7 @@ Future<UserProfile?> userProfile(UserProfileRef ref, String userId) async {
   final repository = ref.watch(userProfileRepositoryProvider);
   return await repository
       .getProfile(userId)
-      .timeout(const Duration(seconds: 10));
+      .timeout(const Duration(seconds: 4));
 }
 
 // Check if user has profile
@@ -49,5 +49,5 @@ Future<bool> hasUserProfile(HasUserProfileRef ref, String userId) async {
   final repository = ref.watch(userProfileRepositoryProvider);
   return await repository
       .hasProfile(userId)
-      .timeout(const Duration(seconds: 10), onTimeout: () => false);
+      .timeout(const Duration(seconds: 4), onTimeout: () => false);
 }

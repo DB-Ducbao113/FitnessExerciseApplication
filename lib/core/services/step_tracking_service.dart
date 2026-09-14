@@ -42,7 +42,9 @@ class StepTrackingService {
   // Permission
 
   Future<void> ensurePermissionsOrThrow() async {
-    final permission = Platform.isIOS
+    if (kIsWeb) return;
+
+    final permission = (!kIsWeb && Platform.isIOS)
         ? Permission.sensors
         : Permission.activityRecognition;
     debugPrint('[Steps] ensurePermissions start');
@@ -83,6 +85,11 @@ class StepTrackingService {
     _lastRawSteps = -1;
     _lastEmit = null;
 
+    if (kIsWeb) {
+      debugPrint('[Steps] pedometer hardware steps skipped on web');
+      return;
+    }
+
     debugPrint('[Steps] startTracking at ${DateTime.now()}');
 
     try {
@@ -99,13 +106,16 @@ class StepTrackingService {
 
     debugPrint('[Steps] subscribing to Pedometer.stepCountStream…');
 
-    _pedometerSub = Pedometer.stepCountStream.listen(
-      _onStepCount,
-      onError: (e) => debugPrint('[Steps] stream error: $e'),
-      cancelOnError: false,
-    );
-
-    debugPrint('[Steps] subscription active');
+    try {
+      _pedometerSub = Pedometer.stepCountStream.listen(
+        _onStepCount,
+        onError: (e) => debugPrint('[Steps] stream error: $e'),
+        cancelOnError: false,
+      );
+      debugPrint('[Steps] subscription active');
+    } catch (e) {
+      debugPrint('[Steps] Pedometer subscription failed: $e');
+    }
   }
 
   void stopTracking() {

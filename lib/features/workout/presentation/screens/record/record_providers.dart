@@ -260,7 +260,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   bool requestRecenter() {
-    if (state.currentLatLng == null) return false;
+    if (state.currentLatLng == null && state.initialPosition == null) return false;
     state = state.copyWith(
       followUser: true,
       recenterRequestId: state.recenterRequestId + 1,
@@ -584,18 +584,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         ),
       );
 
-      if (mounted) {
-        final endedState = _sessionLifecycle.finish(
-          current: state,
-          caloriesBurned: finalization.caloriesBurned,
-          avgSpeedKmh: finalization.avgSpeedKmh,
-          sessionId: finalization.sessionId,
-          gpsAnalysis: finalization.gpsAnalysis,
-        );
-        state = endedState;
-        await _endLiveActivity(endedState);
-      }
-
       // 1. Save session to Supabase directly so we know whether the row
       //    actually exists before we try to insert FK-constrained job rows.
       final repo = _ref.read(workoutRepositoryProvider);
@@ -615,6 +603,18 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         isSynced: savedRemotely,
       );
       _ref.invalidate(workoutListProvider);
+
+      if (mounted) {
+        final endedState = _sessionLifecycle.finish(
+          current: state,
+          caloriesBurned: finalization.caloriesBurned,
+          avgSpeedKmh: finalization.avgSpeedKmh,
+          sessionId: finalization.sessionId,
+          gpsAnalysis: finalization.gpsAnalysis,
+        );
+        state = endedState;
+        await _endLiveActivity(endedState);
+      }
 
       // 3. Flush raw tracking and route snapshot regardless of session save
       //    outcome, since the remote shell was created at startWorkout and

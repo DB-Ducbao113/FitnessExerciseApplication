@@ -14,6 +14,7 @@ class WorkoutAiRemoteDatasource {
   Future<WorkoutAiInsight> fetchWorkoutInsight({
     required String workoutId,
     required WorkoutAiSignals signals,
+    String language = 'en',
   }) async {
     try {
       final response = await _client.functions.invoke(
@@ -21,6 +22,7 @@ class WorkoutAiRemoteDatasource {
         body: {
           'workout_id': workoutId,
           'signals': signals.toJson(),
+          'language': language,
         },
       );
 

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/features/profile/data/models/user_profile_model.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
@@ -47,7 +48,7 @@ class UserProfileRemoteDataSource {
       'height_cm': profile.heightCm,
       'height_m': profile.heightCm / 100.0,
       'date_of_birth': _serializeDate(profile.dateOfBirth),
-      'age': profile.dateOfBirth != null ? null : profile.legacyAge,
+      'age': _resolveAge(profile),
       'gender': profile.gender,
       'avatar_url': profile.avatarUrl,
       'created_at': profile.createdAt.toIso8601String(),
@@ -63,7 +64,7 @@ class UserProfileRemoteDataSource {
           'height_cm': profile.heightCm,
           'height_m': profile.heightCm / 100.0,
           'date_of_birth': _serializeDate(profile.dateOfBirth),
-          'age': profile.dateOfBirth != null ? null : profile.legacyAge,
+          'age': _resolveAge(profile),
           'gender': profile.gender,
           'avatar_url': profile.avatarUrl,
           'updated_at': DateTime.now().toIso8601String(),
@@ -71,16 +72,21 @@ class UserProfileRemoteDataSource {
         .eq('user_id', profile.userId);
   }
 
-  /// Upload [imageFile] to a fresh Supabase Storage object.
+  /// Upload [imageBytes] or [imageFile] to a fresh Supabase Storage object.
   /// Returns the public URL of the uploaded image.
-  Future<String> uploadAvatar(String userId, File imageFile) async {
+  Future<String> uploadAvatarBytes(String userId, Uint8List imageBytes) async {
     final version = DateTime.now().millisecondsSinceEpoch;
     final storagePath = '$userId/avatar-$version.jpg';
     final bucket = _supabase.storage.from('avatars');
-    const fileOptions = FileOptions(contentType: 'image/jpeg');
+    const fileOptions = FileOptions(contentType: 'image/jpeg', upsert: true);
 
-    await bucket.upload(storagePath, imageFile, fileOptions: fileOptions);
+    await bucket.uploadBinary(storagePath, imageBytes, fileOptions: fileOptions);
     return bucket.getPublicUrl(storagePath);
+  }
+
+  Future<String> uploadAvatar(String userId, File imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    return uploadAvatarBytes(userId, bytes);
   }
 
   /// Persist [avatarUrl] to user_profiles.avatar_url in the database.
@@ -112,26 +118,88 @@ class UserProfileRemoteDataSource {
     await deleteAvatarObject(userId);
   }
 
-  /// Delete all user data from every table (cascade before account removal).
+  /// Delete all user data from every table and authentication identity.
   Future<void> deleteAllUserData(String userId) async {
-    // Workout-related data first (FK ordering)
-    await _supabase
-        .from(DbTables.workoutSessions)
-        .delete()
-        .eq('user_id', userId);
+    // 1. Remove avatar from Storage bucket
+    try {
+      await deleteAvatarObject(userId);
+    } catch (_) {
+      // Non-fatal if avatar doesn't exist
+    }
 
-    await _supabase
-        .from(DbTables.userGoals)
-        .delete()
-        .eq('user_id', userId);
+    // 2. Try invoking the secure RPC delete_user_account function
+    try {
+      await _supabase.rpc('delete_user_account');
+      return;
+    } catch (e) {
+      // Fallback to table-by-table deletion if RPC is not deployed yet
+    }
 
-    await _supabase
-        .from(DbTables.userProfiles)
-        .delete()
-        .eq('user_id', userId);
+    // 3. Fallback table-by-table deletion
+    try {
+      await _supabase.from('workout_segment_audits').delete().filter(
+            'workout_id',
+            'in',
+            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+          );
+    } catch (_) {}
 
-    // Remove avatar from Storage
-    await deleteAvatarObject(userId);
+    try {
+      await _supabase.from(DbTables.workoutProcessingLogs).delete().filter(
+            'workout_id',
+            'in',
+            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+          );
+    } catch (_) {}
+
+    try {
+      await _supabase.from(DbTables.workoutProcessingJobs).delete().filter(
+            'workout_id',
+            'in',
+            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+          );
+    } catch (_) {}
+
+    try {
+      await _supabase.from(DbTables.rawGpsPoints).delete().filter(
+            'workout_id',
+            'in',
+            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+          );
+    } catch (_) {}
+
+    try {
+      await _supabase.from(DbTables.rawStepIntervals).delete().filter(
+            'workout_id',
+            'in',
+            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+          );
+    } catch (_) {}
+
+    try {
+      await _supabase
+          .from(DbTables.workoutSessions)
+          .delete()
+          .eq('user_id', userId);
+    } catch (_) {}
+
+    try {
+      await _supabase.from('user_recovery_emails').delete().eq('user_id', userId);
+    } catch (_) {}
+
+    try {
+      await _supabase
+          .from(DbTables.userGoals)
+          .delete()
+          .eq('user_id', userId);
+    } catch (_) {}
+
+    try {
+      await _supabase
+          .from(DbTables.userProfiles)
+          .delete()
+          .eq('user_id', userId);
+    } catch (_) {}
   }
 }
 
@@ -154,4 +222,18 @@ DateTime? _parseDate(dynamic value) {
 String? _serializeDate(DateTime? value) {
   if (value == null) return null;
   return value.toIso8601String().split('T').first;
+}
+
+int _resolveAge(UserProfileModel profile) {
+  if (profile.legacyAge > 0) return profile.legacyAge;
+  if (profile.dateOfBirth != null) {
+    final now = DateTime.now();
+    int calculated = now.year - profile.dateOfBirth!.year;
+    if (now.month < profile.dateOfBirth!.month ||
+        (now.month == profile.dateOfBirth!.month && now.day < profile.dateOfBirth!.day)) {
+      calculated--;
+    }
+    return calculated > 0 ? calculated : 20;
+  }
+  return 20;
 }

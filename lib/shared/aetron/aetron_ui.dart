@@ -9,6 +9,8 @@ export 'app_states.dart';
 export 'app_text_field.dart';
 export 'section_header.dart';
 export 'stat_card.dart';
+export 'aetron_skeleton.dart';
+export 'aetron_globe_orbit_screen.dart';
 
 class AetronColors {
   const AetronColors._();
@@ -226,57 +228,30 @@ class AetronBackground extends StatelessWidget {
   }
 }
 
-class _HudGrid extends StatefulWidget {
+class _HudGrid extends StatelessWidget {
   const _HudGrid();
 
   @override
-  State<_HudGrid> createState() => _HudGridState();
-}
-
-class _HudGridState extends State<_HudGrid>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 12),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) =>
-            CustomPaint(painter: _HudGridPainter(_controller.value)),
+    return const IgnorePointer(
+      child: RepaintBoundary(
+        child: CustomPaint(
+          painter: _StaticHudGridPainter(),
+        ),
       ),
     );
   }
 }
 
-class _HudGridPainter extends CustomPainter {
-  const _HudGridPainter(this.phase);
-
-  final double phase;
+class _StaticHudGridPainter extends CustomPainter {
+  const _StaticHudGridPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
     final horizon = size.height * 0.31;
     final vanishingPoint = Offset(size.width * 0.5, horizon);
-    final glowCenter = Offset(
-      size.width * (0.56 + math.sin(phase * math.pi * 2) * 0.04),
-      horizon,
-    );
+    final glowCenter = Offset(size.width * 0.56, horizon);
+
     final glow = Paint()
       ..shader = RadialGradient(
         colors: [
@@ -315,17 +290,6 @@ class _HudGridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    final scanY = horizon + (size.height - horizon) * phase;
-    final scanPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          Colors.transparent,
-          AetronColors.cyan.withValues(alpha: 0.20),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromLTWH(0, scanY - 1, size.width, 2));
-    canvas.drawRect(Rect.fromLTWH(0, scanY - 1, size.width, 2), scanPaint);
-
     final upperGridPaint = Paint()
       ..color = AetronColors.cyan.withValues(alpha: 0.025)
       ..strokeWidth = 1;
@@ -339,8 +303,7 @@ class _HudGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _HudGridPainter oldDelegate) =>
-      oldDelegate.phase != phase;
+  bool shouldRepaint(covariant _StaticHudGridPainter oldDelegate) => false;
 }
 
 class AetronHeader extends StatelessWidget {
@@ -471,7 +434,7 @@ class AetronGlassCard extends StatelessWidget {
 class AetronLoadingScaffold extends StatelessWidget {
   const AetronLoadingScaffold({
     super.key,
-    this.label = 'LOADING',
+    this.label = "LOADING",
     this.message,
     this.withGrid = true,
   });
@@ -483,12 +446,14 @@ class AetronLoadingScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AetronColors.voidBlack,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: AetronLoadingPanel(label: label, message: message),
+      backgroundColor: const Color(0xFF070B14),
+      body: _AetronDynamicKineticBackground(
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: AetronLoadingPanel(label: label, message: message),
+            ),
           ),
         ),
       ),
@@ -496,12 +461,266 @@ class AetronLoadingScaffold extends StatelessWidget {
   }
 }
 
+/// Dynamic Animated Cyber Particle & Horizon Background
+class _AetronDynamicKineticBackground extends StatefulWidget {
+  final Widget child;
+  const _AetronDynamicKineticBackground({required this.child});
+
+  @override
+  State<_AetronDynamicKineticBackground> createState() =>
+      _AetronDynamicKineticBackgroundState();
+}
+
+class _AetronDynamicKineticBackgroundState
+    extends State<_AetronDynamicKineticBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _bgController;
+  final List<_Particle> _particles = List.generate(
+    28,
+    (i) => _Particle(
+      x: (i * 0.035 + (i * 0.17 % 0.95)),
+      y: (i * 0.045 + (i * 0.23 % 0.95)),
+      speed: 0.15 + (i % 5) * 0.08,
+      size: 1.5 + (i % 4) * 1.2,
+      opacity: 0.25 + (i % 5) * 0.15,
+    ),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _bgController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // 1. Base Dark Cyber Gradient
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0, -0.2),
+                radius: 1.2,
+                colors: [
+                  Color(0xFF0F1E36),
+                  Color(0xFF08101E),
+                  Color(0xFF04070D),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // 2. Animated Floating Telemetry Particles & Ambient Aura
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _bgController,
+            builder: (context, _) {
+              return CustomPaint(
+                painter: _ParticleAuraPainter(
+                  progress: _bgController.value,
+                  particles: _particles,
+                ),
+              );
+            },
+          ),
+        ),
+
+        // 3. Child Content
+        Positioned.fill(child: widget.child),
+      ],
+    );
+  }
+}
+
+class _Particle {
+  double x;
+  double y;
+  double speed;
+  double size;
+  double opacity;
+
+  _Particle({
+    required this.x,
+    required this.y,
+    required this.speed,
+    required this.size,
+    required this.opacity,
+  });
+}
+
+class _ParticleAuraPainter extends CustomPainter {
+  final double progress;
+  final List<_Particle> particles;
+
+  _ParticleAuraPainter({required this.progress, required this.particles});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Ambient rotating glow
+    final center = Offset(size.width * 0.5, size.height * 0.42);
+    final auraPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF00E5FF).withValues(alpha: 0.18),
+          const Color(0xFF2AF598).withValues(alpha: 0.08),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.65));
+    canvas.drawCircle(center, size.width * 0.65, auraPaint);
+
+    // Dynamic particles
+    for (final p in particles) {
+      final currentY = (p.y - progress * p.speed) % 1.0;
+      final px = (p.x + math.sin(progress * math.pi * 2 + p.y * 10) * 0.03) * size.width;
+      final py = currentY * size.height;
+
+      final pPaint = Paint()
+        ..color = const Color(0xFF00E5FF).withValues(alpha: p.opacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.size > 2 ? 3 : 1);
+
+      canvas.drawCircle(Offset(px, py), p.size, pPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ParticleAuraPainter oldDelegate) => true;
+}
+
+/// Cute Aesthetic Astro-Runner Designer Toy Animated Mascot
+class AetronAnimatedRunningCharacter extends StatefulWidget {
+  final double size;
+  const AetronAnimatedRunningCharacter({super.key, this.size = 110});
+
+  @override
+  State<AetronAnimatedRunningCharacter> createState() =>
+      _AetronAnimatedRunningCharacterState();
+}
+
+class _AetronAnimatedRunningCharacterState
+    extends State<AetronAnimatedRunningCharacter>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _runController;
+
+  @override
+  void initState() {
+    super.initState();
+    _runController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _runController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _runController,
+      builder: (context, child) {
+        final t = _runController.value;
+        final floatY = math.sin(t * math.pi * 2) * 5.0;
+        final scaleEffect = 1.0 + math.sin(t * math.pi * 2) * 0.02;
+
+        return SizedBox(
+          width: widget.size * 1.25,
+          height: widget.size * 1.25,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              // 1. Dynamic Glowing Energy Pedestal
+              Positioned(
+                bottom: 2,
+                child: Container(
+                  width: widget.size * (0.75 - (floatY.abs() * 0.015)),
+                  height: 10,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00E5FF).withValues(
+                          alpha: (0.45 - (floatY.abs() * 0.02)).clamp(0.0, 1.0),
+                        ),
+                        blurRadius: 16,
+                        spreadRadius: 3,
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFF2AF598).withValues(
+                          alpha: (0.35 - (floatY.abs() * 0.02)).clamp(0.0, 1.0),
+                        ),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 2. Cute Astro-Runner Designer Toy Figure with Gentle Floating Animation
+              Positioned(
+                bottom: 8 + floatY,
+                child: Transform.scale(
+                  scale: scaleEffect,
+                  child: Container(
+                    width: widget.size,
+                    height: widget.size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(widget.size / 2),
+                      child: Image.asset(
+                        "assets/running_real.jpg",
+                        width: widget.size,
+                        height: widget.size,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class AetronLoadingPanel extends StatefulWidget {
   const AetronLoadingPanel({
     super.key,
-    this.label = 'LOADING',
+    this.label = "LOADING",
     this.message,
-    this.size = 190,
+    this.size = 200,
   });
 
   final String label;
@@ -521,7 +740,7 @@ class _AetronLoadingPanelState extends State<AetronLoadingPanel>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 2200),
     )..repeat();
   }
 
@@ -534,136 +753,161 @@ class _AetronLoadingPanelState extends State<AetronLoadingPanel>
   @override
   Widget build(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-          SizedBox.square(
-            dimension: widget.size,
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                final floatOffset = math.sin(_controller.value * math.pi * 2) * 4;
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: Size.square(widget.size),
-                      painter: _AetronLoaderPainter(progress: _controller.value),
-                    ),
-                    Transform.translate(
-                      offset: Offset(0, floatOffset),
-                      child: Container(
-                        width: widget.size * 0.45,
-                        height: widget.size * 0.45,
-                        padding: EdgeInsets.all(widget.size * 0.09),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AetronColors.space,
-                          border: Border.all(
-                            color: AetronColors.cyan.withValues(alpha: 0.6),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AetronColors.cyan.withValues(alpha: 0.35),
-                              blurRadius: 22,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+        // 3D Kinetic Cyber Motion Core (No static logo!)
+        SizedBox.square(
+          dimension: widget.size,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final t = _controller.value;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 1. Custom 3D Gyroscopic Rings & Orbiting Energy Radar
+                  CustomPaint(
+                    size: Size.square(widget.size),
+                    painter: _AetronKineticLoaderPainter(progress: t),
+                  ),
+
+                  // 2. Central Kinetic Energy Core with Live Animated Running Character
+                  AetronAnimatedRunningCharacter(
+                    size: widget.size * 0.54,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Live Telemetry Equalizer frequency bars
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final t = _controller.value;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(7, (i) {
+                final barHeight = 6 + math.sin((t * math.pi * 2) + (i * 0.8)).abs() * 14;
+                return Container(
+                  width: 3.5,
+                  height: barHeight,
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  decoration: BoxDecoration(
+                    color: i % 2 == 0
+                        ? const Color(0xFF00E5FF)
+                        : const Color(0xFF2AF598),
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                        blurRadius: 6,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
-              },
+              }),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+
+        // Label
+        Text(
+          widget.label.toUpperCase(),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: "Outfit",
+            color: AetronColors.textPrimary,
+            fontSize: scale.scale(15) > 18 ? 13 : 15,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 3.5,
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Smooth Progress Capsule
+        SizedBox(
+          width: 140,
+          height: 4.5,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: const LinearProgressIndicator(
+              minHeight: 4.5,
+              backgroundColor: Color(0xFF131F33),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Color(0xFF00E5FF),
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            widget.label.toUpperCase(),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              color: AetronColors.textPrimary,
-              fontSize: scale.scale(15) > 18 ? 13 : 15,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 3.5,
-            ),
-          ),
+        ),
+
+        if (widget.message != null) ...[
           const SizedBox(height: 12),
-          SizedBox(
-            width: 140,
-            height: 5,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                minHeight: 5,
-                backgroundColor: AetronColors.space,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  AetronColors.cyan,
-                ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 270),
+            child: Text(
+              widget.message!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: "Outfit",
+                color: AetronColors.textSecondary,
+                fontSize: 12,
+                height: 1.35,
               ),
             ),
           ),
-          if (widget.message != null) ...[
-            const SizedBox(height: 14),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 260),
-              child: Text(
-                widget.message!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: AetronColors.textSecondary,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
-              ),
-            ),
-          ],
         ],
-      );
+      ],
+    );
   }
 }
 
-class _AetronLoaderPainter extends CustomPainter {
-  const _AetronLoaderPainter({required this.progress});
+/// 3D Gyroscopic Rings & Orbiting Energy Radar Painter
+class _AetronKineticLoaderPainter extends CustomPainter {
+  const _AetronKineticLoaderPainter({required this.progress});
 
   final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) * 0.38;
+    final radius = math.min(size.width, size.height) * 0.40;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
+    // 1. Ambient Glow Ring
     final glow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14)
-      ..color = AetronColors.cyan.withValues(alpha: 0.4);
+      ..strokeWidth = 6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16)
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.35);
     canvas.drawCircle(center, radius, glow);
 
+    // 2. Base Precision Tech Rings
     final baseRing = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = AetronColors.cyan.withValues(alpha: 0.25);
-    canvas.drawCircle(center, radius * 0.75, baseRing);
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.25);
+    canvas.drawCircle(center, radius * 0.72, baseRing);
     canvas.drawCircle(center, radius, baseRing);
-    canvas.drawCircle(center, radius * 1.18, baseRing);
+    canvas.drawCircle(center, radius * 1.20, baseRing);
 
+    // 3. Radial Tech Ticks
     final tickPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..color = AetronColors.cyan.withValues(alpha: 0.5);
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.5);
     for (var i = 0; i < 36; i++) {
       final angle = (math.pi * 2 / 36) * i + progress * math.pi * 2;
-      final inner = radius * (i % 3 == 0 ? 1.02 : 1.1);
-      final outer = radius * 1.22;
+      final inner = radius * (i % 3 == 0 ? 1.04 : 1.12);
+      final outer = radius * 1.24;
       canvas.drawLine(
         Offset(
           center.dx + math.cos(angle) * inner,
@@ -677,6 +921,7 @@ class _AetronLoaderPainter extends CustomPainter {
       );
     }
 
+    // 4. Sweeping Neon Energy Arc
     final arcPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.5
@@ -685,50 +930,55 @@ class _AetronLoaderPainter extends CustomPainter {
         startAngle: 0,
         endAngle: math.pi * 2,
         colors: [
-          AetronColors.cyan.withValues(alpha: 0),
-          AetronColors.cyan,
-          AetronColors.mint,
-          AetronColors.cyan.withValues(alpha: 0.08),
+          const Color(0xFF00E5FF).withValues(alpha: 0),
+          const Color(0xFF00E5FF),
+          const Color(0xFF2AF598),
+          const Color(0xFF00E5FF).withValues(alpha: 0.08),
         ],
         stops: const [0, 0.5, 0.8, 1],
         transform: GradientRotation(progress * math.pi * 2),
       ).createShader(rect);
     canvas.drawArc(rect, -math.pi / 2, math.pi * 1.5, false, arcPaint);
 
+    // 5. 3D Gyroscopic Orbiting Ovals
     final orbitPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = AetronColors.cyan.withValues(alpha: 0.6);
-    for (final tilt in [-0.62, 0.62]) {
+      ..strokeWidth = 1.6
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.55);
+
+    for (final tilt in [-0.58, 0.58]) {
       canvas.save();
       canvas.translate(center.dx, center.dy);
-      canvas.rotate(tilt + progress * math.pi * 0.4);
+      canvas.rotate(tilt + progress * math.pi * 0.6);
       canvas.drawOval(
         Rect.fromCenter(
           center: Offset.zero,
-          width: radius * 2.55,
-          height: radius * 0.65,
+          width: radius * 2.50,
+          height: radius * 0.70,
         ),
         orbitPaint,
       );
       canvas.restore();
     }
 
+    // 6. Orbiting Satellites
     final sweepAngle = -math.pi / 2 + progress * math.pi * 2;
-    final dotPaint = Paint()..color = AetronColors.cyanSoft;
-    final dotAngle = sweepAngle + math.pi * 0.22;
+    final dotPaint = Paint()
+      ..color = const Color(0xFF2AF598)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+    final dotAngle = sweepAngle + math.pi * 0.3;
     canvas.drawCircle(
       Offset(
         center.dx + math.cos(dotAngle) * radius,
         center.dy + math.sin(dotAngle) * radius,
       ),
-      3.5,
+      4.0,
       dotPaint,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _AetronLoaderPainter oldDelegate) {
+  bool shouldRepaint(covariant _AetronKineticLoaderPainter oldDelegate) {
     return oldDelegate.progress != progress;
   }
 }

@@ -32,12 +32,15 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>io.supabase.flutter</string>
+				<string>com.googleusercontent.apps.741155040974-jvfb8ca41otk67f9pp1st5aqcp3mdqn9</string>
 			</array>
 		</dict>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Aetron uses your location while an outdoor workout is active, including in the background if you choose to keep recording, to preserve your route, distance, and pace.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Aetron uses your location while an outdoor workout is active, including in the background if you choose to keep recording, to preserve your route, distance, and pace.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Aetron uses your location to record your route, distance, and pace during an outdoor workout.</string>

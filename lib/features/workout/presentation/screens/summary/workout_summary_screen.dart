@@ -4,6 +4,7 @@ import 'package:fitness_exercise_application/features/shell/presentation/screens
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_share_card.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
@@ -78,7 +79,6 @@ class WorkoutSummaryScreen extends ConsumerWidget {
           );
 
     final showSteps = _hasSteps(activityType) && steps > 0;
-    final paceUnit = useMetricUnits ? 'min/km' : 'min/mi';
 
     return Scaffold(
       backgroundColor: AetronColors.background,
@@ -216,7 +216,6 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                             child: StatCard(
                               label: AppTranslations.get('avg_pace', currentLang),
                               value: avgPace,
-                              unit: paceUnit,
                               icon: Icons.speed_rounded,
                               accentColor: AetronColors.mint,
                             ),
@@ -243,7 +242,35 @@ class WorkoutSummaryScreen extends ConsumerWidget {
                           accentColor: AetronColors.cyanSoft,
                         ),
                       ],
-                      const SizedBox(height: AetronSpacing.xl),
+                      const SizedBox(height: AetronSpacing.md),
+
+                      // Share Card Button
+                      AppButton(
+                        label: currentLang == AppLanguage.vi
+                            ? 'CHIA SẺ BUỔI TẬP'
+                            : 'SHARE WORKOUT',
+                        icon: Icons.ios_share_rounded,
+                        variant: AppButtonVariant.outlined,
+                        fullWidth: true,
+                        onPressed: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (_) => WorkoutShareCardSheet(
+                              activityType: activityType,
+                              distanceKm: effectiveDistanceKm,
+                              durationSeconds: durationSeconds,
+                              avgSpeedKmh: avgSpeedKmh,
+                              calories: calories,
+                              steps: steps,
+                              useMetricUnits: useMetricUnits,
+                              currentLang: currentLang,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: AetronSpacing.sm),
 
                       // Primary Done Action
                       AppButton(

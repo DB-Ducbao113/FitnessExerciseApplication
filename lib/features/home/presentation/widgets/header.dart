@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
@@ -16,13 +14,12 @@ class AppHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = Supabase.instance.client.auth.currentUser;
     final avatar = ref.watch(currentAvatarDisplayProvider);
-    final ImageProvider? avatarImage = avatar.localPath != null
-        ? FileImage(File(avatar.localPath!))
-        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
-        ? NetworkImage(avatar.remoteUrl!)
-        : null;
-    final displayName = (user?.userMetadata?['display_name'] as String?)?.trim() ??
-        (user?.email ?? 'Athlete').split('@').first;
+    final ImageProvider? avatarImage = avatar.imageProvider;
+    final meta = user?.userMetadata;
+    final rawName = (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name']) as String?;
+    final displayName = (rawName != null && rawName.trim().isNotEmpty)
+        ? rawName.trim()
+        : (user?.email ?? 'Athlete').split('@').first;
     final initials = _initialsFromEmail(user?.email);
 
     return AppCard(

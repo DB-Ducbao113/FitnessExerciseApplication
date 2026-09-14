@@ -31,9 +31,11 @@ class LocationTrackingService {
     final t0 = DateTime.now();
     debugPrint('[GPS] ensurePermissions start');
 
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('location_disabled');
+    if (!kIsWeb) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('location_disabled');
+      }
     }
 
     var permission = await Geolocator.checkPermission();
@@ -96,7 +98,7 @@ class LocationTrackingService {
   }) async {
     await ensurePermissionsOrThrow();
 
-    final desiredAccuracy = _startupLockAccuracy(activityType);
+    final desiredAccuracy = kIsWeb ? 100.0 : _startupLockAccuracy(activityType);
     final stableRadiusMeters = math.max(6.0, desiredAccuracy * 0.7);
     final completer = Completer<Position?>();
     Position? bestFix =
@@ -135,6 +137,11 @@ class LocationTrackingService {
               bestFix = position;
             }
 
+            if (kIsWeb) {
+              finish(position);
+              return;
+            }
+
             if (position.accuracy > desiredAccuracy) return;
 
             final candidate = stableCandidate;
@@ -164,9 +171,9 @@ class LocationTrackingService {
             stableCandidate = preferredFix;
           }, onError: (_) => finish(bestFix));
 
-      if (maxWait != null) {
-        timeoutTimer = Timer(maxWait, () => finish(bestFix));
-      }
+      final effectiveWait = maxWait ?? (kIsWeb ? const Duration(seconds: 8) : const Duration(seconds: 15));
+      timeoutTimer = Timer(effectiveWait, () => finish(bestFix));
+
       return await completer.future;
     } catch (e) {
       debugPrint('[GPS] acquireStartupLock error: $e');
@@ -185,8 +192,8 @@ class LocationTrackingService {
     final capturedAt = position.timestamp;
     final referenceTime = now ?? DateTime.now();
     final age = referenceTime.difference(capturedAt).abs();
-    final accuracyLimit = _startupLockAccuracy(activityType) * 1.35;
-    return age <= const Duration(seconds: 8) &&
+    final accuracyLimit = kIsWeb ? 200.0 : (_startupLockAccuracy(activityType) * 1.35);
+    return age <= const Duration(seconds: 10) &&
         position.accuracy <= accuracyLimit;
   }
 
@@ -223,7 +230,7 @@ class LocationTrackingService {
 
   LocationSettings _buildLocationSettings() {
     const distanceFilter = 0;
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       return AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: distanceFilter,
@@ -238,7 +245,7 @@ class LocationTrackingService {
         ),
       );
     }
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       return AppleSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: distanceFilter,
@@ -249,7 +256,7 @@ class LocationTrackingService {
       );
     }
     return LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
+      accuracy: LocationAccuracy.high,
       distanceFilter: distanceFilter,
     );
   }

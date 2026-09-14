@@ -25,14 +25,19 @@ class WorkoutList extends _$WorkoutList {
 
     final repository = ref.read(workoutRepositoryProvider);
 
-    // Always sync from Cloud first so all devices see the same dataset.
-    // Falls through gracefully if offline (Supabase request will throw and we catch).
+    // 1. Fetch remote sessions from Cloud so all devices (Web, iOS, Mac)
+    // stay in perfect real-time sync.
     try {
-      await repository.syncFromCloud();
+      final remoteSessions = await repository.fetchSessionsRemote(user);
+      if (!kIsWeb && remoteSessions.isNotEmpty) {
+        await repository.replaceLocalCache(user, remoteSessions);
+      }
+      return remoteSessions;
     } catch (e) {
-      debugPrint('[WorkoutList] syncFromCloud error: $e');
+      debugPrint('[WorkoutList] Remote fetch fallback to local: $e');
     }
 
+    // 2. Fallback to local cache if offline or remote fetch failed
     return await repository.getSessionsLocal(user);
   }
 
@@ -44,8 +49,16 @@ class WorkoutList extends _$WorkoutList {
       if (user == null) throw Exception('No user logged in');
 
       final repository = ref.read(workoutRepositoryProvider);
-      await repository.syncFromCloud();
-      return await repository.getSessionsLocal(user);
+      try {
+        final remoteSessions = await repository.fetchSessionsRemote(user);
+        if (!kIsWeb && remoteSessions.isNotEmpty) {
+          await repository.replaceLocalCache(user, remoteSessions);
+        }
+        return remoteSessions;
+      } catch (e) {
+        debugPrint('[WorkoutList.refresh] Remote fetch error, using local: $e');
+        return await repository.getSessionsLocal(user);
+      }
     });
   }
 

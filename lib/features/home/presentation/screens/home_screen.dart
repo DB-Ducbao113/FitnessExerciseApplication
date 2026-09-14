@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
@@ -18,7 +18,6 @@ import 'package:fitness_exercise_application/features/settings/presentation/prov
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/running_programs_screen.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
@@ -189,7 +188,7 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AetronColors.background,
       body: SafeArea(
-        top: false,
+        top: true,
         child: RefreshIndicator(
           color: AetronColors.primary,
           backgroundColor: AetronColors.surface,
@@ -220,10 +219,7 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(height: AetronSpacing.md),
                       ],
                       workoutsAsync.when(
-                        loading: () => const Padding(
-                          padding: EdgeInsets.symmetric(vertical: AetronSpacing.xxl),
-                          child: LoadingState(label: 'LOADING TELEMETRY'),
-                        ),
+                        loading: () => const HomeSkeletonView(),
                         error: (err, stack) => ErrorState(
                           title: 'Dashboard unavailable',
                           message: 'Could not refresh your workout metrics right now.',
@@ -247,6 +243,94 @@ class HomeScreen extends ConsumerWidget {
 }
 
 // --- SECTION 1: HEADER & TOP BAR ---
+
+/// Returns contextual greeting info based on the hour of day.
+_TimeContext _buildTimeContext(int hour, AppLanguage lang) {
+  if (hour >= 5 && hour < 12) {
+    return _TimeContext(
+      greeting: lang == AppLanguage.vi ? 'Chào buổi sáng' : 'Good morning',
+      emoji: '☀️',
+      pillColor: const Color(0xFFFFBB57),
+      glowColor: const Color(0xFFFFD580),
+    );
+  } else if (hour >= 12 && hour < 17) {
+    return _TimeContext(
+      greeting: lang == AppLanguage.vi ? 'Chào buổi chiều' : 'Good afternoon',
+      emoji: '🌤️',
+      pillColor: const Color(0xFF39B5F2),
+      glowColor: AetronColors.cyan,
+    );
+  } else if (hour >= 17 && hour < 21) {
+    return _TimeContext(
+      greeting: lang == AppLanguage.vi ? 'Chào buổi tối' : 'Good evening',
+      emoji: '🌇',
+      pillColor: const Color(0xFFFF7E4F),
+      glowColor: const Color(0xFFFFAA80),
+    );
+  } else {
+    return _TimeContext(
+      greeting: lang == AppLanguage.vi ? 'Đêm khuya rồi' : 'Burning midnight oil',
+      emoji: '🌙',
+      pillColor: const Color(0xFF9B7EFF),
+      glowColor: const Color(0xFFCBB2FF),
+    );
+  }
+}
+
+class _TimeContext {
+  final String greeting;
+  final String emoji;
+  final Color pillColor;
+  final Color glowColor;
+  const _TimeContext({required this.greeting, required this.emoji, required this.pillColor, required this.glowColor});
+}
+
+class _ContextualStatusPill extends StatelessWidget {
+  final AppLanguage currentLang;
+  const _ContextualStatusPill({required this.currentLang});
+
+  @override
+  Widget build(BuildContext context) {
+    final hour = DateTime.now().hour;
+    final ctx = _buildTimeContext(hour, currentLang);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: ctx.pillColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: ctx.pillColor.withValues(alpha: 0.5),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ctx.glowColor.withValues(alpha: 0.2),
+            blurRadius: 10,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(ctx.emoji, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 5),
+          Text(
+            ctx.greeting.toUpperCase(),
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: ctx.pillColor,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HomeTopBar extends ConsumerWidget {
   const _HomeTopBar();
 
@@ -255,76 +339,63 @@ class _HomeTopBar extends ConsumerWidget {
     final currentLang = ref.watch(appLanguageProvider);
     final user = Supabase.instance.client.auth.currentUser;
     final avatar = ref.watch(currentAvatarDisplayProvider);
-    final ImageProvider? avatarImage = avatar.localPath != null
-        ? FileImage(File(avatar.localPath!))
-        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
-            ? NetworkImage(avatar.remoteUrl!)
-            : null;
+    final ImageProvider? avatarImage = avatar.imageProvider;
     final streak = ref.watch(streakProvider);
     final initials = _initialsFromEmail(user?.email);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AetronSpacing.page,
-        AetronSpacing.lg + 8,
+        AetronSpacing.sm,
         AetronSpacing.page,
         AetronSpacing.xs,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 3D Avatar Container
-          AetronAvatar(
-            image: avatarImage,
-            label: initials,
-            size: 46,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // User Greeting & Name
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  AppTranslations.get('welcome_back', currentLang).toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: AetronColors.cyanSoft.withValues(alpha: 0.8),
-                    letterSpacing: 1.5,
-                  ),
+          // Status Pill row (contextual greeting)
+          _ContextualStatusPill(currentLang: currentLang),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // 3D Avatar Container
+              AetronAvatar(
+                image: avatarImage,
+                label: initials,
+                size: 46,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
                 ),
-                const SizedBox(height: 2),
-                Text(
+              ),
+              const SizedBox(width: 12),
+
+              // User Name
+              Expanded(
+                child: Text(
                   _homeDisplayName(user),
                   style: const TextStyle(
                     fontFamily: 'Outfit',
-                    fontSize: 18,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: AetronColors.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-          ),
+              ),
 
-          // Streak Pill
-          AetronStreakPill(
-            streak: streak.currentStreak,
-            compact: true,
-            onTap: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => _StreakDetailsSheet(streak: streak),
-            ),
+              // Streak Pill
+              AetronStreakPill(
+                streak: streak.currentStreak,
+                compact: true,
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => _StreakDetailsSheet(streak: streak),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -338,77 +409,43 @@ class _HomePopulatedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Hero Workout Banner ("READY TO MOVE?")
-        _StartWorkout3DHeroCard(),
+        // 1. Weekly Goal Progress (Weekly Progress first)
+        RepaintBoundary(child: _WeeklyGoalSection()),
         SizedBox(height: AetronSpacing.lg),
 
-        // 2. Spotlight 3D Workout Carousel (Image 1 Spotlight Section)
-        _SpotlightWorkoutSection(),
+        // 2. Recent Workout Log (Recent Workout second)
+        RepaintBoundary(child: _RecentWorkoutSection()),
         SizedBox(height: AetronSpacing.lg),
 
-        // 3. Weekly Goal Progress & Radial Activity Ring
-        _WeeklyGoalSection(),
+        // 3. Running Series (Running Series third)
+        RepaintBoundary(child: _SpotlightWorkoutSection()),
         SizedBox(height: AetronSpacing.lg),
 
-        // 4. Recent Workout Log
-        _RecentWorkoutSection(),
+        // 4. Start Workout Banner (Start Workout last)
+        RepaintBoundary(child: _StartWorkout3DHeroCard()),
       ],
     );
   }
 }
 
 // --- SPOTLIGHT WORKOUT SECTION (RUNNING SERIES FOR RUNNERS) ---
-class _SpotlightWorkoutSection extends ConsumerStatefulWidget {
+class _SpotlightWorkoutSection extends ConsumerWidget {
   const _SpotlightWorkoutSection();
 
   @override
-  ConsumerState<_SpotlightWorkoutSection> createState() => _SpotlightWorkoutSectionState();
-}
-
-class _SpotlightWorkoutSectionState extends ConsumerState<_SpotlightWorkoutSection> {
-  final Set<String> _favorites = {};
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
+    final programs = RunningProgramsScreen.programs;
 
-    final spotlightItems = [
-      {
-        'id': '1',
-        'title': AppTranslations.get('couch_to_5k', currentLang),
-        'category': currentLang == AppLanguage.vi ? 'NGƯỜI MỚI • 4 TUẦN' : 'BEGINNER • 4 WEEKS',
-        'stat': '5.0 km • Run/Walk Interval',
-        'icon': Icons.directions_run_rounded,
-        'type': 'running',
-      },
-      {
-        'id': '2',
-        'title': AppTranslations.get('easy_base_run', currentLang),
-        'category': currentLang == AppLanguage.vi ? 'PHỤC HỒI • DỊU NHẸ' : 'RECOVERY • EASY BASE',
-        'stat': '3.0 km • Zone 2 HR',
-        'icon': Icons.favorite_rounded,
-        'type': 'running',
-      },
-      {
-        'id': '3',
-        'title': AppTranslations.get('pace_builder_10k', currentLang),
-        'category': currentLang == AppLanguage.vi ? 'TRUNG CẤP • 6 TUẦN' : 'INTERMEDIATE • 6 WEEKS',
-        'stat': '10.0 km • Tempo Pace',
-        'icon': Icons.speed_rounded,
-        'type': 'running',
-      },
-      {
-        'id': '4',
-        'title': AppTranslations.get('speed_intervals', currentLang),
-        'category': currentLang == AppLanguage.vi ? 'TỐC ĐỘ • NÂNG CAO' : 'ADVANCED • SPEED',
-        'stat': '400m Reps • Fartlek',
-        'icon': Icons.bolt_rounded,
-        'type': 'running',
-      },
-    ];
+    final icons = {
+      'couch_to_5k': Icons.directions_run_rounded,
+      'easy_base_run': Icons.favorite_border_rounded,
+      'pace_builder_10k': Icons.speed_rounded,
+      'speed_intervals': Icons.bolt_rounded,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,190 +482,142 @@ class _SpotlightWorkoutSectionState extends ConsumerState<_SpotlightWorkoutSecti
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 205,
+          height: 195,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
-            itemCount: spotlightItems.length,
+            itemCount: programs.length,
             separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemBuilder: (context, index) {
-              final item = spotlightItems[index];
-              final isFav = _favorites.contains(item['id']);
+              final prog = programs[index];
+              final title = AppTranslations.get(prog.titleKey, currentLang);
+              final badge = currentLang == AppLanguage.vi ? prog.badgeVi : prog.badgeEn;
+              final iconData = icons[prog.id] ?? Icons.directions_run_rounded;
 
-              return Container(
-                width: 210,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AetronColors.panelHigh,
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    RunningProgramsScreen.showProgramGuide(context, prog);
+                  },
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AetronColors.cyan.withValues(alpha: 0.3),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: AetronColors.cyan.withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top 3D Visual Box
-                    Expanded(
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  AetronColors.cyan.withValues(alpha: 0.25),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            item['icon'] as IconData,
-                            size: 48,
-                            color: AetronColors.cyan,
-                          ),
-                        ],
+                  child: Container(
+                    width: 220,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AetronColors.panelHigh,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AetronColors.cyan.withValues(alpha: 0.3),
+                        width: 1.2,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Category Tag
-                    Text(
-                      item['category'] as String,
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: AetronColors.cyanSoft.withValues(alpha: 0.8),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-
-                    // Title
-                    Text(
-                      item['title'] as String,
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: AetronColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Stat & Action Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item['stat'] as String,
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 11,
-                              color: AetronColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
                         ),
-                        Row(
-                          children: [
-                            // Favorite Heart Orb
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isFav) {
-                                    _favorites.remove(item['id']);
-                                  } else {
-                                    _favorites.add(item['id'] as String);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AetronColors.space,
-                                  border: Border.all(
-                                    color: isFav
-                                        ? AetronColors.danger
-                                        : AetronColors.borderSubtle,
-                                  ),
-                                ),
-                                child: Icon(
-                                  isFav
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  size: 15,
-                                  color: isFav
-                                      ? AetronColors.danger
-                                      : AetronColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-
-                            // Quick Add / Start Button
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => RecordScreen(
-                                      activityType: item['type'] as String,
-                                      requireGps: true,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AetronColors.cyan,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AetronColors.cyan.withValues(alpha: 0.4),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.add_rounded,
-                                  size: 18,
-                                  color: AetronColors.space,
-                                ),
-                              ),
-                            ),
-                          ],
+                        BoxShadow(
+                          color: AetronColors.cyan.withValues(alpha: 0.12),
+                          blurRadius: 14,
+                          spreadRadius: -2,
                         ),
                       ],
                     ),
-                  ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Top Row: Category Tag & Icon
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AetronColors.cyan.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                badge,
+                                style: const TextStyle(
+                                  fontFamily: 'Outfit',
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: AetronColors.cyan,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                            Icon(iconData, size: 20, color: AetronColors.cyanSoft),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Title
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: AetronColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+
+                        // Target Info
+                        Text(
+                          '${prog.targetDistance} • ${prog.targetZone}',
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 11,
+                            color: AetronColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+
+                        // Bottom Action CTA
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AetronColors.cyan.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(AetronRadius.pill),
+                            border: Border.all(
+                              color: AetronColors.cyan.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                currentLang == AppLanguage.vi ? 'XEM GIÁO ÁN' : 'VIEW GUIDE',
+                                style: const TextStyle(
+                                  fontFamily: 'Outfit',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: AetronColors.cyan,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 13,
+                                color: AetronColors.cyan,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -639,9 +628,7 @@ class _SpotlightWorkoutSectionState extends ConsumerState<_SpotlightWorkoutSecti
   }
 }
 
-
-
-// --- 3. WEEKLY GOAL SECTION WITH GLOWING ACTIVITY RING ---
+// --- 3. WEEKLY GOAL SECTION WITH ANIMATED GLOWING ACTIVITY RING ---
 class _WeeklyGoalSection extends ConsumerWidget {
   const _WeeklyGoalSection();
 
@@ -651,6 +638,18 @@ class _WeeklyGoalSection extends ConsumerWidget {
     final hero = ref.watch(_weeklyHeroProvider);
     final progress = (hero.target > 0 ? (hero.current / hero.target) : 0.0).clamp(0.0, 1.0);
     final percent = (progress * 100).round();
+
+    // Color mapping based on goal completion
+    final ringColor = percent >= 100
+        ? AetronColors.gold
+        : percent >= 70
+            ? AetronColors.mint
+            : AetronColors.cyan;
+    final glowColor = percent >= 100
+        ? AetronColors.gold
+        : percent >= 70
+            ? AetronColors.mint
+            : const Color(0xFF00FFFF);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,52 +667,21 @@ class _WeeklyGoalSection extends ConsumerWidget {
         AppCard(
           padding: const EdgeInsets.all(AetronSpacing.md + 4),
           backgroundColor: AetronColors.panelHigh,
-          borderColor: AetronColors.cyan.withValues(alpha: 0.35),
+          borderColor: ringColor.withValues(alpha: 0.35),
           hasGlow: true,
-          glowColor: AetronColors.cyan,
+          glowColor: ringColor,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const GoalScreen()),
           ),
           child: Row(
             children: [
-              // Custom Radial Activity Progress Ring
-              SizedBox(
-                width: 84,
-                height: 84,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: const Size(84, 84),
-                      painter: _ActivityRingPainter(
-                        progress: progress,
-                        trackColor: AetronColors.space,
-                        ringColor: AetronColors.cyan,
-                        glowColor: AetronColors.mint,
-                      ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$percent%',
-                          style: AetronTypography.headingMedium.copyWith(
-                            color: AetronColors.cyanSoft,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          currentLang == AppLanguage.vi ? 'MỤC TIÊU' : 'GOAL',
-                          style: AetronTypography.label.copyWith(
-                            color: AetronColors.textSecondary,
-                            fontSize: 9,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              // Animated Radial Goal Ring
+              _AnimatedGoalRing(
+                progress: progress,
+                percent: percent,
+                ringColor: ringColor,
+                glowColor: glowColor,
+                currentLang: currentLang,
               ),
               const SizedBox(width: AetronSpacing.md),
               // Goal Text Telemetry Metrics
@@ -726,10 +694,10 @@ class _WeeklyGoalSection extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AetronColors.cyan.withValues(alpha: 0.15),
+                            color: ringColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(AetronRadius.pill),
                             border: Border.all(
-                              color: AetronColors.cyan.withValues(alpha: 0.4),
+                              color: ringColor.withValues(alpha: 0.4),
                               width: 1,
                             ),
                           ),
@@ -738,7 +706,7 @@ class _WeeklyGoalSection extends ConsumerWidget {
                                 ? 'TUẦN ${hero.weekNumber}'
                                 : 'WEEK ${hero.weekNumber}',
                             style: AetronTypography.caption.copyWith(
-                              color: AetronColors.cyan,
+                              color: ringColor,
                               fontWeight: FontWeight.w800,
                               fontSize: 10,
                             ),
@@ -761,11 +729,19 @@ class _WeeklyGoalSection extends ConsumerWidget {
                           ? (currentLang == AppLanguage.vi
                               ? '🏆 Xuất sắc! Bạn đã hoàn thành mục tiêu!'
                               : '🏆 Goal Completed! Outstanding work!')
-                          : (currentLang == AppLanguage.vi
-                              ? 'Cố lên! Bạn sắp hoàn thành mục tiêu.'
-                              : 'Keep pushing! Almost at target.'),
+                          : percent >= 70
+                              ? (currentLang == AppLanguage.vi
+                                  ? '🔥 Sắp về đích! Tiếp tục chinh phục!'
+                                  : '🔥 Almost there! Keep pushing!')
+                              : (currentLang == AppLanguage.vi
+                                  ? 'Cố lên! Bạn sắp hoàn thành mục tiêu.'
+                                  : 'Keep pushing! Almost at target.'),
                       style: AetronTypography.bodySmall.copyWith(
-                        color: percent >= 100 ? AetronColors.mint : AetronColors.textSecondary,
+                        color: percent >= 100
+                            ? AetronColors.gold
+                            : percent >= 70
+                                ? AetronColors.mint
+                                : AetronColors.textSecondary,
                         fontSize: 11,
                       ),
                     ),
@@ -781,6 +757,107 @@ class _WeeklyGoalSection extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// --- ANIMATED GOAL RING ---
+class _AnimatedGoalRing extends StatefulWidget {
+  final double progress;
+  final int percent;
+  final Color ringColor;
+  final Color glowColor;
+  final AppLanguage currentLang;
+
+  const _AnimatedGoalRing({
+    required this.progress,
+    required this.percent,
+    required this.ringColor,
+    required this.glowColor,
+    required this.currentLang,
+  });
+
+  @override
+  State<_AnimatedGoalRing> createState() => _AnimatedGoalRingState();
+}
+
+class _AnimatedGoalRingState extends State<_AnimatedGoalRing>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _ctrl.forward();
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedGoalRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.progress != widget.progress) {
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final animatedProgress = widget.progress * _anim.value;
+        final animatedPercent = (animatedProgress * 100).round();
+        return SizedBox(
+          width: 90,
+          height: 90,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(90, 90),
+                painter: _ActivityRingPainter(
+                  progress: animatedProgress,
+                  trackColor: AetronColors.space,
+                  ringColor: widget.ringColor,
+                  glowColor: widget.glowColor,
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$animatedPercent%',
+                    style: AetronTypography.headingMedium.copyWith(
+                      color: widget.ringColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                    ),
+                  ),
+                  Text(
+                    widget.currentLang == AppLanguage.vi ? 'MỤC TIÊU' : 'GOAL',
+                    style: AetronTypography.label.copyWith(
+                      color: AetronColors.textSecondary,
+                      fontSize: 8,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -801,55 +878,74 @@ class _ActivityRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - 12) / 2;
-    const strokeWidth = 8.0;
+    final outerRadius = (size.width - 10) / 2;
+    final innerRadius = outerRadius - 10;
+    const outerStroke = 8.0;
+    const innerStroke = 3.0;
 
-    // Track Paint
+    // Outer track
     final trackPaint = Paint()
-      ..color = trackColor
+      ..color = trackColor.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
+      ..strokeWidth = outerStroke
       ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, outerRadius, trackPaint);
 
-    canvas.drawCircle(center, radius, trackPaint);
+    // Inner subtle track ring
+    final innerTrackPaint = Paint()
+      ..color = trackColor.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = innerStroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, innerRadius, innerTrackPaint);
 
     if (progress <= 0) return;
 
-    // Glowing Arc Paint
-    final glowPaint = Paint()
-      ..color = glowColor.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-      ..strokeCap = StrokeCap.round;
-
-    final ringPaint = Paint()
-      ..shader = SweepGradient(
-        colors: [ringColor, glowColor, ringColor],
-        stops: const [0.0, 0.7, 1.0],
-        transform: const GradientRotation(-math.pi / 2),
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
     final sweepAngle = 2 * math.pi * progress;
+    final startAngle = -math.pi / 2;
+    final arcRect = Rect.fromCircle(center: center, radius: outerRadius);
+    final innerArcRect = Rect.fromCircle(center: center, radius: innerRadius);
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      sweepAngle,
-      false,
-      glowPaint,
-    );
+    // Outer glow blur
+    final outerGlowPaint = Paint()
+      ..color = glowColor.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = outerStroke + 6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8)
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(arcRect, startAngle, sweepAngle, false, outerGlowPaint);
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      sweepAngle,
-      false,
-      ringPaint,
-    );
+    // Outer ring with sweep gradient
+    final outerRingPaint = Paint()
+      ..shader = SweepGradient(
+        colors: [ringColor.withValues(alpha: 0.4), ringColor, glowColor],
+        stops: const [0.0, 0.5, 1.0],
+        transform: const GradientRotation(-math.pi / 2),
+      ).createShader(arcRect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = outerStroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(arcRect, startAngle, sweepAngle, false, outerRingPaint);
+
+    // Inner accent ring
+    final innerRingPaint = Paint()
+      ..color = glowColor.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = innerStroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(innerArcRect, startAngle, sweepAngle * 0.85, false, innerRingPaint);
+
+    // Endpoint glowing orb dot
+    if (progress > 0.02) {
+      final endX = center.dx + outerRadius * math.cos(startAngle + sweepAngle);
+      final endY = center.dy + outerRadius * math.sin(startAngle + sweepAngle);
+      final dotGlowPaint = Paint()
+        ..color = glowColor.withValues(alpha: 0.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+      canvas.drawCircle(Offset(endX, endY), 6, dotGlowPaint);
+      final dotPaint = Paint()..color = Colors.white;
+      canvas.drawCircle(Offset(endX, endY), 3.5, dotPaint);
+    }
   }
 
   @override
@@ -861,7 +957,7 @@ class _ActivityRingPainter extends CustomPainter {
 }
 
 
-// --- 3D START WORKOUT HERO CARD ---
+// --- REALISTIC ATHLETIC START WORKOUT HERO CARD ---
 class _StartWorkout3DHeroCard extends ConsumerWidget {
   const _StartWorkout3DHeroCard();
 
@@ -869,101 +965,152 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
 
-    return AppCard(
-      padding: const EdgeInsets.all(AetronSpacing.lg),
-      backgroundColor: AetronColors.panelHigh,
-      borderColor: AetronColors.cyan.withValues(alpha: 0.4),
-      hasGlow: true,
-      glowColor: AetronColors.cyan,
-      child: Row(
-        children: [
-          // Left: Title, Subtitle, and START WORKOUT Button
-          Expanded(
-            flex: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: () => ref.read(mainTabControllerProvider.notifier).state = 1,
+        child: Container(
+          height: 165,
+          decoration: BoxDecoration(
+            color: const Color(0xFF070B14),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AetronColors.cyan.withValues(alpha: 0.40),
+              width: 1.4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: AetronColors.cyan.withValues(alpha: 0.15),
+                blurRadius: 18,
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Text(
-                  AppTranslations.get('ready_to_move', currentLang),
-                  style: AetronTypography.headingLarge.copyWith(
-                    color: AetronColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                // 1. Realistic Athlete Photo
+                Image.asset(
+                  'assets/home_hero_runner.jpg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+
+                // 2. High-Contrast Obsidian Gradient Overlay
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        const Color(0xFF070B14),
+                        const Color(0xFF070B14).withValues(alpha: 0.95),
+                        const Color(0xFF070B14).withValues(alpha: 0.55),
+                        const Color(0xFF070B14).withValues(alpha: 0.10),
+                      ],
+                      stops: const [0.0, 0.45, 0.70, 1.0],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  AppTranslations.get('ready_to_move_sub', currentLang),
-                  style: AetronTypography.bodySmall.copyWith(
-                    color: AetronColors.cyanSoft.withValues(alpha: 0.8),
-                    fontSize: 12,
+
+                // 3. Subtle Cyber Glow
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AetronColors.cyan.withValues(alpha: 0.18),
+                        Colors.transparent,
+                        AetronColors.cyan.withValues(alpha: 0.06),
+                      ],
+                      stops: const [0.0, 0.50, 1.0],
+                    ),
                   ),
                 ),
-                const SizedBox(height: AetronSpacing.md),
-                    AppButton(
-                      label: AppTranslations.get('start_workout', currentLang),
-                      icon: Icons.arrow_forward_rounded,
-                      height: 44,
-                      fontSize: 12,
-                      fullWidth: true,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const RecordScreen(
-                            activityType: 'running',
-                            requireGps: true,
+
+                // 4. Content (Left side)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppTranslations.get('ready_to_move', currentLang),
+                            style: AetronTypography.headingLarge.copyWith(
+                              color: AetronColors.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
+                          const SizedBox(height: 3),
+                          SizedBox(
+                            width: 170,
+                            child: Text(
+                              AppTranslations.get('ready_to_move_sub', currentLang),
+                              style: AetronTypography.bodySmall.copyWith(
+                                color: AetronColors.cyanSoft.withValues(alpha: 0.85),
+                                fontSize: 11,
+                                height: 1.25,
+                              ),
+                              maxLines: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AetronColors.cyan,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AetronColors.cyan.withValues(alpha: 0.4),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              AppTranslations.get('start_workout', currentLang),
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF070B14),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 14,
+                              color: Color(0xFF070B14),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-
-          const SizedBox(width: AetronSpacing.sm),
-
-          // Right: 3D Runner Character Avatar Visual with Glowing Backdrop
-          Expanded(
-            flex: 4,
-            child: SizedBox(
-              height: 140,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Radial Glowing Cyan Background Circle
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          AetronColors.cyan.withValues(alpha: 0.35),
-                          AetronColors.cyan.withValues(alpha: 0.05),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.65, 1.0],
-                      ),
-                    ),
-                  ),
-                  // 3D Character Avatar Image (Cute 3D Shiba Inu Mascot)
-                  Image.asset(
-                    'assets/shiba_3d.png',
-                    fit: BoxFit.contain,
-                    height: 135,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        Icons.directions_run_rounded,
-                        size: 64,
-                        color: AetronColors.cyan,
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1089,6 +1236,7 @@ class _RecentWorkoutSection extends ConsumerWidget {
 }
 
 // --- 3D STREAK DETAILS SHEET ---
+// --- 3D STREAK DETAILS SHEET (RE-ENGINEERED ULTRA-PREMIUM) ---
 class _StreakDetailsSheet extends ConsumerWidget {
   const _StreakDetailsSheet({required this.streak});
 
@@ -1097,181 +1245,174 @@ class _StreakDetailsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
+    final isVi = currentLang == AppLanguage.vi;
     final workouts = ref.watch(workoutListProvider).valueOrNull ?? const <WorkoutSession>[];
     final days = streak.currentStreak;
+    final longestDays = math.max(streak.longestStreak, days);
     final targetDays = _nextStreakTarget(days);
     final progress = (days / targetDays).clamp(0.0, 1.0);
-    final daysLeft = math.max(0, targetDays - days);
-
-    final statusLabel = days == 0
-        ? AppTranslations.get('start_your_streak', currentLang)
-        : days >= 7
-            ? AppTranslations.get('milestone_unlocked', currentLang)
-            : AppTranslations.get('streak_active', currentLang);
 
     final today = DateTimeHelper.localDateOnly(DateTime.now());
     final activeDates = workouts
         .map((workout) => DateTimeHelper.localDateOnly(workout.startedAt))
         .toSet();
+    final isTodayCompleted = activeDates.contains(today);
+
+    // Determine Flame Tier & Colors
+    final (tierColor, secondaryTierColor, tierTitle) = _getStreakTier(days, isVi);
 
     return SafeArea(
       top: false,
       child: FractionallySizedBox(
-        heightFactor: 0.92,
+        heightFactor: 0.94,
         child: Container(
           decoration: BoxDecoration(
-            color: AetronColors.panelHigh,
+            color: const Color(0xFF090D18),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
             border: Border(
               top: BorderSide(
-                color: AetronColors.cyan.withValues(alpha: 0.4),
-                width: 1.5,
+                color: tierColor.withValues(alpha: 0.5),
+                width: 1.8,
               ),
             ),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                color: Colors.black54,
+                color: tierColor.withValues(alpha: 0.18),
+                blurRadius: 36,
+                offset: const Offset(0, -10),
+              ),
+              const BoxShadow(
+                color: Colors.black87,
                 blurRadius: 30,
-                offset: Offset(0, -10),
+                offset: Offset(0, -5),
               ),
             ],
           ),
           child: Column(
             children: [
-              // Top Bar
+              // Top Drag Handle & Bar
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: Text(
-                        AppTranslations.get('aetron_streak', currentLang),
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: AetronColors.cyan,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.8,
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AetronColors.textSecondary.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    Aetron3DOrbButton(
-                      icon: Icons.close_rounded,
-                      size: 36,
-                      iconSize: 18,
-                      onTap: () => Navigator.of(context).pop(),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: tierColor.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: tierColor.withValues(alpha: 0.4)),
+                          ),
+                          child: Icon(
+                            Icons.local_fire_department_rounded,
+                            color: tierColor,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppTranslations.get('aetron_streak', currentLang),
+                                style: const TextStyle(
+                                  fontFamily: 'Outfit',
+                                  color: AetronColors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Text(
+                                tierTitle.toUpperCase(),
+                                style: TextStyle(
+                                  fontFamily: 'Outfit',
+                                  color: tierColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Aetron3DOrbButton(
+                          icon: Icons.close_rounded,
+                          size: 36,
+                          iconSize: 18,
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              // Scrollable Content
+              // Scrollable Body
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                   child: Column(
                     children: [
-                      // 3D Hero Flame & Radial Arc Box
-                      SizedBox(
-                        height: 210,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // 3D Radial Outer Glow Circle
-                            Container(
-                              width: 190,
-                              height: 190,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    AetronColors.cyan.withValues(alpha: 0.25),
-                                    AetronColors.cyan.withValues(alpha: 0.05),
-                                    Colors.transparent,
-                                  ],
-                                  stops: const [0.0, 0.65, 1.0],
-                                ),
-                              ),
-                            ),
-
-                            // Custom Radial Painter
-                            CustomPaint(
-                              size: const Size.square(185),
-                              painter: _Streak3DRingsPainter(progress: progress),
-                            ),
-
-                            // Central Content
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.local_fire_department_rounded,
-                                  size: 32,
-                                  color: days > 0 ? AetronColors.cyan : AetronColors.muted,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '$days',
-                                  style: const TextStyle(
-                                    fontFamily: 'Outfit',
-                                    color: AetronColors.textPrimary,
-                                    fontSize: 58,
-                                    height: 1.0,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  AppTranslations.get('days_streak', currentLang),
-                                  style: const TextStyle(
-                                    fontFamily: 'Outfit',
-                                    color: AetronColors.cyanSoft,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AetronColors.cyan.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
-                                  ),
-                                  child: Text(
-                                    statusLabel,
-                                    style: const TextStyle(
-                                      fontFamily: 'Outfit',
-                                      color: AetronColors.cyan,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 3D Target Progress Card
-                      _Streak3DTargetCard(
+                      // 1. 3D CYBER FLAME HERO ARENA
+                      _Streak3DFlameHero(
+                        days: days,
                         progress: progress,
-                        daysLeft: daysLeft,
-                        targetDays: targetDays,
+                        tierColor: tierColor,
+                        secondaryColor: secondaryTierColor,
+                        isTodayCompleted: isTodayCompleted,
+                        isVi: isVi,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                      // 3D Weekly Activity Matrix
-                      _Streak3DWeekStrip(today: today, activeDates: activeDates),
+                      // 2. 4-CARD BENTO METRICS GRID
+                      _StreakMetricsBentoGrid(
+                        days: days,
+                        longestDays: longestDays,
+                        isTodayCompleted: isTodayCompleted,
+                        totalWorkouts: workouts.length,
+                        isVi: isVi,
+                        tierColor: tierColor,
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 3. 7-DAY INTERACTIVE STREAK MATRIX STRIP
+                      _Streak3DWeekStrip(
+                        today: today,
+                        activeDates: activeDates,
+                        isVi: isVi,
+                        tierColor: tierColor,
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 4. STREAK MILESTONE ROADMAP
+                      _StreakMilestonesRoadmap(
+                        currentStreak: days,
+                        longestStreak: longestDays,
+                        isVi: isVi,
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 5. STREAK SHIELD & PROTECTION INFO
+                      _StreakShieldCard(isVi: isVi),
                       const SizedBox(height: 24),
 
-                      // 3D CTA Button
+                      // 6. ACTION CTA BUTTON
                       Aetron3DPrimaryButton(
-                        label: AppTranslations.get('continue_workout', currentLang),
+                        label: isVi ? 'BẮT ĐẦU TẬP ĐỂ TĂNG CHUỖI 🔥' : 'START WORKOUT FOR STREAK 🔥',
                         icon: Icons.play_arrow_rounded,
                         onPressed: () {
                           final navigator = Navigator.of(context);
@@ -1293,147 +1434,554 @@ class _StreakDetailsSheet extends ConsumerWidget {
       ),
     );
   }
+
+  (Color, Color, String) _getStreakTier(int days, bool isVi) {
+    if (days == 0) {
+      return (
+        AetronColors.cyan,
+        const Color(0xFF64748B),
+        isVi ? 'Tia lửa khởi đầu (Dormant)' : 'Dormant Spark',
+      );
+    }
+    if (days < 3) {
+      return (
+        const Color(0xFFFF9F43),
+        const Color(0xFF00E5FF),
+        isVi ? 'Khởi động chuỗi (Spark)' : 'Spark Initiator',
+      );
+    }
+    if (days < 7) {
+      return (
+        const Color(0xFF39F2B8),
+        const Color(0xFF00E5FF),
+        isVi ? 'Ngọn lửa rực cháy (Blaze)' : 'Blaze Runner',
+      );
+    }
+    if (days < 14) {
+      return (
+        const Color(0xFFFFBA20),
+        const Color(0xFFFF7A00),
+        isVi ? 'Hỏa tiễn bền bỉ (Inferno)' : 'Inferno Streak',
+      );
+    }
+    if (days < 30) {
+      return (
+        const Color(0xFFFF4F57),
+        const Color(0xFFFFBA20),
+        isVi ? 'Chiến binh Titan (Titan)' : 'Titan Flame',
+      );
+    }
+    return (
+      const Color(0xFFA55EEA),
+      const Color(0xFF00E5FF),
+      isVi ? 'Huyền thoại vũ trụ (Supernova)' : 'Supernova Legend',
+    );
+  }
 }
 
-class _Streak3DRingsPainter extends CustomPainter {
-  const _Streak3DRingsPainter({required this.progress});
+// --- 3D CYBER FLAME HERO ---
+class _Streak3DFlameHero extends StatelessWidget {
+  const _Streak3DFlameHero({
+    required this.days,
+    required this.progress,
+    required this.tierColor,
+    required this.secondaryColor,
+    required this.isTodayCompleted,
+    required this.isVi,
+  });
+
+  final int days;
+  final double progress;
+  final Color tierColor;
+  final Color secondaryColor;
+  final bool isTodayCompleted;
+  final bool isVi;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1424),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: tierColor.withValues(alpha: 0.35),
+          width: 1.3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tierColor.withValues(alpha: 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 6),
+          ),
+          const BoxShadow(
+            color: Colors.black54,
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Orbital Radial Core
+          SizedBox(
+            height: 190,
+            width: 190,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Glowing Radial Corona
+                Container(
+                  width: 170,
+                  height: 170,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        tierColor.withValues(alpha: 0.3),
+                        secondaryColor.withValues(alpha: 0.1),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    ),
+                  ),
+                ),
+
+                // Multi-orbit Custom Painter
+                CustomPaint(
+                  size: const Size.square(185),
+                  painter: _Streak3DGlowingOrbPainter(
+                    progress: progress,
+                    primaryColor: tierColor,
+                    secondaryColor: secondaryColor,
+                  ),
+                ),
+
+                // Central Flame & Number
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: tierColor.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: tierColor.withValues(alpha: 0.4),
+                            blurRadius: 12,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.local_fire_department_rounded,
+                        size: 26,
+                        color: tierColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$days',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        color: Colors.white,
+                        fontSize: 54,
+                        height: 1.0,
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                            color: tierColor.withValues(alpha: 0.6),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      isVi ? 'NGÀY LIÊN TIẾP' : 'DAYS STREAK',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        color: tierColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Live Status Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: isTodayCompleted
+                  ? const Color(0xFF39F2B8).withValues(alpha: 0.15)
+                  : const Color(0xFFFFBA20).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isTodayCompleted
+                    ? const Color(0xFF39F2B8).withValues(alpha: 0.4)
+                    : const Color(0xFFFFBA20).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isTodayCompleted ? Icons.check_circle_rounded : Icons.bolt_rounded,
+                  size: 14,
+                  color: isTodayCompleted ? const Color(0xFF39F2B8) : const Color(0xFFFFBA20),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isTodayCompleted
+                      ? (isVi ? 'HÔM NAY ĐÃ TẬP • CHUỖI AN TOÀN ✅' : 'TODAY SECURED • STREAK ACTIVE ✅')
+                      : (isVi ? 'HÔM NAY CHƯA TẬP • CẦN 1 BUỔI ĐỂ GIỮ CHUỖI ⚡' : 'NOT COMPLETED TODAY • 1 WORKOUT NEEDED ⚡'),
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    color: isTodayCompleted ? const Color(0xFF39F2B8) : const Color(0xFFFFBA20),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- 3D GLOWING ORB PAINTER ---
+class _Streak3DGlowingOrbPainter extends CustomPainter {
+  const _Streak3DGlowingOrbPainter({
+    required this.progress,
+    required this.primaryColor,
+    required this.secondaryColor,
+  });
 
   final double progress;
+  final Color primaryColor;
+  final Color secondaryColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.shortestSide / 2 - 8;
 
-    final outerTrack = Paint()
+    // 1. Outer Track (Background ring)
+    final outerTrackPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = AetronColors.cyan.withValues(alpha: 0.2);
+      ..strokeWidth = 3
+      ..color = primaryColor.withValues(alpha: 0.15);
+    canvas.drawCircle(center, radius, outerTrackPaint);
 
+    // 2. Decorative Orbit Dotted Halo
+    final dashPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = primaryColor.withValues(alpha: 0.25);
+    const dashCount = 36;
+    const dashRadius = 78.0;
+    for (var i = 0; i < dashCount; i++) {
+      final angle = (i * 2 * math.pi) / dashCount;
+      final x1 = center.dx + (dashRadius - 3) * math.cos(angle);
+      final y1 = center.dy + (dashRadius - 3) * math.sin(angle);
+      final x2 = center.dx + dashRadius * math.cos(angle);
+      final y2 = center.dy + dashRadius * math.sin(angle);
+      canvas.drawLine(Offset(x1, y1), Offset(x2, y2), dashPaint);
+    }
+
+    // 3. Active Glowing Progress Arc
     final progressPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
+      ..strokeWidth = 7
       ..strokeCap = StrokeCap.round
-      ..color = AetronColors.cyan;
+      ..shader = SweepGradient(
+        colors: [secondaryColor, primaryColor, primaryColor],
+        stops: const [0.0, 0.7, 1.0],
+        transform: const GradientRotation(-math.pi / 2),
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
 
-    canvas.drawCircle(center, radius, outerTrack);
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       -math.pi / 2,
-      progress * math.pi * 2,
+      (progress.clamp(0.04, 1.0)) * math.pi * 2,
       false,
       progressPaint,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _Streak3DRingsPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _Streak3DGlowingOrbPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.primaryColor != primaryColor;
 }
 
-class _Streak3DTargetCard extends ConsumerWidget {
-  const _Streak3DTargetCard({
-    required this.progress,
-    required this.daysLeft,
-    required this.targetDays,
+// --- 4-CARD BENTO METRICS GRID ---
+class _StreakMetricsBentoGrid extends StatelessWidget {
+  const _StreakMetricsBentoGrid({
+    required this.days,
+    required this.longestDays,
+    required this.isTodayCompleted,
+    required this.totalWorkouts,
+    required this.isVi,
+    required this.tierColor,
   });
 
-  final double progress;
-  final int daysLeft;
-  final int targetDays;
+  final int days;
+  final int longestDays;
+  final bool isTodayCompleted;
+  final int totalWorkouts;
+  final bool isVi;
+  final Color tierColor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                icon: Icons.local_fire_department_rounded,
+                iconColor: tierColor,
+                title: isVi ? 'Chuỗi hiện tại' : 'Current Streak',
+                value: '$days ${isVi ? 'Ngày' : 'Days'}',
+                subtitle: isVi ? 'Đang cháy rực' : 'Active & burning',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                icon: Icons.emoji_events_rounded,
+                iconColor: const Color(0xFFFFBA20),
+                title: isVi ? 'Kỷ lục tốt nhất' : 'Best Record',
+                value: '$longestDays ${isVi ? 'Ngày' : 'Days'}',
+                subtitle: isVi ? 'Kỷ lục cá nhân' : 'Personal Best',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                icon: isTodayCompleted ? Icons.verified_rounded : Icons.hourglass_top_rounded,
+                iconColor: isTodayCompleted ? const Color(0xFF39F2B8) : const Color(0xFFFFBA20),
+                title: isVi ? 'Hôm nay' : 'Today Status',
+                value: isTodayCompleted ? (isVi ? 'Đã tập' : 'Done') : (isVi ? 'Chưa tập' : 'Pending'),
+                subtitle: isTodayCompleted ? (isVi ? 'Chuỗi an toàn' : 'Secured') : (isVi ? 'Cần 1 buổi' : 'Need 1 run'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                icon: Icons.fitness_center_rounded,
+                iconColor: const Color(0xFF14D1FF),
+                title: isVi ? 'Tổng số buổi' : 'Total Sessions',
+                value: '$totalWorkouts ${isVi ? 'Buổi' : 'Runs'}',
+                subtitle: isVi ? 'Toàn thời gian' : 'All-time total',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
 
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String value;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F1524),
+        color: const Color(0xFF0D1424),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: iconColor.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                currentLang == AppLanguage.vi ? 'TIẾN ĐỘ CHUỖI TẬP' : 'STREAK PROGRESSION',
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: AetronColors.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(icon, color: iconColor, size: 14),
               ),
-              const Spacer(),
-              Text(
-                '$daysLeft ${AppTranslations.get('days_left', currentLang)}',
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: AetronColors.cyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          AppProgressBar(progress: progress, color: AetronColors.cyan),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              color: iconColor.withValues(alpha: 0.8),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _Streak3DWeekStrip extends ConsumerWidget {
-  const _Streak3DWeekStrip({required this.today, required this.activeDates});
+// --- 7-DAY INTERACTIVE STREAK MATRIX STRIP ---
+class _Streak3DWeekStrip extends StatelessWidget {
+  const _Streak3DWeekStrip({
+    required this.today,
+    required this.activeDates,
+    required this.isVi,
+    required this.tierColor,
+  });
 
   final DateTime today;
   final Set<DateTime> activeDates;
+  final bool isVi;
+  final Color tierColor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
+  Widget build(BuildContext context) {
     final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final labelsVi = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final labelsEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final labels = isVi ? labelsVi : labelsEn;
+
+    var activeThisWeek = 0;
+    for (var i = 0; i < 7; i++) {
+      if (activeDates.contains(startOfWeek.add(Duration(days: i)))) {
+        activeThisWeek++;
+      }
+    }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F1524),
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF0D1424),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AetronColors.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            AppTranslations.get('this_week', currentLang),
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              color: AetronColors.cyanSoft,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
-              for (var index = 0; index < 7; index++)
+              Icon(Icons.calendar_month_rounded, color: AetronColors.cyan, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                isVi ? 'LƯỚI HOẠT ĐỘNG TUẦN NÀY' : 'THIS WEEK ACTIVITY GRID',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.cyanSoft,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AetronColors.cyan.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$activeThisWeek/7 ${isVi ? 'ngày' : 'days'}',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.cyan,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 7 Capsule Day Blocks
+          Row(
+            children: [
+              for (var index = 0; index < 7; index++) ...[
                 Expanded(
-                  child: _Streak3DDayMarker(
+                  child: _StreakDayCapsule(
                     label: labels[index],
                     date: startOfWeek.add(Duration(days: index)),
                     today: today,
                     isActive: activeDates.contains(
                       startOfWeek.add(Duration(days: index)),
                     ),
+                    tierColor: tierColor,
                   ),
                 ),
+                if (index < 6) const SizedBox(width: 6),
+              ],
             ],
+          ),
+          const SizedBox(height: 14),
+
+          // Summary Progress Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: activeThisWeek / 7.0,
+              backgroundColor: const Color(0xFF131F33),
+              valueColor: AlwaysStoppedAnimation<Color>(tierColor),
+              minHeight: 4,
+            ),
           ),
         ],
       ),
@@ -1441,77 +1989,423 @@ class _Streak3DWeekStrip extends ConsumerWidget {
   }
 }
 
-class _Streak3DDayMarker extends StatelessWidget {
-  const _Streak3DDayMarker({
+class _StreakDayCapsule extends StatelessWidget {
+  const _StreakDayCapsule({
     required this.label,
     required this.date,
     required this.today,
     required this.isActive,
+    required this.tierColor,
   });
 
   final String label;
   final DateTime date;
   final DateTime today;
   final bool isActive;
+  final Color tierColor;
 
   @override
   Widget build(BuildContext context) {
     final isToday = date == today;
+    final isFuture = date.isAfter(today);
 
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: isToday ? AetronColors.cyan : AetronColors.textSecondary,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: isActive
+            ? tierColor.withValues(alpha: 0.18)
+            : isToday
+                ? AetronColors.panelHigh
+                : const Color(0xFF080D1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isToday
+              ? AetronColors.cyan
+              : isActive
+                  ? tierColor.withValues(alpha: 0.6)
+                  : AetronColors.borderSubtle.withValues(alpha: 0.4),
+          width: isToday ? 1.8 : 1.0,
         ),
-        const SizedBox(height: 8),
-        Container(
-          width: 32,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActive ? AetronColors.cyan : AetronColors.space,
-            border: Border.all(
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: tierColor.withValues(alpha: 0.25),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
               color: isToday
                   ? AetronColors.cyan
                   : isActive
-                      ? AetronColors.cyan
-                      : AetronColors.borderSubtle,
-              width: isToday ? 2 : 1,
+                      ? Colors.white
+                      : AetronColors.textSecondary,
             ),
-            boxShadow: isActive
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${date.day}',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: isToday ? AetronColors.cyan : AetronColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive
+                  ? tierColor
+                  : isToday
+                      ? AetronColors.cyan.withValues(alpha: 0.2)
+                      : Colors.transparent,
+            ),
+            child: isActive
+                ? const Icon(
+                    Icons.local_fire_department_rounded,
+                    color: Color(0xFF090D18),
+                    size: 13,
+                  )
+                : isToday
+                    ? Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AetronColors.cyan,
+                        ),
+                      )
+                    : Icon(
+                        isFuture ? Icons.circle_outlined : Icons.remove_rounded,
+                        color: AetronColors.textSecondary.withValues(alpha: 0.4),
+                        size: 10,
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- STREAK MILESTONES ROADMAP ---
+class _StreakMilestonesRoadmap extends StatelessWidget {
+  const _StreakMilestonesRoadmap({
+    required this.currentStreak,
+    required this.longestStreak,
+    required this.isVi,
+  });
+
+  final int currentStreak;
+  final int longestStreak;
+  final bool isVi;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveStreak = math.max(currentStreak, longestStreak);
+
+    final milestones = [
+      (
+        target: 3,
+        tier: 'BRONZE',
+        tierColor: const Color(0xFFFF9F43),
+        title: isVi ? 'Tia lửa khởi động' : '3-Day Spark',
+        desc: isVi ? 'Duy trì 3 ngày tập liên tục' : 'Hold 3 consecutive days',
+      ),
+      (
+        target: 7,
+        tier: 'SILVER',
+        tierColor: const Color(0xFFE0E6ED),
+        title: isVi ? 'Ngọn lửa tuần hoàn' : 'Weekly Ignite',
+        desc: isVi ? 'Duy trì trọn vẹn 7 ngày tuần' : 'Ignite a full 7-day streak',
+      ),
+      (
+        target: 14,
+        tier: 'GOLD',
+        tierColor: const Color(0xFFFFBA20),
+        title: isVi ? 'Ý chí thép 2 tuần' : 'Fortnight Blaze',
+        desc: isVi ? 'Kiên định bền bỉ 14 ngày' : 'Unstoppable for 14 days',
+      ),
+      (
+        target: 30,
+        tier: 'TITAN',
+        tierColor: const Color(0xFFFF4F57),
+        title: isVi ? 'Chiến binh tháng Titan' : 'Monthly Titan',
+        desc: isVi ? 'Chinh phục 30 ngày kiên trì' : '30-day champion streak',
+      ),
+      (
+        target: 100,
+        tier: 'QUANTUM',
+        tierColor: const Color(0xFFA55EEA),
+        title: isVi ? 'Huyền thoại 100 ngày' : 'Century Legend',
+        desc: isVi ? 'Cột mốc thế kỷ vĩ đại' : 'Legendary 100 days milestone',
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1424),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AetronColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.stars_rounded, color: Color(0xFFFFBA20), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                isVi ? 'LỘ TRÌNH CỘT MỐC CHUỖI TẬP' : 'STREAK MILESTONE ROADMAP',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  color: AetronColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Milestone List Cards
+          for (final m in milestones) ...[
+            _MilestoneRowItem(
+              target: m.target,
+              tier: m.tier,
+              tierColor: m.tierColor,
+              title: m.title,
+              desc: m.desc,
+              effectiveStreak: effectiveStreak,
+              isVi: isVi,
+            ),
+            if (m != milestones.last)
+              Divider(
+                height: 18,
+                thickness: 1,
+                color: AetronColors.borderSubtle.withValues(alpha: 0.5),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MilestoneRowItem extends StatelessWidget {
+  const _MilestoneRowItem({
+    required this.target,
+    required this.tier,
+    required this.tierColor,
+    required this.title,
+    required this.desc,
+    required this.effectiveStreak,
+    required this.isVi,
+  });
+
+  final int target;
+  final String tier;
+  final Color tierColor;
+  final String title;
+  final String desc;
+  final int effectiveStreak;
+  final bool isVi;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUnlocked = effectiveStreak >= target;
+    final progress = (effectiveStreak / target).clamp(0.0, 1.0);
+
+    return Row(
+      children: [
+        // Badge Orb
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isUnlocked
+                ? tierColor.withValues(alpha: 0.2)
+                : const Color(0xFF131B2C),
+            border: Border.all(
+              color: isUnlocked
+                  ? tierColor
+                  : AetronColors.borderSubtle,
+              width: 1.5,
+            ),
+            boxShadow: isUnlocked
                 ? [
                     BoxShadow(
-                      color: AetronColors.cyan.withValues(alpha: 0.4),
-                      blurRadius: 8,
+                      color: tierColor.withValues(alpha: 0.35),
+                      blurRadius: 10,
                     ),
                   ]
                 : null,
           ),
-          child: isActive
-              ? const Icon(
-                  Icons.check_rounded,
-                  color: AetronColors.space,
-                  size: 18,
-                )
-              : isToday
-                  ? Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AetronColors.cyan,
+          child: Icon(
+            isUnlocked ? Icons.check_circle_rounded : Icons.lock_outline_rounded,
+            color: isUnlocked ? tierColor : AetronColors.textSecondary,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 14),
+
+        // Text & Progress
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isUnlocked ? Colors.white : AetronColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: tierColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      tier,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: tierColor,
+                        letterSpacing: 0.8,
                       ),
-                    )
-                  : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 11,
+                  color: AetronColors.textSecondary.withValues(alpha: 0.8),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: const Color(0xFF131F33),
+                        valueColor: AlwaysStoppedAnimation<Color>(tierColor),
+                        minHeight: 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$effectiveStreak/$target ${isVi ? 'ngày' : 'd'}',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: isUnlocked ? tierColor : AetronColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+// --- STREAK SHIELD & PROTECTION INFO ---
+class _StreakShieldCard extends StatelessWidget {
+  const _StreakShieldCard({required this.isVi});
+
+  final bool isVi;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1424),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.shield_rounded,
+              color: Color(0xFF00E5FF),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isVi ? 'BẢO VỆ CHUỖI NGÀY THÔNG MINH' : 'SMART STREAK PROTECTION',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: Color(0xFF00E5FF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isVi
+                      ? 'Hoàn thành ít nhất 1 buổi tập/ngày để giữ ngọn lửa luôn bùng cháy. Aetron sẽ nhắc bạn lúc 20:00 tối.'
+                      : 'Complete at least 1 workout daily to keep your flame burning. Aetron sends alerts at 8:00 PM.',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: AetronColors.textSecondary,
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1569,11 +2463,12 @@ String _initialsFromEmail(String? email) {
 }
 
 String _homeDisplayName(User? user) {
-  final displayName = user?.userMetadata?['display_name'] as String?;
+  final meta = user?.userMetadata;
+  final displayName = (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name']) as String?;
   if (displayName != null && displayName.trim().isNotEmpty) {
     return displayName.trim();
   }
-  final username = user?.userMetadata?['username'] as String?;
+  final username = meta?['username'] as String?;
   if (username != null && username.trim().isNotEmpty) return username.trim();
   return (user?.email ?? 'Athlete').split('@').first;
 }

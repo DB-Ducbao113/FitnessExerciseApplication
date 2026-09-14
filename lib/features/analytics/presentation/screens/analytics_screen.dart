@@ -2,7 +2,9 @@ import 'package:fitness_exercise_application/core/localization/app_translations.
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
+import 'package:fitness_exercise_application/features/analytics/presentation/models/personal_records.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
+import 'package:fitness_exercise_application/features/analytics/presentation/widgets/personal_records_trophy_wall.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
@@ -41,7 +43,7 @@ class StatsScreen extends ConsumerWidget {
             }
             final filtered = _filterWorkouts(workouts, period);
             final comparison = _calculateComparison(workouts, period);
-            final records = _PersonalRecords.fromWorkouts(workouts);
+            final records = DetailedPersonalRecords.fromWorkouts(workouts);
             final chart = _distanceChartData(filtered, period, currentLang);
             final breakdown = _activityBreakdown(filtered);
 
@@ -97,17 +99,21 @@ class StatsScreen extends ConsumerWidget {
                         _EmptyAnalyticsPanel(period: period),
                       ] else ...[
                         // 1. Performance Summary Card
-                        _Performance3DSummaryCard(
-                          period: period,
-                          comparison: comparison,
-                          useMetricUnits: useMetricUnits,
+                        RepaintBoundary(
+                          child: _Performance3DSummaryCard(
+                            period: period,
+                            comparison: comparison,
+                            useMetricUnits: useMetricUnits,
+                          ),
                         ),
                         const SizedBox(height: 16),
 
                         // 2. 4 Key Metrics 3D Grid (Distance, Duration, Calories, Workouts)
-                        _KeyMetrics3DGrid(
-                          workouts: filtered,
-                          useMetricUnits: useMetricUnits,
+                        RepaintBoundary(
+                          child: _KeyMetrics3DGrid(
+                            workouts: filtered,
+                            useMetricUnits: useMetricUnits,
+                          ),
                         ),
                         const SizedBox(height: 20),
 
@@ -116,11 +122,13 @@ class StatsScreen extends ConsumerWidget {
                           title: AppTranslations.get('distance_trend', currentLang),
                         ),
                         const SizedBox(height: 10),
-                        _DistanceTrend3DCard(
-                          chartData: chart,
-                          period: period,
-                          comparison: comparison,
-                          useMetricUnits: useMetricUnits,
+                        RepaintBoundary(
+                          child: _DistanceTrend3DCard(
+                            chartData: chart,
+                            period: period,
+                            comparison: comparison,
+                            useMetricUnits: useMetricUnits,
+                          ),
                         ),
                         const SizedBox(height: 20),
 
@@ -129,8 +137,10 @@ class StatsScreen extends ConsumerWidget {
                           title: AppTranslations.get('goal_progress', currentLang),
                         ),
                         const SizedBox(height: 10),
-                        _GoalProgress3DCard(
-                          progress: ref.watch(goalProgressProvider),
+                        RepaintBoundary(
+                          child: _GoalProgress3DCard(
+                            progress: ref.watch(goalProgressProvider),
+                          ),
                         ),
                         const SizedBox(height: 20),
 
@@ -139,20 +149,21 @@ class StatsScreen extends ConsumerWidget {
                           title: AppTranslations.get('activity_mix', currentLang),
                         ),
                         const SizedBox(height: 10),
-                        _ActivityMix3DCard(
-                          breakdown: breakdown,
-                          total: filtered.length,
+                        RepaintBoundary(
+                          child: _ActivityMix3DCard(
+                            breakdown: breakdown,
+                            total: filtered.length,
+                          ),
                         ),
                         const SizedBox(height: 20),
 
-                        // 6. Personal Bests Section
-                        _SectionHeader3D(
-                          title: AppTranslations.get('personal_bests', currentLang),
-                        ),
-                        const SizedBox(height: 10),
-                        _PersonalBests3DCard(
-                          records: records,
-                          useMetricUnits: useMetricUnits,
+                        // 6. Personal Records Hall of Fame
+                        RepaintBoundary(
+                          child: PersonalRecordsTrophyWall(
+                            records: records,
+                            useMetricUnits: useMetricUnits,
+                            currentLang: currentLang,
+                          ),
                         ),
                       ],
                     ],
@@ -161,12 +172,7 @@ class StatsScreen extends ConsumerWidget {
               ),
             );
           },
-          loading: () => const Center(
-            child: AetronLoadingPanel(
-              label: 'LOADING ANALYTICS',
-              message: 'Compiling your workout performance.',
-            ),
-          ),
+          loading: () => const AnalyticsSkeletonView(),
           error: (error, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -268,7 +274,8 @@ class _Performance3DSummaryCard extends ConsumerWidget {
     };
 
     final changePercent = comparison.percentageChange;
-    final isPositive = changePercent != null && changePercent >= 0;
+    final hasValidChange = changePercent != null && changePercent.isFinite;
+    final isPositive = hasValidChange && changePercent >= 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -308,7 +315,7 @@ class _Performance3DSummaryCard extends ConsumerWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              if (changePercent != null)
+              if (hasValidChange)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -330,7 +337,7 @@ class _Performance3DSummaryCard extends ConsumerWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${isPositive ? '+' : ''}${changePercent.abs().toStringAsFixed(0)}%',
+                        '${isPositive ? '+' : ''}${changePercent.clamp(-100.0, 999.0).abs().toStringAsFixed(0)}%',
                         style: TextStyle(
                           fontFamily: 'Outfit',
                           fontSize: 11,
@@ -1050,160 +1057,6 @@ class _ActivityMix3DCard extends ConsumerWidget {
   }
 }
 
-// ─── 3D Personal Bests Card ─────────────────────────────────────────────────
-class _PersonalBests3DCard extends ConsumerWidget {
-  const _PersonalBests3DCard({
-    required this.records,
-    required this.useMetricUnits,
-  });
-
-  final _PersonalRecords records;
-  final bool useMetricUnits;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-
-    final longestDistStr = records.longestDistanceKm > 0
-        ? WorkoutFormatters.formatDistance(records.longestDistanceKm, useMetric: useMetricUnits, decimals: 1)
-        : '—';
-    final longestDurStr = records.longestDurationSec > 0
-        ? WorkoutFormatters.formatDurationFromSeconds(records.longestDurationSec)
-        : '—';
-    final maxCalStr = records.maxCalories > 0 ? '${records.maxCalories} kcal' : '—';
-    final topPaceStr = records.bestPaceKmh > 0
-        ? WorkoutFormatters.formatPaceFromSpeedKmh(records.bestPaceKmh, useMetric: useMetricUnits)
-        : '—';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AetronColors.gold.withValues(alpha: 0.35),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AetronColors.gold.withValues(alpha: 0.12),
-            blurRadius: 14,
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _RecordItem3D(
-                  title: currentLang == AppLanguage.vi ? 'Đường chạy dài nhất' : 'Longest Distance',
-                  value: longestDistStr,
-                  icon: Icons.emoji_events_rounded,
-                  color: AetronColors.gold,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _RecordItem3D(
-                  title: currentLang == AppLanguage.vi ? 'Thời gian lâu nhất' : 'Longest Duration',
-                  value: longestDurStr,
-                  icon: Icons.timer_rounded,
-                  color: AetronColors.blue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _RecordItem3D(
-                  title: currentLang == AppLanguage.vi ? 'Calo đốt nhiều nhất' : 'Max Calories',
-                  value: maxCalStr,
-                  icon: Icons.local_fire_department_rounded,
-                  color: AetronColors.mint,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _RecordItem3D(
-                  title: currentLang == AppLanguage.vi ? 'Pace tốt nhất' : 'Best Pace',
-                  value: topPaceStr,
-                  icon: Icons.speed_rounded,
-                  color: AetronColors.cyan,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecordItem3D extends StatelessWidget {
-  const _RecordItem3D({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F1524),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: AetronColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Empty Analytics Panel ──────────────────────────────────────────────────
 class _EmptyAnalyticsPanel extends ConsumerWidget {
   const _EmptyAnalyticsPanel({required this.period});
@@ -1388,64 +1241,22 @@ _PeriodComparison _calculateComparison(
     (sum, item) => sum + _effectiveDistanceKm(item),
   );
 
-  if (prevDist == 0.0) {
+  // When previous period distance is negligible (< 0.05 km / 50 meters)
+  if (prevDist < 0.05) {
     return _PeriodComparison(
       currentDistanceKm: currentDist,
-      percentageChange: currentDist > 0 ? 100.0 : null,
+      percentageChange: currentDist >= 0.05 ? 100.0 : null,
     );
   }
 
-  final pct = ((currentDist - prevDist) / prevDist) * 100.0;
+  // Safe percentage calculation with realistic bounds
+  final rawPct = ((currentDist - prevDist) / prevDist) * 100.0;
+  final pct = rawPct.isFinite ? rawPct.clamp(-100.0, 999.0) : null;
+
   return _PeriodComparison(
     currentDistanceKm: currentDist,
     percentageChange: pct,
   );
-}
-
-class _PersonalRecords {
-  final double longestDistanceKm;
-  final int longestDurationSec;
-  final int maxCalories;
-  final double bestPaceKmh;
-
-  const _PersonalRecords({
-    required this.longestDistanceKm,
-    required this.longestDurationSec,
-    required this.maxCalories,
-    required this.bestPaceKmh,
-  });
-
-  factory _PersonalRecords.fromWorkouts(List<WorkoutSession> workouts) {
-    if (workouts.isEmpty) {
-      return const _PersonalRecords(
-        longestDistanceKm: 0,
-        longestDurationSec: 0,
-        maxCalories: 0,
-        bestPaceKmh: 0,
-      );
-    }
-
-    double maxDist = 0;
-    int maxDur = 0;
-    int maxCal = 0;
-    double maxSpeed = 0;
-
-    for (final w in workouts) {
-      final d = _effectiveDistanceKm(w);
-      if (d > maxDist) maxDist = d;
-      if (w.durationSec > maxDur) maxDur = w.durationSec;
-      final cal = w.caloriesKcal.round();
-      if (cal > maxCal) maxCal = cal;
-      if (w.avgSpeedKmh > maxSpeed) maxSpeed = w.avgSpeedKmh;
-    }
-
-    return _PersonalRecords(
-      longestDistanceKm: maxDist,
-      longestDurationSec: maxDur,
-      maxCalories: maxCal,
-      bestPaceKmh: maxSpeed,
-    );
-  }
 }
 
 Map<String, double> _distanceChartData(

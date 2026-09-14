@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:flutter/material.dart';
@@ -21,11 +19,7 @@ class ProfileHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
     final avatar = ref.watch(currentAvatarDisplayProvider);
-    final ImageProvider? avatarImage = avatar.localPath != null
-        ? FileImage(File(avatar.localPath!))
-        : avatar.remoteUrl != null && avatar.remoteUrl!.isNotEmpty
-        ? NetworkImage(avatar.remoteUrl!)
-        : null;
+    final ImageProvider? avatarImage = avatar.imageProvider;
 
     return Container(
       margin: const EdgeInsets.all(16),

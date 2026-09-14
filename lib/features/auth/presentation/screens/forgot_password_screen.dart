@@ -1,26 +1,38 @@
+import 'dart:async';
+
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/helpers/password_validator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const _kResetCallbackUrl = 'io.supabase.flutter://callback';
 
+/// ════════════════════════════════════════════════════════════════════════════
+/// 1. FORGOT PASSWORD SCREEN (CYBER ATHLETIC REDESIGN)
+/// ════════════════════════════════════════════════════════════════════════════
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key, this.initialEmail});
 
   final String? initialEmail;
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
   bool _isLoading = false;
+  bool _isSent = false;
   String? _errorMessage;
-  String? _successMessage;
+
+  Timer? _resendTimer;
+  int _resendCountdown = 0;
 
   @override
   void initState() {
@@ -30,8 +42,23 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     super.dispose();
+  }
+
+  void _startResendCountdown() {
+    _resendTimer?.cancel();
+    setState(() => _resendCountdown = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_resendCountdown <= 1) {
+        timer.cancel();
+        setState(() => _resendCountdown = 0);
+      } else {
+        setState(() => _resendCountdown--);
+      }
+    });
   }
 
   Future<void> _sendResetEmail() async {
@@ -42,7 +69,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _successMessage = null;
     });
 
     try {
@@ -53,11 +79,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
       if (!mounted) return;
       setState(() {
-        _successMessage = lang == AppLanguage.vi
-            ? 'Liên kết khôi phục mật khẩu đã được gửi đến email của bạn. Vui lòng mở email để đặt lại mật khẩu.'
-            : 'We sent a secure reset link to your email. Open it to set a new password.';
+        _isSent = true;
         _isLoading = false;
       });
+      _startResendCountdown();
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -75,263 +100,182 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     }
   }
 
+  Future<void> _openEmailApp() async {
+    final uri = Uri(scheme: 'mailto');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentLang = ref.watch(appLanguageProvider);
-    const backgroundTop = Color(0xFF10283D);
-    const backgroundBottom = Color(0xFF091521);
-    const neonBlue = Color(0xFF00D1FF);
-    const actionBlue = Color(0xFF007BFF);
-    const mutedText = Color(0xFF8C97AA);
-    const labelText = Color(0xFF7E8798);
+    final isVi = currentLang == AppLanguage.vi;
 
     return Scaffold(
-      backgroundColor: backgroundBottom,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [backgroundTop, backgroundBottom],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+      backgroundColor: const Color(0xFF070B14),
+      body: Stack(
+        children: [
+          // ── 1. Top Section: Cyber Scenic Athlete Header Artwork ───────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.35,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/login_header.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFF070B14).withValues(alpha: 0.35),
+                          Colors.transparent,
+                          const Color(0xFF070B14).withValues(alpha: 0.85),
+                          const Color(0xFF070B14),
+                        ],
+                        stops: const [0.0, 0.4, 0.85, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Back Button & Language Switcher
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 10,
+                  left: 16,
+                  right: 16,
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
+                      Material(
+                        color: const Color(0xFF0E1726),
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).pop(),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0x3300E5FF),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Color(0xFF00E5FF),
+                              size: 18,
+                            ),
+                          ),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () {
-                          final next = currentLang == AppLanguage.vi
-                              ? AppLanguage.en
-                              : AppLanguage.vi;
-                          ref
-                              .read(appLanguageProvider.notifier)
-                              .setLanguage(next);
-                        },
-                        icon: Text(
-                          currentLang == AppLanguage.vi ? '🇻🇳' : '🇬🇧',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        label: Text(
-                          currentLang == AppLanguage.vi
-                              ? 'Tiếng Việt'
-                              : 'English',
-                          style: const TextStyle(
-                            color: neonBlue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                      Material(
+                        color: const Color(0xFF0E1726),
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          onTap: () {
+                            final next = currentLang == AppLanguage.vi
+                                ? AppLanguage.en
+                                : AppLanguage.vi;
+                            ref
+                                .read(appLanguageProvider.notifier)
+                                .setLanguage(next);
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0x3300E5FF),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  isVi ? '🇻🇳' : '🇬🇧',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isVi ? 'VI' : 'EN',
+                                  style: const TextStyle(
+                                    fontFamily: 'Outfit',
+                                    color: Color(0xFF00E5FF),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF123B57), Color(0xFF0C233A)],
-                        ),
-                        border: Border.all(
-                          color: neonBlue.withValues(alpha: 0.55),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: neonBlue.withValues(alpha: 0.28),
-                            blurRadius: 28,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.lock_reset_rounded,
-                        color: neonBlue,
-                        size: 48,
-                      ),
-                    ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── 2. Bottom Section: Cyber Dark Glassmorphic Card ───────────────
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.28,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF0A111E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x3300E5FF),
+                    blurRadius: 28,
+                    offset: Offset(0, -6),
+                    spreadRadius: -2,
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'AETRON',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 6,
-                      color: actionBlue,
-                    ),
+                  BoxShadow(
+                    color: Colors.black,
+                    blurRadius: 36,
+                    offset: Offset(0, -10),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppTranslations.get('forgot_password', currentLang),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      height: 1.1,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Enter your account email and we will send you a reset link',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: mutedText,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(height: 34),
-                  Text(
-                    AppTranslations.get('email', currentLang).toUpperCase(),
-                    style: const TextStyle(
-                      color: labelText,
-                      fontSize: 20,
-                      letterSpacing: 2.4,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ResetTextField(
-                    controller: _emailController,
-                    hintText: AppTranslations.get('enter_email', currentLang),
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.email_outlined,
-                    validator: (value) {
-                      final email = value?.trim() ?? '';
-                      if (email.isEmpty) {
-                        return AppTranslations.get('enter_email', currentLang);
-                      }
-                      if (!email.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 18),
-                    _MessageBox.error(_errorMessage!),
-                  ],
-                  if (_successMessage != null) ...[
-                    const SizedBox(height: 18),
-                    _MessageBox.success(_successMessage!),
-                  ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _sendResetEmail,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF08111B),
-                      foregroundColor: neonBlue,
-                      disabledBackgroundColor: const Color(0xFF08111B),
-                      disabledForegroundColor: neonBlue.withValues(alpha: 0.6),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 22),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        side: const BorderSide(color: actionBlue, width: 2.2),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                neonBlue,
-                              ),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                AppTranslations.get('reset_password', currentLang).toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 2.2,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              const Icon(Icons.mark_email_read_outlined, size: 20),
-                            ],
-                          ),
-                  ),
-                  const SizedBox(height: 28),
-                  _GoogleAccountResetNote(mutedText: mutedText),
                 ],
+                border: Border(
+                  top: BorderSide(
+                    color: Color(0xFF00E5FF),
+                    width: 1.5,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GoogleAccountResetNote extends StatelessWidget {
-  const _GoogleAccountResetNote({required this.mutedText});
-
-  final Color mutedText;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101C2C),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF123A57)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Text(
-              'G',
-              style: TextStyle(
-                color: Color(0xFF1A73E8),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Using Google sign-in? You do not need an AETRON password. Sign in with Google, or recover access from your Google Account.',
-              style: TextStyle(
-                color: mutedText,
-                fontSize: 14,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(32)),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 360),
+                    child: _isSent
+                        ? _buildSuccessState(context, isVi)
+                        : _buildInputState(context, isVi),
+                  ),
+                ),
               ),
             ),
           ),
@@ -339,23 +283,603 @@ class _GoogleAccountResetNote extends StatelessWidget {
       ),
     );
   }
+
+  /// ── VIEW A: INPUT EMAIL STATE ─────────────────────────────────────────────
+  Widget _buildInputState(BuildContext context, bool isVi) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        key: const ValueKey('input_form'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Glowing Security Icon
+          Center(
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  colors: [
+                    Color(0xFF13324E),
+                    Color(0xFF0C1929),
+                  ],
+                ),
+                border: Border.all(
+                  color: const Color(0xFF00E5FF).withValues(alpha: 0.6),
+                  width: 1.5,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x4400E5FF),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.lock_reset_rounded,
+                color: Color(0xFF00E5FF),
+                size: 36,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Title & Subtitle
+          Text(
+            isVi ? 'KHÔI PHỤC MẬT KHẨU' : 'FORGOT PASSWORD',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isVi
+                ? 'Nhập email đã đăng ký với Aetron để nhận đường dẫn đặt lại mật khẩu an toàn.'
+                : 'Enter your registered email address to receive a secure password reset link.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF8FA0B8),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // Email Input Field
+          Text(
+            isVi ? 'ĐỊA CHỈ EMAIL' : 'EMAIL ADDRESS',
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              color: Color(0xFF00E5FF),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: isVi ? 'name@example.com' : 'name@example.com',
+              hintStyle: const TextStyle(
+                fontFamily: 'Outfit',
+                color: Color(0xFF4A5B73),
+                fontSize: 14,
+              ),
+              filled: true,
+              fillColor: const Color(0xFF0F1826),
+              prefixIcon: const Icon(
+                Icons.alternate_email_rounded,
+                color: Color(0xFF00E5FF),
+                size: 20,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: Color(0xFF1E2E45),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: Color(0xFF00E5FF),
+                  width: 1.5,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: Color(0xFFFF4B6E),
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: Color(0xFFFF4B6E),
+                  width: 1.5,
+                ),
+              ),
+            ),
+            validator: (val) {
+              final text = val?.trim() ?? '';
+              if (text.isEmpty) {
+                return isVi
+                    ? 'Vui lòng nhập email của bạn'
+                    : 'Please enter your email';
+              }
+              if (!text.contains('@') || !text.contains('.')) {
+                return isVi
+                    ? 'Định dạng email không hợp lệ'
+                    : 'Invalid email address format';
+              }
+              return null;
+            },
+          ),
+
+          // Error Message Alert
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0x22FF4B6E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x66FF4B6E)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Color(0xFFFF4B6E),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        color: Color(0xFFFFB3C3),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 24),
+
+          // Primary Send Reset Link Button
+          Container(
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF00E5FF),
+                  Color(0xFF2AF598),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x5500E5FF),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _sendResetEmail,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF070B14),
+                        ),
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          isVi
+                              ? 'GỬI LIÊN KẾT XÁC THỰC'
+                              : 'SEND RESET LINK',
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                            color: Color(0xFF070B14),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.send_rounded,
+                          color: Color(0xFF070B14),
+                          size: 18,
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Google Account Notice
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F1826),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF1B2C42),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Text(
+                    'G',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      color: Color(0xFF1A73E8),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isVi
+                        ? 'Đăng nhập bằng Google? Bạn không cần mật khẩu Aetron. Chỉ cần chọn "Đăng nhập với Google" ở màn hình chính.'
+                        : 'Using Google Sign-In? You do not need an Aetron password. Simply choose "Continue with Google" on the login screen.',
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      color: Color(0xFF8FA0B8),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Back to login button
+          Center(
+            child: TextButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF00E5FF),
+                size: 16,
+              ),
+              label: Text(
+                isVi ? 'Quay lại Đăng nhập' : 'Back to Login',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  color: Color(0xFF00E5FF),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ── VIEW B: SUCCESS SENT STATE ────────────────────────────────────────────
+  Widget _buildSuccessState(BuildContext context, bool isVi) {
+    final email = _emailController.text.trim();
+
+    return Column(
+      key: const ValueKey('success_state'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Drag Handle
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2AF598).withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Glowing Success Mint Icon
+        Center(
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                colors: [
+                  Color(0xFF114232),
+                  Color(0xFF081C15),
+                ],
+              ),
+              border: Border.all(
+                color: const Color(0xFF2AF598),
+                width: 1.8,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x552AF598),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.mark_email_read_rounded,
+              color: Color(0xFF2AF598),
+              size: 42,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Title
+        Text(
+          isVi ? 'ĐÃ GỬI LIÊN KẾT XÁC THỰC!' : 'CHECK YOUR INBOX!',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Email highlight badge
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F2233),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.email_rounded,
+                  color: Color(0xFF00E5FF),
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  email,
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    color: Color(0xFF00E5FF),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Instruction Text
+        Text(
+          isVi
+              ? 'Chúng tôi đã gửi email chứa đường dẫn khôi phục mật khẩu. Vui lòng mở email và nhấn vào liên kết để thiết lập mật khẩu mới (kiểm tra cả mục Thư rác/Spam).'
+              : 'We sent a secure password reset link to your email. Click the link in the message to set a new password (please also check your Spam folder).',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF8FA0B8),
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 28),
+
+        // Open Email App Button
+        Container(
+          height: 50,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF00E5FF),
+                Color(0xFF2AF598),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x5500E5FF),
+                blurRadius: 16,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ElevatedButton(
+            onPressed: _openEmailApp,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isVi ? 'MỞ HỘP THƯ EMAIL' : 'OPEN EMAIL APP',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                    color: Color(0xFF070B14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.open_in_new_rounded,
+                  color: Color(0xFF070B14),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Resend Button with Countdown
+        OutlinedButton(
+          onPressed: (_resendCountdown == 0 && !_isLoading)
+              ? _sendResetEmail
+              : null,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            side: BorderSide(
+              color: _resendCountdown == 0
+                  ? const Color(0xFF00E5FF)
+                  : const Color(0xFF1E2E45),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          child: Text(
+            _resendCountdown > 0
+                ? (isVi
+                    ? 'Gửi lại sau (${_resendCountdown}s)'
+                    : 'Resend in (${_resendCountdown}s)')
+                : (isVi ? 'GỬI LẠI EMAIL' : 'RESEND EMAIL'),
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+              color: _resendCountdown == 0
+                  ? const Color(0xFF00E5FF)
+                  : const Color(0xFF4A5B73),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Back to Login Button
+        Center(
+          child: TextButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF8FA0B8),
+              size: 16,
+            ),
+            label: Text(
+              isVi ? 'Quay lại Đăng nhập' : 'Back to Login',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                color: Color(0xFF8FA0B8),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class ResetPasswordScreen extends StatefulWidget {
+/// ════════════════════════════════════════════════════════════════════════════
+/// 2. RESET PASSWORD SCREEN (CYBER ATHLETIC REDESIGN WITH LIVE TELEMETRY)
+/// ════════════════════════════════════════════════════════════════════════════
+class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key, this.onPasswordUpdated});
 
   final VoidCallback? onPasswordUpdated;
 
   @override
-  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _errorMessage;
   String? _successMessage;
 
@@ -369,6 +893,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _updatePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final lang = ref.read(appLanguageProvider);
+    final isVi = lang == AppLanguage.vi;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -377,15 +904,23 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     try {
       await Supabase.instance.client.auth.updateUser(
-        UserAttributes(password: _passwordController.text),
+        UserAttributes(
+          password: _passwordController.text,
+          data: {'password_upgraded_v1': true},
+        ),
       );
 
       if (!mounted) return;
       setState(() {
-        _successMessage = 'Password updated successfully.';
+        _successMessage = isVi
+            ? 'Mật khẩu đã được cập nhật thành công!'
+            : 'Password updated successfully!';
         _isLoading = false;
       });
-      widget.onPasswordUpdated?.call();
+
+      Future<void>.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) widget.onPasswordUpdated?.call();
+      });
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -395,7 +930,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Could not update password. Please try again.';
+        _errorMessage = isVi
+            ? 'Không thể cập nhật mật khẩu. Vui lòng thử lại.'
+            : 'Could not update password. Please try again.';
         _isLoading = false;
       });
     }
@@ -403,305 +940,511 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundTop = Color(0xFF10283D);
-    const backgroundBottom = Color(0xFF091521);
-    const neonBlue = Color(0xFF00D1FF);
-    const actionBlue = Color(0xFF007BFF);
-    const mutedText = Color(0xFF8C97AA);
-    const labelText = Color(0xFF7E8798);
+    final currentLang = ref.watch(appLanguageProvider);
+    final isVi = currentLang == AppLanguage.vi;
 
     return Scaffold(
-      backgroundColor: backgroundBottom,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [backgroundTop, backgroundBottom],
+      backgroundColor: const Color(0xFF070B14),
+      body: Stack(
+        children: [
+          // ── 1. Top Section: Cyber Scenic Header Artwork ───────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.35,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/login_header.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFF070B14).withValues(alpha: 0.35),
+                          Colors.transparent,
+                          const Color(0xFF070B14).withValues(alpha: 0.85),
+                          const Color(0xFF070B14),
+                        ],
+                        stops: const [0.0, 0.4, 0.85, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 48),
-                  Center(
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF123B57), Color(0xFF0C233A)],
-                        ),
-                        border: Border.all(
-                          color: neonBlue.withValues(alpha: 0.55),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.password_rounded,
-                        color: neonBlue,
-                        size: 46,
-                      ),
-                    ),
+
+          // ── 2. Bottom Section: Cyber Dark Glassmorphic Card ───────────────
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.22,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF0A111E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x3300E5FF),
+                    blurRadius: 28,
+                    offset: Offset(0, -6),
+                    spreadRadius: -2,
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Set New Password',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      height: 1.1,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Choose a new password for your AETRON account',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: mutedText,
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(height: 34),
-                  const Text(
-                    'NEW PASSWORD',
-                    style: TextStyle(
-                      color: labelText,
-                      fontSize: 20,
-                      letterSpacing: 2.0,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ResetTextField(
-                    controller: _passwordController,
-                    hintText: 'At least 6 characters',
-                    obscureText: _obscurePassword,
-                    prefixIcon: Icons.lock_outline_rounded,
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: mutedText,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your new password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'CONFIRM PASSWORD',
-                    style: TextStyle(
-                      color: labelText,
-                      fontSize: 20,
-                      letterSpacing: 2.0,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _ResetTextField(
-                    controller: _confirmPasswordController,
-                    hintText: 'Repeat your password',
-                    obscureText: true,
-                    prefixIcon: Icons.verified_user_outlined,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please confirm your password';
-                      }
-                      if (value != _passwordController.text) {
-                        return 'Passwords do not match';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 18),
-                    _MessageBox.error(_errorMessage!),
-                  ],
-                  if (_successMessage != null) ...[
-                    const SizedBox(height: 18),
-                    _MessageBox.success(_successMessage!),
-                  ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _updatePassword,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF08111B),
-                      foregroundColor: neonBlue,
-                      disabledBackgroundColor: const Color(0xFF08111B),
-                      disabledForegroundColor: neonBlue.withValues(alpha: 0.6),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 22),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        side: const BorderSide(color: actionBlue, width: 2.2),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                neonBlue,
-                              ),
-                            ),
-                          )
-                        : const Text(
-                            'UPDATE PASSWORD',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2.2,
-                            ),
-                          ),
+                  BoxShadow(
+                    color: Colors.black,
+                    blurRadius: 36,
+                    offset: Offset(0, -10),
                   ),
                 ],
+                border: Border(
+                  top: BorderSide(
+                    color: Color(0xFF00E5FF),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(32)),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Drag Handle
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00E5FF)
+                                  .withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Glowing Shield Icon
+                        Center(
+                          child: Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const RadialGradient(
+                                colors: [
+                                  Color(0xFF13324E),
+                                  Color(0xFF0C1929),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: const Color(0xFF00E5FF)
+                                    .withValues(alpha: 0.6),
+                                width: 1.5,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x4400E5FF),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.security_rounded,
+                              color: Color(0xFF00E5FF),
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Title & Subtitle
+                        Text(
+                          isVi
+                              ? 'THIẾT LẬP MẬT KHẨU MỚI'
+                              : 'SET NEW PASSWORD',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isVi
+                              ? 'Tạo mật khẩu mạnh để bảo vệ hồ sơ và dữ liệu luyện tập của bạn.'
+                              : 'Create a strong password to secure your athlete profile & telemetry.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFF8FA0B8),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // New Password Field
+                        Text(
+                          isVi ? 'MẬT KHẨU MỚI' : 'NEW PASSWORD',
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            color: Color(0xFF00E5FF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: isVi
+                                ? 'Tối thiểu 8 ký tự'
+                                : 'At least 8 characters',
+                            hintStyle: const TextStyle(
+                              fontFamily: 'Outfit',
+                              color: Color(0xFF4A5B73),
+                              fontSize: 14,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF0F1826),
+                            prefixIcon: const Icon(
+                              Icons.lock_outline_rounded,
+                              color: Color(0xFF00E5FF),
+                              size: 20,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: const Color(0xFF8FA0B8),
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 16,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF1E2E45),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF00E5FF),
+                                width: 1.5,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFF4B6E),
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFF4B6E),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          validator: (val) =>
+                              validatePasswordStrict(val, currentLang),
+                        ),
+
+                        // Interactive Password Security Meter
+                        PasswordSecurityMeter(
+                          password: _passwordController.text,
+                          lang: currentLang,
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Confirm Password Field
+                        Text(
+                          isVi ? 'XÁC NHẬN MẬT KHẨU' : 'CONFIRM PASSWORD',
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            color: Color(0xFF00E5FF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirmPassword,
+                          onChanged: (_) => setState(() {}),
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: isVi
+                                ? 'Nhập lại mật khẩu mới'
+                                : 'Repeat new password',
+                            hintStyle: const TextStyle(
+                              fontFamily: 'Outfit',
+                              color: Color(0xFF4A5B73),
+                              fontSize: 14,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF0F1826),
+                            prefixIcon: const Icon(
+                              Icons.verified_user_outlined,
+                              color: Color(0xFF00E5FF),
+                              size: 20,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: const Color(0xFF8FA0B8),
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword;
+                                });
+                              },
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 16,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF1E2E45),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF00E5FF),
+                                width: 1.5,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFF4B6E),
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFFF4B6E),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return isVi
+                                  ? 'Vui lòng xác nhận mật khẩu'
+                                  : 'Please confirm your password';
+                            }
+                            if (val != _passwordController.text) {
+                              return isVi
+                                  ? 'Mật khẩu xác nhận không khớp'
+                                  : 'Passwords do not match';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        // Error Message
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x22FF4B6E),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0x66FF4B6E),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline_rounded,
+                                  color: Color(0xFFFF4B6E),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(
+                                      fontFamily: 'Outfit',
+                                      color: Color(0xFFFFB3C3),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // Success Message
+                        if (_successMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x222AF598),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0x662AF598),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: Color(0xFF2AF598),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _successMessage!,
+                                    style: const TextStyle(
+                                      fontFamily: 'Outfit',
+                                      color: Color(0xFFB3FFDE),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Submit Update Button
+                        Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF00E5FF),
+                                Color(0xFF2AF598),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x5500E5FF),
+                                blurRadius: 16,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _updatePassword,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF070B14),
+                                      ),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        isVi
+                                            ? 'CẬP NHẬT MẬT KHẨU'
+                                            : 'UPDATE PASSWORD',
+                                        style: const TextStyle(
+                                          fontFamily: 'Outfit',
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.2,
+                                          color: Color(0xFF070B14),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(
+                                        Icons.check_rounded,
+                                        color: Color(0xFF070B14),
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _ResetTextField extends StatelessWidget {
-  const _ResetTextField({
-    required this.controller,
-    required this.hintText,
-    required this.prefixIcon,
-    required this.validator,
-    this.keyboardType,
-    this.obscureText = false,
-    this.suffixIcon,
-  });
-
-  final TextEditingController controller;
-  final String hintText;
-  final IconData prefixIcon;
-  final String? Function(String?) validator;
-  final TextInputType? keyboardType;
-  final bool obscureText;
-  final Widget? suffixIcon;
-
-  @override
-  Widget build(BuildContext context) {
-    const borderColor = Color(0xFF123A57);
-    const fieldColor = Color(0xFF101C2C);
-    const hintColor = Color(0xFF7F889B);
-
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      style: const TextStyle(color: Colors.white, fontSize: 18),
-      validator: validator,
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: const TextStyle(
-          color: hintColor,
-          fontSize: 18,
-          fontWeight: FontWeight.w300,
-        ),
-        filled: true,
-        fillColor: fieldColor,
-        prefixIcon: Padding(
-          padding: const EdgeInsets.only(left: 16, right: 12),
-          child: Icon(prefixIcon),
-        ),
-        prefixIconColor: hintColor,
-        suffixIcon: suffixIcon,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 22,
-          vertical: 24,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFF00D1FF), width: 1.4),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFFF6B8A)),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFFF6B8A), width: 1.4),
-        ),
-      ),
-    );
-  }
-}
-
-class _MessageBox extends StatelessWidget {
-  const _MessageBox({
-    required this.message,
-    required this.backgroundColor,
-    required this.borderColor,
-    required this.textColor,
-  });
-
-  factory _MessageBox.error(String message) {
-    return _MessageBox(
-      message: message,
-      backgroundColor: const Color(0xFF401A24),
-      borderColor: const Color(0xFFFF6B8A).withValues(alpha: 0.45),
-      textColor: const Color(0xFFFFB3C3),
-    );
-  }
-
-  factory _MessageBox.success(String message) {
-    return _MessageBox(
-      message: message,
-      backgroundColor: const Color(0xFF103125),
-      borderColor: const Color(0xFF4DE6B3).withValues(alpha: 0.45),
-      textColor: const Color(0xFFA9F5D8),
-    );
-  }
-
-  final String message;
-  final Color backgroundColor;
-  final Color borderColor;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-      ),
-      child: Text(message, style: TextStyle(color: textColor, fontSize: 15)),
     );
   }
 }

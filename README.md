@@ -51,9 +51,9 @@
 
 ## 📸 Product Visual Showcase
 
-| 3D Running | 3D Cycling | 3D Walking | 3D Shiba Mascot |
+| Running | Cycling | Walking | Hero Athlete |
 | :---: | :---: | :---: | :---: |
-| <img src="assets/running_3d.png" width="160" /> | <img src="assets/cycling_3d.png" width="160" /> | <img src="assets/walking_3d.png" width="160" /> | <img src="assets/shiba_3d.png" width="160" /> |
+| <img src="assets/running_real.jpg" width="160" /> | <img src="assets/cycling_real.jpg" width="160" /> | <img src="assets/walking_real.jpg" width="160" /> | <img src="assets/home_hero_runner.jpg" width="160" /> |
 
 ---
 

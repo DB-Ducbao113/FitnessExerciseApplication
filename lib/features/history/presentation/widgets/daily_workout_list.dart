@@ -6,6 +6,7 @@ import 'package:fitness_exercise_application/features/workout/presentation/utils
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -22,10 +23,11 @@ class DailyWorkoutList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    final useMetricUnits = ref.watch(metricUnitsPreferenceProvider).value ?? true;
+    final useMetricUnits =
+        ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     if (workouts.isEmpty) {
-      return _EmptyHistoryState(range: range);
+      return _EmptyHistoryFilterState(currentLang: currentLang);
     }
 
     final grouped = _groupWorkoutsByDate(workouts, currentLang);
@@ -36,47 +38,78 @@ class DailyWorkoutList extends ConsumerWidget {
         final dateHeader = entry.key;
         final dayWorkouts = entry.value;
 
+        // Calculate total distance for this specific day
+        final dayTotalDist = dayWorkouts.fold(0.0, (sum, w) {
+          final d = w.gpsAnalysis.validDistanceKm > 0
+              ? w.gpsAnalysis.validDistanceKm
+              : w.distanceKm;
+          return sum + d;
+        });
+
+        final dayDistStr = WorkoutFormatters.formatDistance(
+          dayTotalDist,
+          useMetric: useMetricUnits,
+          decimals: 1,
+        );
+
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date Header Badge
+              // Day Header Row (Date + Day Total Distance)
               Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AetronColors.cyan,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AetronColors.cyan,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          dateHeader,
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: AetronColors.cyanSoft.withValues(alpha: 0.95),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      dateHeader,
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AetronColors.cyanSoft.withValues(alpha: 0.9),
-                        letterSpacing: 1.2,
+                    if (dayTotalDist > 0)
+                      Text(
+                        '$dayDistStr ${WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits)}',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AetronColors.textSecondary,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 6),
 
-              // Workout 3D Cards under this date
+              // Workout Bento Cards under this date
               Column(
                 children: dayWorkouts.map((workout) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _WorkoutHistory3DCard(
+                    child: _WorkoutHistoryBentoCard(
                       workout: workout,
                       useMetricUnits: useMetricUnits,
+                      currentLang: currentLang,
                     ),
                   );
                 }).toList(),
@@ -96,7 +129,7 @@ class DailyWorkoutList extends ConsumerWidget {
     for (final workout in items) {
       final localStart = workout.startedAt.toLocal();
       final dateHeader = lang == AppLanguage.vi
-          ? '${localStart.day.toString().padLeft(2, '0')} Thg ${localStart.month.toString().padLeft(2, '0')}, ${localStart.year}'
+          ? '${localStart.day.toString().padLeft(2, '0')} THÁNG ${localStart.month.toString().padLeft(2, '0')}, ${localStart.year}'
           : DateFormat('MMM dd, yyyy').format(localStart).toUpperCase();
       map.putIfAbsent(dateHeader, () => []).add(workout);
     }
@@ -104,22 +137,25 @@ class DailyWorkoutList extends ConsumerWidget {
   }
 }
 
-// ─── 3D Workout History Card ───────────────────────────────────────────────────
-class _WorkoutHistory3DCard extends ConsumerWidget {
+// ─── 3D Workout History Bento Card ───────────────────────────────────────────
+class _WorkoutHistoryBentoCard extends StatelessWidget {
   final WorkoutSession workout;
   final bool useMetricUnits;
+  final AppLanguage currentLang;
 
-  const _WorkoutHistory3DCard({
+  const _WorkoutHistoryBentoCard({
     required this.workout,
     required this.useMetricUnits,
+    required this.currentLang,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
+  Widget build(BuildContext context) {
+    final isVi = currentLang == AppLanguage.vi;
     final consistency = assessWorkoutSession(workout);
     final isVerified = consistency.validityFlag == WorkoutValidityFlag.verified;
-    final activityType = WorkoutFormatters.formatActivityType(workout.activityType, currentLang);
+    final activityType =
+        WorkoutFormatters.formatActivityType(workout.activityType, currentLang);
     final timeStr = DateFormat('HH:mm').format(workout.startedAt.toLocal());
 
     final distanceKm = workout.gpsAnalysis.validDistanceKm > 0
@@ -130,7 +166,7 @@ class _WorkoutHistory3DCard extends ConsumerWidget {
         ? WorkoutFormatters.formatDistance(
             distanceKm,
             useMetric: useMetricUnits,
-            decimals: 1,
+            decimals: 2,
           )
         : '—';
 
@@ -149,253 +185,329 @@ class _WorkoutHistory3DCard extends ConsumerWidget {
         ? '${workout.caloriesKcal.round()} kcal'
         : null;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => WorkoutDetailsScreen(workoutId: workout.id),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AetronColors.panelHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AetronColors.cyan.withValues(alpha: 0.25),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
+    final accentColor = switch (workout.activityType.toLowerCase()) {
+      'running' => AetronColors.cyan,
+      'walking' => AetronColors.mint,
+      'cycling' => AetronColors.gold,
+      _ => const Color(0xFFA55EEA),
+    };
+
+    final iconData = switch (workout.activityType.toLowerCase()) {
+      'running' => Icons.directions_run_rounded,
+      'walking' => Icons.directions_walk_rounded,
+      'cycling' => Icons.directions_bike_rounded,
+      _ => Icons.fitness_center_rounded,
+    };
+
+    final hasSteps = (workout.activityType.toLowerCase() == 'running' ||
+            workout.activityType.toLowerCase() == 'walking') &&
+        workout.steps > 0;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => WorkoutDetailsScreen(workoutId: workout.id),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Row: 3D Icon, Activity Name, Verified Badge & Time
-            Row(
-              children: [
-                // 3D Icon Badge
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AetronColors.space,
-                    border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AetronColors.cyan.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _activityIcon(workout.activityType),
-                    color: AetronColors.cyan,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Workout Type Name
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        activityType.toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: AetronColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        timeStr,
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 11,
-                          color: AetronColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Verified Badge
-                if (isVerified) ...[
+          );
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AetronColors.panelHigh,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.3),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.08),
+                blurRadius: 12,
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Row: Activity Pill + Time + Verified Tag + Chevron
+              Row(
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AetronColors.mint.withValues(alpha: 0.15),
+                      color: accentColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AetronColors.mint.withValues(alpha: 0.4)),
+                      border: Border.all(
+                          color: accentColor.withValues(alpha: 0.4)),
                     ),
-                    child: Text(
-                      currentLang == AppLanguage.vi ? 'XÁC NHẬN ✓' : 'VERIFIED ✓',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: AetronColors.mint,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(iconData, size: 14, color: accentColor),
+                        const SizedBox(width: 5),
+                        Text(
+                          activityType.toUpperCase(),
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: accentColor,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                ],
 
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AetronColors.textSecondary,
-                  size: 20,
+                  Text(
+                    timeStr,
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AetronColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+
+                  if (isVerified)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AetronColors.mint.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: AetronColors.mint.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        isVi ? 'HỢP LỆ ✓' : 'VERIFIED ✓',
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: AetronColors.mint,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AetronColors.textSecondary,
+                    size: 18,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Hero Distance & Telemetry Bento Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Big Distance
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isVi ? 'QUÃNG ĐƯỜNG' : 'DISTANCE',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            color: AetronColors.textSecondary
+                                .withValues(alpha: 0.7),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              distanceStr,
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: AetronColors.textPrimary,
+                                height: 1.0,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              WorkoutFormatters.distanceUnitLabel(
+                                  useMetric: useMetricUnits),
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: accentColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Mini Telemetry Chips (Pace, Duration, Calo)
+                  Expanded(
+                    flex: 6,
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        // Duration
+                        _MiniTelemetryChip(
+                          icon: Icons.timer_rounded,
+                          value: durationStr,
+                          color: AetronColors.blue,
+                        ),
+                        // Pace
+                        _MiniTelemetryChip(
+                          icon: Icons.speed_rounded,
+                          value: paceStr,
+                          color: AetronColors.mint,
+                        ),
+                        // Calories
+                        if (caloriesStr != null)
+                          _MiniTelemetryChip(
+                            icon: Icons.local_fire_department_rounded,
+                            value: caloriesStr,
+                            color: AetronColors.gold,
+                          ),
+                        // Steps
+                        if (hasSteps)
+                          _MiniTelemetryChip(
+                            icon: Icons.directions_walk_rounded,
+                            value: '${workout.steps}',
+                            color: const Color(0xFFA55EEA),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniTelemetryChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final Color color;
+
+  const _MiniTelemetryChip({
+    required this.icon,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1222),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyHistoryFilterState extends StatelessWidget {
+  final AppLanguage currentLang;
+
+  const _EmptyHistoryFilterState({required this.currentLang});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVi = currentLang == AppLanguage.vi;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AetronColors.panelHigh,
+                border: Border.all(
+                  color: AetronColors.cyan.withValues(alpha: 0.3),
                 ),
-              ],
+              ),
+              child: const Icon(
+                Icons.filter_alt_off_rounded,
+                size: 28,
+                color: AetronColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 12),
-
-            // Metrics Line Row
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F1524),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AetronColors.borderSubtle),
+            Text(
+              isVi
+                  ? 'Không tìm thấy buổi tập phù hợp'
+                  : 'No matching workouts found',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AetronColors.textPrimary,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _MetricColumn(
-                    label: AppTranslations.get('distance', currentLang).toUpperCase(),
-                    val: distanceStr,
-                  ),
-                  Container(width: 1, height: 20, color: AetronColors.borderSubtle),
-                  _MetricColumn(
-                    label: AppTranslations.get('duration', currentLang).toUpperCase(),
-                    val: durationStr,
-                  ),
-                  Container(width: 1, height: 20, color: AetronColors.borderSubtle),
-                  _MetricColumn(
-                    label: 'PACE',
-                    val: paceStr,
-                  ),
-                  if (caloriesStr != null) ...[
-                    Container(width: 1, height: 20, color: AetronColors.borderSubtle),
-                    _MetricColumn(
-                      label: AppTranslations.get('calories', currentLang).toUpperCase(),
-                      val: caloriesStr,
-                    ),
-                  ],
-                ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isVi
+                  ? 'Hãy thử chuyển bộ lọc hoặc thời gian khác'
+                  : 'Try selecting a different filter or time range',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 12,
+                color: AetronColors.textSecondary,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  IconData _activityIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'running':
-        return Icons.directions_run_rounded;
-      case 'cycling':
-        return Icons.directions_bike_rounded;
-      case 'walking':
-        return Icons.directions_walk_rounded;
-      default:
-        return Icons.fitness_center_rounded;
-    }
-  }
-}
-
-class _MetricColumn extends StatelessWidget {
-  const _MetricColumn({required this.label, required this.val});
-
-  final String label;
-  final String val;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 8,
-            fontWeight: FontWeight.w800,
-            color: AetronColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          val,
-          style: const TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            color: AetronColors.cyan,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── 3D Empty History State ─────────────────────────────────────────────────────
-class _EmptyHistoryState extends ConsumerWidget {
-  const _EmptyHistoryState({required this.range});
-
-  final String range;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AetronColors.borderSubtle),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.history_toggle_off_rounded,
-            size: 48,
-            color: AetronColors.textSecondary,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            AppTranslations.get('no_workouts_yet', currentLang),
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: AetronColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            AppTranslations.get('empty_history_desc', currentLang),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 12,
-              color: AetronColors.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }

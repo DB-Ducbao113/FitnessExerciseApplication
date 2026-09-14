@@ -11,6 +11,7 @@ hs_err_pid*
 .history
 .svn/
 .swiftpm/
+**/xcshareddata/swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -31,9 +32,12 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+build/
+ios/build/
+**/build/
 /coverage/
 /.turbo/
+dist/
 
 # Symbolication related
 app.*.symbols
@@ -52,11 +56,14 @@ app.*.map.json
 *.jks
 *.keystore
 
-# Ignore local scripts with credentials / machine-specific paths
+# Ignore shell scripts, batch scripts, example files, and local packaging
+*.sh
 *.bat
-!*.bat.example
-build_ios_release.sh
-!build_ios_release.sh.example
+*.cmd
+*.ps1
+*.example
+build_web/
+package/
 
 # Local tooling / editor files
 .metadata
@@ -65,13 +72,14 @@ devtools_options.yaml
 .vscode/
 docs/
 backend/.vscode/
-.env
-.env
+.env*
+backend/.env*
+*.env
 backend/remote_schema_public_dump.sql
 
 # Frontend local files
 frontend/node_modules/
-frontend/.env
+frontend/.env*
 
 # Supabase local temp/state
 supabase/.temp/
@@ -80,9 +88,12 @@ backend/supabase/.branches/
 
 # Agent local skills & customizations
 .agents/
-
+AGENTS.md
+GEMINI.md
+.tools/
+.skills/
 
 # Temporary plan & checklist files
 RELEASE_CHECKLIST.md
 ai_post_workout_insight_plan.html
-.tools/
+

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -89,6 +90,8 @@ class NotificationService {
     await initialize();
     if (!_available) return false;
 
+    final pStatus = await Permission.notification.request();
+
     final android = _notifications
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -105,7 +108,7 @@ class NotificationService {
       sound: true,
     );
 
-    return (androidAllowed ?? true) && (iosAllowed ?? true);
+    return pStatus.isGranted || (androidAllowed ?? false) || (iosAllowed ?? false);
   }
 
   Future<bool> areNotificationsAllowed() async {
@@ -186,7 +189,7 @@ class NotificationService {
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelIdAchievements,
-          'Achievements & Goals',
+          'Achievements & Reminders',
           importance: Importance.high,
           priority: Priority.high,
         ),
@@ -194,6 +197,7 @@ class NotificationService {
           presentAlert: true,
           presentSound: true,
           presentBadge: true,
+          interruptionLevel: InterruptionLevel.active,
         ),
       ),
       payload: payload,

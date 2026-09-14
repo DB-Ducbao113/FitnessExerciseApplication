@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fitness_exercise_application/app/bootstrap.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/force_password_upgrade_screen.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/forgot_password_screen.dart';
-import 'package:fitness_exercise_application/features/onboarding/presentation/screens/account_onboarding_gate.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
@@ -56,7 +55,8 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
     return StreamBuilder<AuthState>(
       stream: _authStream,
       builder: (context, snapshot) {
-        final session = Supabase.instance.client.auth.currentSession;
+        final session =
+            snapshot.data?.session ?? Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
 
         if (event == AuthChangeEvent.passwordRecovery &&
@@ -89,8 +89,27 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
 
         // Check if user has upgraded to strong password policy
         final userMetadata = session.user.userMetadata ?? {};
-        final isGoogleUser = session.user.appMetadata['provider'] == 'google';
-        final isPasswordUpgraded = isGoogleUser || (userMetadata['password_upgraded_v1'] == true);
+        final appMetadata = session.user.appMetadata;
+        final provider = (appMetadata['provider'] ?? '').toString().toLowerCase();
+        final providers = (appMetadata['providers'] as List?)
+                ?.map((e) => e.toString().toLowerCase())
+                .toList() ??
+            [];
+        final identities = session.user.identities ?? [];
+        final isOAuthUser = provider == 'google' ||
+            provider == 'facebook' ||
+            provider == 'apple' ||
+            provider == 'oauth' ||
+            providers.contains('google') ||
+            providers.contains('facebook') ||
+            providers.contains('apple') ||
+            identities.any((i) =>
+                i.provider.toLowerCase() == 'google' ||
+                i.provider.toLowerCase() == 'facebook' ||
+                i.provider.toLowerCase() == 'apple' ||
+                i.provider.toLowerCase() != 'email');
+        final isPasswordUpgraded =
+            isOAuthUser || (userMetadata['password_upgraded_v1'] == true);
 
         if (!isPasswordUpgraded) {
           return const ForcePasswordUpgradeScreen();
@@ -107,15 +126,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         final hasProfileAsync = ref.watch(hasUserProfileProvider(userId));
 
         return hasProfileAsync.when(
-          data: (hasProfile) => AccountOnboardingGate(
-            userId: userId,
-            child: hasProfile ? const MainShell() : const AthleteSetupFlow(),
-          ),
-          loading: () => const AetronLoadingScaffold(
-            label: 'SYNCING PROFILE',
-            message: 'Preparing your Aetron telemetry.',
-            withGrid: false,
-          ),
+          data: (hasProfile) =>
+              hasProfile ? const MainShell() : const AthleteSetupFlow(),
+          loading: () => const AetronGlobeOrbitScreen(),
           error: (error, stackTrace) {
             debugPrint('[AuthWrapper] hasProfile error: $error');
             return const ProfileSetupScreen();

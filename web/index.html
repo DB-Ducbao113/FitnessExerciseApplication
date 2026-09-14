@@ -1,38 +1,129 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="Aetron, a modern fitness tracking app for workouts, goals, history, and progress.">
+  <meta name="google-signin-client_id" content="741155040974-vj5atqn3ev6ehnnd15k1a93hi2thkj0o.apps.googleusercontent.com">
 
-  <!-- iOS meta tags & icons -->
+  <!-- Google Identity Services Web SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    window.aetronGoogleSignIn = function(clientId, nonce) {
+      return new Promise(function(resolve, reject) {
+        function tryGsi() {
+          if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+            setTimeout(tryGsi, 100);
+            return;
+          }
+
+          var isCompleted = false;
+
+          var initConfig = {
+            client_id: clientId,
+            callback: function(response) {
+              if (response && response.credential) {
+                isCompleted = true;
+                resolve(response.credential);
+              } else {
+                reject(new Error("No credential returned from Google"));
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+            use_fedcm_for_prompt: false
+          };
+
+          if (nonce) {
+            initConfig.nonce = nonce;
+          }
+
+          window.google.accounts.id.initialize(initConfig);
+
+          // 1. First attempt: Prompt GIS One Tap / Account Picker
+          window.google.accounts.id.prompt(function(notification) {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+              if (!isCompleted) {
+                // 2. Second attempt: Trigger Google Sign-In Popup Button
+                var btn = document.getElementById('aetron_gsi_btn');
+                if (!btn) {
+                  btn = document.createElement('div');
+                  btn.id = 'aetron_gsi_btn';
+                  btn.style.position = 'fixed';
+                  btn.style.top = '-9999px';
+                  btn.style.left = '-9999px';
+                  btn.style.opacity = '0';
+                  btn.style.pointerEvents = 'none';
+                  document.body.appendChild(btn);
+                }
+                window.google.accounts.id.renderButton(btn, {
+                  type: 'standard',
+                  theme: 'outline',
+                  size: 'large'
+                });
+                setTimeout(function() {
+                  var innerBtn = btn.querySelector('div[role=button]');
+                  if (innerBtn) {
+                    innerBtn.click();
+                  }
+                }, 50);
+              }
+            }
+          });
+        }
+        tryGsi();
+      });
+    };
+  </script>
+
+  <!-- Theme Colors -->
+  <meta name="theme-color" content="#0A0D1C">
+  <meta name="msapplication-TileColor" content="#0A0D1C">
+
+  <!-- iOS PWA meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Aetron">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=aetron_v5">
+  <link rel="apple-touch-icon-precomposed" href="icons/apple-touch-icon.png?v=aetron_v5">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=aetron_v5">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png?v=aetron_v5">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png?v=aetron_v5">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/Icon-192.png?v=aetron_v5">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/Icon-512.png?v=aetron_v5">
+  <link rel="icon" type="image/png" href="favicon.png?v=aetron_v5"/>
 
   <title>Aetron</title>
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json?v=aetron_v5">
+
+  <!-- Auto-Update & Service Worker Lifecycle Script -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      // Check for Service Worker updates immediately on load
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.ready.then(function (registration) {
+          registration.update();
+        });
+      });
+
+      // When a new Service Worker takes control, auto-reload once to show latest version
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+    }
+  </script>
 </head>
-<body>
+<body style="background-color: #0A0D1C; margin: 0; padding: 0;">
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

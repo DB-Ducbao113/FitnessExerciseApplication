@@ -1,3 +1,14 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/structured_running_program.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/workout_target.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/guided_program_hud.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/live_lap_hud_toast.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/workout_3d_countdown_overlay.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/workout_target_progress_hud.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
@@ -27,11 +38,15 @@ const _kNeonCyan = Color(0xff00e5ff);
 class RecordScreen extends ConsumerStatefulWidget {
   final String activityType;
   final bool requireGps;
+  final StructuredRunningProgram? guidedProgram;
+  final WorkoutTarget? workoutTarget;
 
   const RecordScreen({
     super.key,
     required this.activityType,
     this.requireGps = true,
+    this.guidedProgram,
+    this.workoutTarget,
   });
 
   @override
@@ -53,6 +68,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   bool _isLockingStartupGps = false;
   bool _hasStartedWorkout = false;
   Future<Position?>? _startupGpsLockFuture;
+
+  int _guidedStepIndex = 0;
+  int _stepElapsedSeconds = 0;
+  int _lastHandledDuration = 0;
+  bool _isGuidedProgramCompleted = false;
+
+  WorkoutLapSplit? _activeToastSplit;
+  WorkoutLapSplit? _activeToastPrevSplit;
 
   @override
   void initState() {
@@ -160,7 +183,15 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     notifier.startWorkout(widget.activityType, startupGpsLock: startupGpsLock);
   }
 
+  void _skipCountdown() {
+    _startupCountdownTimer?.cancel();
+    final notifier = ref.read(workoutSessionProvider.notifier);
+    unawaited(_startAfterCountdown(notifier));
+  }
+
   Future<void> _ensureMotionPermissionOrThrow() async {
+    if (kIsWeb) return;
+
     final permission = Theme.of(context).platform == TargetPlatform.iOS
         ? Permission.sensors
         : Permission.activityRecognition;
@@ -192,33 +223,42 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     switch (code) {
       case 'location_disabled':
         title = 'GPS is Off';
-        message =
-            'Location services are disabled. Please enable GPS and try again.';
-        actionLabel = 'Open Settings';
+        message = kIsWeb
+            ? 'Location services are disabled in your browser. Please allow location access for this site.'
+            : 'Location services are disabled. Please enable GPS and try again.';
+        actionLabel = kIsWeb ? 'Try Again' : 'Open Settings';
         onAction = () async {
-          await Geolocator.openLocationSettings();
+          if (!kIsWeb) {
+            await Geolocator.openLocationSettings();
+          }
           if (!mounted) return;
           await _startWorkout();
         };
         break;
       case 'permission_denied':
         title = 'Location Permission Needed';
-        message =
-            'Location permission is required to track your workout. Open Settings and allow location access.';
-        actionLabel = 'Open Settings';
+        message = kIsWeb
+            ? 'Location permission is required to track your route. Please click the lock icon 🔒 next to the address bar and allow Location.'
+            : 'Location permission is required to track your workout. Open Settings and allow location access.';
+        actionLabel = kIsWeb ? 'Try Again' : 'Open Settings';
         onAction = () async {
-          await Geolocator.openAppSettings();
+          if (!kIsWeb) {
+            await Geolocator.openAppSettings();
+          }
           if (!mounted) return;
           await _startWorkout();
         };
         break;
       case 'permission_denied_forever':
         title = 'Permission Blocked';
-        message =
-            'Location is permanently blocked. Open App Settings > Permissions > Location.';
-        actionLabel = 'Open Settings';
+        message = kIsWeb
+            ? 'Location access is blocked by your browser. Click the lock/site settings icon in your browser URL bar to allow Location.'
+            : 'Location is permanently blocked. Open App Settings > Permissions > Location.';
+        actionLabel = kIsWeb ? 'Try Again' : 'Open Settings';
         onAction = () async {
-          await Geolocator.openAppSettings();
+          if (!kIsWeb) {
+            await Geolocator.openAppSettings();
+          }
           if (!mounted) return;
           await _startWorkout();
         };
@@ -348,6 +388,103 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     }
   }
 
+  void _showProgramCompletedModal(BuildContext context, AppLanguage currentLang) {
+    final isVi = currentLang == AppLanguage.vi;
+    final programTitle = widget.guidedProgram != null
+        ? AppTranslations.get(widget.guidedProgram!.titleKey, currentLang)
+        : "";
+
+    showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0D1624),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border(top: BorderSide(color: Color(0xFF00E5FF), width: 2.0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black87,
+                blurRadius: 30,
+                offset: Offset(0, -10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2AF598), Color(0xFF00B86B)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2AF598).withValues(alpha: 0.45),
+                      blurRadius: 20,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: Colors.white,
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                isVi ? "HOÀN THÀNH GIÁO ÁN! 🎉" : "PROGRAM COMPLETED! 🎉",
+                style: const TextStyle(
+                  fontFamily: "Outfit",
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isVi
+                    ? "Bạn đã xuất sắc hoàn thành tất cả các hiệp của giáo án \"$programTitle\". Bạn muốn làm gì tiếp theo?"
+                    : "You have successfully completed all steps of \"$programTitle\". What would you like to do next?",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: "Outfit",
+                  fontSize: 14,
+                  color: Colors.white70,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Aetron3DPrimaryButton(
+                label: isVi ? "🏃 TIẾP TỤC CHẠY TỰ DO" : "🏃 CONTINUE FREE RUN",
+                onPressed: () {
+                  Navigator.of(modalContext).pop();
+                },
+              ),
+              const SizedBox(height: 12),
+              AppButton(
+                label: isVi ? "🏁 KẾT THÚC & XEM KẾT QUẢ" : "🏁 FINISH & VIEW SUMMARY",
+                variant: AppButtonVariant.outlined,
+                onPressed: () {
+                  Navigator.of(modalContext).pop();
+                  _confirmStop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _openSummary(WorkoutSessionState finalState) {
     final sessionId = finalState.sessionId;
     if (!mounted || sessionId == null || sessionId.isEmpty) return;
@@ -409,7 +546,66 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
       if (didFinishSession) {
         _openSummary(next);
       }
+
+      // Check for new lap split alert
+      if (next.status == RecordingState.active &&
+          next.lapSplits.length > (prev?.lapSplits.length ?? 0) &&
+          next.lapSplits.isNotEmpty) {
+        setState(() {
+          _activeToastSplit = next.lapSplits.last;
+          _activeToastPrevSplit = next.lapSplits.length >= 2
+              ? next.lapSplits[next.lapSplits.length - 2]
+              : null;
+        });
+      }
     });
+
+    final avatar = ref.watch(currentAvatarDisplayProvider);
+    final user = Supabase.instance.client.auth.currentUser;
+    final ImageProvider? avatarImage = avatar.imageProvider;
+    final initials = user?.email?.isNotEmpty == true
+        ? user!.email!.substring(0, 1).toUpperCase()
+        : 'A';
+
+    final hasGuidedProgram = widget.guidedProgram != null && !_isGuidedProgramCompleted;
+    final hasTargetHud = widget.workoutTarget != null && widget.workoutTarget!.type != WorkoutTargetType.none;
+    final double mapTopControlOffset = (hasGuidedProgram || _activeToastSplit != null)
+        ? (MediaQuery.of(context).padding.top + 225.0)
+        : hasTargetHud
+            ? (MediaQuery.of(context).padding.top + 120.0)
+            : (MediaQuery.of(context).padding.top + 20.0);
+
+    // Guided Running Program Step Progression
+    final program = widget.guidedProgram;
+    if (program != null &&
+        !_isGuidedProgramCompleted &&
+        state.status == RecordingState.active &&
+        !_isPreparingWorkout) {
+      if (state.durationSeconds > _lastHandledDuration) {
+        final diff = state.durationSeconds - _lastHandledDuration;
+        _lastHandledDuration = state.durationSeconds;
+        _stepElapsedSeconds += diff;
+
+        if (_guidedStepIndex < program.steps.length) {
+          final currentStep = program.steps[_guidedStepIndex];
+          if (_stepElapsedSeconds >= currentStep.durationSeconds) {
+            if (_guidedStepIndex < program.steps.length - 1) {
+              _guidedStepIndex++;
+              _stepElapsedSeconds = 0;
+              HapticFeedback.heavyImpact();
+            } else {
+              _isGuidedProgramCompleted = true;
+              HapticFeedback.vibrate();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _showProgramCompletedModal(context, currentLang);
+              });
+            }
+          }
+        }
+      }
+    } else if (state.durationSeconds > _lastHandledDuration) {
+      _lastHandledDuration = state.durationSeconds;
+    }
 
     final shouldShowGpsRoute =
         state.routePoints.length >= 2 || state.trackingMode != kIndoorMode;
@@ -437,79 +633,96 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               followUser: state.followUser,
               recenterRequestId: state.recenterRequestId,
               showRoute: shouldShowGpsRoute,
+              avatarImage: avatarImage,
+              initials: initials,
+              currentLang: currentLang,
+              topControlOffset: mapTopControlOffset,
               onUserGesturePan: () {
                 ref.read(workoutSessionProvider.notifier).onUserDraggedMap();
               },
             ),
           ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _kPanelBg,
-                        border: Border.all(color: _kPanelBorder),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _activityIcon(widget.activityType),
-                            size: 20,
-                            color: _kNeonCyan,
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                AppTranslations.get(widget.activityType, currentLang).toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                _modeBadgeText(state.trackingMode, currentLang),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: _kMutedText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox.shrink(),
-                  ],
+
+          // Live Lap HUD Toast alert (slides in when completing a km)
+          if (_activeToastSplit != null &&
+              _sheetExtent < _kExpandedSheetThreshold)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: LiveLapHudToast(
+                  split: _activeToastSplit!,
+                  previousSplit: _activeToastPrevSplit,
+                  useMetricUnits: useMetricUnits,
+                  currentLang: currentLang,
+                  onDismiss: () {
+                    if (mounted) setState(() => _activeToastSplit = null);
+                  },
                 ),
               ),
             ),
-          ),
+
+          // Guided Program Coach HUD
+          if (widget.guidedProgram != null &&
+              !_isGuidedProgramCompleted &&
+              !_isPreparingWorkout &&
+              _sheetExtent < _kExpandedSheetThreshold)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: GuidedProgramHud(
+                  program: widget.guidedProgram!,
+                  currentStepIndex: _guidedStepIndex,
+                  stepRemainingSeconds: (_guidedStepIndex < widget.guidedProgram!.steps.length)
+                      ? (widget.guidedProgram!.steps[_guidedStepIndex].durationSeconds - _stepElapsedSeconds).clamp(0, 999999)
+                      : 0,
+                  stepElapsedSeconds: _stepElapsedSeconds,
+                  currentPaceMinSecKm: state.speedKmh > 0.5 ? (3600.0 / state.speedKmh) : 0.0,
+                  currentLang: currentLang,
+                  onSkipStep: () {
+                    HapticFeedback.lightImpact();
+                    setState(() {
+                      if (_guidedStepIndex < widget.guidedProgram!.steps.length - 1) {
+                        _guidedStepIndex++;
+                        _stepElapsedSeconds = 0;
+                      } else {
+                        _isGuidedProgramCompleted = true;
+                        _showProgramCompletedModal(context, currentLang);
+                      }
+                    });
+                  },
+                ),
+              ),
+            ),
+
+          // Live Workout Target Progress HUD
+          if (widget.workoutTarget != null &&
+              widget.workoutTarget!.type != WorkoutTargetType.none &&
+              widget.guidedProgram == null &&
+              !_isPreparingWorkout &&
+              _sheetExtent < _kExpandedSheetThreshold)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: WorkoutTargetProgressHud(
+                  target: widget.workoutTarget!,
+                  distanceMeters: state.distanceMeters,
+                  durationSeconds: state.durationSeconds,
+                  calories: state.caloriesBurned,
+                  currentLang: currentLang,
+                  accentColor: _activityAccent(widget.activityType),
+                ),
+              ),
+            ),
+
           if (_sheetExtent < _kLocateHideThreshold)
             Positioned(
               right: 16,
@@ -689,7 +902,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      _SectionLabel(AppTranslations.get('performance', currentLang)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _SectionLabel(AppTranslations.get('performance', currentLang)),
+                          LiveDeltaPaceGauge(
+                            currentSpeedKmh: state.speedKmh,
+                            avgSpeedKmh: state.avgSpeedKmh,
+                            useMetricUnits: useMetricUnits,
+                            currentLang: currentLang,
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -790,84 +1014,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           ),
           if (_isPreparingWorkout)
             Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.42),
-                  child: Center(
-                    child: Container(
-                      width: 210,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 26,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _kPanelBg,
-                        borderRadius: BorderRadius.circular(26),
-                        border: Border.all(color: _kPanelBorder),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.22),
-                            blurRadius: 24,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _startupCountdown > 0
-                                ? '$_startupCountdown'
-                                : _isLockingStartupGps
-                                ? ''
-                                : 'GO',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 54,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -2,
-                            ),
-                          ),
-                          if (_isLockingStartupGps) ...[
-                            const SizedBox(height: 2),
-                            const SizedBox(
-                              width: 34,
-                              height: 34,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: _kNeonCyan,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          Text(
-                            _isLockingStartupGps
-                                ? 'Locking your GPS position'
-                                : 'Getting your current GPS position',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _isLockingStartupGps
-                                ? 'Recording starts once the location is accurate'
-                                : 'Recording will start in a moment',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: _kMutedText,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+              child: Workout3DCountdownOverlay(
+                countdown: _startupCountdown,
+                isLockingGps: _isLockingStartupGps,
+                activityType: widget.activityType,
+                currentLang: currentLang,
+                onSkip: _skipCountdown,
               ),
             ),
         ],
@@ -1019,6 +1171,17 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         return Icons.fitness_center;
     }
   }
+
+  Color _activityAccent(String type) {
+    switch (type.toLowerCase()) {
+      case 'cycling':
+        return AetronColors.blue;
+      case 'walking':
+        return AetronColors.mint;
+      default:
+        return AetronColors.cyan;
+    }
+  }
 }
 
 class _FeatureStatCard extends StatelessWidget {
@@ -1161,21 +1324,7 @@ class _CompactRecordingHud extends ConsumerWidget {
             children: [
               _RecordingStatusDot(label: _statusLabel(state, currentLang)),
               const Spacer(),
-              Icon(
-                Icons.bolt_rounded,
-                color: AetronColors.cyan,
-                size: 15,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'AETRON LIVE',
-                style: AetronTypography.caption.copyWith(
-                  color: AetronColors.cyanSoft,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.4,
-                ),
-              ),
+              const _AetronLive3DMotionBadge(),
             ],
           ),
           const SizedBox(height: 12),
@@ -1462,6 +1611,74 @@ class _SectionLabel extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.0,
+      ),
+    );
+  }
+}
+
+class _AetronLive3DMotionBadge extends StatelessWidget {
+  const _AetronLive3DMotionBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AetronColors.cyan.withValues(alpha: 0.20),
+            AetronColors.panelHigh,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AetronRadius.pill),
+        border: Border.all(
+          color: AetronColors.cyan.withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AetronColors.cyan.withValues(alpha: 0.20),
+            blurRadius: 10,
+            spreadRadius: -1,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6EFAFF), Color(0xFF00E5FF)],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x9900E5FF),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.directions_run_rounded,
+              color: AetronColors.voidBlack,
+              size: 11,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'AETRON LIVE 3D',
+            style: AetronTypography.caption.copyWith(
+              color: AetronColors.cyan,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }

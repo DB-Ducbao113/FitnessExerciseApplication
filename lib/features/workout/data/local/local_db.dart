@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
@@ -26,17 +27,23 @@ class LocalDB {
   }
 
   static Future<void> _open() async {
-    final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open(
-      [LocalWorkoutSchema, LocalGPSPointSchema, LocalStepIntervalSchema],
-      directory: dir.path,
-      inspector: false,
-    );
+    if (kIsWeb) return;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      _isar = await Isar.open(
+        [LocalWorkoutSchema, LocalGPSPointSchema, LocalStepIntervalSchema],
+        directory: dir.path,
+        inspector: false,
+      );
+    } catch (e) {
+      debugPrint('[LocalDB] _open error: $e');
+    }
   }
 
   static Isar get instance {
     final isar = _isar;
     if (isar == null) {
+      if (kIsWeb) throw StateError('LocalDB not supported on web');
       throw StateError('LocalDB has not been initialized');
     }
     return isar;
@@ -46,8 +53,10 @@ class LocalDB {
 
   /// Insert locally. Used when finishing a session.
   static Future<void> saveSession(LocalWorkout workout) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       await isar.localWorkouts.put(workout);
     });
@@ -55,8 +64,10 @@ class LocalDB {
 
   /// Get all sessions for a user, sorted descending. UI uses this.
   static Future<List<LocalWorkout>> getSessionsByUser(String userId) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     return await isar.localWorkouts
         .filter()
         .userIdEqualTo(userId)
@@ -69,8 +80,10 @@ class LocalDB {
     String userId,
     String activityType,
   ) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     return await isar.localWorkouts
         .filter()
         .userIdEqualTo(userId)
@@ -80,8 +93,10 @@ class LocalDB {
   }
 
   static Future<LocalWorkout?> getSessionById(String sessionId) async {
+    if (kIsWeb) return null;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return null;
     return await isar.localWorkouts
         .filter()
         .sessionIdEqualTo(sessionId)
@@ -89,61 +104,76 @@ class LocalDB {
   }
 
   static Future<void> deleteWorkout(int id) async {
-    await init();
-    final isar = instance;
-    await isar.writeTxn(() async {
+    if (kIsWeb) return;
+    try {
+      await init();
+      final isar = _isar;
+      if (isar == null) return;
       final workout = await isar.localWorkouts.get(id);
-      if (workout != null) {
-        await isar.localGPSPoints
-            .filter()
-            .sessionIdEqualTo(workout.sessionId)
-            .deleteAll();
-        await isar.localStepIntervals
-            .filter()
-            .sessionIdEqualTo(workout.sessionId)
-            .deleteAll();
-      }
-      await isar.localWorkouts.delete(id);
-    });
+      final sessionId = workout?.sessionId;
+      await isar.writeTxn(() async {
+        if (sessionId != null && sessionId.isNotEmpty) {
+          await isar.localGPSPoints
+              .filter()
+              .sessionIdEqualTo(sessionId)
+              .deleteAll();
+          await isar.localStepIntervals
+              .filter()
+              .sessionIdEqualTo(sessionId)
+              .deleteAll();
+        }
+        await isar.localWorkouts.delete(id);
+      });
+    } catch (e) {
+      debugPrint('[LocalDB] deleteWorkout error: $e');
+    }
   }
 
   static Future<List<LocalWorkout>> getUnsyncedWorkouts() async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     return await isar.localWorkouts.filter().isSyncedEqualTo(false).findAll();
   }
 
   /// Wipe all local cache for a specific user (used on logout).
   static Future<void> clearAllForUser(String userId) async {
-    await init();
-    final isar = instance;
-    await isar.writeTxn(() async {
+    if (kIsWeb) return;
+    try {
+      await init();
+      final isar = _isar;
+      if (isar == null) return;
       final workouts = await isar.localWorkouts
           .filter()
           .userIdEqualTo(userId)
           .findAll();
+      final sessionIds = workouts.map((w) => w.sessionId).where((s) => s.isNotEmpty).toList();
 
-      // Delete GPS points associated with these workouts by sessionId.
-      for (final w in workouts) {
-        await isar.localGPSPoints
-            .filter()
-            .sessionIdEqualTo(w.sessionId)
-            .deleteAll();
-        await isar.localStepIntervals
-            .filter()
-            .sessionIdEqualTo(w.sessionId)
-            .deleteAll();
-      }
-
-      // Delete the workouts themselves
-      await isar.localWorkouts.filter().userIdEqualTo(userId).deleteAll();
-    });
+      await isar.writeTxn(() async {
+        for (final sessionId in sessionIds) {
+          await isar.localGPSPoints
+              .filter()
+              .sessionIdEqualTo(sessionId)
+              .deleteAll();
+          await isar.localStepIntervals
+              .filter()
+              .sessionIdEqualTo(sessionId)
+              .deleteAll();
+        }
+        await isar.localWorkouts.filter().userIdEqualTo(userId).deleteAll();
+      });
+    } catch (e) {
+      debugPrint('[LocalDB] clearAllForUser error: $e');
+    }
   }
 
   /// Hydrate local DB from cloud models to implement sync across devices.
   static Future<void> syncRemoteSessions(List<WorkoutSession> remotes) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       for (final remote in remotes) {
         var existing = await isar.localWorkouts
@@ -235,16 +265,20 @@ class LocalDB {
 
   // GPS Point Methods
   static Future<void> savePoints(List<LocalGPSPoint> points) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       await isar.localGPSPoints.putAll(points);
     });
   }
 
   static Future<void> saveRawGpsPoint(LocalGPSPoint point) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       await isar.localGPSPoints.put(point);
     });
@@ -253,8 +287,10 @@ class LocalDB {
   /// Get all GPS points for a workout by its local Isar integer ID.
   /// Prefer [getPointsForSession] (uses sessionId index).
   static Future<List<LocalGPSPoint>> getPointsForWorkout(int workoutId) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     final workout = await isar.localWorkouts.get(workoutId);
     if (workout == null) return const [];
     return await isar.localGPSPoints
@@ -266,8 +302,10 @@ class LocalDB {
 
   /// Get unsynced GPS points for a session by its local Isar integer ID.
   static Future<List<LocalGPSPoint>> getUnsyncedPoints(int workoutId) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     final workout = await isar.localWorkouts.get(workoutId);
     if (workout == null) return const [];
     return await isar.localGPSPoints
@@ -281,8 +319,10 @@ class LocalDB {
   static Future<List<LocalGPSPoint>> getUnsyncedGpsPointsForSession(
     String sessionId,
   ) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     return await isar.localGPSPoints
         .filter()
         .sessionIdEqualTo(sessionId)
@@ -294,8 +334,10 @@ class LocalDB {
   static Future<List<LocalGPSPoint>> getPointsForSession(
     String sessionId,
   ) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     return await isar.localGPSPoints
         .filter()
         .sessionIdEqualTo(sessionId)
@@ -308,8 +350,10 @@ class LocalDB {
   }
 
   static Future<void> markGpsPointsAsSynced(List<int> pointIds) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       for (final id in pointIds) {
         final point = await isar.localGPSPoints.get(id);
@@ -336,8 +380,10 @@ class LocalDB {
   }
 
   static Future<void> saveRawStepInterval(LocalStepInterval interval) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       await isar.localStepIntervals.put(interval);
     });
@@ -346,8 +392,10 @@ class LocalDB {
   static Future<List<LocalStepInterval>> getUnsyncedStepIntervalsForSession(
     String sessionId,
   ) async {
+    if (kIsWeb) return const [];
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return const [];
     return await isar.localStepIntervals
         .filter()
         .sessionIdEqualTo(sessionId)
@@ -357,8 +405,10 @@ class LocalDB {
   }
 
   static Future<void> markStepIntervalsAsSynced(List<int> intervalIds) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       for (final id in intervalIds) {
         final interval = await isar.localStepIntervals.get(id);
@@ -371,8 +421,10 @@ class LocalDB {
   }
 
   static Future<void> updateRouteMatchResult(RouteMatchResult result) async {
+    if (kIsWeb) return;
     await init();
-    final isar = instance;
+    final isar = _isar;
+    if (isar == null) return;
     await isar.writeTxn(() async {
       final workout = await isar.localWorkouts
           .filter()

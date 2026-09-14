@@ -22,6 +22,7 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _displayNameController;
   late final TextEditingController _weightController;
   late final TextEditingController _heightController;
   late final TextEditingController _heightFeetController;
@@ -61,11 +62,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     _ageController = TextEditingController(
       text: profile != null ? profile.age.toString() : '',
     );
+    final user = Supabase.instance.client.auth.currentUser;
+    final initialName = (user?.userMetadata?['display_name'] ??
+            user?.userMetadata?['full_name'] ??
+            user?.userMetadata?['name']) as String? ??
+        '';
+    _displayNameController = TextEditingController(text: initialName);
     _selectedGender = profile?.gender ?? 'male';
   }
 
   @override
   void dispose() {
+    _displayNameController.dispose();
     _weightController.dispose();
     _heightController.dispose();
     _heightFeetController.dispose();
@@ -122,6 +130,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         await repository.createProfile(profile);
       }
 
+      final cleanDisplayName = _displayNameController.text.trim();
+      if (cleanDisplayName.isNotEmpty) {
+        try {
+          await Supabase.instance.client.auth.updateUser(
+            UserAttributes(data: {'display_name': cleanDisplayName}),
+          );
+        } catch (e) {
+          debugPrint('[ProfileSetupScreen] Could not update display name in auth metadata: $e');
+        }
+      }
+
       ref.invalidate(hasUserProfileProvider(user.id));
       ref.invalidate(userProfileProvider(user.id));
 
@@ -137,12 +156,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           Navigator.of(context).pop();
         }
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('❌ [ProfileSetupScreen] Error saving profile: $e\n$st');
       if (mounted) {
+        String errorMessage = 'Could not save profile ($e)';
+        if (e is PostgrestException) {
+          errorMessage = 'Database error: ${e.message}';
+        }
         showAetronNotice(
           context,
-          message:
-              'Could not save profile. Check your connection and try again.',
+          message: errorMessage,
           tone: AetronNoticeTone.error,
         );
       }
@@ -309,6 +332,26 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               ),
                             ),
                             const SizedBox(height: 20),
+                            _InputField(
+                              controller: _displayNameController,
+                              label: AppTranslations.get('display_name', currentLang),
+                              hint: AppTranslations.get('display_name_hint', currentLang),
+                              icon: Icons.badge_outlined,
+                              keyboardType: TextInputType.name,
+                              validator: (value) {
+                                final trimmed = value?.trim() ?? '';
+                                if (trimmed.isEmpty) {
+                                  return AppTranslations.get('display_name_empty', currentLang);
+                                }
+                                if (trimmed.length < 2) {
+                                  return currentLang == AppLanguage.vi
+                                      ? 'Tên hiển thị phải có ít nhất 2 ký tự'
+                                      : 'Display name must have at least 2 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
                             _InputField(
                               controller: _weightController,
                               label: AppTranslations.get('weight', currentLang),

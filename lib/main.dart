@@ -2,6 +2,7 @@ import 'package:fitness_exercise_application/app/app.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/core/services/notification_service.dart';
 import 'package:fitness_exercise_application/core/services/notification_state_store.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ),
+  );
   debugPrint('[Startup] begin');
 
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
@@ -31,8 +39,10 @@ void main() async {
     await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
     debugPrint('[Startup] supabase initialized');
 
-    await LocalDB.init();
-    debugPrint('[Startup] local db initialized');
+    if (!kIsWeb) {
+      await LocalDB.init();
+      debugPrint('[Startup] local db initialized');
+    }
 
     await NotificationService.instance.initialize();
     await NotificationStateStore.instance.init();

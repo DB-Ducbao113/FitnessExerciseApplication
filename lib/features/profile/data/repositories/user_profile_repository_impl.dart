@@ -63,30 +63,30 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   Future<void> createProfile(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
 
-    // Save locally
-    await _localDataSource.insertProfile(model);
-
-    // Sync to remote
+    // 1. Save locally (safe across web and mobile)
     try {
-      await _remoteDataSource.createProfile(model);
+      await _localDataSource.insertProfile(model);
     } catch (e) {
-      debugPrint('[UserProfileRepositoryImpl] Failed to sync remote profile during creation: $e');
+      debugPrint('[UserProfileRepositoryImpl] Local cache warning during creation: $e');
     }
+
+    // 2. Sync to remote Supabase
+    await _remoteDataSource.createProfile(model);
   }
 
   @override
   Future<void> updateProfile(UserProfile profile) async {
     final model = UserProfileModel.fromEntity(profile);
 
-    // Update locally
-    await _localDataSource.updateProfile(model);
-
-    // Sync to remote
+    // 1. Update locally
     try {
-      await _remoteDataSource.updateProfile(model);
+      await _localDataSource.updateProfile(model);
     } catch (e) {
-      // Will sync later
+      debugPrint('[UserProfileRepositoryImpl] Local cache warning during update: $e');
     }
+
+    // 2. Sync to remote Supabase
+    await _remoteDataSource.updateProfile(model);
   }
 
   @override
@@ -110,13 +110,28 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
 
   @override
   Future<void> deleteAccount(String userId) async {
-    // 1. Wipe all remote data
-    await _remoteDataSource.deleteAllUserData(userId);
+    // 1. Wipe all remote data & trigger RPC account removal
+    try {
+      await _remoteDataSource.deleteAllUserData(userId);
+    } catch (e) {
+      debugPrint('[UserProfileRepository] Remote delete error: $e');
+    }
 
-    // 2. Wipe all local Isar workout data
-    await LocalDB.clearAllForUser(userId);
+    // 2. Wipe local SQLite profile data
+    try {
+      await _localDataSource.deleteProfile(userId);
+    } catch (_) {}
 
-    // 3. Sign out from Supabase auth
-    await Supabase.instance.client.auth.signOut();
+    // 3. Wipe all local Isar workout data
+    try {
+      await LocalDB.clearAllForUser(userId);
+    } catch (e) {
+      debugPrint('[UserProfileRepository] LocalDB clear error: $e');
+    }
+
+    // 4. Force sign out from Supabase auth
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (_) {}
   }
 }

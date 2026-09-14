@@ -5,6 +5,7 @@ import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -13,6 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 const Object _avatarOverrideUnset = Object();
 const Object _localAvatarOverrideUnset = Object();
+const Object _localAvatarBytesOverrideUnset = Object();
 
 class AvatarState {
   final bool isUploading;
@@ -20,6 +22,7 @@ class AvatarState {
   final String? avatarUrlOverride;
   final bool hasAvatarUrlOverride;
   final String? localAvatarPathOverride;
+  final Uint8List? localAvatarBytesOverride;
 
   const AvatarState({
     this.isUploading = false,
@@ -27,6 +30,7 @@ class AvatarState {
     this.avatarUrlOverride,
     this.hasAvatarUrlOverride = false,
     this.localAvatarPathOverride,
+    this.localAvatarBytesOverride,
   });
 
   AvatarState copyWith({
@@ -35,6 +39,7 @@ class AvatarState {
     Object? avatarUrlOverride = _avatarOverrideUnset,
     bool? hasAvatarUrlOverride,
     Object? localAvatarPathOverride = _localAvatarOverrideUnset,
+    Object? localAvatarBytesOverride = _localAvatarBytesOverrideUnset,
   }) => AvatarState(
     isUploading: isUploading ?? this.isUploading,
     errorMessage: errorMessage,
@@ -46,6 +51,10 @@ class AvatarState {
         identical(localAvatarPathOverride, _localAvatarOverrideUnset)
         ? this.localAvatarPathOverride
         : localAvatarPathOverride as String?,
+    localAvatarBytesOverride:
+        identical(localAvatarBytesOverride, _localAvatarBytesOverrideUnset)
+        ? this.localAvatarBytesOverride
+        : localAvatarBytesOverride as Uint8List?,
   );
 
   String? resolveAvatarUrl(String? profileAvatarUrl) {
@@ -56,11 +65,30 @@ class AvatarState {
 class AvatarDisplayState {
   final String? remoteUrl;
   final String? localPath;
+  final Uint8List? localBytes;
 
-  const AvatarDisplayState({this.remoteUrl, this.localPath});
+  const AvatarDisplayState({this.remoteUrl, this.localPath, this.localBytes});
 
   bool get hasAvatar =>
-      localPath != null || (remoteUrl != null && remoteUrl!.isNotEmpty);
+      localBytes != null ||
+      (localPath != null && localPath!.isNotEmpty) ||
+      (remoteUrl != null && remoteUrl!.isNotEmpty);
+
+  ImageProvider? get imageProvider {
+    if (localBytes != null) {
+      return MemoryImage(localBytes!);
+    }
+    if (localPath != null && localPath!.isNotEmpty) {
+      if (kIsWeb) {
+        return NetworkImage(localPath!);
+      }
+      return FileImage(File(localPath!));
+    }
+    if (remoteUrl != null && remoteUrl!.isNotEmpty) {
+      return NetworkImage(remoteUrl!);
+    }
+    return null;
+  }
 }
 
 final currentAvatarDisplayProvider = Provider<AvatarDisplayState>((ref) {
@@ -73,6 +101,7 @@ final currentAvatarDisplayProvider = Provider<AvatarDisplayState>((ref) {
   return AvatarDisplayState(
     remoteUrl: avatarState.resolveAvatarUrl(profileAvatarUrl),
     localPath: avatarState.localAvatarPathOverride,
+    localBytes: avatarState.localAvatarBytesOverride,
   );
 });
 
@@ -124,18 +153,20 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       );
       if (picked == null) return;
 
+      final bytes = await picked.readAsBytes();
+
       state = state.copyWith(
         isUploading: true,
         errorMessage: null,
         localAvatarPathOverride: picked.path,
+        localAvatarBytesOverride: bytes,
         avatarUrlOverride: null,
         hasAvatarUrlOverride: false,
       );
 
-      final file = File(picked.path);
       final remoteDatasource = _ref.read(userProfileRemoteDataSourceProvider);
       final repository = _ref.read(userProfileRepositoryProvider);
-      final publicUrl = await remoteDatasource.uploadAvatar(userId, file);
+      final publicUrl = await remoteDatasource.uploadAvatarBytes(userId, bytes);
       final previousAvatarUrl = profile.avatarUrl;
       final updatedProfile = profile.copyWith(
         avatarUrl: publicUrl,
@@ -158,12 +189,13 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
         avatarUrlOverride: publicUrl,
         hasAvatarUrlOverride: true,
         localAvatarPathOverride: null,
+        localAvatarBytesOverride: null,
       );
     } on StorageException catch (e) {
       debugPrint('Avatar upload storage sync failed: ${e.message}');
       state = state.copyWith(
         isUploading: false,
-        errorMessage: state.localAvatarPathOverride != null
+        errorMessage: state.localAvatarBytesOverride != null
             ? null
             : _storageErrorMessage(e),
       );
@@ -171,7 +203,7 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       debugPrint('Avatar upload profile sync failed: ${e.message}');
       state = state.copyWith(
         isUploading: false,
-        errorMessage: state.localAvatarPathOverride != null
+        errorMessage: state.localAvatarBytesOverride != null
             ? null
             : _profileUpdateErrorMessage(e),
       );
@@ -179,7 +211,7 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       debugPrint('Avatar upload failed: $e\n$stackTrace');
       state = state.copyWith(
         isUploading: false,
-        errorMessage: state.localAvatarPathOverride != null
+        errorMessage: state.localAvatarBytesOverride != null
             ? null
             : _unknownAvatarErrorMessage(
                 e,
@@ -214,6 +246,7 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
         avatarUrlOverride: null,
         hasAvatarUrlOverride: true,
         localAvatarPathOverride: null,
+        localAvatarBytesOverride: null,
       );
 
       final remoteDatasource = _ref.read(userProfileRemoteDataSourceProvider);
@@ -248,6 +281,8 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
   }
 
   Future<String?> _requestImagePermission(ImageSource source) async {
+    if (kIsWeb) return null;
+
     if (source == ImageSource.camera) {
       final status = await Permission.camera.request();
       if (status.isGranted) return null;
@@ -257,7 +292,7 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       return 'Camera access is needed to take a photo.';
     }
 
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       final ps = await PhotoManager.requestPermissionExtend(
         requestOption: const PermissionRequestOption(
           iosAccessLevel: IosAccessLevel.readWrite,

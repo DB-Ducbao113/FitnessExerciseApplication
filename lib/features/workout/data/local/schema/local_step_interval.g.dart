@@ -15,7 +15,7 @@ extension GetLocalStepIntervalCollection on Isar {
 
 const LocalStepIntervalSchema = CollectionSchema(
   name: r'LocalStepInterval',
-  id: 131370035101032021,
+  id: 1313700351010320,
   properties: {
     r'deviceSource': PropertySchema(
       id: 0,
@@ -55,7 +55,7 @@ const LocalStepIntervalSchema = CollectionSchema(
   idName: r'id',
   indexes: {
     r'sessionId': IndexSchema(
-      id: 6949518585047923839,
+      id: 6949518585047923,
       name: r'sessionId',
       unique: false,
       replace: false,

@@ -167,6 +167,30 @@ class AppTranslations {
       AppLanguage.vi: 'Thành viên từ',
       AppLanguage.en: 'Member since',
     },
+    'display_name': {
+      AppLanguage.vi: 'Tên hiển thị',
+      AppLanguage.en: 'Display Name',
+    },
+    'edit_display_name': {
+      AppLanguage.vi: 'Đổi tên gọi',
+      AppLanguage.en: 'Edit Display Name',
+    },
+    'enter_display_name': {
+      AppLanguage.vi: 'Nhập tên gọi của bạn',
+      AppLanguage.en: 'Enter your display name',
+    },
+    'display_name_hint': {
+      AppLanguage.vi: 'Tên vận động viên',
+      AppLanguage.en: 'Athlete name',
+    },
+    'display_name_empty': {
+      AppLanguage.vi: 'Tên không được để trống',
+      AppLanguage.en: 'Display name cannot be empty',
+    },
+    'name_updated_success': {
+      AppLanguage.vi: 'Đã cập nhật tên gọi thành công!',
+      AppLanguage.en: 'Display name updated successfully!',
+    },
 
     // Settings & Permissions
     'allowed': {AppLanguage.vi: 'Đã cho phép', AppLanguage.en: 'Allowed'},

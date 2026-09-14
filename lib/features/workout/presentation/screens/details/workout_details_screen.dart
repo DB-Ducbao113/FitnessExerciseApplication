@@ -36,7 +36,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AetronColors.background,
       body: SafeArea(
-        top: false,
+        top: true,
         child: AetronBackground(
           child: Column(
             children: [
@@ -44,7 +44,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AetronSpacing.page,
-                  AetronSpacing.lg + 8,
+                  AetronSpacing.sm,
                   AetronSpacing.page,
                   AetronSpacing.xs,
                 ),
@@ -118,9 +118,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                       ],
                     );
                   },
-                  loading: () => const Center(
-                    child: LoadingState(label: 'LOADING WORKOUT DATA'),
-                  ),
+                  loading: () => const WorkoutDetailsSkeletonView(),
                   error: (error, _) => Center(
                     child: Text(
                       'Error: $error',
@@ -1044,73 +1042,88 @@ void _showDeleteConfirmation(
             ),
             const SizedBox(height: 24),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                  child: Text(
-                    AppTranslations.get('cancel', lang),
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      color: AetronColors.textSecondary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      side: BorderSide(
+                        color: AetronColors.cyan.withValues(alpha: 0.3),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AetronRadius.pill),
+                      ),
+                    ),
+                    child: Text(
+                      AppTranslations.get('cancel', lang),
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        color: AetronColors.textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.of(dialogContext).pop();
-                    try {
-                      await ref
-                          .read(workoutListProvider.notifier)
-                          .deleteWorkout(workoutId);
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(dialogContext).pop();
+                      try {
+                        await ref
+                            .read(workoutListProvider.notifier)
+                            .deleteWorkout(workoutId);
 
-                      if (context.mounted) {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              lang == AppLanguage.vi
-                                  ? 'Đã xóa buổi tập'
-                                  : 'Workout deleted',
-                              style: const TextStyle(fontFamily: 'Outfit'),
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                lang == AppLanguage.vi
+                                    ? 'Đã xóa buổi tập'
+                                    : 'Workout deleted',
+                                style: const TextStyle(fontFamily: 'Outfit'),
+                              ),
+                              backgroundColor: Colors.green,
                             ),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: AetronColors.danger,
+                            ),
+                          );
+                        }
                       }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error: $e'),
-                            backgroundColor: AetronColors.danger,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AetronColors.danger,
-                    foregroundColor: AetronColors.space,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AetronRadius.pill),
+                    },
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: Colors.white,
                     ),
-                    elevation: 6,
-                    shadowColor: AetronColors.danger.withValues(alpha: 0.5),
-                  ),
-                  child: Text(
-                    AppTranslations.get('delete_workout', lang),
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
+                    label: Text(
+                      lang == AppLanguage.vi ? 'Xác nhận xóa' : 'Confirm Delete',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AetronColors.danger,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AetronRadius.pill),
+                      ),
+                      elevation: 6,
+                      shadowColor: AetronColors.danger.withValues(alpha: 0.5),
                     ),
                   ),
                 ),

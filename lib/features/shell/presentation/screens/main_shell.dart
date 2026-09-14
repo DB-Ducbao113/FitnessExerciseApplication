@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/history/presentation/screens/calendar_screen.dart';
@@ -81,50 +80,44 @@ class _AetronDock extends ConsumerWidget {
     final currentLang = ref.watch(appLanguageProvider);
     final bottom = MediaQuery.of(context).padding.bottom;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            decoration: BoxDecoration(
-              color: AetronColors.space.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: AetronColors.cyan.withValues(alpha: 0.25),
-                width: 1.2,
+    return RepaintBoundary(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            color: AetronColors.space.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: AetronColors.cyan.withValues(alpha: 0.30),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.60),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.60),
-                  blurRadius: 30,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 10),
-                ),
-                BoxShadow(
-                  color: AetronColors.cyan.withValues(alpha: 0.12),
-                  blurRadius: 20,
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                for (var i = 0; i < _items.length; i++)
-                  Expanded(
-                    child: _DockItem(
-                      icon: _items[i].$1,
-                      selectedIcon: _items[i].$2,
-                      label: AppTranslations.get(_items[i].$3, currentLang),
-                      selected: i == currentIndex,
-                      onTap: () => onChanged(i),
-                    ),
+              BoxShadow(
+                color: AetronColors.cyan.withValues(alpha: 0.12),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              for (var i = 0; i < _items.length; i++)
+                Expanded(
+                  child: _DockItem(
+                    icon: _items[i].$1,
+                    selectedIcon: _items[i].$2,
+                    label: AppTranslations.get(_items[i].$3, currentLang),
+                    selected: i == currentIndex,
+                    onTap: () => onChanged(i),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/data/repositories/workout_ai_repository.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_ai_insight.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
@@ -15,6 +16,8 @@ final workoutAiInsightProvider =
 
   final repository = ref.watch(workoutAiRepositoryProvider);
   final historyAsync = await ref.watch(workoutListProvider.future);
+  final currentLang = ref.watch(appLanguageProvider);
+  final langCode = currentLang == AppLanguage.vi ? 'vi' : 'en';
 
   final history = historyAsync
       .where((w) => w.id != workoutId)
@@ -23,5 +26,6 @@ final workoutAiInsightProvider =
   return repository.getWorkoutInsight(
     workout: workoutAsync,
     last30DaysWorkouts: history,
+    language: langCode,
   );
 });

@@ -1,22 +1,25 @@
-import 'dart:io';
-
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/services/notification_service.dart';
 import 'package:fitness_exercise_application/core/services/notification_scheduler.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/widgets/edit_display_name_sheet.dart';
 import 'package:fitness_exercise_application/features/legal/presentation/screens/privacy_policy_screen.dart';
 import 'package:fitness_exercise_application/features/legal/presentation/screens/terms_of_service_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -27,6 +30,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen>
     with WidgetsBindingObserver {
+  PermissionStatus _notificationStatus = PermissionStatus.denied;
   PermissionStatus _cameraStatus = PermissionStatus.denied;
   PermissionStatus _locationStatus = PermissionStatus.denied;
   PermissionState _photosStatus = PermissionState.notDetermined;
@@ -135,6 +139,81 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     }
   }
 
+  Future<void> _showUnitSelector(AppLanguage currentLang) async {
+    final isVi = currentLang == AppLanguage.vi;
+    final selected = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AetronColors.panelHigh,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AetronColors.blue.withValues(alpha: 0.4), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 20,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isVi ? 'Chọn hệ đơn vị đo lường' : 'Select Measurement Unit',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AetronColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _UnitOptionTile(
+                icon: Icons.straighten_rounded,
+                title: isVi ? 'Hệ mét (Metric)' : 'Metric System',
+                subtitle: isVi
+                    ? 'Kilômét (km), Mét (m), Vận tốc (km/h), Pace (min/km)'
+                    : 'Kilometers (km), Meters (m), Speed (km/h), Pace (min/km)',
+                isSelected: _useMetricUnits,
+                onTap: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: 10),
+              _UnitOptionTile(
+                icon: Icons.speed_rounded,
+                title: isVi ? 'Hệ Anh (Imperial)' : 'Imperial System',
+                subtitle: isVi
+                    ? 'Dặm (mi), Feet (ft), Vận tốc (mph), Pace (min/mi)'
+                    : 'Miles (mi), Feet (ft), Speed (mph), Pace (min/mi)',
+                isSelected: !_useMetricUnits,
+                onTap: () => Navigator.of(context).pop(false),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selected != null && selected != _useMetricUnits) {
+      await _setUseMetricUnits(selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              selected
+                  ? (isVi ? 'Đã chuyển sang Hệ mét (km, km/h)' : 'Switched to Metric units (km, km/h)')
+                  : (isVi ? 'Đã chuyển sang Hệ dặm (mi, mph)' : 'Switched to Imperial units (mi, mph)'),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (!mounted) return;
@@ -190,7 +269,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _refreshPermissions() async {
+    if (kIsWeb) {
+      if (!mounted) return;
+      setState(() {
+        _loadingPermissions = false;
+        _notificationStatus = PermissionStatus.granted;
+        _cameraStatus = PermissionStatus.granted;
+        _locationStatus = PermissionStatus.granted;
+        _photosStatus = PermissionState.authorized;
+      });
+      return;
+    }
+
     final statuses = await Future.wait<PermissionStatus>([
+      Permission.notification.status,
       Permission.camera.status,
       Permission.locationWhenInUse.status,
     ]);
@@ -200,68 +292,210 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       ),
     );
     if (!mounted) return;
+    final notifGranted = statuses[0].isGranted || statuses[0].isLimited;
     setState(() {
-      _cameraStatus = statuses[0];
-      _locationStatus = statuses[1];
+      _notificationStatus = statuses[0];
+      _cameraStatus = statuses[1];
+      _locationStatus = statuses[2];
       _photosStatus = photosStatus;
+      _notificationsEnabled = notifGranted;
       _loadingPermissions = false;
     });
   }
 
-  Future<void> _openPermissionSettings() async {
-    await openAppSettings();
-  }
+  bool get _isNotificationGranted =>
+      _notificationStatus.isGranted || _notificationStatus.isLimited;
 
-  Future<void> _handleCameraPermissionTap() async {
-    final status = await Permission.camera.request();
-    await _refreshPermissions();
-    if (!mounted) return;
+  bool get _isCameraGranted =>
+      _cameraStatus.isGranted || _cameraStatus.isLimited;
 
-    if (status.isGranted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Camera access is ready')));
-      return;
-    }
+  bool get _isPhotosGranted =>
+      _photosStatus.isAuth ||
+      _photosStatus == PermissionState.authorized ||
+      _photosStatus == PermissionState.limited;
 
-    if (status.isDenied || status.isPermanentlyDenied || status.isRestricted) {
-      await _openPermissionSettings();
-    }
-  }
+  bool get _isLocationGranted =>
+      _locationStatus.isGranted || _locationStatus.isLimited;
 
-  Future<void> _handlePhotoPermissionTap() async {
-    final status = await PhotoManager.requestPermissionExtend(
-      requestOption: const PermissionRequestOption(
-        iosAccessLevel: IosAccessLevel.readWrite,
+  Future<void> _showRevokePermissionDialog(
+    BuildContext context,
+    String permissionName,
+    AppLanguage lang,
+  ) async {
+    final isVi = lang == AppLanguage.vi;
+    final shouldOpen = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: AetronColors.cyan.withValues(alpha: 0.4),
+            width: 1.2,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AetronColors.cyan.withValues(alpha: 0.15),
+              ),
+              child: const Icon(Icons.settings_outlined, color: AetronColors.cyan, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isVi ? 'Quản lý quyền $permissionName' : 'Manage $permissionName Access',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          isVi
+              ? 'Theo cơ chế bảo mật của iOS, để tắt hoặc thay đổi quyền $permissionName, bạn vui lòng chuyển nút gạt trong phần Cài đặt của iPhone.'
+              : 'Per iOS security policy, to change or revoke $permissionName access, please update it in your iPhone Settings.',
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 13,
+            color: AetronColors.textSecondary,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              isVi ? 'Đóng' : 'Cancel',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w700,
+                color: AetronColors.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AetronColors.cyan,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              isVi ? 'Mở Cài Đặt' : 'Open Settings',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
       ),
     );
-    await _refreshPermissions();
-    if (!mounted) return;
 
-    if (status.isAuth) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo library access is ready')),
-      );
-      return;
+    if (shouldOpen == true) {
+      await openAppSettings();
     }
-
-    await _openPermissionSettings();
   }
 
-  Future<void> _handleLocationPermissionTap() async {
-    final status = await Permission.locationWhenInUse.request();
-    await _refreshPermissions();
-    if (!mounted) return;
-
-    if (status.isGranted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Location access is ready')));
-      return;
+  Future<void> _toggleNotificationPermission(bool value, AppLanguage lang) async {
+    if (value) {
+      final allowed = await NotificationService.instance.requestPermissions();
+      await _refreshPermissions();
+      if (!allowed && mounted) {
+        await _showRevokePermissionDialog(
+          context,
+          lang == AppLanguage.vi ? 'Thông báo' : 'Notifications',
+          lang,
+        );
+      } else {
+        await _setNotificationsEnabled(true);
+      }
+    } else {
+      await _setNotificationsEnabled(false);
+      if (mounted) {
+        await _showRevokePermissionDialog(
+          context,
+          lang == AppLanguage.vi ? 'Thông báo' : 'Notifications',
+          lang,
+        );
+      }
     }
+  }
 
-    if (status.isDenied || status.isPermanentlyDenied || status.isRestricted) {
-      await _openPermissionSettings();
+  Future<void> _toggleCameraPermission(bool value, AppLanguage lang) async {
+    if (value) {
+      final status = await Permission.camera.request();
+      await _refreshPermissions();
+      if (!status.isGranted && !status.isLimited && mounted) {
+        await _showRevokePermissionDialog(
+          context,
+          lang == AppLanguage.vi ? 'Camera' : 'Camera',
+          lang,
+        );
+      }
+    } else {
+      await _showRevokePermissionDialog(
+        context,
+        lang == AppLanguage.vi ? 'Camera' : 'Camera',
+        lang,
+      );
+    }
+  }
+
+  Future<void> _togglePhotoPermission(bool value, AppLanguage lang) async {
+    if (value) {
+      final status = await PhotoManager.requestPermissionExtend(
+        requestOption: const PermissionRequestOption(
+          iosAccessLevel: IosAccessLevel.readWrite,
+        ),
+      );
+      await _refreshPermissions();
+      if (!status.isAuth && mounted) {
+        await _showRevokePermissionDialog(
+          context,
+          lang == AppLanguage.vi ? 'Thư viện ảnh' : 'Photo Library',
+          lang,
+        );
+      }
+    } else {
+      await _showRevokePermissionDialog(
+        context,
+        lang == AppLanguage.vi ? 'Thư viện ảnh' : 'Photo Library',
+        lang,
+      );
+    }
+  }
+
+  Future<void> _toggleLocationPermission(bool value, AppLanguage lang) async {
+    if (value) {
+      final status = await Permission.locationWhenInUse.request();
+      if (status.isGranted) {
+        await Permission.locationAlways.request();
+      }
+      await _refreshPermissions();
+      if (!status.isGranted && !status.isLimited && mounted) {
+        await _showRevokePermissionDialog(
+          context,
+          lang == AppLanguage.vi ? 'Vị trí (GPS)' : 'Location (GPS)',
+          lang,
+        );
+      }
+    } else {
+      await _showRevokePermissionDialog(
+        context,
+        lang == AppLanguage.vi ? 'Vị trí (GPS)' : 'Location (GPS)',
+        lang,
+      );
     }
   }
 
@@ -269,27 +503,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     if (_isClearingCache) return;
     setState(() => _isClearingCache = true);
     try {
-      int deletedEntries = 0;
-      final tempDir = await getTemporaryDirectory();
-      if (await tempDir.exists()) {
-        deletedEntries += await _clearDirectoryContents(tempDir);
-      }
-
-      final docsDir = await getApplicationDocumentsDirectory();
-      final exportDir = Directory('${docsDir.path}/exports');
-      if (await exportDir.exists()) {
-        deletedEntries += await _clearDirectoryContents(exportDir);
-      }
-
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            deletedEntries > 0 ? 'Cache cleared successfully' : 'No temporary files to clear',
-          ),
+        const SnackBar(
+          content: Text('Cache cleared successfully'),
         ),
       );
     } catch (e) {
@@ -304,18 +524,176 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     }
   }
 
-  Future<int> _clearDirectoryContents(Directory dir) async {
-    var deleted = 0;
-    await for (final entity in dir.list()) {
-      await entity.delete(recursive: true);
-      deleted += 1;
+  Future<void> _confirmDeleteAccount(BuildContext context, AppLanguage lang) async {
+    final isVi = lang == AppLanguage.vi;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: AetronColors.danger.withValues(alpha: 0.5),
+            width: 1.2,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AetronColors.danger.withValues(alpha: 0.15),
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: AetronColors.danger, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isVi ? 'Xóa tài khoản vĩnh viễn' : 'Delete Account',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          isVi
+              ? 'Hành động này sẽ xóa vĩnh viễn toàn bộ lịch sử tập luyện, huy hiệu, mục tiêu và dữ liệu cá nhân của bạn trên hệ thống. Dữ liệu sau khi xóa sẽ không thể phục hồi.'
+              : 'This action will permanently delete all your workout history, badges, goals, and personal data. This cannot be undone.',
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 13,
+            color: AetronColors.textSecondary,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              isVi ? 'Hủy bỏ' : 'Cancel',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w700,
+                color: AetronColors.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AetronColors.danger,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              isVi ? 'Xác nhận xóa' : 'Confirm Delete',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => PopScope(
+            canPop: false,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AetronColors.danger.withValues(alpha: 0.4),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: AetronColors.danger),
+                    const SizedBox(height: 18),
+                    Text(
+                      isVi ? 'Đang xóa tài khoản...' : 'Deleting account...',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        try {
+          ref.invalidate(workoutListProvider);
+          ref.invalidate(userProfileProvider(user.id));
+          ref.invalidate(currentAvatarDisplayProvider);
+          ref.invalidate(userGoalProvider);
+
+          await ref.read(userProfileRepositoryProvider).deleteAccount(user.id);
+
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const AuthWrapper()),
+              (route) => false,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: const Color(0xFF0F172A),
+                content: Text(
+                  isVi
+                      ? 'Tài khoản và toàn bộ dữ liệu đã được xóa thành công.'
+                      : 'Account and all data deleted successfully.',
+                  style: const TextStyle(color: Colors.white, fontFamily: 'Outfit'),
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.red.shade900,
+                content: Text(
+                  isVi
+                      ? 'Lỗi khi xóa tài khoản: $e'
+                      : 'Error deleting account: $e',
+                ),
+              ),
+            );
+          }
+        }
+      }
     }
-    return deleted;
   }
 
   @override
   Widget build(BuildContext context) {
     final currentLang = ref.watch(appLanguageProvider);
+    final user = Supabase.instance.client.auth.currentUser;
 
     return Scaffold(
       backgroundColor: AetronColors.voidBlack,
@@ -371,6 +749,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
+                    // SECTION 0: ACCOUNT & IDENTITY
+                    _Settings3DGroup(
+                      title: currentLang == AppLanguage.vi ? 'TÀI KHOẢN & DANH TÍNH' : 'ACCOUNT & IDENTITY',
+                      children: [
+                        _Settings3DTile(
+                          icon: Icons.badge_outlined,
+                          title: AppTranslations.get('display_name', currentLang),
+                          subtitle: _settingsDisplayName(user),
+                          accentColor: AetronColors.cyan,
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AetronColors.cyan.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.35)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  currentLang == AppLanguage.vi ? 'Đổi tên' : 'Edit',
+                                  style: const TextStyle(
+                                    fontFamily: 'Outfit',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: AetronColors.cyan,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.edit_outlined, size: 12, color: AetronColors.cyan),
+                              ],
+                            ),
+                          ),
+                          onTap: () async {
+                            final updated = await showEditDisplayNameSheet(
+                              context,
+                              currentName: _settingsDisplayName(user),
+                            );
+                            if (updated == true && mounted) {
+                              setState(() {});
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
                     // SECTION 1: APP PREFERENCES
                     _Settings3DGroup(
                       title: AppTranslations.get('app_preferences', currentLang),
@@ -384,28 +809,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           onTap: () => _showLanguageSelector(currentLang),
                         ),
                         _Settings3DTile(
-                          icon: Icons.notifications_active_rounded,
-                          title: AppTranslations.get('daily_reminder', currentLang),
-                          subtitle: AppTranslations.get('daily_notifications', currentLang),
-                          accentColor: AetronColors.mint,
-                          trailing: Switch(
-                            value: _notificationsEnabled,
-                            onChanged: _setNotificationsEnabled,
-                            activeThumbColor: AetronColors.cyan,
-                          ),
-                          onTap: () => _setNotificationsEnabled(!_notificationsEnabled),
-                        ),
-                        _Settings3DTile(
                           icon: Icons.straighten_rounded,
                           title: AppTranslations.get('units', currentLang),
-                          subtitle: AppTranslations.get('units_subtitle', currentLang),
+                          subtitle: _useMetricUnits
+                              ? (currentLang == AppLanguage.vi ? 'Hệ mét (km, m, km/h)' : 'Metric (km, m, km/h)')
+                              : (currentLang == AppLanguage.vi ? 'Hệ Anh (mi, ft, mph)' : 'Imperial (mi, ft, mph)'),
                           accentColor: AetronColors.blue,
-                          trailing: Switch(
-                            value: _useMetricUnits,
-                            onChanged: _setUseMetricUnits,
-                            activeThumbColor: AetronColors.cyan,
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AetronColors.blue.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AetronColors.blue.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              _useMetricUnits ? 'KM / H' : 'MI / H',
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: AetronColors.blue,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
                           ),
-                          onTap: () => _setUseMetricUnits(!_useMetricUnits),
+                          onTap: () => _showUnitSelector(currentLang),
                         ),
                       ],
                     ),
@@ -415,6 +843,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _Settings3DGroup(
                       title: AppTranslations.get('privacy_access', currentLang),
                       children: [
+                        _Settings3DTile(
+                          icon: Icons.notifications_active_rounded,
+                          title: currentLang == AppLanguage.vi ? 'Thông báo' : 'Notifications',
+                          subtitle: _loadingPermissions
+                              ? AppTranslations.get('checking_access', currentLang)
+                              : _isNotificationGranted
+                                  ? (currentLang == AppLanguage.vi
+                                      ? 'Đã cho phép • Nhắc nhở tập & chuỗi Streak'
+                                      : 'Allowed • Workout & streak alerts')
+                                  : (currentLang == AppLanguage.vi
+                                      ? 'Chưa cho phép • Bật để nhận thông báo từ iPhone'
+                                      : 'Denied • Tap to allow alerts'),
+                          accentColor: AetronColors.mint,
+                          trailing: Switch.adaptive(
+                            value: _isNotificationGranted,
+                            onChanged: (val) => _toggleNotificationPermission(val, currentLang),
+                            activeTrackColor: AetronColors.mint.withValues(alpha: 0.5),
+                            activeThumbColor: AetronColors.mint,
+                          ),
+                          onTap: () => _toggleNotificationPermission(!_isNotificationGranted, currentLang),
+                        ),
                         _Settings3DTile(
                           icon: Icons.camera_alt_rounded,
                           title: AppTranslations.get('camera_access', currentLang),
@@ -427,8 +876,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   lang: currentLang,
                                 ),
                           accentColor: AetronColors.cyan,
-                          trailing: _permission3DBadge(_cameraStatus, currentLang),
-                          onTap: _handleCameraPermissionTap,
+                          trailing: Switch.adaptive(
+                            value: _isCameraGranted,
+                            onChanged: (val) => _toggleCameraPermission(val, currentLang),
+                            activeTrackColor: AetronColors.cyan.withValues(alpha: 0.5),
+                            activeThumbColor: AetronColors.cyan,
+                          ),
+                          onTap: () => _toggleCameraPermission(!_isCameraGranted, currentLang),
                         ),
                         _Settings3DTile(
                           icon: Icons.photo_library_rounded,
@@ -443,8 +897,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   lang: currentLang,
                                 ),
                           accentColor: AetronColors.mint,
-                          trailing: _photoPermission3DBadge(_photosStatus, currentLang),
-                          onTap: _handlePhotoPermissionTap,
+                          trailing: Switch.adaptive(
+                            value: _isPhotosGranted,
+                            onChanged: (val) => _togglePhotoPermission(val, currentLang),
+                            activeTrackColor: AetronColors.mint.withValues(alpha: 0.5),
+                            activeThumbColor: AetronColors.mint,
+                          ),
+                          onTap: () => _togglePhotoPermission(!_isPhotosGranted, currentLang),
                         ),
                         _Settings3DTile(
                           icon: Icons.location_on_rounded,
@@ -458,8 +917,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                   lang: currentLang,
                                 ),
                           accentColor: AetronColors.gold,
-                          trailing: _permission3DBadge(_locationStatus, currentLang),
-                          onTap: _handleLocationPermissionTap,
+                          trailing: Switch.adaptive(
+                            value: _isLocationGranted,
+                            onChanged: (val) => _toggleLocationPermission(val, currentLang),
+                            activeTrackColor: AetronColors.gold.withValues(alpha: 0.5),
+                            activeThumbColor: AetronColors.gold,
+                          ),
+                          onTap: () => _toggleLocationPermission(!_isLocationGranted, currentLang),
                         ),
                       ],
                     ),
@@ -547,6 +1011,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 18),
+
+                    // SECTION 5: ACCOUNT DELETION (Apple Guideline 5.1.1(v) Compliant)
+                    _Settings3DGroup(
+                      title: currentLang == AppLanguage.vi ? 'QUẢN LÝ TÀI KHOẢN' : 'ACCOUNT MANAGEMENT',
+                      children: [
+                        _Settings3DTile(
+                          icon: Icons.person_remove_rounded,
+                          title: currentLang == AppLanguage.vi ? 'Xóa tài khoản' : 'Delete Account',
+                          subtitle: currentLang == AppLanguage.vi
+                              ? 'Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu'
+                              : 'Permanently remove your account and all data',
+                          accentColor: AetronColors.danger,
+                          trailing: const Icon(Icons.chevron_right_rounded, color: AetronColors.danger),
+                          onTap: () => _confirmDeleteAccount(context, currentLang),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -557,49 +1039,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     );
   }
 
-  Widget _permission3DBadge(PermissionStatus status, AppLanguage lang) {
-    if (status.isGranted) {
-      return _statusBadge(AppTranslations.get('allowed', lang), AetronColors.mint);
-    }
-    if (status.isLimited) {
-      return _statusBadge(AppTranslations.get('limited', lang), AetronColors.warning);
-    }
-    if (status.isRestricted) {
-      return _statusBadge(AppTranslations.get('restricted', lang), AetronColors.warning);
-    }
-    return _statusBadge(AppTranslations.get('denied', lang), AetronColors.danger);
-  }
 
-  Widget _photoPermission3DBadge(PermissionState status, AppLanguage lang) {
-    if (status == PermissionState.authorized) {
-      return _statusBadge(AppTranslations.get('full_access', lang), AetronColors.mint);
-    }
-    if (status == PermissionState.limited) {
-      return _statusBadge(AppTranslations.get('limited', lang), AetronColors.warning);
-    }
-    return _statusBadge(AppTranslations.get('denied', lang), AetronColors.danger);
-  }
-
-  Widget _statusBadge(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontFamily: 'Outfit',
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-          color: color,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
 
   String _permissionDescription(
     PermissionStatus status, {
@@ -766,38 +1206,142 @@ class _LanguageOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AetronColors.panelHigh : AetronColors.space,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AetronColors.cyan : AetronColors.borderSubtle,
-            width: isSelected ? 1.5 : 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AetronColors.cyan.withValues(alpha: 0.15)
+                : AetronColors.panel,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? AetronColors.cyan
+                  : AetronColors.borderSubtle,
+              width: isSelected ? 1.5 : 1,
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Text(flag, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                name,
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: isSelected ? AetronColors.cyan : AetronColors.textPrimary,
+          child: Row(
+            children: [
+              Text(flag, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? Colors.white : AetronColors.textPrimary,
+                  ),
                 ),
               ),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AetronColors.cyan, size: 20),
-          ],
+              if (isSelected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AetronColors.cyan,
+                  size: 20,
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _UnitOptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _UnitOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AetronColors.blue.withValues(alpha: 0.15)
+                : AetronColors.panel,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? AetronColors.blue
+                  : AetronColors.borderSubtle,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: isSelected ? AetronColors.blue : AetronColors.textSecondary),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: isSelected ? Colors.white : AetronColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 11,
+                        color: AetronColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AetronColors.blue,
+                  size: 20,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _settingsDisplayName(User? user) {
+  final meta = user?.userMetadata;
+  final displayName = (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name']) as String?;
+  if (displayName != null && displayName.trim().isNotEmpty) {
+    return displayName.trim();
+  }
+  final email = user?.email;
+  if (email != null && email.contains('@')) {
+    return email.split('@').first;
+  }
+  return 'Athlete';
 }

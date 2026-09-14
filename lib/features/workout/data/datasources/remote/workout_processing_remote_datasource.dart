@@ -66,7 +66,7 @@ class WorkoutProcessingRemoteDataSource {
         jobType: jobType,
       );
       if (existing != null) {
-        return _logSkippedExistingJob(
+        return await _logSkippedExistingJob(
           workoutId: workoutId,
           existing: existing,
           eventType: skippedEventType,
@@ -94,7 +94,7 @@ class WorkoutProcessingRemoteDataSource {
             jobType: jobType,
           );
           if (racedExisting != null) {
-            return _logSkippedExistingJob(
+            return await _logSkippedExistingJob(
               workoutId: workoutId,
               existing: racedExisting,
               eventType: skippedEventType,

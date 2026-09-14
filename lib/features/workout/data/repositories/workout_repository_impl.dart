@@ -50,8 +50,19 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<List<WorkoutSession>> getSessionsLocal(String userId) async {
-    final localWorkouts = await LocalDB.getSessionsByUser(userId);
-    return localWorkouts.map((w) => w.toEntity()).toList();
+    if (kIsWeb) {
+      return await fetchSessionsRemote(userId);
+    }
+    try {
+      final localWorkouts = await LocalDB.getSessionsByUser(userId);
+      if (localWorkouts.isNotEmpty) {
+        return localWorkouts.map((w) => w.toEntity()).toList();
+      }
+    } catch (e) {
+      debugPrint('[WorkoutRepository] LocalDB getSessionsByUser error: $e');
+    }
+    // If local cache is empty or errored, fetch directly from remote
+    return await fetchSessionsRemote(userId);
   }
 
   @override
@@ -59,6 +70,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     String userId,
     List<WorkoutSession> sessions,
   ) async {
+    if (kIsWeb) return;
     // 1. Wipe current local cache explicitly for the user
     await LocalDB.clearAllForUser(userId);
     // 2. Hydrate from the provided sessions
@@ -70,6 +82,16 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
 
+    try {
+      final remotes = await fetchSessionsRemote(userId);
+      final filtered = remotes
+          .where((w) => w.activityType.toLowerCase() == activityType.toLowerCase())
+          .toList();
+      if (filtered.isNotEmpty) return filtered;
+    } catch (_) {}
+
+    if (kIsWeb) return [];
+
     final localWorkouts = await LocalDB.getSessionsByUserByType(
       userId,
       activityType,
@@ -79,19 +101,42 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<WorkoutSession?> getSessionById(String sessionId) async {
-    final w = await LocalDB.getSessionById(sessionId);
-    return w?.toEntity();
+    if (!kIsWeb) {
+      try {
+        final w = await LocalDB.getSessionById(sessionId);
+        if (w != null) return w.toEntity();
+      } catch (e) {
+        debugPrint('[WorkoutRepository] LocalDB.getSessionById error: $e');
+      }
+    }
+
+    try {
+      final remote = await _remoteDataSource.getSessionById(sessionId);
+      if (remote != null) {
+        if (!kIsWeb) {
+          await cacheSessionLocal(remote, isSynced: true);
+        }
+        return remote;
+      }
+    } catch (e) {
+      debugPrint('[WorkoutRepository] Failed to fetch remote session: $e');
+    }
+    return null;
   }
 
   @override
   Future<void> deleteSession(String sessionId) async {
     // Delete local first for immediate UI feedback
-    final w = await LocalDB.getSessionById(sessionId);
-    if (w != null) {
-      await LocalDB.deleteWorkout(w.id);
+    try {
+      final w = await LocalDB.getSessionById(sessionId);
+      if (w != null) {
+        await LocalDB.deleteWorkout(w.id);
+      }
+    } catch (e) {
+      debugPrint('[WorkoutRepository] Failed to delete local session: $e');
     }
 
-    // Try deleting remote (gracefully handles offline)
+    // Try deleting remote (gracefully handles offline & errors)
     try {
       await _remoteDataSource.deleteSession(sessionId);
     } catch (e) {
@@ -102,9 +147,13 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   @override
   Future<void> deleteAllSessions(String userId) async {
     // Clear local cache completely
-    await LocalDB.clearAllForUser(userId);
+    try {
+      await LocalDB.clearAllForUser(userId);
+    } catch (e) {
+      debugPrint('[WorkoutRepository] Failed to clear local sessions: $e');
+    }
 
-    // Try deleting remote (gracefully handles offline)
+    // Try deleting remote (gracefully handles offline & errors)
     try {
       await _remoteDataSource.deleteAllSessions(userId);
     } catch (e) {

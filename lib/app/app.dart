@@ -2,7 +2,7 @@ import 'package:fitness_exercise_application/core/localization/app_translations.
 import 'package:fitness_exercise_application/core/services/notification_scheduler.dart';
 import 'package:fitness_exercise_application/core/services/notification_service.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
-import 'package:fitness_exercise_application/features/onboarding/presentation/screens/welcome_screen.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/notification_settings_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
@@ -136,7 +136,7 @@ class MyApp extends StatelessWidget {
       theme: AetronTheme.darkTheme,
       debugShowCheckedModeBanner: false,
       home: const NotificationLifecycleObserver(
-        child: WelcomeGate(),
+        child: AuthWrapper(),
       ),
     );
   }

@@ -1,13 +1,15 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/password_validator.dart';
-import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/screens/achievements_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_setup_screen.dart';
+import 'package:fitness_exercise_application/features/profile/presentation/widgets/edit_display_name_sheet.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/screens/settings_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
@@ -53,12 +55,7 @@ class ProfileScreen extends ConsumerWidget {
       body: AetronBackground(
         child: SafeArea(
           child: profileAsync.when(
-            loading: () => const Center(
-              child: AetronLoadingPanel(
-                label: 'LOADING PROFILE',
-                message: 'Reading your athlete signal.',
-              ),
-            ),
+            loading: () => const ProfileSkeletonView(),
             error: (error, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -147,11 +144,21 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 _ActionTile(
+                  icon: Icons.badge_outlined,
+                  color: _green,
+                  label: AppTranslations.get('edit_display_name', currentLang),
+                  onTap: () => showEditDisplayNameSheet(
+                    context,
+                    currentName: _athleteDisplayName(user),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ActionTile(
                   icon: Icons.shield_outlined,
                   color: _blue,
                   label: AppTranslations.get('security', currentLang),
                   onTap: () =>
-                      _showSecuritySheet(context, _accountUsername(user), currentLang),
+                      _showSecuritySheet(context, _accountUsername(user), currentLang, ref),
                 ),
                 const SizedBox(height: 12),
                 _ActionTile(
@@ -264,6 +271,7 @@ class ProfileScreen extends ConsumerWidget {
     BuildContext context,
     String accountUsername,
     AppLanguage currentLang,
+    WidgetRef ref,
   ) {
     final user = Supabase.instance.client.auth.currentUser;
     final userMetadata = user?.userMetadata ?? {};
@@ -478,11 +486,193 @@ class ProfileScreen extends ConsumerWidget {
                   _showGoogleGmailRecoverySheet(context);
                 },
               ),
+              const SizedBox(height: 10),
+              _SecurityOption(
+                icon: Icons.person_remove_rounded,
+                title: currentLang == AppLanguage.vi
+                    ? 'Xóa tài khoản vĩnh viễn'
+                    : 'Delete account permanently',
+                subtitle: currentLang == AppLanguage.vi
+                    ? 'Xóa vĩnh viễn dữ liệu tài khoản và toàn bộ lịch sử tập luyện.'
+                    : 'Permanently remove your account and all workout records.',
+                iconColor: _red,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _confirmDeleteAccount(context, currentLang, ref);
+                },
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    AppLanguage lang,
+    WidgetRef ref,
+  ) async {
+    final isVi = lang == AppLanguage.vi;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: _red.withValues(alpha: 0.5),
+            width: 1.2,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _red.withValues(alpha: 0.15),
+              ),
+              child: Icon(Icons.warning_amber_rounded, color: _red, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isVi ? 'Xóa tài khoản vĩnh viễn' : 'Delete Account',
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          isVi
+              ? 'Hành động này sẽ xóa vĩnh viễn toàn bộ lịch sử tập luyện, huy hiệu, mục tiêu và dữ liệu cá nhân của bạn trên hệ thống. Dữ liệu sau khi xóa sẽ không thể phục hồi.'
+              : 'This action will permanently delete all your workout history, badges, goals, and personal data. This cannot be undone.',
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 13,
+            color: _muted,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              isVi ? 'Hủy bỏ' : 'Cancel',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w700,
+                color: _muted,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              isVi ? 'Xác nhận xóa' : 'Confirm Delete',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => PopScope(
+            canPop: false,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _red.withValues(alpha: 0.4), width: 1.2),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: _red),
+                    const SizedBox(height: 18),
+                    Text(
+                      isVi ? 'Đang xóa tài khoản...' : 'Deleting account...',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        try {
+          ref.invalidate(workoutListProvider);
+          ref.invalidate(userProfileProvider(user.id));
+          ref.invalidate(currentAvatarDisplayProvider);
+          ref.invalidate(userGoalProvider);
+
+          await ref.read(userProfileRepositoryProvider).deleteAccount(user.id);
+
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const AuthWrapper()),
+              (route) => false,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: const Color(0xFF0F172A),
+                content: Text(
+                  isVi
+                      ? 'Tài khoản và toàn bộ dữ liệu đã được xóa thành công.'
+                      : 'Account and all data deleted successfully.',
+                  style: const TextStyle(color: Colors.white, fontFamily: 'Outfit'),
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: Colors.red.shade900,
+                content: Text(
+                  isVi
+                      ? 'Lỗi khi xóa tài khoản: $e'
+                      : 'Error deleting account: $e',
+                ),
+              ),
+            );
+          }
+        }
+      }
+    }
   }
 
   void _showUpdatePasswordSheet(BuildContext context, AppLanguage currentLang) {
@@ -511,91 +701,9 @@ class ProfileScreen extends ConsumerWidget {
     required int longestStreak,
     required double totalDistanceKm,
   }) {
-    final achievements = <_AchievementData>[
-      _AchievementData(
-        title: currentLang == AppLanguage.vi ? 'Tín hiệu đầu tiên' : 'First Signal',
-        description: currentLang == AppLanguage.vi
-            ? 'Hoàn thành buổi tập đầu tiên được ghi nhận.'
-            : 'Complete your first recorded workout.',
-        icon: Icons.bolt_rounded,
-        current: totalWorkouts.toDouble(),
-        target: 1,
-        progressLabel: currentLang == AppLanguage.vi ? 'buổi tập' : 'workout',
-        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Tín hiệu đầu tiên' : 'Starter Signal badge',
-        lang: currentLang,
-      ),
-      _AchievementData(
-        title: currentLang == AppLanguage.vi ? 'Chuỗi 3 ngày' : 'Three Day Flow',
-        description: currentLang == AppLanguage.vi
-            ? 'Xây dựng chuỗi 3 ngày tập luyện liên tục.'
-            : 'Build a 3-day training streak.',
-        icon: Icons.local_fire_department_rounded,
-        current: longestStreak.toDouble(),
-        target: 3,
-        progressLabel: currentLang == AppLanguage.vi ? 'ngày' : 'days',
-        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Trạng thái tập luyện' : 'Flow State badge',
-        lang: currentLang,
-      ),
-      _AchievementData(
-        title: currentLang == AppLanguage.vi ? 'Tích lũy quãng đường' : 'Distance Builder',
-        description: currentLang == AppLanguage.vi
-            ? 'Tích lũy tổng cộng 25 km qua các buổi tập.'
-            : 'Accumulate 25 km across your sessions.',
-        icon: Icons.route_rounded,
-        current: totalDistanceKm,
-        target: 25,
-        progressLabel: 'km',
-        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Tích lũy quãng đường' : 'Distance Builder badge',
-        lang: currentLang,
-      ),
-      _AchievementData(
-        title: currentLang == AppLanguage.vi ? 'Vận động viên kiên trì' : 'Committed Athlete',
-        description: currentLang == AppLanguage.vi
-            ? 'Ghi nhận 10 buổi tập trên Aetron.'
-            : 'Log 10 workouts on Aetron.',
-        icon: Icons.emoji_events_rounded,
-        current: totalWorkouts.toDouble(),
-        target: 10,
-        progressLabel: currentLang == AppLanguage.vi ? 'buổi tập' : 'workouts',
-        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Vận động viên kiên trì' : 'Committed Athlete badge',
-        lang: currentLang,
-      ),
-      _AchievementData(
-        title: currentLang == AppLanguage.vi ? 'Nhịp điệu đẳng cấp' : 'Elite Rhythm',
-        description: currentLang == AppLanguage.vi
-            ? 'Duy trì chuỗi tập luyện 7 ngày liên tục.'
-            : 'Keep a 7-day training streak alive.',
-        icon: Icons.workspace_premium_rounded,
-        current: longestStreak.toDouble(),
-        target: 7,
-        progressLabel: currentLang == AppLanguage.vi ? 'ngày' : 'days',
-        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Nhịp điệu đẳng cấp' : 'Elite Rhythm badge',
-        lang: currentLang,
-      ),
-      _AchievementData(
-        title: currentLang == AppLanguage.vi ? 'Cột mốc 100 km' : 'Century Mark',
-        description: currentLang == AppLanguage.vi
-            ? 'Chinh phục tổng cộng 100 km qua các hoạt động.'
-            : 'Travel 100 km through recorded activity.',
-        icon: Icons.explore_rounded,
-        current: totalDistanceKm,
-        target: 100,
-        progressLabel: 'km',
-        reward: currentLang == AppLanguage.vi ? 'Huy hiệu Thám hiểm 100 km' : 'Century Explorer badge',
-        lang: currentLang,
-      ),
-    ];
-    final unlockedCount = achievements.where((item) => item.unlocked).length;
-
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _AchievementsPage(
-          achievements: achievements,
-          unlockedCount: unlockedCount,
-          totalWorkouts: totalWorkouts,
-          currentStreak: currentStreak,
-          totalDistanceKm: totalDistanceKm,
-        ),
+        builder: (_) => const AchievementsScreen(),
       ),
     );
   }
@@ -607,7 +715,7 @@ class ProfileScreen extends ConsumerWidget {
       await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
           (route) => false,
         );
       }
@@ -644,13 +752,8 @@ class _AccountCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
-    final imageUrl = avatarState.resolveAvatarUrl(profile?.avatarUrl);
-    final localImagePath = avatarState.localAvatarPathOverride;
-    final ImageProvider? imageProvider = localImagePath != null
-        ? FileImage(File(localImagePath))
-        : imageUrl != null && imageUrl.isNotEmpty
-        ? NetworkImage(imageUrl)
-        : null;
+    final avatarDisplay = ref.watch(currentAvatarDisplayProvider);
+    final ImageProvider? imageProvider = avatarDisplay.imageProvider;
     final memberSince = _formatDate(
       profile?.createdAt ?? _parseDate(user?.createdAt),
       currentLang,
@@ -705,7 +808,7 @@ class _AccountCard extends ConsumerWidget {
                 child: Center(
                   child: Container(
                     key: ValueKey(
-                      localImagePath ?? imageUrl ?? 'default-avatar',
+                      avatarDisplay.localPath ?? avatarDisplay.remoteUrl ?? 'default-avatar',
                     ),
                     width: 68,
                     height: 68,
@@ -772,13 +875,49 @@ class _AccountCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            _athleteDisplayName(user),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+          InkWell(
+            onTap: () => showEditDisplayNameSheet(
+              context,
+              currentName: _athleteDisplayName(user),
+            ),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _athleteDisplayName(user),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: _cyan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _cyan.withValues(alpha: 0.45),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      size: 13,
+                      color: _cyan,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -1467,401 +1606,6 @@ class _GoogleGmailRecoverySheetState extends State<_GoogleGmailRecoverySheet> {
   }
 }
 
-class _LinkedGmailRecoverySheet extends StatefulWidget {
-  const _LinkedGmailRecoverySheet();
-
-  @override
-  State<_LinkedGmailRecoverySheet> createState() =>
-      _LinkedGmailRecoverySheetState();
-}
-
-class _LinkedGmailRecoverySheetState extends State<_LinkedGmailRecoverySheet> {
-  final _gmailController = TextEditingController();
-  final _codeController = TextEditingController();
-  bool _isLoading = true;
-  bool _isSendingCode = false;
-  bool _isVerifyingCode = false;
-  bool _isRemoving = false;
-  String? _linkedEmail;
-  String? _verifiedAt;
-  String? _errorMessage;
-  String? _successMessage;
-
-  bool get _isVerified => _verifiedAt != null;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLinkedGmail();
-  }
-
-  @override
-  void dispose() {
-    _gmailController.dispose();
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadLinkedGmail() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _successMessage = null;
-    });
-
-    try {
-      final response = await Supabase.instance.client
-          .from('user_recovery_emails')
-          .select('recovery_email, verified_at')
-          .maybeSingle();
-      if (!mounted) return;
-      final email = response?['recovery_email'] as String?;
-      setState(() {
-        _linkedEmail = email;
-        _verifiedAt = response?['verified_at'] as String?;
-        _gmailController.text = email ?? '';
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Could not load linked Gmail status.';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _sendCode() async {
-    final gmail = _gmailController.text.trim().toLowerCase();
-    if (!_isGmail(gmail)) {
-      setState(() {
-        _errorMessage = 'Please enter a valid @gmail.com address.';
-        _successMessage = null;
-      });
-      return;
-    }
-
-    setState(() {
-      _isSendingCode = true;
-      _errorMessage = null;
-      _successMessage = null;
-    });
-
-    try {
-      await Supabase.instance.client.functions.invoke(
-        'recovery-email-start',
-        body: {'recovery_email': gmail},
-      );
-      if (!mounted) return;
-      setState(() {
-        _linkedEmail = gmail;
-        _verifiedAt = null;
-        _successMessage = 'Verification code sent to $gmail.';
-        _isSendingCode = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = _functionErrorMessage(
-          error,
-          fallback: 'Could not send verification code.',
-        );
-        _isSendingCode = false;
-      });
-    }
-  }
-
-  Future<void> _verifyCode() async {
-    final gmail = _gmailController.text.trim().toLowerCase();
-    final code = _codeController.text.trim();
-    if (!_isGmail(gmail) || !RegExp(r'^\d{6}$').hasMatch(code)) {
-      setState(() {
-        _errorMessage = 'Enter the Gmail address and 6-digit code.';
-        _successMessage = null;
-      });
-      return;
-    }
-
-    setState(() {
-      _isVerifyingCode = true;
-      _errorMessage = null;
-      _successMessage = null;
-    });
-
-    try {
-      await Supabase.instance.client.functions.invoke(
-        'recovery-email-verify',
-        body: {'recovery_email': gmail, 'code': code},
-      );
-      if (!mounted) return;
-      setState(() {
-        _linkedEmail = gmail;
-        _verifiedAt = DateTime.now().toIso8601String();
-        _successMessage = 'Recovery Gmail verified.';
-        _codeController.clear();
-        _isVerifyingCode = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = _functionErrorMessage(
-          error,
-          fallback: 'Could not verify recovery Gmail.',
-        );
-        _isVerifyingCode = false;
-      });
-    }
-  }
-
-  Future<void> _removeLinkedGmail() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    setState(() {
-      _isRemoving = true;
-      _errorMessage = null;
-      _successMessage = null;
-    });
-
-    try {
-      await Supabase.instance.client
-          .from('user_recovery_emails')
-          .delete()
-          .eq('user_id', userId);
-      if (!mounted) return;
-      setState(() {
-        _linkedEmail = null;
-        _verifiedAt = null;
-        _gmailController.clear();
-        _codeController.clear();
-        _successMessage = 'Linked Gmail removed.';
-        _isRemoving = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Could not remove linked Gmail.';
-        _isRemoving = false;
-      });
-    }
-  }
-
-  bool _isGmail(String value) {
-    return RegExp(r'^[^@\s]+@gmail\.com$').hasMatch(value);
-  }
-
-  String _functionErrorMessage(Object error, {required String fallback}) {
-    final message = error.toString();
-    final match = RegExp(r'error:\s*([^}]+)').firstMatch(message);
-    return match?.group(1)?.trim() ?? fallback;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F1726),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: _isLoading
-              ? const SizedBox(
-                  height: 180,
-                  child: Center(child: CircularProgressIndicator(color: _cyan)),
-                )
-              : SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white24,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Linked Gmail recovery',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _linkedEmail == null
-                            ? 'Add a Gmail address that can receive reset links.'
-                            : _isVerified
-                            ? 'Verified: $_linkedEmail'
-                            : 'Pending verification: $_linkedEmail',
-                        style: TextStyle(
-                          color: _isVerified ? _green : _muted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _RecoveryTextField(
-                        controller: _gmailController,
-                        hintText: 'your.recovery@gmail.com',
-                        prefixIcon: Icons.alternate_email_rounded,
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: _isSendingCode ? null : _sendCode,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _panel,
-                          foregroundColor: _cyan,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: const BorderSide(color: _border),
-                          ),
-                        ),
-                        child: _isSendingCode
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: _cyan,
-                                  strokeWidth: 2.2,
-                                ),
-                              )
-                            : Text(
-                                _linkedEmail == null
-                                    ? 'SEND VERIFICATION CODE'
-                                    : 'SEND NEW CODE',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-                      _RecoveryTextField(
-                        controller: _codeController,
-                        hintText: '6-digit code',
-                        prefixIcon: Icons.pin_outlined,
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _isVerifyingCode ? null : _verifyCode,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _green,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: const BorderSide(color: _border),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isVerifyingCode
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: _green,
-                                  strokeWidth: 2.2,
-                                ),
-                              )
-                            : const Text(
-                                'VERIFY GMAIL',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                      ),
-                      if (_linkedEmail != null) ...[
-                        const SizedBox(height: 12),
-                        TextButton.icon(
-                          onPressed: _isRemoving ? null : _removeLinkedGmail,
-                          icon: _isRemoving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    color: _red,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.link_off_rounded),
-                          label: const Text('Remove linked Gmail'),
-                          style: TextButton.styleFrom(foregroundColor: _red),
-                        ),
-                      ],
-                      if (_errorMessage != null) ...[
-                        const SizedBox(height: 12),
-                        _RecoveryMessageBox.error(_errorMessage!),
-                      ],
-                      if (_successMessage != null) ...[
-                        const SizedBox(height: 12),
-                        _RecoveryMessageBox.success(_successMessage!),
-                      ],
-                    ],
-                  ),
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecoveryTextField extends StatelessWidget {
-  const _RecoveryTextField({
-    required this.controller,
-    required this.hintText,
-    required this.prefixIcon,
-    this.keyboardType,
-  });
-
-  final TextEditingController controller;
-  final String hintText;
-  final IconData prefixIcon;
-  final TextInputType? keyboardType;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white, fontSize: 16),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: const TextStyle(color: _muted),
-        filled: true,
-        fillColor: _panelAlt,
-        prefixIcon: Icon(prefixIcon, color: _muted),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _cyan),
-        ),
-      ),
-    );
-  }
-}
-
 class _RecoveryMessageBox extends StatelessWidget {
   const _RecoveryMessageBox({
     required this.message,
@@ -1913,12 +1657,14 @@ class _SecurityOption extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.iconColor,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1979,754 +1725,6 @@ class _SecurityOption extends StatelessWidget {
   }
 }
 
-class _AchievementData {
-  const _AchievementData({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.current,
-    required this.target,
-    required this.progressLabel,
-    required this.reward,
-    this.lang = AppLanguage.en,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
-  final double current;
-  final double target;
-  final String progressLabel;
-  final String reward;
-  final AppLanguage lang;
-
-  bool get unlocked => current >= target;
-  double get progress => (current / target).clamp(0, 1);
-
-  String get progressText {
-    final currentLabel = progressLabel == 'km'
-        ? current.toStringAsFixed(current >= 10 ? 0 : 1)
-        : current.toStringAsFixed(0);
-    final targetLabel = target.toStringAsFixed(0);
-    return '$currentLabel / $targetLabel $progressLabel';
-  }
-
-  String get remainingText {
-    if (unlocked) {
-      return lang == AppLanguage.vi ? 'Đã hoàn thành cột mốc' : 'Milestone secured';
-    }
-    final remaining = target - current;
-    final number = progressLabel == 'km'
-        ? remaining.toStringAsFixed(remaining >= 10 ? 0 : 1)
-        : remaining.toStringAsFixed(0);
-    return lang == AppLanguage.vi
-        ? 'Còn $number $progressLabel nữa'
-        : '$number $progressLabel to go';
-  }
-}
-
-class _AchievementsPage extends ConsumerWidget {
-  const _AchievementsPage({
-    required this.achievements,
-    required this.unlockedCount,
-    required this.totalWorkouts,
-    required this.currentStreak,
-    required this.totalDistanceKm,
-  });
-
-  final List<_AchievementData> achievements;
-  final int unlockedCount;
-  final int totalWorkouts;
-  final int currentStreak;
-  final double totalDistanceKm;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-    final nextAchievement = achievements
-        .where((achievement) => !achievement.unlocked)
-        .fold<_AchievementData?>(null, (nearest, achievement) {
-          if (nearest == null || achievement.progress > nearest.progress) {
-            return achievement;
-          }
-          return nearest;
-        });
-    return Scaffold(
-      backgroundColor: AetronColors.voidBlack,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _AchievementsHeader(
-              unlockedCount: unlockedCount,
-              total: achievements.length,
-            ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                itemCount: achievements.length + 3,
-                separatorBuilder: (_, index) =>
-                    SizedBox(height: index == 0 ? 18 : 12),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _AchievementTelemetry(
-                      totalWorkouts: totalWorkouts,
-                      currentStreak: currentStreak,
-                      totalDistanceKm: totalDistanceKm,
-                    );
-                  }
-                  if (index == 1) {
-                    return _NextMilestoneCard(achievement: nextAchievement);
-                  }
-                  if (index == 2) {
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 4, top: 4),
-                      child: Text(
-                        currentLang == AppLanguage.vi
-                            ? 'KHO THÀNH TỰU'
-                            : 'MILESTONE VAULT',
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: AetronColors.cyanSoft,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    );
-                  }
-                  return _AchievementCard(
-                    achievement: achievements[index - 3],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AchievementsHeader extends ConsumerWidget {
-  const _AchievementsHeader({required this.unlockedCount, required this.total});
-
-  final int unlockedCount;
-  final int total;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Back to profile',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-            color: AetronColors.cyanSoft,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              AppTranslations.get('achievements', currentLang).toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                color: AetronColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.15,
-              ),
-            ),
-          ),
-          _UnlockCount(unlocked: unlockedCount, total: total),
-        ],
-      ),
-    );
-  }
-}
-
-class _NextMilestoneCard extends ConsumerWidget {
-  const _NextMilestoneCard({required this.achievement});
-
-  final _AchievementData? achievement;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-
-    if (achievement == null) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AetronColors.panelHigh,
-          border: Border.all(color: AetronColors.gold.withValues(alpha: 0.4)),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AetronColors.gold.withValues(alpha: 0.15),
-              blurRadius: 14,
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.workspace_premium_rounded, color: AetronColors.gold, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                currentLang == AppLanguage.vi
-                    ? 'ĐÃ HOÀN THÀNH TẤT CẢ CỘT MỐC'
-                    : 'ALL CURRENT MILESTONES SECURED',
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: AetronColors.gold,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1.2),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AetronColors.cyan.withValues(alpha: 0.15),
-            blurRadius: 16,
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AetronColors.cyan.withValues(alpha: 0.15),
-              border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4)),
-            ),
-            child: Icon(achievement!.icon, color: AetronColors.cyan, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  currentLang == AppLanguage.vi
-                      ? 'CỘT MỐC TIẾP THEO'
-                      : 'NEXT MILESTONE',
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    color: AetronColors.cyan,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  achievement!.title,
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    color: AetronColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${achievement!.remainingText} • ${achievement!.reward}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    color: AetronColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '${(achievement!.progress * 100).round()}%',
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              color: AetronColors.cyan,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UnlockCount extends StatelessWidget {
-  const _UnlockCount({required this.unlocked, required this.total});
-
-  final int unlocked;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AetronColors.cyan.withValues(alpha: 0.15),
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '$unlocked / $total',
-        style: const TextStyle(
-          fontFamily: 'Outfit',
-          color: AetronColors.cyan,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _AchievementTelemetry extends ConsumerWidget {
-  const _AchievementTelemetry({
-    required this.totalWorkouts,
-    required this.currentStreak,
-    required this.totalDistanceKm,
-  });
-
-  final int totalWorkouts;
-  final int currentStreak;
-  final double totalDistanceKm;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentLang = ref.watch(appLanguageProvider);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3), width: 1.2),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _TelemetryValue(
-            label: currentLang == AppLanguage.vi ? 'BUỔI TẬP' : 'SESSIONS',
-            value: '$totalWorkouts',
-          ),
-          const _TelemetryDivider(),
-          _TelemetryValue(
-            label: currentLang == AppLanguage.vi ? 'CHUỖI' : 'STREAK',
-            value: '$currentStreak${currentLang == AppLanguage.vi ? 'N' : 'D'}',
-            accent: AetronColors.cyan,
-          ),
-          const _TelemetryDivider(),
-          _TelemetryValue(
-            label: currentLang == AppLanguage.vi ? 'QUÃNG ĐƯỜNG' : 'DISTANCE',
-            value: '${totalDistanceKm.toStringAsFixed(totalDistanceKm >= 10 ? 0 : 1)} KM',
-            accent: AetronColors.mint,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TelemetryValue extends StatelessWidget {
-  const _TelemetryValue({
-    required this.label,
-    required this.value,
-    this.accent = AetronColors.textPrimary,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              color: AetronColors.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                color: accent,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TelemetryDivider extends StatelessWidget {
-  const _TelemetryDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(width: 1, height: 28, color: AetronColors.borderSubtle);
-  }
-}
-
-class _AchievementCard extends StatelessWidget {
-  const _AchievementCard({required this.achievement});
-
-  final _AchievementData achievement;
-
-  @override
-  Widget build(BuildContext context) {
-    final unlocked = achievement.unlocked;
-    final accent = unlocked ? AetronColors.gold : AetronColors.cyan;
-
-    return GestureDetector(
-      onTap: () => _showAchievementDetail(context, achievement),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AetronColors.panelHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: unlocked ? AetronColors.gold.withValues(alpha: 0.5) : AetronColors.borderSubtle,
-            width: unlocked ? 1.4 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (unlocked ? AetronColors.gold : Colors.black).withValues(alpha: unlocked ? 0.15 : 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.15),
-                border: Border.all(color: accent.withValues(alpha: 0.4)),
-                boxShadow: [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: Icon(
-                unlocked ? achievement.icon : Icons.lock_outline_rounded,
-                size: 22,
-                color: accent,
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            achievement.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
-                              color: AetronColors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: accent.withValues(alpha: 0.3)),
-                          ),
-                          child: Text(
-                            unlocked
-                                ? (achievement.lang == AppLanguage.vi ? 'ĐÃ MỞ KHÓA' : 'UNLOCKED')
-                                : (achievement.lang == AppLanguage.vi ? 'ĐANG THEO DÕI' : 'TRACKING'),
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              color: accent,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      achievement.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        color: AetronColors.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(99),
-                      child: LinearProgressIndicator(
-                        value: achievement.progress,
-                        minHeight: 6,
-                        color: accent,
-                        backgroundColor: AetronColors.space,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      achievement.progressText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
-                        color: unlocked ? AetronColors.gold : AetronColors.cyanSoft,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-void _showAchievementDetail(
-  BuildContext context,
-  _AchievementData achievement,
-) {
-  final unlocked = achievement.unlocked;
-  final accent = unlocked ? _amber : _cyan;
-  final isVi = achievement.lang == AppLanguage.vi;
-
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) => SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        decoration: const BoxDecoration(
-          color: _bgBottom,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border(top: BorderSide(color: _border)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Align(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _mutedSoft,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.13),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(achievement.icon, color: accent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        achievement.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        unlocked
-                            ? (isVi ? 'CỘT MỐC ĐÃ CHINH PHỤC' : 'MILESTONE SECURED')
-                            : (isVi ? 'CỘT MỐC ĐANG THỰC HIỆN' : 'MILESTONE IN PROGRESS'),
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: .85,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              achievement.description,
-              style: const TextStyle(
-                color: _muted,
-                fontSize: 13,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _AchievementDetailLine(
-              label: isVi ? 'TIẾN ĐỘ' : 'PROGRESS',
-              value: achievement.progressText,
-            ),
-            const SizedBox(height: 10),
-            _AchievementDetailLine(
-              label: unlocked
-                  ? (isVi ? 'PHẦN THƯỞNG ĐÃ NHẬN' : 'REWARD EARNED')
-                  : (isVi ? 'PHẦN THƯỞNG' : 'REWARD'),
-              value: achievement.reward,
-              accent: accent,
-            ),
-            const SizedBox(height: 10),
-            _AchievementDetailLine(
-              label: isVi ? 'TRẠNG THÁI' : 'STATUS',
-              value: achievement.remainingText,
-              accent: unlocked ? _green : _cyan,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: unlocked ? _panelAlt : _cyan,
-                  foregroundColor: unlocked ? Colors.white : _bgBottom,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                child: Text(
-                  unlocked
-                      ? (isVi ? 'ĐÃ MỞ KHÓA' : 'SECURED')
-                      : (isVi ? 'TIẾP TỤC RÈN LUYỆN' : 'KEEP TRAINING'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _AchievementDetailLine extends StatelessWidget {
-  const _AchievementDetailLine({
-    required this.label,
-    required this.value,
-    this.accent = Colors.white,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: _muted,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .8,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: accent,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 BoxDecoration _cardBox() => BoxDecoration(
   color: _panel,
   borderRadius: BorderRadius.circular(22),
@@ -2745,7 +1743,8 @@ String _accountUsername(User? user) {
 }
 
 String _athleteDisplayName(User? user) {
-  final displayName = user?.userMetadata?['display_name'] as String?;
+  final meta = user?.userMetadata;
+  final displayName = (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name']) as String?;
   return displayName?.trim().isNotEmpty == true
       ? displayName!.trim()
       : _accountUsername(user);

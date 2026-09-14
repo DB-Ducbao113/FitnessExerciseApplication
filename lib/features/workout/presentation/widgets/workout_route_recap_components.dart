@@ -1,3 +1,5 @@
+import "package:shared_preferences/shared_preferences.dart";
+import "package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart";
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -212,11 +214,7 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
             ),
           ),
           children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.aetron.app',
-              maxZoom: 20,
-            ),
+            const _RecapMapTileLayers(),
             PolygonLayer(
               polygons: [
                 for (final segment in displaySegments)
@@ -524,4 +522,70 @@ class _ElevationPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ElevationPainter oldDelegate) =>
       oldDelegate.route != route || oldDelegate.accent != accent;
+}
+
+
+class _RecapMapTileLayers extends StatefulWidget {
+  const _RecapMapTileLayers();
+
+  @override
+  State<_RecapMapTileLayers> createState() => _RecapMapTileLayersState();
+}
+
+class _RecapMapTileLayersState extends State<_RecapMapTileLayers> {
+  AppMapType _mapType = AppMapType.satellite;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreference();
+  }
+
+  Future<void> _loadPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(kAetronMapTypePrefKey);
+      if (saved != null && mounted) {
+        setState(() {
+          _mapType = AppMapType.values.firstWhere(
+            (e) => e.name == saved,
+            orElse: () => AppMapType.satellite,
+          );
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_mapType) {
+      case AppMapType.satellite:
+        return Stack(
+          children: [
+            TileLayer(
+              urlTemplate:
+                  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+              userAgentPackageName: 'com.aetron.app',
+              maxZoom: 20,
+              maxNativeZoom: 19,
+            ),
+            TileLayer(
+              urlTemplate:
+                  'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+              userAgentPackageName: 'com.aetron.app',
+              maxZoom: 20,
+              maxNativeZoom: 19,
+            ),
+          ],
+        );
+      case AppMapType.streets:
+        return TileLayer(
+          urlTemplate:
+              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          userAgentPackageName: 'com.aetron.app',
+          maxZoom: 20,
+          maxNativeZoom: 19,
+        );
+    }
+  }
 }
