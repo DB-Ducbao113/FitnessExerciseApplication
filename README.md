@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="assets/login_header.png" alt="Aetron Logo" width="160" />
+  <img src="assets/logo.png" alt="Aetron Logo" width="140" />
 
   # ⚡ Aetron - Next-Gen Fitness & Exercise Application
   
