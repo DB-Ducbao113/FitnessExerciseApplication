@@ -147,20 +147,43 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   fonts:
+    - family: BeVietnamPro
+      fonts:
+        - asset: fonts/BeVietnamPro-Regular.ttf
+        - asset: fonts/BeVietnamPro-Thin.ttf
+          weight: 100
+        - asset: fonts/BeVietnamPro-ExtraLight.ttf
+          weight: 200
+        - asset: fonts/BeVietnamPro-Light.ttf
+          weight: 300
+        - asset: fonts/BeVietnamPro-Medium.ttf
+          weight: 500
+        - asset: fonts/BeVietnamPro-SemiBold.ttf
+          weight: 600
+        - asset: fonts/BeVietnamPro-Bold.ttf
+          weight: 700
+        - asset: fonts/BeVietnamPro-ExtraBold.ttf
+          weight: 800
+        - asset: fonts/BeVietnamPro-Black.ttf
+          weight: 900
     - family: Outfit
       fonts:
-        - asset: fonts/Outfit-Regular.ttf
-        - asset: fonts/Outfit-Thin.ttf
+        - asset: fonts/BeVietnamPro-Regular.ttf
+        - asset: fonts/BeVietnamPro-Thin.ttf
           weight: 100
-        - asset: fonts/Outfit-ExtraLight.ttf
+        - asset: fonts/BeVietnamPro-ExtraLight.ttf
           weight: 200
-        - asset: fonts/Outfit-Light.ttf
+        - asset: fonts/BeVietnamPro-Light.ttf
           weight: 300
-        - asset: fonts/Outfit-Medium.ttf
+        - asset: fonts/BeVietnamPro-Medium.ttf
           weight: 500
-        - asset: fonts/Outfit-Bold.ttf
+        - asset: fonts/BeVietnamPro-SemiBold.ttf
+          weight: 600
+        - asset: fonts/BeVietnamPro-Bold.ttf
           weight: 700
-        - asset: fonts/Outfit-Black.ttf
+        - asset: fonts/BeVietnamPro-ExtraBold.ttf
+          weight: 800
+        - asset: fonts/BeVietnamPro-Black.ttf
           weight: 900
 
   # - family: Trajan Pro

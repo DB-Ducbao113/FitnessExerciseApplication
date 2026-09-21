@@ -80,8 +80,10 @@ class AetronRadius {
 class AetronTypography {
   const AetronTypography._();
 
+  static const String fontFamily = 'BeVietnamPro';
+
   static const display = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textPrimary,
     fontSize: 32,
     fontWeight: FontWeight.w900,
@@ -89,7 +91,7 @@ class AetronTypography {
   );
 
   static const headingLarge = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.cyanSoft,
     fontSize: 24,
     fontWeight: FontWeight.w900,
@@ -97,7 +99,7 @@ class AetronTypography {
   );
 
   static const headingMedium = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textPrimary,
     fontSize: 18,
     fontWeight: FontWeight.w800,
@@ -105,7 +107,7 @@ class AetronTypography {
   );
 
   static const headingSmall = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.cyan,
     fontSize: 14,
     fontWeight: FontWeight.w800,
@@ -113,28 +115,28 @@ class AetronTypography {
   );
 
   static const bodyLarge = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textPrimary,
     fontSize: 16,
     fontWeight: FontWeight.w500,
   );
 
   static const body = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textPrimary,
     fontSize: 14,
     fontWeight: FontWeight.normal,
   );
 
   static const bodySmall = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textSecondary,
     fontSize: 12,
     fontWeight: FontWeight.normal,
   );
 
   static const caption = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textSecondary,
     fontSize: 11,
     fontWeight: FontWeight.w500,
@@ -142,7 +144,7 @@ class AetronTypography {
   );
 
   static const label = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.textSecondary,
     fontSize: 10,
     fontWeight: FontWeight.w800,
@@ -150,7 +152,7 @@ class AetronTypography {
   );
 
   static const button = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: fontFamily,
     color: AetronColors.space,
     fontSize: 15,
     fontWeight: FontWeight.w900,
@@ -162,7 +164,7 @@ class AetronText {
   const AetronText._();
 
   static const header = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: AetronTypography.fontFamily,
     color: AetronColors.cyanSoft,
     fontSize: 26,
     height: 1,
@@ -171,7 +173,7 @@ class AetronText {
   );
 
   static const section = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: AetronTypography.fontFamily,
     color: AetronColors.cyan,
     fontSize: 12,
     fontWeight: FontWeight.w900,
@@ -179,7 +181,7 @@ class AetronText {
   );
 
   static const label = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: AetronTypography.fontFamily,
     color: AetronColors.muted,
     fontSize: 10,
     fontWeight: FontWeight.w800,
@@ -187,7 +189,7 @@ class AetronText {
   );
 
   static const metric = TextStyle(
-    fontFamily: 'Outfit',
+    fontFamily: AetronTypography.fontFamily,
     color: AetronColors.text,
     fontSize: 24,
     height: 1,
@@ -823,7 +825,7 @@ class _AetronLoadingPanelState extends State<AetronLoadingPanel>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontFamily: "Outfit",
+            fontFamily: AetronTypography.fontFamily,
             color: AetronColors.textPrimary,
             fontSize: scale.scale(15) > 18 ? 13 : 15,
             fontWeight: FontWeight.w900,
@@ -856,7 +858,7 @@ class _AetronLoadingPanelState extends State<AetronLoadingPanel>
               widget.message!,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: "Outfit",
+                fontFamily: AetronTypography.fontFamily,
                 color: AetronColors.textSecondary,
                 fontSize: 12,
                 height: 1.35,

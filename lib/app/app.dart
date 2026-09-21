@@ -28,7 +28,7 @@ class AetronTheme {
         onSurface: AetronColors.textPrimary,
         onPrimary: AetronColors.space,
       ),
-      fontFamily: 'Outfit',
+      fontFamily: AetronTypography.fontFamily,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: AetronColors.textPrimary,
