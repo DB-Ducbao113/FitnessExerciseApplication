@@ -318,11 +318,11 @@ class _ContextualStatusPill extends StatelessWidget {
           Text(
             ctx.greeting.toUpperCase(),
             style: TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: AetronTypography.fontFamily,
               fontSize: 9,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w800,
               color: ctx.pillColor,
-              letterSpacing: 0.8,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -374,10 +374,11 @@ class _HomeTopBar extends ConsumerWidget {
                 child: Text(
                   _homeDisplayName(user),
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
+                    fontFamily: AetronTypography.fontFamily,
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: AetronColors.textPrimary,
+                    letterSpacing: -0.3,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -412,20 +413,20 @@ class _HomePopulatedView extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Weekly Goal Progress (Weekly Progress first)
+        // 1. Primary Action: Start Workout Hero Card
+        RepaintBoundary(child: _StartWorkout3DHeroCard()),
+        SizedBox(height: AetronSpacing.lg),
+
+        // 2. Weekly Goal Progress
         RepaintBoundary(child: _WeeklyGoalSection()),
         SizedBox(height: AetronSpacing.lg),
 
-        // 2. Recent Workout Log (Recent Workout second)
+        // 3. Recent Workout Log
         RepaintBoundary(child: _RecentWorkoutSection()),
         SizedBox(height: AetronSpacing.lg),
 
-        // 3. Running Series (Running Series third)
+        // 4. Running Series / Training Programs
         RepaintBoundary(child: _SpotlightWorkoutSection()),
-        SizedBox(height: AetronSpacing.lg),
-
-        // 4. Start Workout Banner (Start Workout last)
-        RepaintBoundary(child: _StartWorkout3DHeroCard()),
       ],
     );
   }
@@ -507,21 +508,16 @@ class _SpotlightWorkoutSection extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: AetronColors.panelHigh,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: AetronColors.cyan.withValues(alpha: 0.3),
-                        width: 1.2,
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 1.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
-                        ),
-                        BoxShadow(
-                          color: AetronColors.cyan.withValues(alpha: 0.12),
-                          blurRadius: 14,
-                          spreadRadius: -2,
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -535,18 +531,18 @@ class _SpotlightWorkoutSection extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AetronColors.cyan.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
+                                color: AetronColors.cyan.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(AetronRadius.pill),
+                                border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.25)),
                               ),
                               child: Text(
                                 badge,
                                 style: const TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
+                                  fontFamily: AetronTypography.fontFamily,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
                                   color: AetronColors.cyan,
-                                  letterSpacing: 0.8,
+                                  letterSpacing: 0.4,
                                 ),
                               ),
                             ),
@@ -559,9 +555,9 @@ class _SpotlightWorkoutSection extends ConsumerWidget {
                         Text(
                           title,
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: AetronTypography.fontFamily,
                             fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w800,
                             color: AetronColors.textPrimary,
                           ),
                           maxLines: 1,
@@ -573,8 +569,8 @@ class _SpotlightWorkoutSection extends ConsumerWidget {
                         Text(
                           '${prog.targetDistance} • ${prog.targetZone}',
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 11,
+                            fontFamily: AetronTypography.fontFamily,
+                            fontSize: 12,
                             color: AetronColors.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
@@ -587,10 +583,10 @@ class _SpotlightWorkoutSection extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AetronColors.cyan.withValues(alpha: 0.12),
+                            color: AetronColors.cyan.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(AetronRadius.pill),
                             border: Border.all(
-                              color: AetronColors.cyan.withValues(alpha: 0.35),
+                              color: AetronColors.cyan.withValues(alpha: 0.25),
                             ),
                           ),
                           child: Row(
@@ -599,11 +595,11 @@ class _SpotlightWorkoutSection extends ConsumerWidget {
                               Text(
                                 currentLang == AppLanguage.vi ? 'XEM GIÁO ÁN' : 'VIEW GUIDE',
                                 style: const TextStyle(
-                                  fontFamily: 'Outfit',
+                                  fontFamily: AetronTypography.fontFamily,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w800,
                                   color: AetronColors.cyan,
-                                  letterSpacing: 0.8,
+                                  letterSpacing: 0.4,
                                 ),
                               ),
                               const SizedBox(width: 4),
@@ -667,9 +663,8 @@ class _WeeklyGoalSection extends ConsumerWidget {
         AppCard(
           padding: const EdgeInsets.all(AetronSpacing.md + 4),
           backgroundColor: AetronColors.panelHigh,
-          borderColor: ringColor.withValues(alpha: 0.35),
-          hasGlow: true,
-          glowColor: ringColor,
+          borderColor: Colors.white.withValues(alpha: 0.08),
+          hasGlow: false,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const GoalScreen()),
           ),
@@ -971,27 +966,22 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
         child: Container(
           height: 165,
           decoration: BoxDecoration(
-            color: const Color(0xFF070B14),
-            borderRadius: BorderRadius.circular(24),
+            color: const Color(0xFF0C101C),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: AetronColors.cyan.withValues(alpha: 0.40),
-              width: 1.4,
+              color: Colors.white.withValues(alpha: 0.10),
+              width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
+                color: Colors.black.withValues(alpha: 0.45),
                 blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: AetronColors.cyan.withValues(alpha: 0.15),
-                blurRadius: 18,
-                spreadRadius: -2,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -1010,10 +1000,10 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        const Color(0xFF070B14),
-                        const Color(0xFF070B14).withValues(alpha: 0.95),
-                        const Color(0xFF070B14).withValues(alpha: 0.55),
-                        const Color(0xFF070B14).withValues(alpha: 0.10),
+                        const Color(0xFF080B12),
+                        const Color(0xFF080B12).withValues(alpha: 0.95),
+                        const Color(0xFF080B12).withValues(alpha: 0.60),
+                        const Color(0xFF080B12).withValues(alpha: 0.15),
                       ],
                       stops: const [0.0, 0.45, 0.70, 1.0],
                     ),
@@ -1027,11 +1017,10 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        AetronColors.cyan.withValues(alpha: 0.18),
+                        AetronColors.cyan.withValues(alpha: 0.08),
                         Colors.transparent,
-                        AetronColors.cyan.withValues(alpha: 0.06),
                       ],
-                      stops: const [0.0, 0.50, 1.0],
+                      stops: const [0.0, 0.60],
                     ),
                   ),
                 ),
@@ -1054,15 +1043,15 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 4),
                           SizedBox(
-                            width: 170,
+                            width: 175,
                             child: Text(
                               AppTranslations.get('ready_to_move_sub', currentLang),
                               style: AetronTypography.bodySmall.copyWith(
-                                color: AetronColors.cyanSoft.withValues(alpha: 0.85),
-                                fontSize: 11,
-                                height: 1.25,
+                                color: AetronColors.muted,
+                                fontSize: 12,
+                                height: 1.3,
                               ),
                               maxLines: 2,
                             ),
@@ -1070,14 +1059,14 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                         decoration: BoxDecoration(
                           color: AetronColors.cyan,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AetronRadius.pill),
                           boxShadow: [
                             BoxShadow(
-                              color: AetronColors.cyan.withValues(alpha: 0.4),
-                              blurRadius: 10,
+                              color: AetronColors.cyan.withValues(alpha: 0.35),
+                              blurRadius: 12,
                               offset: const Offset(0, 3),
                             ),
                           ],
@@ -1088,17 +1077,17 @@ class _StartWorkout3DHeroCard extends ConsumerWidget {
                             Text(
                               AppTranslations.get('start_workout', currentLang),
                               style: const TextStyle(
-                                fontFamily: 'Outfit',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
+                                fontFamily: AetronTypography.fontFamily,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
                                 color: Color(0xFF070B14),
-                                letterSpacing: 0.5,
+                                letterSpacing: 0.3,
                               ),
                             ),
                             const SizedBox(width: 6),
                             const Icon(
                               Icons.arrow_forward_rounded,
-                              size: 14,
+                              size: 15,
                               color: Color(0xFF070B14),
                             ),
                           ],

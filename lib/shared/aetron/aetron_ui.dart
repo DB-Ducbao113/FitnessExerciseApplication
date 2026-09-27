@@ -15,22 +15,22 @@ export 'aetron_globe_orbit_screen.dart';
 class AetronColors {
   const AetronColors._();
 
-  // Core Palette
-  static const voidBlack = Color(0xff0a0d1c);
-  static const space = Color(0xff0f1321);
-  static const panel = Color(0xff171b2a);
-  static const panelHigh = Color(0xff1b1f2e);
-  static const panelBright = Color(0xff303444);
+  // Core Palette - Modern Stealth Dark
+  static const voidBlack = Color(0xff080b12);
+  static const space = Color(0xff0d121f);
+  static const panel = Color(0xff121828);
+  static const panelHigh = Color(0xff172034);
+  static const panelBright = Color(0xff222e47);
   static const cyan = Color(0xff00e5ff);
-  static const cyanDim = Color(0xff00daf3);
-  static const cyanSoft = Color(0xffc3f5ff);
-  static const blue = Color(0xff14d1ff);
-  static const gold = Color(0xffffba20);
-  static const mint = Color(0xff39f2b8);
-  static const danger = Color(0xffff4f57);
-  static const muted = Color(0xff7d8da6);
-  static const text = Color(0xffdfe1f6);
-  static const border = Color(0x3300e5ff);
+  static const cyanDim = Color(0xff00bcd4);
+  static const cyanSoft = Color(0xffe0f7fc);
+  static const blue = Color(0xff2563eb);
+  static const gold = Color(0xfff59e0b);
+  static const mint = Color(0xff10b981);
+  static const danger = Color(0xfff43f5e);
+  static const muted = Color(0xff8896ab);
+  static const text = Color(0xfff8fafc);
+  static const border = Color(0x1fffffff);
 
   // Semantic Tokens
   static const primary = cyan;
@@ -41,12 +41,12 @@ class AetronColors {
   static const cardElevated = panelHigh;
   static const textPrimary = text;
   static const textSecondary = muted;
-  static const borderSubtle = Color(0x22ffffff);
-  static const borderAccent = border;
+  static const borderSubtle = Color(0x14ffffff);
+  static const borderAccent = Color(0x2800e5ff);
   static const success = mint;
   static const warning = gold;
   static const error = danger;
-  static const disabled = Color(0xff4a5568);
+  static const disabled = Color(0xff334155);
   static const workoutActive = mint;
 }
 
@@ -63,8 +63,8 @@ class AetronSpacing {
 
   static const page = 16.0;
   static const gutter = 12.0;
-  static const cardRadius = 14.0;
-  static const controlRadius = 12.0;
+  static const cardRadius = 18.0;
+  static const controlRadius = 14.0;
 }
 
 class AetronRadius {
@@ -72,7 +72,7 @@ class AetronRadius {
 
   static const double small = 8.0;
   static const double medium = 12.0;
-  static const double large = 16.0;
+  static const double large = 18.0;
   static const double extraLarge = 24.0;
   static const double pill = 999.0;
 }
@@ -87,31 +87,31 @@ class AetronTypography {
     color: AetronColors.textPrimary,
     fontSize: 32,
     fontWeight: FontWeight.w900,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   );
 
   static const headingLarge = TextStyle(
     fontFamily: fontFamily,
-    color: AetronColors.cyanSoft,
-    fontSize: 24,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 1.5,
+    color: AetronColors.textPrimary,
+    fontSize: 22,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.3,
   );
 
   static const headingMedium = TextStyle(
     fontFamily: fontFamily,
     color: AetronColors.textPrimary,
     fontSize: 18,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 0.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.2,
   );
 
   static const headingSmall = TextStyle(
     fontFamily: fontFamily,
     color: AetronColors.cyan,
     fontSize: 14,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 1.0,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.1,
   );
 
   static const bodyLarge = TextStyle(
@@ -140,23 +140,23 @@ class AetronTypography {
     color: AetronColors.textSecondary,
     fontSize: 11,
     fontWeight: FontWeight.w500,
-    letterSpacing: 0.8,
+    letterSpacing: 0.2,
   );
 
   static const label = TextStyle(
     fontFamily: fontFamily,
     color: AetronColors.textSecondary,
     fontSize: 10,
-    fontWeight: FontWeight.w800,
-    letterSpacing: 1.2,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.8,
   );
 
   static const button = TextStyle(
     fontFamily: fontFamily,
     color: AetronColors.space,
     fontSize: 15,
-    fontWeight: FontWeight.w900,
-    letterSpacing: 1.2,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.4,
   );
 }
 
@@ -250,58 +250,30 @@ class _StaticHudGridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final horizon = size.height * 0.31;
-    final vanishingPoint = Offset(size.width * 0.5, horizon);
-    final glowCenter = Offset(size.width * 0.56, horizon);
-
-    final glow = Paint()
+    // Top-centered soft ambient glow (Nike / Apple Fitness style)
+    final topCenter = Offset(size.width * 0.5, 0);
+    final topAura = Paint()
       ..shader = RadialGradient(
         colors: [
-          AetronColors.cyan.withValues(alpha: 0.13),
-          AetronColors.cyan.withValues(alpha: 0.025),
+          AetronColors.cyan.withValues(alpha: 0.05),
+          const Color(0xFF1E3A8A).withValues(alpha: 0.03),
           Colors.transparent,
         ],
-        stops: const [0, 0.32, 1],
-      ).createShader(Rect.fromCircle(center: glowCenter, radius: size.width));
-    canvas.drawCircle(glowCenter, size.width, glow);
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: topCenter, radius: size.width * 0.85));
+    canvas.drawCircle(topCenter, size.width * 0.85, topAura);
 
-    final horizonPaint = Paint()
-      ..color = AetronColors.cyan.withValues(alpha: 0.16)
-      ..strokeWidth = 1;
-    canvas.drawLine(
-      Offset(0, horizon),
-      Offset(size.width, horizon),
-      horizonPaint,
-    );
-
-    final gridPaint = Paint()
-      ..color = AetronColors.cyan.withValues(alpha: 0.075)
-      ..strokeWidth = 1;
-    const columnCount = 11;
-    for (var column = 0; column <= columnCount; column++) {
-      final x = size.width * column / columnCount;
-      canvas.drawLine(vanishingPoint, Offset(x, size.height), gridPaint);
-    }
-
-    // Spaced depth lines make the lower grid read like a receding floor.
-    const depthLines = 12;
-    for (var line = 1; line <= depthLines; line++) {
-      final depth = line / depthLines;
-      final easedDepth = depth * depth;
-      final y = horizon + (size.height - horizon) * easedDepth;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final upperGridPaint = Paint()
-      ..color = AetronColors.cyan.withValues(alpha: 0.025)
-      ..strokeWidth = 1;
-    const upperStep = 34.0;
-    for (var x = 0.0; x <= size.width; x += upperStep) {
-      canvas.drawLine(Offset(x, 0), Offset(x, horizon), upperGridPaint);
-    }
-    for (var y = 0.0; y < horizon; y += upperStep) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), upperGridPaint);
-    }
+    // Subtle bottom-corner ambient tint
+    final bottomCenter = Offset(size.width * 0.8, size.height);
+    final bottomAura = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          AetronColors.mint.withValues(alpha: 0.02),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromCircle(center: bottomCenter, radius: size.width * 0.6));
+    canvas.drawCircle(bottomCenter, size.width * 0.6, bottomAura);
   }
 
   @override

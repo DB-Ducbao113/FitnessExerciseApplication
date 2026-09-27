@@ -22,17 +22,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const _bgBottom = Color(0xFF08111B);
-const _panel = Color(0xFF112033);
-const _panelAlt = Color(0xFF162031);
-const _border = Color(0x2200E5FF);
-const _muted = Color(0xFF8A96A9);
-const _mutedSoft = Color(0xFF617286);
-const _cyan = Color(0xFF19E2FF);
-const _blue = Color(0xFF0D5DFF);
-const _green = Color(0xFF30F0A4);
-const _amber = Color(0xFFFFB85C);
-const _red = Color(0xFFE33C49);
+// Design tokens — sourced from AetronColors (do not redeclare locally)
+const _bgBottom = AetronColors.voidBlack;
+const _panel = AetronColors.panel;
+const _panelAlt = AetronColors.panelHigh;
+const _border = AetronColors.borderAccent;
+const _muted = AetronColors.muted;
+const _mutedSoft = Color(0xFF617286); // no direct token — keep as-is
+const _cyan = AetronColors.cyan;
+const _blue = AetronColors.blue;
+const _green = AetronColors.mint;
+const _amber = AetronColors.gold;
+const _red = AetronColors.danger;
 const _resetCallbackUrl = 'io.supabase.flutter://callback';
 
 class ProfileScreen extends ConsumerWidget {
@@ -51,7 +52,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
     return Scaffold(
-      backgroundColor: _bgBottom,
+      backgroundColor: AetronColors.voidBlack,
       body: AetronBackground(
         child: SafeArea(
           child: profileAsync.when(
@@ -67,7 +68,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
             data: (profile) => ListView(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 28),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
               children: [
                 const _ProfilePageHeader(),
                 const SizedBox(height: 16),

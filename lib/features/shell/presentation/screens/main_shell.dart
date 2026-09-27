@@ -82,24 +82,24 @@ class _AetronDock extends ConsumerWidget {
 
     return RepaintBoundary(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 12),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, bottom > 0 ? bottom : 14),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           decoration: BoxDecoration(
-            color: AetronColors.space.withValues(alpha: 0.94),
+            color: const Color(0xFF0F1523).withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: AetronColors.cyan.withValues(alpha: 0.30),
-              width: 1.2,
+              color: Colors.white.withValues(alpha: 0.10),
+              width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.60),
-                blurRadius: 20,
+                color: Colors.black.withValues(alpha: 0.50),
+                blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
               BoxShadow(
-                color: AetronColors.cyan.withValues(alpha: 0.12),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.04),
                 blurRadius: 16,
               ),
             ],
@@ -153,30 +153,25 @@ class _DockItem extends StatelessWidget {
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOutCubic,
-              width: selected ? 52 : 38,
-              height: 34,
+              width: selected ? 48 : 36,
+              height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected
-                    ? AetronColors.cyan.withValues(alpha: 0.22)
+                    ? AetronColors.cyan.withValues(alpha: 0.14)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
                 border: selected
-                    ? Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1)
-                    : null,
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: AetronColors.cyan.withValues(alpha: 0.25),
-                          blurRadius: 14,
-                        ),
-                      ]
+                    ? Border.all(
+                        color: AetronColors.cyan.withValues(alpha: 0.35),
+                        width: 1.0,
+                      )
                     : null,
               ),
               child: Icon(
                 selected ? selectedIcon : icon,
-                color: selected ? AetronColors.cyanSoft : AetronColors.muted,
-                size: selected ? 21 : 19,
+                color: selected ? AetronColors.cyan : AetronColors.muted,
+                size: selected ? 20 : 18,
               ),
             ),
             const SizedBox(height: 3),
@@ -185,10 +180,11 @@ class _DockItem extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? AetronColors.cyanSoft : AetronColors.muted,
+                fontFamily: AetronTypography.fontFamily,
+                color: selected ? AetronColors.textPrimary : AetronColors.muted,
                 fontSize: 10,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                letterSpacing: 0.2,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: 0.1,
               ),
             ),
           ],

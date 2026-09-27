@@ -27,8 +27,8 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBorder = borderColor ?? AetronColors.borderAccent;
-    final effectiveBg = backgroundColor ?? AetronColors.panel.withValues(alpha: 0.85);
+    final effectiveBorder = borderColor ?? AetronColors.borderSubtle;
+    final effectiveBg = backgroundColor ?? AetronColors.panel.withValues(alpha: 0.95);
 
     final cardContent = Container(
       padding: padding,
@@ -36,13 +36,18 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: effectiveBg,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: effectiveBorder),
+        border: Border.all(color: effectiveBorder, width: 1.0),
         boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
           if (hasGlow)
             BoxShadow(
-              color: (glowColor ?? AetronColors.cyan).withValues(alpha: 0.12),
-              blurRadius: 24,
-              spreadRadius: 1,
+              color: (glowColor ?? AetronColors.cyan).withValues(alpha: 0.08),
+              blurRadius: 20,
+              spreadRadius: -2,
             ),
         ],
       ),
