@@ -217,7 +217,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
                                 ? 'VỊ TRÍ GPS XUẤT PHÁT'
                                 : 'STARTING GPS PINPOINT',
                             style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: colors.textPrimary,
@@ -292,9 +291,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
                 alignment: Alignment.centerLeft,
                 child: Text(
                   isVi ? 'Chọn bộ môn tập' : 'Select Activity',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                  style: KineticTypography.pageTitle.copyWith(
                     color: colors.textPrimary,
                   ),
                 ),

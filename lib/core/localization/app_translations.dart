@@ -386,7 +386,7 @@ class AppTranslations {
     'your_performance': {AppLanguage.vi: 'Phân tích kết quả tập luyện', AppLanguage.en: 'Your performance analytics'},
     'personal_bests': {AppLanguage.vi: 'KỶ LỤC CÁ NHÂN', AppLanguage.en: 'PERSONAL BESTS'},
     'goal_progress': {AppLanguage.vi: 'TIẾN ĐỘ MỤC TIÊU', AppLanguage.en: 'GOAL PROGRESS'},
-    'workout_history': {AppLanguage.vi: 'LỊCH SỬ TẬP LUYỆN', AppLanguage.en: 'WORKOUT HISTORY'},
+    'workout_history': {AppLanguage.vi: 'Lịch sử tập luyện', AppLanguage.en: 'Workout History'},
     'this_period': {AppLanguage.vi: 'GIAI ĐOẠN NÀY', AppLanguage.en: 'THIS PERIOD'},
     'no_workouts_yet': {AppLanguage.vi: 'Chưa có buổi tập nào', AppLanguage.en: 'No workouts recorded yet'},
     'empty_history_desc': {AppLanguage.vi: 'Hoàn thành buổi tập đầu tiên để theo dõi lịch sử tại đây.', AppLanguage.en: 'Complete your first workout to track your history here.'},
