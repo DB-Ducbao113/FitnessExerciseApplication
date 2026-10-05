@@ -24,7 +24,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 26,
     fontWeight: FontWeight.w700,
-    letterSpacing: -0.01,
+    letterSpacing: -0.26,
     height: 1.15,
     fontFeatures: [FontFeature.tabularFigures()],
   );
@@ -34,7 +34,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 20,
     fontWeight: FontWeight.w700,
-    letterSpacing: -0.01,
+    letterSpacing: -0.2,
     height: 1.2,
     fontFeatures: [FontFeature.tabularFigures()],
   );
@@ -44,7 +44,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 32,
     fontWeight: FontWeight.w800,
-    letterSpacing: -0.02,
+    letterSpacing: -0.64,
     height: 1.2,
   );
 
@@ -53,7 +53,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 24,
     fontWeight: FontWeight.w700,
-    letterSpacing: -0.02,
+    letterSpacing: -0.48,
     height: 1.25,
   );
 
@@ -62,7 +62,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w600,
-    letterSpacing: -0.01,
+    letterSpacing: -0.18,
     height: 1.3,
   );
 
@@ -103,7 +103,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 11,
     fontWeight: FontWeight.w700,
-    letterSpacing: 0.08,
+    letterSpacing: 0.88,
     height: 1.2,
   );
 
@@ -112,7 +112,7 @@ class KineticTypography {
     fontFamily: fontFamily,
     fontSize: 13,
     fontWeight: FontWeight.w600,
-    letterSpacing: 0.02,
+    letterSpacing: 0.26,
     height: 1.2,
   );
 
