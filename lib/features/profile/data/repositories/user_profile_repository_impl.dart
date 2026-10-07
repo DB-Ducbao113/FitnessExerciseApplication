@@ -97,30 +97,32 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
 
     // 2. Fallback: check remote (covers fresh-install / cleared-storage case)
     try {
-      final remoteProfile = await fetchRemote(userId);
+      final remoteProfile = await fetchRemote(userId)
+          .timeout(const Duration(seconds: 4));
       if (remoteProfile != null) {
         await cacheLocal(remoteProfile);
         return true;
       }
-    } catch (_) {
-      // Offline or error
+      return false;
+    } catch (e) {
+      debugPrint('[UserProfileRepositoryImpl] hasProfile fallback to false: $e');
+      return false;
     }
-    return false;
   }
 
   @override
   Future<void> deleteAccount(String userId) async {
-    // 1. Wipe all remote data & trigger RPC account removal
-    try {
-      await _remoteDataSource.deleteAllUserData(userId);
-    } catch (e) {
-      debugPrint('[UserProfileRepository] Remote delete error: $e');
-    }
+    // 1. Wipe all remote data & trigger RPC account removal.
+    // MUST NOT swallow remote errors — if remote wipe fails, abort local wipe so
+    // user is not mistakenly logged out while data remains on the server.
+    await _remoteDataSource.deleteAllUserData(userId);
 
     // 2. Wipe local SQLite profile data
     try {
       await _localDataSource.deleteProfile(userId);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[UserProfileRepository] Local profile delete error: $e');
+    }
 
     // 3. Wipe all local Isar workout data
     try {
@@ -132,6 +134,8 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
     // 4. Force sign out from Supabase auth
     try {
       await Supabase.instance.client.auth.signOut();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[UserProfileRepository] SignOut error: $e');
+    }
   }
 }

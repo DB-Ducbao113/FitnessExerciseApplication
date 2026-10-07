@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_target.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -67,6 +67,7 @@ class _WorkoutTargetSelectorSheetState
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = widget.currentLang == AppLanguage.vi;
     final accent = widget.accentColor;
 
@@ -75,7 +76,7 @@ class _WorkoutTargetSelectorSheetState
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
+          color: colors.surface1,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
             color: accent.withValues(alpha: 0.4),
@@ -140,8 +141,8 @@ class _WorkoutTargetSelectorSheetState
                         Text(
                           isVi ? 'THIẾT LẬP MỤC TIÊU' : 'SET WORKOUT TARGET',
                           style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 10,
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
                             fontWeight: FontWeight.w900,
                             color: accent,
                             letterSpacing: 1.2,
@@ -149,11 +150,11 @@ class _WorkoutTargetSelectorSheetState
                         ),
                         Text(
                           isVi ? 'Chọn mục tiêu buổi tập' : 'Select Session Goal',
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
-                            color: AetronColors.textPrimary,
+                            color: colors.textPrimary,
                           ),
                         ),
                       ],
@@ -162,8 +163,8 @@ class _WorkoutTargetSelectorSheetState
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded,
-                      color: AetronColors.textSecondary, size: 20),
+                  icon: Icon(Icons.close_rounded,
+                      color: colors.textSecondary, size: 20),
                 ),
               ],
             ),
@@ -173,9 +174,9 @@ class _WorkoutTargetSelectorSheetState
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF070B14),
+                color: colors.background,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AetronColors.borderSubtle),
+                border: Border.all(color: colors.borderSubtle),
               ),
               child: Row(
                 children: [
@@ -184,24 +185,28 @@ class _WorkoutTargetSelectorSheetState
                     label: isVi ? 'Tự do' : 'Free',
                     icon: Icons.all_inclusive_rounded,
                     accent: accent,
+                    colors: colors,
                   ),
                   _buildTab(
                     type: WorkoutTargetType.distance,
                     label: isVi ? 'Cự ly' : 'Distance',
                     icon: Icons.place_rounded,
                     accent: accent,
+                    colors: colors,
                   ),
                   _buildTab(
                     type: WorkoutTargetType.duration,
                     label: isVi ? 'Thời gian' : 'Time',
                     icon: Icons.timer_rounded,
                     accent: accent,
+                    colors: colors,
                   ),
                   _buildTab(
                     type: WorkoutTargetType.calories,
                     label: isVi ? 'Calo' : 'Calories',
                     icon: Icons.local_fire_department_rounded,
                     accent: accent,
+                    colors: colors,
                   ),
                 ],
               ),
@@ -210,13 +215,13 @@ class _WorkoutTargetSelectorSheetState
 
             // Content Area based on Selected Mode
             if (_selectedType == WorkoutTargetType.none)
-              _buildFreeRunView(isVi, accent)
+              _buildFreeRunView(isVi, accent, colors)
             else if (_selectedType == WorkoutTargetType.distance)
-              _buildDistancePresets(isVi, accent)
+              _buildDistancePresets(isVi, accent, colors)
             else if (_selectedType == WorkoutTargetType.duration)
-              _buildDurationPresets(isVi, accent)
+              _buildDurationPresets(isVi, accent, colors)
             else
-              _buildCaloriePresets(isVi, accent),
+              _buildCaloriePresets(isVi, accent, colors),
 
             const SizedBox(height: 24),
 
@@ -248,7 +253,7 @@ class _WorkoutTargetSelectorSheetState
                 child: Text(
                   isVi ? 'XÁC NHẬN MỤC TIÊU' : 'CONFIRM TARGET',
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
+                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,
@@ -267,6 +272,7 @@ class _WorkoutTargetSelectorSheetState
     required String label,
     required IconData icon,
     required Color accent,
+    required KineticColors colors,
   }) {
     final isSelected = _selectedType == type;
     return Expanded(
@@ -305,17 +311,17 @@ class _WorkoutTargetSelectorSheetState
               Icon(
                 icon,
                 size: 16,
-                color: isSelected ? accent : AetronColors.textSecondary,
+                color: isSelected ? accent : colors.textSecondary,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 11,
                   fontWeight:
                       isSelected ? FontWeight.w900 : FontWeight.w700,
-                  color: isSelected ? Colors.white : AetronColors.textSecondary,
+                  color: isSelected ? Colors.white : colors.textSecondary,
                 ),
               ),
             ],
@@ -325,13 +331,13 @@ class _WorkoutTargetSelectorSheetState
     );
   }
 
-  Widget _buildFreeRunView(bool isVi, Color accent) {
+  Widget _buildFreeRunView(bool isVi, Color accent, KineticColors colors) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF070B14),
+        color: colors.background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AetronColors.borderSubtle),
+        border: Border.all(color: colors.borderSubtle),
       ),
       child: Row(
         children: [
@@ -350,11 +356,11 @@ class _WorkoutTargetSelectorSheetState
               children: [
                 Text(
                   isVi ? 'Chạy Tự Do (Free Workout)' : 'Free Workout',
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
-                    color: AetronColors.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -362,10 +368,10 @@ class _WorkoutTargetSelectorSheetState
                   isVi
                       ? 'Luyện tập thoải mái không giới hạn cự ly hay thời lượng.'
                       : 'Run or walk freely without constraints or timers.',
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
+                  style: TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 11,
-                    color: AetronColors.textSecondary,
+                    color: colors.textSecondary,
                   ),
                 ),
               ],
@@ -376,7 +382,7 @@ class _WorkoutTargetSelectorSheetState
     );
   }
 
-  Widget _buildDistancePresets(bool isVi, Color accent) {
+  Widget _buildDistancePresets(bool isVi, Color accent, KineticColors colors) {
     const presets = [1.0, 3.0, 5.0, 10.0, 15.0, 21.1];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,6 +397,7 @@ class _WorkoutTargetSelectorSheetState
               label: label,
               isSelected: isSel,
               accent: accent,
+              colors: colors,
               onTap: () => _selectPreset(WorkoutTargetType.distance, km),
             );
           }).toList(),
@@ -399,7 +406,7 @@ class _WorkoutTargetSelectorSheetState
     );
   }
 
-  Widget _buildDurationPresets(bool isVi, Color accent) {
+  Widget _buildDurationPresets(bool isVi, Color accent, KineticColors colors) {
     const presets = [15.0, 30.0, 45.0, 60.0, 90.0, 120.0];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,6 +421,7 @@ class _WorkoutTargetSelectorSheetState
               label: label,
               isSelected: isSel,
               accent: accent,
+              colors: colors,
               onTap: () => _selectPreset(WorkoutTargetType.duration, mins),
             );
           }).toList(),
@@ -422,7 +430,7 @@ class _WorkoutTargetSelectorSheetState
     );
   }
 
-  Widget _buildCaloriePresets(bool isVi, Color accent) {
+  Widget _buildCaloriePresets(bool isVi, Color accent, KineticColors colors) {
     const presets = [150.0, 300.0, 500.0, 750.0, 1000.0];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,6 +444,7 @@ class _WorkoutTargetSelectorSheetState
               label: '${kcal.toInt()} kcal',
               isSelected: isSel,
               accent: accent,
+              colors: colors,
               onTap: () => _selectPreset(WorkoutTargetType.calories, kcal),
             );
           }).toList(),
@@ -448,6 +457,7 @@ class _WorkoutTargetSelectorSheetState
     required String label,
     required bool isSelected,
     required Color accent,
+    required KineticColors colors,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -455,10 +465,10 @@ class _WorkoutTargetSelectorSheetState
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? accent.withValues(alpha: 0.22) : const Color(0xFF070B14),
+          color: isSelected ? accent.withValues(alpha: 0.22) : colors.background,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? accent : AetronColors.borderSubtle,
+            color: isSelected ? accent : colors.borderSubtle,
             width: isSelected ? 1.4 : 1.0,
           ),
           boxShadow: isSelected
@@ -473,10 +483,10 @@ class _WorkoutTargetSelectorSheetState
         child: Text(
           label,
           style: TextStyle(
-            fontFamily: 'Outfit',
+            fontFamily: 'Plus Jakarta Sans',
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-            color: isSelected ? accent : AetronColors.textPrimary,
+            color: isSelected ? accent : colors.textPrimary,
           ),
         ),
       ),

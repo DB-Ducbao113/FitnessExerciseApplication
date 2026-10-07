@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_feedback.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,11 +37,16 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
   @override
   void initState() {
     super.initState();
-    final user = Supabase.instance.client.auth.currentUser;
-    final fallbackName = user?.userMetadata?['display_name'] as String? ??
-        user?.userMetadata?['full_name'] as String? ??
-        user?.userMetadata?['name'] as String? ??
-        '';
+    String fallbackName = '';
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      fallbackName = user?.userMetadata?['display_name'] as String? ??
+          user?.userMetadata?['full_name'] as String? ??
+          user?.userMetadata?['name'] as String? ??
+          '';
+    } catch (_) {
+      // Supabase instance might not be initialized in test environments
+    }
     _nameController = TextEditingController(
       text: widget.initialName?.trim() ?? fallbackName.trim(),
     );
@@ -97,6 +102,7 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -105,20 +111,20 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + bottomInset),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F1726),
+        color: colors.surface1,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: AetronColors.cyan.withValues(alpha: 0.35),
+          color: colors.borderSubtle,
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 28,
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: AetronColors.cyan.withValues(alpha: 0.12),
+            color: colors.primary.withValues(alpha: 0.12),
             blurRadius: 24,
           ),
         ],
@@ -136,7 +142,7 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: colors.borderSubtle,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -151,14 +157,14 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AetronColors.cyan.withValues(alpha: 0.12),
+                    color: colors.primary.withValues(alpha: 0.12),
                     border: Border.all(
-                      color: AetronColors.cyan.withValues(alpha: 0.45),
+                      color: colors.primary.withValues(alpha: 0.45),
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.badge_outlined,
-                    color: AetronColors.cyan,
+                    color: colors.primary,
                     size: 22,
                   ),
                 ),
@@ -169,9 +175,9 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                     children: [
                       Text(
                         AppTranslations.get('edit_display_name', currentLang),
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: Colors.white,
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          color: colors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.3,
@@ -182,9 +188,9 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                         isVi
                             ? 'Tên này sẽ hiển thị trên trang chủ và bảng xếp hạng'
                             : 'This name will appear on home and leaderboards',
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: AetronColors.textSecondary,
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          color: colors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -202,35 +208,35 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
               autofocus: true,
               maxLength: 30,
               textCapitalization: TextCapitalization.words,
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                color: Colors.white,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                color: colors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
               decoration: InputDecoration(
                 labelText: AppTranslations.get('display_name', currentLang),
-                labelStyle: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: AetronColors.cyan,
+                labelStyle: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  color: colors.primary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 hintText: AppTranslations.get('display_name_hint', currentLang),
                 hintStyle: TextStyle(
-                  fontFamily: 'Outfit',
-                  color: Colors.white.withValues(alpha: 0.3),
+                  fontFamily: 'Plus Jakarta Sans',
+                  color: colors.textMuted,
                   fontSize: 14,
                 ),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.person_outline_rounded,
-                  color: AetronColors.cyan,
+                  color: colors.primary,
                   size: 20,
                 ),
                 suffixIcon: _nameController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, size: 18),
-                        color: Colors.white54,
+                        color: colors.textSecondary,
                         onPressed: () {
                           setState(() {
                             _nameController.clear();
@@ -239,10 +245,10 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFF132033),
-                counterStyle: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: AetronColors.textSecondary,
+                fillColor: colors.surface2,
+                counterStyle: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
+                  color: colors.textSecondary,
                   fontSize: 11,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -252,27 +258,27 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(
-                    color: AetronColors.cyan.withValues(alpha: 0.25),
+                    color: colors.borderSubtle,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
-                    color: AetronColors.cyan,
+                  borderSide: BorderSide(
+                    color: colors.primary,
                     width: 1.5,
                   ),
                 ),
                 errorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
-                    color: AetronColors.danger,
+                  borderSide: BorderSide(
+                    color: colors.error,
                     width: 1.2,
                   ),
                 ),
                 focusedErrorBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
-                    color: AetronColors.danger,
+                  borderSide: BorderSide(
+                    color: colors.error,
                     width: 1.5,
                   ),
                 ),
@@ -300,26 +306,26 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AetronColors.danger.withValues(alpha: 0.12),
+                  color: colors.error.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: AetronColors.danger.withValues(alpha: 0.4),
+                    color: colors.error.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline_rounded,
-                      color: AetronColors.danger,
+                      color: colors.error,
                       size: 16,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: Color(0xFFFF8992),
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          color: colors.error,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -340,9 +346,9 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                         ? null
                         : () => Navigator.of(context).pop(false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
+                      foregroundColor: colors.textSecondary,
                       side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: colors.borderSubtle,
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -351,8 +357,9 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                     ),
                     child: Text(
                       AppTranslations.get('cancel', currentLang),
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
+                      style: TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        color: colors.textSecondary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -365,12 +372,12 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: [AetronColors.cyan, AetronColors.mint],
+                      gradient: LinearGradient(
+                        colors: [colors.primary, colors.secondary],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AetronColors.cyan.withValues(alpha: 0.35),
+                          color: colors.primary.withValues(alpha: 0.35),
                           blurRadius: 14,
                           offset: const Offset(0, 4),
                         ),
@@ -381,33 +388,34 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
-                        foregroundColor: const Color(0xFF070B14),
+                        foregroundColor: colors.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                       child: _isSaving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.2,
-                                color: Color(0xFF070B14),
+                                color: colors.onPrimary,
                               ),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.check_rounded, size: 18),
+                                Icon(Icons.check_rounded, size: 18, color: colors.onPrimary),
                                 const SizedBox(width: 6),
                                 Text(
                                   AppTranslations.get(
                                     'save_changes',
                                     currentLang,
                                   ),
-                                  style: const TextStyle(
-                                    fontFamily: 'Outfit',
+                                  style: TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    color: colors.onPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 0.3,

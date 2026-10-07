@@ -55,14 +55,11 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     }
     try {
       final localWorkouts = await LocalDB.getSessionsByUser(userId);
-      if (localWorkouts.isNotEmpty) {
-        return localWorkouts.map((w) => w.toEntity()).toList();
-      }
+      return localWorkouts.map((w) => w.toEntity()).toList();
     } catch (e) {
       debugPrint('[WorkoutRepository] LocalDB getSessionsByUser error: $e');
     }
-    // If local cache is empty or errored, fetch directly from remote
-    return await fetchSessionsRemote(userId);
+    return const [];
   }
 
   @override
@@ -74,7 +71,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     // 1. Wipe current local cache explicitly for the user
     await LocalDB.clearAllForUser(userId);
     // 2. Hydrate from the provided sessions
-    await LocalDB.syncRemoteSessions(sessions);
+    if (sessions.isNotEmpty) {
+      await LocalDB.syncRemoteSessions(sessions, forUserId: userId);
+    }
   }
 
   @override
@@ -165,10 +164,20 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<void> syncPendingData() async {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
 
     try {
-      final unsyncedWorkouts = await LocalDB.getUnsyncedWorkouts();
+      final unsyncedWorkouts =
+          await LocalDB.getUnsyncedWorkoutsForUser(currentUserId);
       for (final workout in unsyncedWorkouts) {
+        if (workout.userId != currentUserId) continue;
+        if (workout.durationSec <= 0 &&
+            workout.distanceKm <= 0 &&
+            workout.steps <= 0) {
+          await LocalDB.deleteWorkout(workout.id);
+          continue;
+        }
         try {
           final session = workout.toEntity();
           await _remoteDataSource.saveSession(session);
@@ -325,7 +334,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     try {
       await syncPendingData();
       final remoteWorkouts = await fetchSessionsRemote(userId);
-      await LocalDB.syncRemoteSessions(remoteWorkouts);
+      await replaceLocalCache(userId, remoteWorkouts);
     } catch (e) {
       debugPrint('[Sync] syncFromCloud error: $e');
     }

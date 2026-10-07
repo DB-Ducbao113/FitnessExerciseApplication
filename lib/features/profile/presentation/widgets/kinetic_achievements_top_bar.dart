@@ -51,7 +51,9 @@ class KineticAchievementsTopBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'AETRON ACHIEVEMENTS',
+                currentLang == AppLanguage.vi
+                    ? 'THÀNH TÍCH AETRON'
+                    : 'AETRON ACHIEVEMENTS',
                 style: KineticTypography.pageEyebrow.copyWith(
                   color: colors.primary,
                 ),

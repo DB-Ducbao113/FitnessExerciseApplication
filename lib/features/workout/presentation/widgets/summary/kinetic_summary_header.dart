@@ -8,15 +8,15 @@ class KineticSummaryHeader extends StatelessWidget {
   final String trackingMode;
   final AppLanguage currentLang;
   final VoidCallback onBackToHome;
-  final VoidCallback onShare;
+  final VoidCallback? onShare;
 
   const KineticSummaryHeader({
     super.key,
     required this.activityType,
-    required this.trackingMode,
+    this.trackingMode = 'outdoor',
     required this.currentLang,
     required this.onBackToHome,
-    required this.onShare,
+    this.onShare,
   });
 
   IconData _getActivityIcon(String type) {
@@ -48,7 +48,6 @@ class KineticSummaryHeader extends StatelessWidget {
     final colors = context.kinetic;
     final activityIcon = _getActivityIcon(activityType);
     final activityName = _getActivityName(activityType, currentLang);
-    final isOutdoor = trackingMode.toLowerCase() != 'indoor';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,53 +79,48 @@ class KineticSummaryHeader extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Column(
-                children: [
-                  Text(
-                    'AETRON TELEMETRY',
-                    style: KineticTypography.pageEyebrow.copyWith(
-                      color: colors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    AppTranslations.get('workout_summary', currentLang),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: KineticTypography.pageTitleCompact.copyWith(
-                      color: colors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Semantics(
-              button: true,
-              label: currentLang == AppLanguage.vi ? 'Chia sẻ buổi tập' : 'Share workout',
-              child: InkWell(
-                onTap: onShare,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: colors.surface1,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: colors.borderSubtle),
-                  ),
-                  child: Icon(
-                    Icons.ios_share_rounded,
-                    color: colors.primary,
-                    size: 19,
-                  ),
+              child: Text(
+                AppTranslations.get('workout_summary', currentLang),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KineticTypography.pageTitleCompact.copyWith(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
+            if (onShare != null)
+              Semantics(
+                button: true,
+                label: currentLang == AppLanguage.vi ? 'Chia sẻ buổi tập' : 'Share workout',
+                child: InkWell(
+                  onTap: onShare,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: colors.surface1,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.borderSubtle),
+                    ),
+                    child: Icon(
+                      Icons.ios_share_rounded,
+                      color: colors.primary,
+                      size: 19,
+                    ),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 44),
           ],
         ),
         const SizedBox(height: 16),
 
-        // Activity & Mode Badges Row
+        // Activity & Status Row (Đã bỏ GPS Ngoài trời)
         Row(
           children: [
             Container(
@@ -147,38 +141,6 @@ class KineticSummaryHeader extends StatelessWidget {
                       color: colors.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: colors.surface1,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: colors.borderSubtle),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: isOutdoor ? colors.primary : colors.secondary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    isOutdoor
-                        ? (currentLang == AppLanguage.vi ? 'GPS Ngoài trời' : 'Outdoor GPS')
-                        : (currentLang == AppLanguage.vi ? 'Cảm biến Trong nhà' : 'Indoor Pedometer'),
-                    style: KineticTypography.bodyMedium.copyWith(
-                      color: colors.textSecondary,
-                      fontSize: 12,
                     ),
                   ),
                 ],

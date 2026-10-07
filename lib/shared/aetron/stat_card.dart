@@ -78,7 +78,7 @@ class StatCard extends StatelessWidget {
                       trend!,
                       style: AetronTypography.caption.copyWith(
                         color: trendPositive ? AetronColors.mint : AetronColors.danger,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

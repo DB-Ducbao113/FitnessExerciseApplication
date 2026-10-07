@@ -47,9 +47,11 @@ class WorkoutSessionFinalizer {
     );
     final durationSec = state.durationSeconds;
     final movingTimeSec = math.min(state.movingTimeSeconds, durationSec);
-    final distanceKm = gpsAnalysis.totalDistanceKm > 0
-        ? gpsAnalysis.totalDistanceKm
-        : WorkoutMetricsCalculator.distanceMetersToKm(state.distanceMeters);
+    final distanceKm = gpsAnalysis.validDistanceKm > 0
+        ? gpsAnalysis.validDistanceKm
+        : (gpsAnalysis.totalDistanceKm > 0
+            ? gpsAnalysis.totalDistanceKm
+            : WorkoutMetricsCalculator.distanceMetersToKm(state.distanceMeters));
     final avgSpeedKmh = WorkoutMetricsCalculator.computeAverageSpeedKmh(
       distanceKm: distanceKm,
       durationSec: durationSec,

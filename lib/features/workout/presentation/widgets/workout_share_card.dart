@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -101,130 +101,109 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (e) {
-      debugPrint('[WorkoutShareCard] Capture error: $e');
+      debugPrint('[ShareCard] Capture error: $e');
       return null;
     }
   }
 
-  Future<File?> _saveToTempFile(Uint8List bytes) async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-          '${tempDir.path}/aetron_workout_${DateTime.now().millisecondsSinceEpoch}.png');
-      await file.writeAsBytes(bytes);
-      return file;
-    } catch (e) {
-      debugPrint('[WorkoutShareCard] Temp file error: $e');
-      return null;
+  Future<void> _shareToApp({
+    required String scheme,
+    required String appName,
+  }) async {
+    HapticFeedback.mediumImpact();
+    final uri = Uri.parse(scheme);
+    final canOpen = await canLaunchUrl(uri);
+
+    if (canOpen) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      final bytes = await _captureCardBytes();
+      if (bytes != null && mounted) {
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/aetron_workout_share.png');
+        await file.writeAsBytes(bytes);
+
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: _buildCaption(),
+        );
+      }
     }
   }
 
   Future<void> _shareToNative() async {
-    setState(() => _isProcessing = true);
     HapticFeedback.mediumImpact();
+    setState(() => _isProcessing = true);
 
     try {
       final bytes = await _captureCardBytes();
-      if (bytes == null) return;
-      if (kIsWeb) {
-        await Share.shareXFiles(
-          [XFile.fromData(bytes, name: 'aetron_workout.png', mimeType: 'image/png')],
-          text: _buildCaption(),
-        );
-        return;
-      }
-      final file = await _saveToTempFile(bytes);
-      if (file == null) return;
+      if (bytes == null || !mounted) return;
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/aetron_workout_share.png');
+      await file.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      final origin = box != null
+          ? (box.localToGlobal(Offset.zero) & box.size)
+          : const Rect.fromLTWH(0, 0, 100, 100);
 
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'image/png')],
+        [XFile(file.path)],
         text: _buildCaption(),
+        sharePositionOrigin: origin,
       );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
   }
 
-  Future<void> _shareToApp({required String scheme, required String appName}) async {
-    setState(() => _isProcessing = true);
-    HapticFeedback.lightImpact();
-
-    try {
-      final bytes = await _captureCardBytes();
-      if (bytes == null) return;
-
-      if (kIsWeb) {
-        await Share.shareXFiles(
-          [XFile.fromData(bytes, name: 'aetron_workout.png', mimeType: 'image/png')],
-          text: _buildCaption(),
-        );
-        return;
-      }
-
-      final file = await _saveToTempFile(bytes);
-      if (file == null) return;
-
-      // Copy caption to clipboard so user can easily paste in story/post
-      await Clipboard.setData(ClipboardData(text: _buildCaption()));
-
-      final uri = Uri.parse(scheme);
-      final canLaunch = await canLaunchUrl(uri);
-      if (canLaunch) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        // Fallback to native share sheet
-        await Share.shareXFiles(
-          [XFile(file.path, mimeType: 'image/png')],
-          text: _buildCaption(),
-        );
-      }
-    } catch (e) {
-      debugPrint('[$appName Share] Error: $e');
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
   Future<void> _saveToPhotos() async {
+    HapticFeedback.selectionClick();
     setState(() => _isProcessing = true);
-    HapticFeedback.mediumImpact();
     final isVi = widget.currentLang == AppLanguage.vi;
+    final colors = context.kinetic;
 
     try {
       final bytes = await _captureCardBytes();
-      if (bytes == null) return;
+      if (bytes == null || !mounted) return;
 
       if (kIsWeb) {
         await Share.shareXFiles(
-          [XFile.fromData(bytes, name: 'aetron_workout.png', mimeType: 'image/png')],
+          [
+            XFile.fromData(
+              bytes,
+              mimeType: 'image/png',
+              name: 'aetron_workout.png',
+            ),
+          ],
           text: _buildCaption(),
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF0F1524),
+              backgroundColor: colors.surface2,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
                 side: BorderSide(
-                  color: AetronColors.mint.withValues(alpha: 0.6),
+                  color: colors.primary.withValues(alpha: 0.6),
                 ),
               ),
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
-                      color: AetronColors.mint, size: 20),
+                  Icon(Icons.check_circle_rounded,
+                      color: colors.primary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isVi
                           ? 'Đã tải ảnh buổi tập thành công!'
                           : 'Workout card image ready to save!',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 13,
+                      style: KineticTypography.bodyMedium.copyWith(
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w700,
-                        color: AetronColors.textPrimary,
                       ),
                     ),
                   ),
@@ -246,29 +225,27 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF0F1524),
+              backgroundColor: colors.surface2,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
                 side: BorderSide(
-                  color: AetronColors.mint.withValues(alpha: 0.6),
+                  color: colors.primary.withValues(alpha: 0.6),
                 ),
               ),
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
-                      color: AetronColors.mint, size: 20),
+                  Icon(Icons.check_circle_rounded,
+                      color: colors.primary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isVi
                           ? 'Đã lưu ảnh buổi tập vào Thư viện ảnh!'
                           : 'Workout card saved to Photos!',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 13,
+                      style: KineticTypography.bodyMedium.copyWith(
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w700,
-                        color: AetronColors.textPrimary,
                       ),
                     ),
                   ),
@@ -281,12 +258,12 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF0F1524),
+              backgroundColor: colors.surface2,
               content: Text(
                 isVi
                     ? 'Vui lòng cấp quyền truy cập ảnh để lưu'
                     : 'Please allow photo access to save',
-                style: const TextStyle(color: AetronColors.textPrimary),
+                style: TextStyle(color: colors.textPrimary),
               ),
             ),
           );
@@ -300,33 +277,32 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
   Future<void> _copyCaption() async {
     HapticFeedback.lightImpact();
     final isVi = widget.currentLang == AppLanguage.vi;
+    final colors = context.kinetic;
     await Clipboard.setData(ClipboardData(text: _buildCaption()));
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF0F1524),
+          backgroundColor: colors.surface2,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
             side: BorderSide(
-              color: AetronColors.gold.withValues(alpha: 0.6),
+              color: colors.primary.withValues(alpha: 0.6),
             ),
           ),
           content: Row(
             children: [
-              const Icon(Icons.copy_rounded, color: AetronColors.gold, size: 20),
+              Icon(Icons.copy_rounded, color: colors.primary, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   isVi
                       ? 'Đã sao chép nội dung buổi tập vào Clipboard!'
                       : 'Workout caption copied to clipboard!',
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 13,
+                  style: KineticTypography.bodyMedium.copyWith(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
-                    color: AetronColors.textPrimary,
                   ),
                 ),
               ),
@@ -339,14 +315,21 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = widget.currentLang == AppLanguage.vi;
 
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF080E1E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: colors.surface1,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(
+            top: BorderSide(
+              color: colors.borderSubtle.withValues(alpha: 0.8),
+              width: 1.2,
+            ),
+          ),
         ),
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 24),
@@ -356,11 +339,11 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
               // Drag Handle
               const SizedBox(height: 12),
               Container(
-                width: 40,
+                width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AetronColors.borderSubtle,
-                  borderRadius: BorderRadius.circular(2),
+                  color: colors.borderSubtle.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
               const SizedBox(height: 14),
@@ -371,16 +354,17 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                 child: Row(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AetronColors.cyan.withValues(alpha: 0.18),
+                        color: colors.primary.withValues(alpha: 0.15),
                         border: Border.all(
-                            color: AetronColors.cyan.withValues(alpha: 0.4)),
+                          color: colors.primary.withValues(alpha: 0.35),
+                        ),
                       ),
-                      child: const Icon(Icons.ios_share_rounded,
-                          color: AetronColors.cyan, size: 16),
+                      child: Icon(Icons.ios_share_rounded,
+                          color: colors.primary, size: 18),
                     ),
                     const SizedBox(width: 10),
                     Column(
@@ -388,21 +372,17 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                       children: [
                         Text(
                           isVi ? 'CHIA SẺ BUỔI TẬP' : 'SHARE WORKOUT',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: AetronColors.cyan.withValues(alpha: 0.9),
+                          style: KineticTypography.pageEyebrow.copyWith(
+                            color: colors.primary,
                             letterSpacing: 1.2,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         Text(
                           isVi ? 'Thẻ Vinh Danh Thành Tích' : 'Achievement Card',
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 16,
+                          style: KineticTypography.headlineSmall.copyWith(
+                            color: colors.textPrimary,
                             fontWeight: FontWeight.w900,
-                            color: AetronColors.textPrimary,
                           ),
                         ),
                       ],
@@ -410,24 +390,24 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded,
-                          color: AetronColors.muted),
+                      icon: Icon(Icons.close_rounded,
+                          color: colors.textSecondary),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
               // Theme Selector Chips
               SizedBox(
-                height: 34,
+                height: 36,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   children: [
                     _ThemePill(
                       label: '⚡ Cyber Neon',
-                      color: AetronColors.cyan,
+                      color: const Color(0xFF00E5FF),
                       isSelected: _selectedTheme == ShareCardTheme.cyberNeon,
                       onTap: () => setState(
                           () => _selectedTheme = ShareCardTheme.cyberNeon),
@@ -435,7 +415,7 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                     const SizedBox(width: 8),
                     _ThemePill(
                       label: '🔥 Solar Flare',
-                      color: AetronColors.gold,
+                      color: const Color(0xFFF8C15C),
                       isSelected: _selectedTheme == ShareCardTheme.solarFlare,
                       onTap: () => setState(
                           () => _selectedTheme = ShareCardTheme.solarFlare),
@@ -443,7 +423,7 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                     const SizedBox(width: 8),
                     _ThemePill(
                       label: '🌿 Matrix Mint',
-                      color: AetronColors.mint,
+                      color: const Color(0xFF7DF9A8),
                       isSelected: _selectedTheme == ShareCardTheme.matrixMint,
                       onTap: () => setState(
                           () => _selectedTheme = ShareCardTheme.matrixMint),
@@ -460,7 +440,7 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
               // Capturable Card View
               Padding(
@@ -493,12 +473,10 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                   children: [
                     Text(
                       isVi ? 'CHỌN MẠNG XÃ HỘI' : 'SHARE TO SOCIALS',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: AetronColors.textSecondary,
+                      style: KineticTypography.unitLabel.copyWith(
+                        color: colors.textSecondary,
                         letterSpacing: 1.0,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -562,7 +540,7 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                       child: _ActionSquareButton(
                         icon: Icons.save_alt_rounded,
                         label: isVi ? 'Lưu ảnh' : 'Save Image',
-                        color: AetronColors.mint,
+                        color: const Color(0xFF7DF9A8),
                         onTap: _saveToPhotos,
                       ),
                     ),
@@ -572,7 +550,7 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                       child: _ActionSquareButton(
                         icon: Icons.copy_rounded,
                         label: isVi ? 'Sao chép' : 'Copy Text',
-                        color: AetronColors.gold,
+                        color: const Color(0xFFF8C15C),
                         onTap: _copyCaption,
                       ),
                     ),
@@ -582,7 +560,7 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                       child: _ActionSquareButton(
                         icon: Icons.share_rounded,
                         label: isVi ? 'Khác...' : 'More...',
-                        color: AetronColors.cyan,
+                        color: colors.primary,
                         onTap: _shareToNative,
                       ),
                     ),
@@ -592,13 +570,13 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
 
               if (_isProcessing) ...[
                 const SizedBox(height: 16),
-                const Center(
+                Center(
                   child: SizedBox(
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.2,
-                      color: AetronColors.cyan,
+                      color: colors.primary,
                     ),
                   ),
                 ),
@@ -626,27 +604,34 @@ class _ThemePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? color.withValues(alpha: 0.2)
-              : AetronColors.panelHigh,
+          color: isSelected ? color.withValues(alpha: 0.18) : colors.surface2,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? color : AetronColors.borderSubtle,
-            width: isSelected ? 1.4 : 1.0,
+            color: isSelected ? color : colors.borderSubtle,
+            width: isSelected ? 1.5 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    spreadRadius: -1,
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-            color: isSelected ? color : AetronColors.textSecondary,
+          style: KineticTypography.label.copyWith(
+            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+            color: isSelected ? color : colors.textSecondary,
           ),
         ),
       ),
@@ -671,22 +656,26 @@ class _SocialAppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
           Container(
-            width: 54,
-            height: 54,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.18),
+              color: color.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: color.withValues(alpha: 0.5), width: 1.2),
+              border: Border.all(
+                color: color.withValues(alpha: 0.45),
+                width: 1.2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: color.withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  spreadRadius: -2,
+                  color: color.withValues(alpha: 0.18),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -695,9 +684,9 @@ class _SocialAppButton extends StatelessWidget {
                   ? Text(
                       customText!,
                       style: TextStyle(
-                        fontFamily: 'Outfit',
+                        fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w900,
-                        fontSize: 13,
+                        fontSize: 14,
                         color: color,
                       ),
                     )
@@ -707,11 +696,9 @@ class _SocialAppButton extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 10,
+            style: KineticTypography.bodySmall.copyWith(
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
-              color: AetronColors.textSecondary,
             ),
           ),
         ],
@@ -735,30 +722,32 @@ class _ActionSquareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: AetronColors.panelHigh,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withValues(alpha: 0.4), width: 1.0),
+            color: colors.surface2,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colors.borderSubtle.withValues(alpha: 0.8),
+              width: 1.0,
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: color),
+              Icon(icon, size: 17, color: color),
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 11,
+                style: KineticTypography.label.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: color,
+                  color: colors.textPrimary,
                 ),
               ),
             ],
@@ -814,12 +803,12 @@ class _ShareCardContent extends StatelessWidget {
 
     final (accentColor, glowColor, bgColors) = switch (theme) {
       ShareCardTheme.solarFlare => (
-          AetronColors.gold,
+          const Color(0xFFF8C15C),
           const Color(0xFFFF9F1C),
           const [Color(0xFF140A04), Color(0xFF221105), Color(0xFF100702)],
         ),
       ShareCardTheme.matrixMint => (
-          AetronColors.mint,
+          const Color(0xFF7DF9A8),
           const Color(0xFF2EC4B6),
           const [Color(0xFF031410), Color(0xFF06201B), Color(0xFF02100C)],
         ),
@@ -829,8 +818,8 @@ class _ShareCardContent extends StatelessWidget {
           const [Color(0xFF11071F), Color(0xFF1B0C30), Color(0xFF0C0416)],
         ),
       ShareCardTheme.cyberNeon => (
-          AetronColors.cyan,
-          AetronColors.mint,
+          const Color(0xFF00E5FF),
+          const Color(0xFF7DF9A8),
           const [Color(0xFF060C1C), Color(0xFF0B1530), Color(0xFF05111F)],
         ),
     };
@@ -927,10 +916,10 @@ class _ShareCardContent extends StatelessWidget {
                           const Text(
                             'AETRON',
                             style: TextStyle(
-                              fontFamily: 'Outfit',
+                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
-                              color: AetronColors.textPrimary,
+                              color: Colors.white,
                               letterSpacing: 2.5,
                             ),
                           ),
@@ -939,11 +928,10 @@ class _ShareCardContent extends StatelessWidget {
                       Text(
                         dateStr,
                         style: TextStyle(
-                          fontFamily: 'Outfit',
+                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: AetronColors.textSecondary
-                              .withValues(alpha: 0.8),
+                          color: Colors.white.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -963,8 +951,8 @@ class _ShareCardContent extends StatelessWidget {
                     child: Text(
                       '⚡ $actLabel',
                       style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 10,
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 11,
                         fontWeight: FontWeight.w900,
                         color: accentColor,
                         letterSpacing: 1.0,
@@ -979,12 +967,13 @@ class _ShareCardContent extends StatelessWidget {
                     children: [
                       Text(
                         distStr,
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 42,
                           fontWeight: FontWeight.w900,
-                          color: AetronColors.textPrimary,
+                          color: Colors.white,
                           height: 1.0,
+                          fontFeatures: KineticTypography.tabularFigures,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -993,11 +982,10 @@ class _ShareCardContent extends StatelessWidget {
                         child: Text(
                           isVi ? 'KHOẢNG CÁCH' : 'DISTANCE',
                           style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 9,
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: AetronColors.textSecondary
-                                .withValues(alpha: 0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                             letterSpacing: 1.0,
                           ),
                         ),
@@ -1051,7 +1039,7 @@ class _ShareCardContent extends StatelessWidget {
                           icon: Icons.local_fire_department_rounded,
                           label: isVi ? 'CALO ĐỐT' : 'CALORIES',
                           value: '$calories kcal',
-                          color: AetronColors.gold,
+                          color: const Color(0xFFF8C15C),
                         ),
                       ),
                       if (hasSteps)
@@ -1077,11 +1065,10 @@ class _ShareCardContent extends StatelessWidget {
                           : 'Your personal fitness telemetry companion — Aetron',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 9,
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color:
-                            AetronColors.textSecondary.withValues(alpha: 0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                         letterSpacing: 0.4,
                       ),
                     ),
@@ -1123,10 +1110,10 @@ class _ShareStat extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 8,
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: AetronColors.textSecondary.withValues(alpha: 0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   letterSpacing: 0.8,
                 ),
               ),
@@ -1134,10 +1121,11 @@ class _ShareStat extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                   color: color,
+                  fontFeatures: KineticTypography.tabularFigures,
                 ),
               ),
             ],

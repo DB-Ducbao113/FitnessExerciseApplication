@@ -1,5 +1,5 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 
 class PasswordSecurityResult {
@@ -90,19 +90,20 @@ class PasswordSecurityMeter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (password.isEmpty) return const SizedBox.shrink();
 
+    final colors = context.kinetic;
     final result = evaluatePasswordSecurity(password);
     final score = result.score;
 
     Color strengthColor;
     String strengthLabel;
     if (score <= 2) {
-      strengthColor = AetronColors.danger;
+      strengthColor = colors.error;
       strengthLabel = lang == AppLanguage.vi ? 'YẾU' : 'WEAK';
     } else if (score <= 4) {
-      strengthColor = AetronColors.gold;
+      strengthColor = const Color(0xFFFFD54F);
       strengthLabel = lang == AppLanguage.vi ? 'TRUNG BÌNH' : 'MEDIUM';
     } else {
-      strengthColor = AetronColors.mint;
+      strengthColor = const Color(0xFF2AF598);
       strengthLabel = lang == AppLanguage.vi ? 'BẢO MẬT TỐI ƯU' : 'STRONG SECURITY';
     }
 
@@ -110,7 +111,7 @@ class PasswordSecurityMeter extends StatelessWidget {
       margin: const EdgeInsets.only(top: 8, bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AetronColors.space,
+        color: colors.surface1,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: strengthColor.withValues(alpha: 0.3)),
       ),
@@ -135,8 +136,8 @@ class PasswordSecurityMeter extends StatelessWidget {
               Text(
                 strengthLabel,
                 style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 10,
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
                   color: strengthColor,
                   letterSpacing: 1.0,
@@ -190,13 +191,14 @@ class _RuleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isMet ? AetronColors.mint : AetronColors.textSecondary.withValues(alpha: 0.5);
+    final colors = context.kinetic;
+    final color = isMet ? const Color(0xFF2AF598) : colors.textSecondary.withValues(alpha: 0.5);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isMet ? AetronColors.mint.withValues(alpha: 0.12) : Colors.transparent,
+        color: isMet ? const Color(0xFF2AF598).withValues(alpha: 0.12) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: isMet ? 0.4 : 0.2)),
       ),
@@ -212,10 +214,10 @@ class _RuleChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 10,
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 11,
               fontWeight: isMet ? FontWeight.w800 : FontWeight.w500,
-              color: isMet ? AetronColors.textPrimary : AetronColors.textSecondary,
+              color: isMet ? colors.textPrimary : colors.textSecondary,
             ),
           ),
         ],

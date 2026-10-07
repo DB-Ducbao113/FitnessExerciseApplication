@@ -1,33 +1,66 @@
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 
 class LocateButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isFollowEnabled;
+  final bool isVi;
 
   const LocateButton({
     super.key,
     required this.onPressed,
     required this.isFollowEnabled,
+    this.isVi = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = isFollowEnabled
-        ? const Color(0xff18b0e8)
-        : Colors.grey.shade700;
+    final colors = context.kinetic;
+    final activeColor = colors.primary;
 
     return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.25),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: SizedBox(
-          width: 52,
-          height: 52,
-          child: Icon(Icons.my_location_rounded, color: iconColor, size: 24),
+      color: Colors.transparent,
+      child: Tooltip(
+        message: isVi ? 'Định vị vị trí của tôi' : 'Center on my location',
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.surface1.withValues(alpha: 0.94),
+              border: Border.all(
+                color: isFollowEnabled
+                    ? activeColor
+                    : colors.borderSubtle.withValues(alpha: 0.8),
+                width: 1.5,
+              ),
+              boxShadow: [
+                if (isFollowEnabled)
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Icon(
+                isFollowEnabled
+                    ? Icons.my_location_rounded
+                    : Icons.location_searching_rounded,
+                color: isFollowEnabled ? activeColor : colors.textSecondary,
+                size: 22,
+              ),
+            ),
+          ),
         ),
       ),
     );

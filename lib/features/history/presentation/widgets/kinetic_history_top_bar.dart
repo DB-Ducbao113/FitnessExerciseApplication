@@ -23,35 +23,33 @@ class KineticHistoryTopBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'AETRON ARCHIVE',
-                  style: KineticTypography.pageEyebrow.copyWith(
-                    color: colors.primary,
-                  ),
+            // Left: Page Title (Clear & Prominent)
+            Expanded(
+              child: Text(
+                AppTranslations.get('workout_history', currentLang),
+                style: KineticTypography.pageTitle.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: colors.textPrimary,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  AppTranslations.get('workout_history', currentLang),
-                  style: KineticTypography.pageTitle.copyWith(
-                    color: colors.textPrimary,
-                  ),
-                ),
-              ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 12),
 
-            // Workout Count Badge
+            // Workout Count Badge Pill
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
               decoration: BoxDecoration(
                 color: colors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: colors.primary.withValues(alpha: 0.3),
+                  color: colors.primary.withValues(alpha: 0.35),
                 ),
               ),
               child: Row(
@@ -63,6 +61,12 @@ class KineticHistoryTopBar extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: colors.primary,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colors.primary.withValues(alpha: 0.6),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -70,7 +74,7 @@ class KineticHistoryTopBar extends StatelessWidget {
                     '$totalCount ${currentLang == AppLanguage.vi ? 'BUỔI' : 'SESSIONS'}',
                     style: KineticTypography.unitLabel.copyWith(
                       color: colors.primary,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

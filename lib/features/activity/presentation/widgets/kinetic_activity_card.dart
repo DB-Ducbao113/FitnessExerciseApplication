@@ -8,8 +8,8 @@ class ActivityOptionItem {
   final String type;
   final String nameVi;
   final String nameEn;
-  final String tagVi;
-  final String tagEn;
+  final String? tagVi;
+  final String? tagEn;
   final String imagePath;
   final IconData icon;
   final Color accentColor;
@@ -19,8 +19,8 @@ class ActivityOptionItem {
     required this.type,
     required this.nameVi,
     required this.nameEn,
-    required this.tagVi,
-    required this.tagEn,
+    this.tagVi,
+    this.tagEn,
     required this.imagePath,
     required this.icon,
     required this.accentColor,
@@ -51,44 +51,49 @@ class KineticActivityCard extends StatelessWidget {
         .where((w) => w.activityType.toLowerCase() == option.type.toLowerCase())
         .toList();
 
-    // Compute real athlete statistics for this activity
+    // Compute real athlete statistics for this activity (only for valid sessions >= 0.1km)
     String? statLeft;
     String? statRight;
 
-    if (activityWorkouts.isNotEmpty) {
-      final totalDist = activityWorkouts.fold<double>(
+    final validWorkouts = activityWorkouts.where((w) => w.distanceKm >= 0.1).toList();
+
+    if (validWorkouts.isNotEmpty) {
+      final totalDist = validWorkouts.fold<double>(
         0.0,
         (sum, w) => sum + w.distanceKm,
       );
-      final avgDist = totalDist / activityWorkouts.length;
-      final totalSec = activityWorkouts.fold<int>(
+      final avgDist = totalDist / validWorkouts.length;
+      final totalSec = validWorkouts.fold<int>(
         0,
         (sum, w) => sum + w.durationSec,
       );
-      final avgSec = (totalSec / activityWorkouts.length).round();
+      final avgSec = (totalSec / validWorkouts.length).round();
 
-      statLeft = '${avgDist.toStringAsFixed(1)} ${isVi ? 'km / buổi' : 'km / session'}';
-      if (option.type == 'cycling') {
-        final totalSpeed = activityWorkouts.fold<double>(
-          0.0,
-          (sum, w) => sum + w.avgSpeedKmh,
-        );
-        final avgSpeed = totalSpeed / activityWorkouts.length;
-        statRight = 'TB ${avgSpeed.toStringAsFixed(1)} km/h';
-      } else {
-        statRight = avgDist > 0.05
-            ? 'Pace ${WorkoutFormatters.formatPaceFromDistanceAndDuration(distanceKm: avgDist, durationSec: avgSec)}'
-            : (isVi ? 'TB hoạt động' : 'Active');
+      if (avgDist >= 0.1) {
+        statLeft = '${avgDist.toStringAsFixed(1)} ${isVi ? 'km / buổi' : 'km / session'}';
+        if (option.type == 'cycling') {
+          final totalSpeed = validWorkouts.fold<double>(
+            0.0,
+            (sum, w) => sum + w.avgSpeedKmh,
+          );
+          final avgSpeed = totalSpeed / validWorkouts.length;
+          if (avgSpeed > 0) {
+            statRight = 'TB ${avgSpeed.toStringAsFixed(1)} km/h';
+          }
+        } else {
+          if (avgSec > 0 && avgDist > 0) {
+            statRight = 'Pace ${WorkoutFormatters.formatPaceFromDistanceAndDuration(distanceKm: avgDist, durationSec: avgSec)}';
+          }
+        }
       }
     }
 
     final name = isVi ? option.nameVi : option.nameEn;
-    final tag = isVi ? option.tagVi : option.tagEn;
 
     return Semantics(
       button: true,
       selected: isSelected,
-      label: '$name, $tag',
+      label: name,
       child: GestureDetector(
         onTap: () {
           HapticFeedback.selectionClick();
@@ -155,34 +160,19 @@ class KineticActivityCard extends StatelessWidget {
                         ),
                       ),
 
-                      // Gradient Overlay for contrast and readability
+                      // Subtle Bottom Gradient for title readability without darkening the photo
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.black.withValues(alpha: 0.25),
-                              Colors.black.withValues(alpha: 0.60),
-                              Colors.black.withValues(alpha: 0.92),
-                            ],
-                            stops: const [0.0, 0.45, 1.0],
-                          ),
-                        ),
-                      ),
-
-                      // Horizontal Ambient Glow
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.85),
-                              Colors.black.withValues(alpha: 0.35),
                               Colors.transparent,
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.25),
+                              Colors.black.withValues(alpha: 0.65),
                             ],
-                            stops: const [0.0, 0.55, 1.0],
+                            stops: const [0.0, 0.40, 0.70, 1.0],
                           ),
                         ),
                       ),
@@ -199,11 +189,11 @@ class KineticActivityCard extends StatelessWidget {
                             shape: BoxShape.circle,
                             color: isSelected
                                 ? colors.primary
-                                : Colors.black.withValues(alpha: 0.4),
+                                : Colors.black.withValues(alpha: 0.35),
                             border: Border.all(
                               color: isSelected
                                   ? colors.primary
-                                  : Colors.white.withValues(alpha: 0.3),
+                                  : Colors.white.withValues(alpha: 0.4),
                               width: 1.5,
                             ),
                           ),
@@ -217,52 +207,26 @@ class KineticActivityCard extends StatelessWidget {
                         ),
                       ),
 
-                      // Bottom Content: Title & Environment tag
+                      // Bottom Content: Title only with text shadow for crisp legibility
                       Positioned(
-                        bottom: 10,
-                        left: 12,
-                        right: 12,
-                        child: Row(
-                          children: [
-                            Text(
-                              name,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.2,
+                        bottom: 12,
+                        left: 14,
+                        right: 14,
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 1),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? colors.primary.withValues(alpha: 0.25)
-                                    : Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? colors.primary.withValues(alpha: 0.5)
-                                      : Colors.transparent,
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? colors.primary
-                                      : Colors.white70,
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],

@@ -1,7 +1,9 @@
+import "dart:math" as math;
 import "dart:ui" as ui;
 import "package:fitness_exercise_application/core/constants/debug_config.dart";
 import "package:fitness_exercise_application/core/localization/app_translations.dart";
 import "package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart";
+import "package:fitness_exercise_application/shared/kinetic/kinetic.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
@@ -75,9 +77,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
 
   static const LatLng _defaultCenter = LatLng(10.7769, 106.7009);
 
-  static const _routeGlow = Color(0x6600E5FF);
-  static const _routeCore = Color(0xFF00E5FF);
-  static const _routeHighlight = Color(0xFFD4FBFF);
+  static const _routeGlow = Color(0x66A8DCE7);
+  static const _routeCore = Color(0xFFA8DCE7);
+  static const _routeHighlight = Color(0xFFE2F8FC);
   static const _routeShadow = Color(0x40000000);
 
   static Duration get _cameraThrottle => kDebugLocationMode
@@ -191,8 +193,22 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
     final last = _lastCameraMove;
     if (last == null || now.difference(last) >= _cameraThrottle) {
       _lastCameraMove = now;
-      _mapController.move(target, _mapController.camera.zoom);
+      final currentZoom = _mapController.camera.zoom;
+      final camTarget = _visualCameraTarget(target, currentZoom);
+      _mapController.move(camTarget, currentZoom);
     }
+  }
+
+  LatLng _visualCameraTarget(LatLng rawTarget, double zoom) {
+    // When tracking live in Map mode, offset camera center southward
+    // so the avatar is positioned at the optical center of the visible
+    // map area (between the top bar ~70px and the bottom HUD card ~220px).
+    // An upward screen offset of ~72 logical pixels keeps the avatar
+    // away from the bottom mini metrics card and dock.
+    final latRad = rawTarget.latitude * (math.pi / 180.0);
+    final cosLat = math.cos(latRad).abs().clamp(0.1, 1.0);
+    final deltaLat = (72.0 * 360.0) / (256.0 * math.pow(2.0, zoom) * cosLat);
+    return LatLng(rawTarget.latitude - deltaLat, rawTarget.longitude);
   }
 
   void _recenterToCurrent({bool force = false}) {
@@ -207,7 +223,8 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
     _initialCameraSet = true;
     final currentZoom = _mapController.camera.zoom;
     final zoom = currentZoom < 14.0 ? 17.2 : currentZoom;
-    _mapController.move(target, zoom);
+    final camTarget = _visualCameraTarget(target, zoom);
+    _mapController.move(camTarget, zoom);
   }
 
   void _refreshDisplayRoute() {
@@ -386,7 +403,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
           child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: center,
+              initialCenter: _visualCameraTarget(center, 17.2),
               initialZoom: 17.2,
               minZoom: 4,
               maxZoom: 20,
@@ -430,9 +447,9 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
                         gradientColors: useLitePolyline
                             ? null
                             : const [
-                                Color(0xFF00E5FF),
-                                Color(0xFF39F2B8),
-                                Color(0xFF00E5FF),
+                                Color(0xFFA8DCE7),
+                                Color(0xFF2BD9A5),
+                                Color(0xFFA8DCE7),
                               ],
                         color: _routeCore,
                       ),
@@ -450,20 +467,23 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
                   if (widget.showRoute && displayRoute.isNotEmpty)
                     Marker(
                       point: displayRoute.first,
-                      width: 24,
-                      height: 32,
-                      alignment: Alignment.topCenter,
-                      child: const _Start3DPinMarker(),
+                      width: 32,
+                      height: 44,
+                      alignment: Alignment.bottomCenter,
+                      child: _Start3DPinMarker(
+                        tiltAnimation: _tiltAnimation,
+                      ),
                     ),
                   if (markerPos != null)
                     Marker(
                       point: markerPos,
-                      width: 40,
-                      height: 48,
-                      alignment: Alignment.topCenter,
+                      width: 48,
+                      height: 56,
+                      alignment: Alignment.bottomCenter,
                       child: _Aetron3DUserAvatarMarker(
                         avatarImage: widget.avatarImage,
                         initials: widget.initials,
+                        tiltAnimation: _tiltAnimation,
                       ),
                     ),
                   if (widget.gpsGapMarker != null)
@@ -471,6 +491,7 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
                       point: widget.gpsGapMarker!,
                       width: 20,
                       height: 20,
+                      alignment: Alignment.center,
                       child: const _GpsGapMarker(),
                     ),
                 ],
@@ -486,11 +507,13 @@ class _TrackingMapWidgetState extends State<TrackingMapWidget>
             children: [
               _Map3DPerspectiveOrb(
                 is3D: _is3DMode,
+                isVi: widget.currentLang == AppLanguage.vi,
                 onTap: _toggle3DMode,
               ),
               const SizedBox(height: 10),
               _MapLayerPickerOrb(
                 selectedType: _selectedMapType,
+                isVi: widget.currentLang == AppLanguage.vi,
                 onTap: _openMapStylePicker,
               ),
               if (widget.isGpsSignalWeak) ...[
@@ -558,55 +581,65 @@ List<Widget> _buildMapTileLayers(AppMapType type) {
 
 class _Map3DPerspectiveOrb extends StatelessWidget {
   final bool is3D;
+  final bool isVi;
   final VoidCallback onTap;
 
   const _Map3DPerspectiveOrb({
     required this.is3D,
+    this.isVi = true,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xE60A1320),
-            border: Border.all(
-              color: is3D
-                  ? const Color(0xFF00E5FF)
-                  : Colors.white.withValues(alpha: 0.35),
-              width: 1.5,
-            ),
-            boxShadow: [
-              if (is3D)
-                BoxShadow(
-                  color: const Color(0xFF00E5FF).withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
+    final colors = context.kinetic;
+    final tooltipMsg = isVi
+        ? (is3D ? "Đang xem 3D (Chạm để về 2D)" : "Đang xem 2D (Chạm để bật 3D)")
+        : (is3D ? "3D perspective on (Tap for 2D)" : "2D top-down on (Tap for 3D)");
+
+    return Tooltip(
+      message: tooltipMsg,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.surface1.withValues(alpha: 0.94),
+              border: Border.all(
+                color: is3D
+                    ? colors.primary
+                    : Colors.white.withValues(alpha: 0.35),
+                width: 1.5,
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              is3D ? "3D" : "2D",
-              style: TextStyle(
-                fontFamily: "Outfit",
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: is3D ? const Color(0xFF00E5FF) : Colors.white70,
-                letterSpacing: 0.8,
+              boxShadow: [
+                if (is3D)
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                is3D ? "3D" : "2D",
+                style: TextStyle(
+                  fontFamily: KineticTypography.fontFamily,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                  color: is3D ? colors.primary : Colors.white70,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
           ),
@@ -618,48 +651,54 @@ class _Map3DPerspectiveOrb extends StatelessWidget {
 
 class _MapLayerPickerOrb extends StatelessWidget {
   final AppMapType selectedType;
+  final bool isVi;
   final VoidCallback onTap;
 
   const _MapLayerPickerOrb({
     required this.selectedType,
+    this.isVi = true,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xE60A1320),
-            border: Border.all(
-              color: const Color(0xFF00E5FF).withValues(alpha: 0.6),
-              width: 1.5,
+    final colors = context.kinetic;
+    return Tooltip(
+      message: isVi ? "Chọn kiểu bản đồ" : "Select map style",
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.surface1.withValues(alpha: 0.94),
+              border: Border.all(
+                color: colors.primary.withValues(alpha: 0.6),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: 0.25),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
-                blurRadius: 10,
-                spreadRadius: 1,
+            child: Center(
+              child: Icon(
+                Icons.layers_rounded,
+                color: colors.primary,
+                size: 22,
               ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.layers_rounded,
-              color: Color(0xFF00E5FF),
-              size: 20,
             ),
           ),
         ),
@@ -681,18 +720,19 @@ class _MapStylePickerSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.kinetic;
     final activeLang = ref.watch(appLanguageProvider);
     final isVi = activeLang == AppLanguage.vi;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0D1624),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: colors.surface1,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(
-          top: BorderSide(color: Color(0x4400E5FF), width: 1.5),
+          top: BorderSide(color: colors.borderAccent, width: 1.5),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black87,
             blurRadius: 30,
@@ -721,20 +761,20 @@ class _MapStylePickerSheet extends ConsumerWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                  color: colors.primary.withValues(alpha: 0.15),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.layers_rounded,
-                  color: Color(0xFF00E5FF),
+                  color: colors.primary,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 12),
               Text(
                 isVi ? "CHỌN KIỂU BẢN ĐỒ" : "SELECT MAP STYLE",
-                style: const TextStyle(
-                  fontFamily: "Outfit",
-                  color: Colors.white,
+                style: TextStyle(
+                  fontFamily: KineticTypography.fontFamily,
+                  color: colors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.1,
@@ -747,14 +787,15 @@ class _MapStylePickerSheet extends ConsumerWidget {
             isVi
                 ? "Tùy chỉnh góc nhìn bản đồ phù hợp với sở thích của bạn:"
                 : "Customize your map style to match your preference:",
-            style: const TextStyle(
-              fontFamily: "Outfit",
-              color: Colors.white70,
+            style: TextStyle(
+              fontFamily: KineticTypography.fontFamily,
+              color: colors.textSecondary,
               fontSize: 13,
             ),
           ),
           const SizedBox(height: 18),
           _buildMapOption(
+            context: context,
             type: AppMapType.satellite,
             title: isVi ? "Ảnh Vệ Tinh 3D" : "3D Satellite Imagery",
             subtitle: isVi
@@ -765,6 +806,7 @@ class _MapStylePickerSheet extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _buildMapOption(
+            context: context,
             type: AppMapType.streets,
             title: isVi ? "Đường Phố Rõ Nét" : "Clean Street Map",
             subtitle: isVi
@@ -779,12 +821,14 @@ class _MapStylePickerSheet extends ConsumerWidget {
   }
 
   Widget _buildMapOption({
+    required BuildContext context,
     required AppMapType type,
     required String title,
     required String subtitle,
     required IconData icon,
     required String badge,
   }) {
+    final colors = context.kinetic;
     final isSelected = currentType == type;
 
     return Material(
@@ -799,19 +843,19 @@ class _MapStylePickerSheet extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF00E5FF).withValues(alpha: 0.18)
-                : const Color(0xFF131D2D),
+                ? colors.primary.withValues(alpha: 0.18)
+                : colors.surface2,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF00E5FF)
-                  : const Color(0x3300E5FF),
+                  ? colors.primary
+                  : colors.borderSubtle,
               width: isSelected ? 1.8 : 1.0,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF00E5FF).withValues(alpha: 0.35),
+                      color: colors.primary.withValues(alpha: 0.35),
                       blurRadius: 12,
                     ),
                   ]
@@ -824,10 +868,10 @@ class _MapStylePickerSheet extends ConsumerWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF07101C),
+                  color: colors.background,
                   border: Border.all(
                     color: isSelected
-                        ? const Color(0xFF00E5FF)
+                        ? colors.primary
                         : Colors.white24,
                   ),
                 ),
@@ -835,8 +879,8 @@ class _MapStylePickerSheet extends ConsumerWidget {
                   child: Icon(
                     icon,
                     color: isSelected
-                        ? const Color(0xFF00E5FF)
-                        : Colors.white70,
+                        ? colors.primary
+                        : colors.textSecondary,
                     size: 22,
                   ),
                 ),
@@ -851,14 +895,14 @@ class _MapStylePickerSheet extends ConsumerWidget {
                         Text(
                           title,
                           style: TextStyle(
-                            fontFamily: "Outfit",
+                            fontFamily: KineticTypography.fontFamily,
                             fontSize: 15,
                             fontWeight: isSelected
                                 ? FontWeight.w900
                                 : FontWeight.w700,
                             color: isSelected
-                                ? const Color(0xFF00E5FF)
-                                : Colors.white,
+                                ? colors.primary
+                                : colors.textPrimary,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -869,19 +913,19 @@ class _MapStylePickerSheet extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFF00E5FF).withValues(alpha: 0.2)
-                                : Colors.white10,
+                                ? colors.primary.withValues(alpha: 0.2)
+                                : colors.surface3,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             badge,
                             style: TextStyle(
-                              fontFamily: "Outfit",
-                              fontSize: 9,
+                              fontFamily: KineticTypography.fontFamily,
+                              fontSize: 11,
                               fontWeight: FontWeight.w900,
                               color: isSelected
-                                  ? const Color(0xFF00E5FF)
-                                  : Colors.white60,
+                                  ? colors.primary
+                                  : colors.textMuted,
                             ),
                           ),
                         ),
@@ -890,19 +934,19 @@ class _MapStylePickerSheet extends ConsumerWidget {
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        fontFamily: "Outfit",
+                      style: TextStyle(
+                        fontFamily: KineticTypography.fontFamily,
                         fontSize: 12,
-                        color: Colors.white60,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
               if (isSelected)
-                const Icon(
+                Icon(
                   Icons.check_circle_rounded,
-                  color: Color(0xFF00E5FF),
+                  color: colors.primary,
                   size: 22,
                 ),
             ],
@@ -916,10 +960,12 @@ class _MapStylePickerSheet extends ConsumerWidget {
 class _Aetron3DUserAvatarMarker extends StatefulWidget {
   final ImageProvider? avatarImage;
   final String initials;
+  final Animation<double>? tiltAnimation;
 
   const _Aetron3DUserAvatarMarker({
     this.avatarImage,
     required this.initials,
+    this.tiltAnimation,
   });
 
   @override
@@ -948,86 +994,111 @@ class _Aetron3DUserAvatarMarkerState extends State<_Aetron3DUserAvatarMarker>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
+    final colors = context.kinetic;
+
+    Widget standingPin = Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        AnimatedBuilder(
-          animation: _pulseController,
-          builder: (context, child) {
-            final val = _pulseController.value;
-            return Positioned(
-              bottom: 0,
-              child: Container(
-                width: 32 + (val * 24),
-                height: 10 + (val * 8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: const Color(0xFF00E5FF).withValues(
-                      alpha: (1.0 - val).clamp(0.0, 1.0) * 0.7,
-                    ),
-                    width: 1.5,
-                  ),
-                ),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white,
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.primary.withValues(alpha: 0.65),
+                blurRadius: 14,
+                spreadRadius: 2,
               ),
-            );
-          },
-        ),
-        Positioned(
-          bottom: 6,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF00E5FF).withValues(alpha: 0.6),
-                      blurRadius: 12,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: widget.avatarImage != null
-                      ? Image(image: widget.avatarImage!, fit: BoxFit.cover)
-                      : Container(
-                          color: const Color(0xFF07101C),
-                          child: Center(
-                            child: Text(
-                              widget.initials,
-                              style: const TextStyle(
-                                fontFamily: "Outfit",
-                                color: Color(0xFF00E5FF),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
-              ),
-              CustomPaint(
-                size: const Size(12, 7),
-                painter: const _PinTipPainter(color: Color(0xFF00E5FF)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
+          child: ClipOval(
+            child: widget.avatarImage != null
+                ? Image(image: widget.avatarImage!, fit: BoxFit.cover)
+                : Container(
+                    color: colors.background,
+                    child: Center(
+                      child: Text(
+                        widget.initials,
+                        style: TextStyle(
+                          fontFamily: KineticTypography.fontFamily,
+                          color: colors.primary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+        CustomPaint(
+          size: const Size(12, 7),
+          painter: _PinTipPainter(color: colors.primary),
         ),
       ],
+    );
+
+    if (widget.tiltAnimation != null) {
+      standingPin = AnimatedBuilder(
+        animation: widget.tiltAnimation!,
+        builder: (context, child) {
+          final tilt = widget.tiltAnimation!.value;
+          return Transform(
+            alignment: Alignment.bottomCenter,
+            transform: Matrix4.identity()..rotateX(-tilt),
+            child: child,
+          );
+        },
+        child: standingPin,
+      );
+    }
+
+    return SizedBox(
+      width: 48,
+      height: 56,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          // Ground radar pulse ring expanding on asphalt
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final val = _pulseController.value;
+              return Positioned(
+                bottom: -2,
+                child: Container(
+                  width: 24 + (val * 24),
+                  height: 8 + (val * 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: colors.primary.withValues(
+                        alpha: (1.0 - val).clamp(0.0, 1.0) * 0.7,
+                      ),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          // Upright avatar pin pointing directly down at coordinate
+          Positioned(
+            bottom: 0,
+            child: standingPin,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1054,53 +1125,90 @@ class _PinTipPainter extends CustomPainter {
 }
 
 class _Start3DPinMarker extends StatelessWidget {
-  const _Start3DPinMarker();
+  final Animation<double>? tiltAnimation;
+
+  const _Start3DPinMarker({this.tiltAnimation});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.topCenter,
-      clipBehavior: Clip.none,
+    Widget pin = Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Positioned(
-          bottom: 0,
-          child: Container(
-            width: 14,
-            height: 5,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(99),
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2AF598), Color(0xFF00B86B)],
             ),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2AF598).withValues(alpha: 0.5),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.flag_rounded,
+            color: Colors.white,
+            size: 16,
           ),
         ),
-        Positioned(
-          top: 4,
-          child: Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF2AF598), Color(0xFF00B86B)],
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2AF598).withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.flag_rounded,
-              color: Colors.white,
-              size: 16,
-            ),
-          ),
+        CustomPaint(
+          size: const Size(10, 6),
+          painter: _PinTipPainter(color: const Color(0xFF00B86B)),
         ),
       ],
+    );
+
+    if (tiltAnimation != null) {
+      pin = AnimatedBuilder(
+        animation: tiltAnimation!,
+        builder: (context, child) {
+          final tilt = tiltAnimation!.value;
+          return Transform(
+            alignment: Alignment.bottomCenter,
+            transform: Matrix4.identity()..rotateX(-tilt),
+            child: child,
+          );
+        },
+        child: pin,
+      );
+    }
+
+    return SizedBox(
+      width: 32,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            bottom: -2,
+            child: Container(
+              width: 14,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            child: pin,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1110,6 +1218,7 @@ class _GpsGapMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1118,29 +1227,31 @@ class _GpsGapMarker extends StatelessWidget {
           colors: [Color(0xFF1E3A5F), Color(0xFF0D1B2A)],
         ),
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF00E5FF), width: 2),
+        border: Border.all(color: colors.primary, width: 2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00E5FF).withValues(alpha: 0.45),
+            color: colors.primary.withValues(alpha: 0.45),
             blurRadius: 10,
             spreadRadius: 1,
           ),
         ],
       ),
-      child: const Icon(
+      child: Icon(
         Icons.sensors_rounded,
-        color: Color(0xFF00E5FF),
+        color: colors.primary,
         size: 18,
       ),
     );
   }
 }
 
-class _GpsWeakBadge extends StatelessWidget {
+class _GpsWeakBadge extends ConsumerWidget {
   const _GpsWeakBadge();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeLang = ref.watch(appLanguageProvider);
+    final isVi = activeLang == AppLanguage.vi;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xE61E2834),
@@ -1153,16 +1264,16 @@ class _GpsWeakBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.gps_off_rounded, size: 14, color: Color(0xFFFFB85C)),
-            SizedBox(width: 6),
+            const Icon(Icons.gps_off_rounded, size: 14, color: Color(0xFFFFB85C)),
+            const SizedBox(width: 6),
             Text(
-              "Weak GPS",
-              style: TextStyle(
+              isVi ? "Tín hiệu GPS yếu" : "Weak GPS",
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,

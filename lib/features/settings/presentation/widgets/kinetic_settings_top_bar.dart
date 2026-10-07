@@ -16,6 +16,7 @@ class KineticSettingsTopBar extends StatelessWidget {
     final colors = context.kinetic;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // Back Button
         Semantics(
@@ -25,12 +26,14 @@ class KineticSettingsTopBar extends StatelessWidget {
             onTap: () => Navigator.of(context).maybePop(),
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.all(10),
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: colors.surface1,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: colors.borderSubtle),
               ),
+              alignment: Alignment.center,
               child: Icon(
                 Icons.arrow_back_ios_new_rounded,
                 size: 16,
@@ -41,22 +44,50 @@ class KineticSettingsTopBar extends StatelessWidget {
         ),
         const SizedBox(width: 14),
 
-        // Eyebrow & Title
+        // Title
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Text(
+            AppTranslations.get('settings', currentLang),
+            style: KineticTypography.pageTitle.copyWith(
+              color: colors.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+
+        // System Version Pill
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: colors.surface1,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.borderSubtle),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'AETRON SYSTEM',
-                style: KineticTypography.pageEyebrow.copyWith(
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
                   color: colors.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.primary.withValues(alpha: 0.6),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(width: 6),
               Text(
-                AppTranslations.get('settings', currentLang),
-                style: KineticTypography.pageTitle.copyWith(
-                  color: colors.textPrimary,
+                'v1.0.0',
+                style: KineticTypography.unitLabel.copyWith(
+                  color: colors.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],

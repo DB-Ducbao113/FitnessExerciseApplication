@@ -1,4 +1,4 @@
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 
 enum AetronPermissionKind { location, camera, photos, motion }
@@ -7,6 +7,8 @@ Future<bool> showAetronPermissionSheet(
   BuildContext context, {
   required AetronPermissionKind kind,
   String? actionLabel,
+  String? notNowLabel,
+  bool isVietnamese = false,
 }) async {
   return await showModalBottomSheet<bool>(
         context: context,
@@ -14,7 +16,9 @@ Future<bool> showAetronPermissionSheet(
         isScrollControlled: true,
         builder: (sheetContext) => _AetronPermissionSheet(
           kind: kind,
-          actionLabel: actionLabel ?? 'CONTINUE',
+          actionLabel: actionLabel ?? (isVietnamese ? 'TIẾP TỤC' : 'CONTINUE'),
+          notNowLabel: notNowLabel ?? (isVietnamese ? 'ĐỂ SAU' : 'NOT NOW'),
+          isVietnamese: isVietnamese,
           onCancel: () => Navigator.of(sheetContext).pop(false),
           onContinue: () => Navigator.of(sheetContext).pop(true),
         ),
@@ -26,41 +30,63 @@ class _AetronPermissionSheet extends StatelessWidget {
   const _AetronPermissionSheet({
     required this.kind,
     required this.actionLabel,
+    required this.notNowLabel,
+    required this.isVietnamese,
     required this.onCancel,
     required this.onContinue,
   });
 
   final AetronPermissionKind kind;
   final String actionLabel;
+  final String notNowLabel;
+  final bool isVietnamese;
   final VoidCallback onCancel;
   final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     final content = switch (kind) {
       AetronPermissionKind.location => (
         Icons.location_on_rounded,
-        'ENABLE LOCATION',
-        'Location keeps your route, distance, pace, and GPS signal accurate during outdoor workouts.',
-        'Used only while a workout is active.',
+        isVietnamese ? 'BẬT ĐỊNH VỊ GPS' : 'ENABLE LOCATION',
+        isVietnamese
+            ? 'Định vị giúp ghi lại lộ trình, khoảng cách, tốc độ và tín hiệu GPS chính xác khi tập ngoài trời.'
+            : 'Location keeps your route, distance, pace, and GPS signal accurate during outdoor workouts.',
+        isVietnamese
+            ? 'Chỉ sử dụng khi đang có buổi tập.'
+            : 'Used only while a workout is active.',
       ),
       AetronPermissionKind.camera => (
         Icons.photo_camera_rounded,
-        'ENABLE CAMERA',
-        'Camera access lets you take a profile photo directly in Aetron.',
-        'Used only when you choose to update your profile image.',
+        isVietnamese ? 'BẬT MÁY ẢNH' : 'ENABLE CAMERA',
+        isVietnamese
+            ? 'Quyền máy ảnh giúp bạn chụp ảnh đại diện trực tiếp trong Aetron.'
+            : 'Camera access lets you take a profile photo directly in Aetron.',
+        isVietnamese
+            ? 'Chỉ sử dụng khi bạn chọn cập nhật ảnh đại diện.'
+            : 'Used only when you choose to update your profile image.',
       ),
       AetronPermissionKind.photos => (
         Icons.photo_library_rounded,
-        'ENABLE PHOTO LIBRARY',
-        'Photo access lets you choose a profile image from your library.',
-        'Used only for the image you select.',
+        isVietnamese ? 'BẬT THƯ VIỆN ẢNH' : 'ENABLE PHOTO LIBRARY',
+        isVietnamese
+            ? 'Quyền thư viện ảnh giúp bạn chọn ảnh đại diện từ thiết bị.'
+            : 'Photo access lets you choose a profile image from your library.',
+        isVietnamese
+            ? 'Chỉ sử dụng cho ảnh bạn đã chọn.'
+            : 'Used only for the image you select.',
       ),
       AetronPermissionKind.motion => (
         Icons.directions_run_rounded,
-        'ENABLE MOTION DATA',
-        'Motion access supports step tracking when GPS is unavailable or not needed.',
-        'Used only during a workout session.',
+        isVietnamese ? 'BẬT DỮ LIỆU CHUYỂN ĐỘNG' : 'ENABLE MOTION DATA',
+        isVietnamese
+            ? 'Quyền chuyển động hỗ trợ đếm bước chân khi không có GPS hoặc khi chạy trên máy.'
+            : 'Motion access supports step tracking when GPS is unavailable or not needed.',
+        isVietnamese
+            ? 'Chỉ sử dụng trong suốt buổi tập.'
+            : 'Used only during a workout session.',
       ),
     };
 
@@ -69,12 +95,12 @@ class _AetronPermissionSheet extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
         decoration: BoxDecoration(
-          color: AetronColors.panel,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-          border: Border(top: BorderSide(color: AetronColors.border)),
+          color: colors.surface1,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: colors.borderAccent, width: 1.2)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.42),
+              color: Colors.black.withValues(alpha: 0.55),
               blurRadius: 28,
               offset: const Offset(0, -10),
             ),
@@ -89,7 +115,7 @@ class _AetronPermissionSheet extends StatelessWidget {
                 width: 42,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AetronColors.muted.withValues(alpha: 0.45),
+                  color: colors.textMuted.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -99,45 +125,63 @@ class _AetronPermissionSheet extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: AetronColors.cyan.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AetronColors.border),
+                color: colors.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.primary.withValues(alpha: 0.35)),
               ),
-              child: Icon(content.$1, color: AetronColors.cyan, size: 26),
+              child: Icon(content.$1, color: colors.primary, size: 26),
             ),
             const SizedBox(height: 16),
-            Text(content.$2, style: AetronText.section.copyWith(fontSize: 12)),
+            Text(
+              content.$2,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                color: colors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+              ),
+            ),
             const SizedBox(height: 10),
             Text(
               content.$3,
-              style: const TextStyle(
-                color: AetronColors.text,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                color: colors.textPrimary,
                 fontSize: 15,
                 height: 1.35,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               content.$4,
-              style: const TextStyle(
-                color: AetronColors.muted,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                color: colors.textSecondary,
                 fontSize: 12,
                 height: 1.35,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             Row(
               children: [
                 Expanded(
                   child: TextButton(
                     onPressed: onCancel,
                     style: TextButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      foregroundColor: AetronColors.muted,
+                      minimumSize: const Size.fromHeight(50),
+                      foregroundColor: colors.textSecondary,
                     ),
-                    child: const Text('NOT NOW'),
+                    child: Text(
+                      notNowLabel.toUpperCase(),
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -145,14 +189,21 @@ class _AetronPermissionSheet extends StatelessWidget {
                   flex: 2,
                   child: ElevatedButton.icon(
                     onPressed: onContinue,
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: Text(actionLabel),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: Text(
+                      actionLabel,
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                      backgroundColor: AetronColors.cyan,
-                      foregroundColor: AetronColors.space,
+                      minimumSize: const Size.fromHeight(50),
+                      backgroundColor: colors.primary,
+                      foregroundColor: colors.background,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                   ),

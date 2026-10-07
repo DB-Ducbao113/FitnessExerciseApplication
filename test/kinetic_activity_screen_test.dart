@@ -1,20 +1,17 @@
 import 'package:fitness_exercise_application/features/activity/presentation/widgets/kinetic_activity_card.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/widgets/kinetic_activity_cockpit.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
-import 'package:fitness_exercise_application/features/workout/domain/entities/workout_target.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Kinetic Activity Widgets Tests', () {
-    testWidgets('KineticActivityCard displays name and stats', (tester) async {
+    testWidgets('KineticActivityCard displays name and stats without gray tag badges', (tester) async {
       const option = ActivityOptionItem(
         type: 'running',
         nameVi: 'Chạy bộ',
         nameEn: 'Running',
-        tagVi: 'Ngoài trời',
-        tagEn: 'Outdoor',
         imagePath: 'assets/running_real.jpg',
         icon: Icons.directions_run_rounded,
         accentColor: Color(0xFFA8DCE7),
@@ -53,14 +50,68 @@ void main() {
         ),
       );
 
+      // Verify activity title is displayed cleanly
       expect(find.text('Chạy bộ'), findsOneWidget);
-      expect(find.text('Ngoài trời'), findsOneWidget);
+      // Verify gray environment tags are NOT rendered
+      expect(find.text('Ngoài trời / Máy chạy'), findsNothing);
+      expect(find.text('Ngoài trời'), findsNothing);
+      // Verify valid stats are shown
       expect(find.text('5.0 km / buổi'), findsOneWidget);
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     });
 
-    testWidgets('KineticActivityCockpit selects quick targets', (tester) async {
-      WorkoutTarget target = WorkoutTarget.free;
+    testWidgets('KineticActivityCard does not show 0.0km/buoi or TB hoat dong on 0km sessions', (tester) async {
+      const walkingOption = ActivityOptionItem(
+        type: 'walking',
+        nameVi: 'Đi bộ',
+        nameEn: 'Walking',
+        imagePath: 'assets/walking_real.jpg',
+        icon: Icons.directions_walk_rounded,
+        accentColor: Color(0xFF4EBE9E),
+        requireGps: true,
+      );
+
+      // Workouts with 0km distance
+      final zeroKmWorkouts = [
+        WorkoutSession(
+          id: 'w_walk_0',
+          userId: 'u1',
+          activityType: 'walking',
+          startedAt: DateTime(2026, 10, 1, 6, 0),
+          endedAt: DateTime(2026, 10, 1, 6, 5),
+          durationSec: 300,
+          distanceKm: 0.0,
+          steps: 0,
+          avgSpeedKmh: 0.0,
+          caloriesKcal: 0.0,
+          mode: 'outdoor',
+          createdAt: DateTime(2026, 10, 1, 6, 5),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: KineticTheme.darkTheme,
+          home: Scaffold(
+            body: KineticActivityCard(
+              option: walkingOption,
+              isSelected: false,
+              workouts: zeroKmWorkouts,
+              isVi: true,
+              onSelect: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Đi bộ'), findsOneWidget);
+      // Ensure 0.0 km / buổi and TB hoạt động are NEVER shown
+      expect(find.text('0.0 km / buổi'), findsNothing);
+      expect(find.text('TB hoạt động'), findsNothing);
+      expect(find.textContaining('Hiking'), findsNothing);
+    });
+
+    testWidgets('KineticActivityCockpit renders GPS status and start button without targets or indoor sensors', (tester) async {
       bool started = false;
 
       await tester.pumpWidget(
@@ -70,19 +121,14 @@ void main() {
             builder: (context, setState) {
               return Scaffold(
                 body: KineticActivityCockpit(
-                  activityName: 'Chạy bộ',
+                  activityName: 'Đi bộ',
                   isOutdoor: true,
                   gpsEnabled: true,
                   checkingLocation: false,
                   hasLocationPermission: true,
                   gpsAccuracyM: 3.2,
-                  selectedTarget: target,
                   isVi: true,
                   onRefreshGps: () {},
-                  onTargetCustomizeTap: () {},
-                  onTargetChanged: (t) {
-                    setState(() => target = t);
-                  },
                   onStartTap: () {
                     started = true;
                   },
@@ -93,17 +139,23 @@ void main() {
         ),
       );
 
+      // Verify GPS status is displayed without < ...m badge
       expect(find.text('GPS sẵn sàng'), findsOneWidget);
-      expect(find.text('< 3.2m'), findsOneWidget);
-      expect(find.text('5.0 km'), findsOneWidget);
+      expect(find.textContaining('<'), findsNothing);
 
-      await tester.tap(find.text('5.0 km'));
-      await tester.pumpAndSettle();
+      // Verify "Cảm biến trong nhà" is NEVER displayed
+      expect(find.text('Cảm biến trong nhà'), findsNothing);
 
-      expect(target.type, WorkoutTargetType.distance);
-      expect(target.value, 5.0);
+      // Verify target section & quick chips are NOT present
+      expect(find.text('MỤC TIÊU BUỔI TẬP'), findsNothing);
+      expect(find.text('Tự do'), findsNothing);
+      expect(find.text('5.0 km'), findsNothing);
 
-      await tester.tap(find.text('BẮT ĐẦU CHẠY BỘ'));
+      // Verify start button has no "hiking"
+      expect(find.text('BẮT ĐẦU ĐI BỘ'), findsOneWidget);
+      expect(find.textContaining('HIKING'), findsNothing);
+
+      await tester.tap(find.text('BẮT ĐẦU ĐI BỘ'));
       await tester.pumpAndSettle();
 
       expect(started, isTrue);

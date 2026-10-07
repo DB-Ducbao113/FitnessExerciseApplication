@@ -1,14 +1,18 @@
 import 'dart:math' as math;
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Cyber Dark Globe Loading Screen / Màn hình loading quả địa cầu công nghệ
+/// Kinetic 3D Globe Orbit Screen / Màn hình visualizer địa cầu 3D Kinetic
 class AetronGlobeOrbitScreen extends ConsumerStatefulWidget {
   final VoidCallback? onComplete;
   final Duration duration;
   final String? customTitle;
   final String? customSubtitle;
+  final bool showCloseButton;
+  final String? statusPillText;
 
   const AetronGlobeOrbitScreen({
     super.key,
@@ -16,6 +20,8 @@ class AetronGlobeOrbitScreen extends ConsumerStatefulWidget {
     this.duration = const Duration(milliseconds: 3600),
     this.customTitle,
     this.customSubtitle,
+    this.showCloseButton = false,
+    this.statusPillText,
   });
 
   @override
@@ -27,6 +33,7 @@ class _AetronGlobeOrbitScreenState extends ConsumerState<AetronGlobeOrbitScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   bool _completed = false;
+  double _userRotationOffset = 0.0;
 
   @override
   void initState() {
@@ -62,120 +69,320 @@ class _AetronGlobeOrbitScreenState extends ConsumerState<AetronGlobeOrbitScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
     final progress = _controller.value;
+    final canPop = Navigator.of(context).canPop();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: colors.background,
       body: Stack(
         children: [
-          // 1. Ambient Cosmic Cyan Radial Background
+          // 1. Ambient Radial Glow Background aligned with Kinetic palette
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: const Alignment(0, -0.15),
-                  radius: 1.25,
-                  colors: const [
-                    Color(0xFF0D213F),
-                    Color(0xFF081222),
-                    Color(0xFF04070E),
+                  radius: 1.35,
+                  colors: [
+                    colors.primary.withValues(alpha: 0.12),
+                    colors.surface1.withValues(alpha: 0.5),
+                    colors.background,
                   ],
+                  stops: const [0.0, 0.55, 1.0],
                 ),
               ),
             ),
           ),
 
-          // 2. Center Content
+          // 2. Safe Area Interactive Content
           SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(flex: 2),
+            child: Column(
+              children: [
+                // Top Navigation Bar (Back/Close button if navigated into)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (canPop && widget.showCloseButton)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).pop();
+                            },
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colors.surface2.withValues(alpha: 0.8),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colors.borderSubtle),
+                              ),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 20,
+                                color: colors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 40),
 
-                    // ── 3D Cyber Earth Globe with Orbital Telemetry ──
-                    SizedBox.square(
-                      dimension: 300,
-                      child: CustomPaint(
-                        painter: _CyberGlobePainter(progress: progress),
+                      // Orbit Status Pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface2.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: colors.primary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: colors.primary,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colors.primary.withValues(alpha: 0.7),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              widget.statusPillText ??
+                                  (isVi ? 'ĐANG TẢI DỮ LIỆU' : 'LOADING DATA'),
+                              style: KineticTypography.unitLabel.copyWith(
+                                color: colors.primary,
+                                fontSize: 10.5,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(width: 40),
+                    ],
+                  ),
+                ),
+
+                const Spacer(flex: 1),
+
+                // ── Interactive 3D Cyber Earth Globe with Orbital Telemetry ──
+                GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    setState(() {
+                      _userRotationOffset -= details.primaryDelta! / 85.0;
+                    });
+                  },
+                  child: SizedBox.square(
+                    dimension: 310,
+                    child: CustomPaint(
+                      painter: _CyberGlobePainter(
+                        progress: progress,
+                        userRotation: _userRotationOffset,
+                        colors: colors,
                       ),
                     ),
-                    const SizedBox(height: 38),
+                  ),
+                ),
 
-                    // ── Brand Title & Slogan ────────────────────────────────
-                    Text(
-                      widget.customTitle ?? "Aetron",
-                      style: const TextStyle(
-                        fontFamily: "Outfit",
-                        fontSize: 34,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                        shadows: [
-                          Shadow(
-                            color: Color(0x6600E5FF),
-                            blurRadius: 16,
+                const SizedBox(height: 20),
+
+                // ── Brand Title & Slogan (Kinetic Typography) ────────────────
+                Text(
+                  widget.customTitle ?? "Aetron",
+                  style: KineticTypography.headlineLarge.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    shadows: [
+                      Shadow(
+                        color: colors.primary.withValues(alpha: 0.5),
+                        blurRadius: 18,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    widget.customSubtitle ??
+                        (isVi
+                            ? "Đang đồng bộ dữ liệu..."
+                            : "Synchronizing system data..."),
+                    textAlign: TextAlign.center,
+                    style: KineticTypography.bodyMedium.copyWith(
+                      color: colors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // ── Live Telemetry Chips ──────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surface2,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.satellite_alt_rounded,
+                            size: 13,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            isVi ? '12 VỆ TINH GPS' : '12 GPS SATS',
+                            style: KineticTypography.unitLabel.copyWith(
+                              color: colors.primary,
+                              fontSize: 10.5,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.customSubtitle ??
-                          (isVi
-                              ? "Từng bước chân kiến tạo hành trình"
-                              : "Every step tracks your journey"),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: "Outfit",
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
-                        letterSpacing: 0.2,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
                       ),
-                    ),
-
-                    const Spacer(flex: 3),
-
-                    // ── Subtle Neon Cyan Progress Pill ──────────────────────
-                    if (widget.onComplete != null)
-                      Container(
-                        width: 130,
-                        height: 4.0,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF131F33),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: progress.clamp(0.0, 1.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF00E5FF),
-                                  Color(0xFF2AF598),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(2),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x8800E5FF),
-                                  blurRadius: 8,
-                                ),
-                              ],
+                      decoration: BoxDecoration(
+                        color: colors.surface2,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.wifi_tethering_rounded,
+                            size: 13,
+                            color: colors.secondary,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            isVi ? 'ĐỘ CAO 20,200 KM' : 'ALT 20,200 KM',
+                            style: KineticTypography.unitLabel.copyWith(
+                              color: colors.secondary,
+                              fontSize: 10.5,
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    const SizedBox(height: 24),
+                    ),
                   ],
                 ),
-              ),
+
+                const Spacer(flex: 2),
+
+                // ── Kinetic Glowing Progress Pill (determinate or indeterminate) ──
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: widget.onComplete != null
+                      ? Container(
+                          width: 160,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            color: colors.surface2,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: progress.clamp(0.0, 1.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [colors.secondary, colors.primary],
+                                ),
+                                borderRadius: BorderRadius.circular(3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colors.primary.withValues(alpha: 0.7),
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          width: 160,
+                          height: 4.5,
+                          decoration: BoxDecoration(
+                            color: colors.surface2,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final barWidth = constraints.maxWidth;
+                              final pillWidth = barWidth * 0.45;
+                              final offset = (barWidth + pillWidth) * progress - pillWidth;
+                              return Stack(
+                                children: [
+                                  Positioned(
+                                    left: offset,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: pillWidth,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            colors.secondary.withValues(alpha: 0.3),
+                                            colors.primary,
+                                            colors.secondary.withValues(alpha: 0.3),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(3),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: colors.primary.withValues(alpha: 0.8),
+                                            blurRadius: 10,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                ),
+              ],
             ),
           ),
         ],
@@ -184,39 +391,45 @@ class _AetronGlobeOrbitScreenState extends ConsumerState<AetronGlobeOrbitScreen>
   }
 }
 
-/// Pure 3D Cyber Earth Globe with Atmospheric Glow, Rotating Continents & Orbital Telemetry
+/// Pure 3D Kinetic Earth Globe with Atmospheric Glow, Rotating Continents & Orbital Telemetry
 class _CyberGlobePainter extends CustomPainter {
   final double progress;
+  final double userRotation;
+  final KineticColors colors;
 
-  const _CyberGlobePainter({required this.progress});
+  const _CyberGlobePainter({
+    required this.progress,
+    required this.userRotation,
+    required this.colors,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final globeRadius = size.width * 0.28; // ~84px
-    final orbitRadiusX = size.width * 0.44; // ~132px
-    final orbitRadiusY = size.width * 0.22; // ~66px (tilted orbital plane)
+    final globeRadius = size.width * 0.28; // ~86px
+    final orbitRadiusX = size.width * 0.44; // ~136px
+    final orbitRadiusY = size.width * 0.22; // ~68px (tilted orbital plane)
     final orbitTilt = -math.pi / 7.5; // ~ -24 degrees
 
-    // Current rotation of Earth (0 to 2*pi)
-    final earthRotation = progress * 2 * math.pi;
+    // Current rotation of Earth (auto animation + touch user offset)
+    final earthRotation = (progress * 2 * math.pi) + userRotation;
 
     // ── 0. Distant Cosmic Starfield / Data Particles ────────────────────────
     _drawStarfield(canvas, center, size, progress);
 
-    // ── 1. Deep Space Atmospheric Nebula Glow (Behind Globe) ────────────────
+    // ── 1. Atmospheric Nebula Glow (Behind Globe) ───────────────────────────
     canvas.drawCircle(
       center,
       globeRadius + 32,
       Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.14)
+        ..color = colors.primary.withValues(alpha: 0.16)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28),
     );
     canvas.drawCircle(
       center,
       globeRadius + 14,
       Paint()
-        ..color = const Color(0xFF2AF598).withValues(alpha: 0.16)
+        ..color = colors.secondary.withValues(alpha: 0.18)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
     );
 
@@ -238,7 +451,7 @@ class _CyberGlobePainter extends CustomPainter {
       center,
       globeRadius + 1.5,
       Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.35)
+        ..color = colors.primary.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
@@ -249,15 +462,15 @@ class _CyberGlobePainter extends CustomPainter {
       Path()..addOval(globeRect),
     );
 
-    // 3a. Deep Ocean 3D Gradient
+    // 3a. Deep Ocean 3D Gradient matching Kinetic Dark tones
     final oceanPaint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.35, -0.35),
         radius: 0.95,
-        colors: const [
-          Color(0xFF132F52), // Top-left illuminated deep cyber blue
-          Color(0xFF0B1B33), // Mid tone ocean
-          Color(0xFF050B16), // Dark side of Earth
+        colors: [
+          colors.surface2,
+          colors.surface1,
+          colors.background,
         ],
         stops: const [0.0, 0.55, 1.0],
       ).createShader(globeRect);
@@ -265,12 +478,12 @@ class _CyberGlobePainter extends CustomPainter {
 
     // 3b. Latitude Grid Lines (Parallels)
     final gridPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.16)
+      ..color = colors.primary.withValues(alpha: 0.18)
       ..strokeWidth = 0.9
       ..style = PaintingStyle.stroke;
 
     final equatorPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.30)
+      ..color = colors.secondary.withValues(alpha: 0.35)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
@@ -294,7 +507,7 @@ class _CyberGlobePainter extends CustomPainter {
       final isFacingFront = cosA > 0;
 
       final meridianPaint = Paint()
-        ..color = const Color(0xFF00E5FF).withValues(
+        ..color = colors.primary.withValues(
           alpha: isFacingFront ? (0.08 + 0.14 * cosA) : 0.04,
         )
         ..strokeWidth = isFacingFront ? 1.0 : 0.6
@@ -318,7 +531,7 @@ class _CyberGlobePainter extends CustomPainter {
         radius: 0.75,
         colors: [
           Colors.white.withValues(alpha: 0.22),
-          const Color(0xFF00E5FF).withValues(alpha: 0.10),
+          colors.primary.withValues(alpha: 0.12),
           Colors.transparent,
         ],
         stops: const [0.0, 0.45, 1.0],
@@ -331,8 +544,8 @@ class _CyberGlobePainter extends CustomPainter {
         center: const Alignment(0.65, 0.65),
         radius: 0.85,
         colors: [
-          Colors.black.withValues(alpha: 0.65),
-          Colors.black.withValues(alpha: 0.30),
+          colors.background.withValues(alpha: 0.75),
+          colors.background.withValues(alpha: 0.35),
           Colors.transparent,
         ],
         stops: const [0.0, 0.55, 1.0],
@@ -348,13 +561,13 @@ class _CyberGlobePainter extends CustomPainter {
       math.pi * 0.85,
       false,
       Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.65)
+        ..color = colors.primary.withValues(alpha: 0.65)
         ..strokeWidth = 2.0
         ..style = PaintingStyle.stroke
         ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 2),
     );
 
-    // ── 5. Front Half of Tilted Orbital Telemetry Track & GPS Satellite Beacon
+    // ── 5. Front Half of Tilted Orbital Telemetry Track ─────────────────────
     _drawOrbitTrack(
       canvas: canvas,
       center: center,
@@ -375,14 +588,13 @@ class _CyberGlobePainter extends CustomPainter {
     );
   }
 
-  /// Draw realistic rotating continental landmasses with high cyber fidelity
+  /// Draw realistic rotating continental landmasses with Kinetic styling
   void _drawContinents(
     Canvas canvas,
     Offset center,
     double radius,
     double rotation,
   ) {
-    // Landmass Polygons defined in [latitude, longitude] degrees
     final continents = <List<List<double>>>[
       // North America
       [
@@ -460,23 +672,23 @@ class _CyberGlobePainter extends CustomPainter {
       if (hasVisiblePoint && !isFirst) {
         path.close();
 
-        // 1. Glowing Landmass Base Fill (Cyber Emerald / Mint)
+        // 1. Glowing Landmass Base Fill (Secondary kinetic mint)
         final landFillPaint = Paint()
-          ..color = const Color(0xFF2AF598).withValues(alpha: 0.38)
+          ..color = colors.secondary.withValues(alpha: 0.28)
           ..style = PaintingStyle.fill;
         canvas.drawPath(path, landFillPaint);
 
-        // 2. High-Tech Bright Cyan Coastline Contour
+        // 2. High-Tech Kinetic Primary Coastline Contour
         final coastPaint = Paint()
-          ..color = const Color(0xFF00E5FF).withValues(alpha: 0.75)
-          ..strokeWidth = 1.1
+          ..color = colors.primary.withValues(alpha: 0.85)
+          ..strokeWidth = 1.15
           ..style = PaintingStyle.stroke;
         canvas.drawPath(path, coastPaint);
       }
     }
   }
 
-  /// Draws 3D tilted orbital route (split into back and front halves for proper occlusion)
+  /// Draws 3D tilted orbital route
   void _drawOrbitTrack({
     required Canvas canvas,
     required Offset center,
@@ -490,12 +702,12 @@ class _CyberGlobePainter extends CustomPainter {
     canvas.rotate(tilt);
 
     final trackPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: isFrontHalf ? 0.35 : 0.12)
+      ..color = colors.primary.withValues(alpha: isFrontHalf ? 0.40 : 0.14)
       ..strokeWidth = isFrontHalf ? 1.4 : 0.8
       ..style = PaintingStyle.stroke;
 
     final outerGuidePaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: isFrontHalf ? 0.15 : 0.06)
+      ..color = colors.primary.withValues(alpha: isFrontHalf ? 0.18 : 0.06)
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
 
@@ -511,11 +723,9 @@ class _CyberGlobePainter extends CustomPainter {
       height: (radiusY + 5) * 2,
     );
 
-    // Draw either front half (y > 0) or back half (y < 0) in rotated space
     final startAngle = isFrontHalf ? 0.0 : math.pi;
     final sweepAngle = isFrontHalf ? math.pi : math.pi;
 
-    // Outer subtle guide line
     canvas.drawArc(outerOrbitRect, startAngle, sweepAngle, false, outerGuidePaint);
 
     // Dashed GPS Orbital Route
@@ -545,14 +755,10 @@ class _CyberGlobePainter extends CustomPainter {
     required double tilt,
     required double progress,
   }) {
-    // Current beacon orbital angle
     final orbitAngle = progress * 2 * math.pi;
-
-    // Position in orbital plane
     final localX = radiusX * math.cos(orbitAngle);
     final localY = radiusY * math.sin(orbitAngle);
 
-    // Rotate by tilt
     final cosT = math.cos(tilt);
     final sinT = math.sin(tilt);
 
@@ -560,7 +766,6 @@ class _CyberGlobePainter extends CustomPainter {
     final beaconY = center.dy + (localX * sinT + localY * cosT);
     final beaconPos = Offset(beaconX, beaconY);
 
-    // Only render full beacon when in front or semi-visible
     final isFront = localY >= -radiusY * 0.4;
     final opacity = isFront ? 1.0 : 0.35;
 
@@ -573,14 +778,14 @@ class _CyberGlobePainter extends CustomPainter {
       final ptX = center.dx + (tX * cosT - tY * sinT);
       final ptY = center.dy + (tX * sinT + tY * cosT);
 
-      final trailAlpha = (1.0 - (i / trailCount)) * 0.65 * opacity;
+      final trailAlpha = (1.0 - (i / trailCount)) * 0.70 * opacity;
       final trailRadius = (3.2 - (i * 0.18)).clamp(0.8, 3.2);
 
       canvas.drawCircle(
         Offset(ptX, ptY),
         trailRadius,
         Paint()
-          ..color = const Color(0xFF00E5FF).withValues(alpha: trailAlpha)
+          ..color = colors.primary.withValues(alpha: trailAlpha)
           ..style = PaintingStyle.fill,
       );
     }
@@ -588,13 +793,13 @@ class _CyberGlobePainter extends CustomPainter {
     // 2. Telemetry Beacon Radar Pulse Rings
     final pulseScale = (progress * 4) % 1.0;
     final pulseRadius = 5.0 + (pulseScale * 14.0);
-    final pulseAlpha = (1.0 - pulseScale) * 0.7 * opacity;
+    final pulseAlpha = (1.0 - pulseScale) * 0.75 * opacity;
 
     canvas.drawCircle(
       beaconPos,
       pulseRadius,
       Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: pulseAlpha)
+        ..color = colors.secondary.withValues(alpha: pulseAlpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2,
     );
@@ -605,7 +810,7 @@ class _CyberGlobePainter extends CustomPainter {
       beaconPos,
       8.0,
       Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.35 * opacity)
+        ..color = colors.primary.withValues(alpha: 0.40 * opacity)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
 
@@ -614,7 +819,7 @@ class _CyberGlobePainter extends CustomPainter {
       beaconPos,
       4.2,
       Paint()
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.95 * opacity)
+        ..color = colors.primary.withValues(alpha: 0.95 * opacity)
         ..style = PaintingStyle.fill,
     );
 
@@ -653,7 +858,7 @@ class _CyberGlobePainter extends CustomPainter {
         Offset(center.dx + s[0], center.dy + s[1]),
         s[2],
         Paint()
-          ..color = const Color(0xFF00E5FF).withValues(alpha: alpha)
+          ..color = colors.primary.withValues(alpha: alpha)
           ..style = PaintingStyle.fill,
       );
     }
@@ -661,5 +866,7 @@ class _CyberGlobePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CyberGlobePainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress ||
+      oldDelegate.userRotation != userRotation ||
+      oldDelegate.colors != colors;
 }

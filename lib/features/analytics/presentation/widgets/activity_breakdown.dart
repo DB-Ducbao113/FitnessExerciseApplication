@@ -1,6 +1,9 @@
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ActivityBreakdown extends StatelessWidget {
+class ActivityBreakdown extends ConsumerWidget {
   final Map<String, int> activityCounts;
 
   const ActivityBreakdown({super.key, required this.activityCounts});
@@ -32,7 +35,10 @@ class ActivityBreakdown extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(appLanguageProvider);
+    final isVi = lang == AppLanguage.vi;
+
     if (activityCounts.isEmpty) {
       return Card(
         margin: const EdgeInsets.all(16),
@@ -40,7 +46,7 @@ class ActivityBreakdown extends StatelessWidget {
           padding: const EdgeInsets.all(32),
           child: Center(
             child: Text(
-              'No activity data',
+              isVi ? 'Không có dữ liệu hoạt động' : 'No activity data',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ),
@@ -60,15 +66,16 @@ class ActivityBreakdown extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Activity Breakdown',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              isVi ? 'Phân loại hoạt động' : 'Activity Breakdown',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ...activityCounts.entries.map((entry) {
               final percentage = (entry.value / total * 100).toStringAsFixed(0);
               final color = _getActivityColor(entry.key);
               final icon = _getActivityIcon(entry.key);
+              final displayActivity = WorkoutFormatters.formatActivityType(entry.key, lang);
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -80,7 +87,7 @@ class ActivityBreakdown extends StatelessWidget {
                         Icon(icon, color: color, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          entry.key,
+                          displayActivity,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,

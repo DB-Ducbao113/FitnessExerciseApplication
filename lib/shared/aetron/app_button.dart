@@ -14,6 +14,7 @@ class AppButton extends StatelessWidget {
     this.fullWidth = true,
     this.height = 52.0,
     this.fontSize,
+    this.semanticLabel,
   });
 
   final String label;
@@ -24,6 +25,7 @@ class AppButton extends StatelessWidget {
   final bool fullWidth;
   final double height;
   final double? fontSize;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {

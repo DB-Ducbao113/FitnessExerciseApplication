@@ -174,13 +174,11 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       );
 
       await repository.cacheLocal(updatedProfile);
-      unawaited(
-        _syncRemoteAvatarUrl(
-          remoteDatasource,
-          userId,
-          publicUrl,
-          previousAvatarUrl: previousAvatarUrl,
-        ),
+      await _syncRemoteAvatarUrl(
+        remoteDatasource,
+        userId,
+        publicUrl,
+        previousAvatarUrl: previousAvatarUrl,
       );
       _ref.invalidate(userProfileProvider(userId));
 
@@ -256,13 +254,11 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
         updatedAt: DateTime.now(),
       );
       await repository.cacheLocal(updatedProfile);
-      unawaited(
-        _syncRemoteAvatarUrl(
-          remoteDatasource,
-          userId,
-          null,
-          previousAvatarUrl: avatarUrl,
-        ),
+      await _syncRemoteAvatarUrl(
+        remoteDatasource,
+        userId,
+        null,
+        previousAvatarUrl: avatarUrl,
       );
       _ref.invalidate(userProfileProvider(userId));
 
@@ -273,10 +269,19 @@ class AvatarUploadNotifier extends StateNotifier<AvatarState> {
       );
     } on PostgrestException catch (e) {
       debugPrint('Avatar removal profile sync failed: ${e.message}');
-      state = state.copyWith(isUploading: false, errorMessage: null);
+      state = state.copyWith(
+        isUploading: false,
+        errorMessage: _profileUpdateErrorMessage(e),
+      );
     } catch (e, stackTrace) {
       debugPrint('Avatar removal failed: $e\n$stackTrace');
-      state = state.copyWith(isUploading: false, errorMessage: null);
+      state = state.copyWith(
+        isUploading: false,
+        errorMessage: _unknownAvatarErrorMessage(
+          e,
+          fallback: 'Could not remove your photo. Please try again.',
+        ),
+      );
     }
   }
 

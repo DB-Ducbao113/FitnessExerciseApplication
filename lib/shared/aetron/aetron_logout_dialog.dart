@@ -1,8 +1,7 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'aetron_ui.dart';
-import 'aetron_3d_decorations.dart';
 
 class AetronLogoutDialog extends ConsumerWidget {
   const AetronLogoutDialog({super.key});
@@ -18,21 +17,17 @@ class AetronLogoutDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
 
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        border: Border(top: BorderSide(color: AetronColors.borderAccent, width: 1.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black54,
-            blurRadius: 30,
-            offset: Offset(0, -10),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      decoration: BoxDecoration(
+        color: colors.surface1,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(color: colors.borderSubtle, width: 1.5),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -44,37 +39,28 @@ class AetronLogoutDialog extends ConsumerWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AetronColors.borderSubtle,
+                color: colors.borderSubtle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 24),
 
-            // 3D Danger Glow Icon
-            AetronRadialGlow(
-              glowColor: AetronColors.danger,
-              glowRadius: 50,
-              alpha: 0.3,
-              child: Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AetronColors.voidBlack,
-                  border: Border.all(color: AetronColors.danger.withValues(alpha: 0.5), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AetronColors.danger.withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
+            // Red Danger Icon Container
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.error.withValues(alpha: 0.12),
+                border: Border.all(
+                  color: colors.error.withValues(alpha: 0.35),
+                  width: 1.5,
                 ),
-                child: const Icon(
-                  Icons.logout_rounded,
-                  color: AetronColors.danger,
-                  size: 32,
-                ),
+              ),
+              child: Icon(
+                Icons.logout_rounded,
+                color: colors.error,
+                size: 26,
               ),
             ),
             const SizedBox(height: 20),
@@ -82,12 +68,9 @@ class AetronLogoutDialog extends ConsumerWidget {
             // Title
             Text(
               AppTranslations.get('logout_title', currentLang),
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: AetronColors.textPrimary,
-                letterSpacing: 1.0,
+              style: KineticTypography.headlineSmall.copyWith(
+                fontWeight: FontWeight.w800,
+                color: colors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -96,11 +79,9 @@ class AetronLogoutDialog extends ConsumerWidget {
             // Description
             Text(
               AppTranslations.get('logout_sub', currentLang),
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 14,
-                color: AetronColors.textSecondary,
-                height: 1.4,
+              style: KineticTypography.bodyMedium.copyWith(
+                color: colors.textSecondary,
+                height: 1.45,
               ),
               textAlign: TextAlign.center,
             ),
@@ -111,50 +92,49 @@ class AetronLogoutDialog extends ConsumerWidget {
               children: [
                 // Cancel
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AetronColors.textPrimary,
-                      minimumSize: const Size.fromHeight(50),
-                      side: const BorderSide(color: AetronColors.borderSubtle),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                  child: SizedBox(
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colors.textPrimary,
+                        side: BorderSide(color: colors.borderSubtle),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      AppTranslations.get('cancel', currentLang).toUpperCase(),
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
+                      child: Text(
+                        AppTranslations.get('cancel', currentLang),
+                        style: KineticTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colors.textPrimary,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
 
-                // Logout CTA
+                // Logout CTA (KineticButton Danger / Error)
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop(true);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AetronColors.danger,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                  child: SizedBox(
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.error,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
-                      elevation: 6,
-                      shadowColor: AetronColors.danger.withValues(alpha: 0.5),
-                    ),
-                    child: Text(
-                      AppTranslations.get('logout', currentLang).toUpperCase(),
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
+                      child: Text(
+                        AppTranslations.get('logout', currentLang),
+                        style: KineticTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),

@@ -4,9 +4,8 @@ import 'package:fitness_exercise_application/features/profile/domain/entities/us
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_feedback.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,17 +18,28 @@ class GoalScreen extends ConsumerStatefulWidget {
   ConsumerState<GoalScreen> createState() => _GoalScreenState();
 }
 
-class _GoalScreenState extends ConsumerState<GoalScreen> {
+class _GoalScreenState extends ConsumerState<GoalScreen>
+    with SingleTickerProviderStateMixin {
   GoalType _selectedType = GoalType.distance;
   GoalPeriod _selectedPeriod = GoalPeriod.weekly;
-  double _targetValue = 40.0;
+  double _targetValue = 35.0;
   bool _isSaving = false;
+
+  late final AnimationController _pulseController;
+
+  bool get _useMetricUnits =>
+      ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
 
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+
     final existing = ref.read(userGoalProvider).valueOrNull;
-    final useMetricUnits = ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
+    final useMetricUnits = _useMetricUnits;
     if (existing != null) {
       _selectedType = existing.goalType;
       _selectedPeriod = existing.period;
@@ -37,15 +47,25 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
           ? WorkoutFormatters.kmToMi(existing.targetValue)
           : existing.targetValue;
     } else {
-      _targetValue = _defaultTargetFor(_selectedType, _selectedPeriod);
+      _targetValue = _defaultTargetFor(_selectedType, _selectedPeriod, useMetricUnits);
     }
   }
 
-  double _defaultTargetFor(GoalType type, GoalPeriod period) {
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  // ── Calculation Helpers ─────────────────────────────────────────────────────
+
+  double _defaultTargetFor(GoalType type, GoalPeriod period, [bool? metric]) {
+    final useMetricUnits = metric ?? _useMetricUnits;
     final isWeekly = period == GoalPeriod.weekly;
     switch (type) {
       case GoalType.distance:
-        return isWeekly ? 35.0 : 150.0;
+        final km = isWeekly ? 35.0 : 150.0;
+        return useMetricUnits ? km : WorkoutFormatters.kmToMi(km).roundToDouble();
       case GoalType.workouts:
         return isWeekly ? 4.0 : 16.0;
       case GoalType.calories:
@@ -53,11 +73,13 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     }
   }
 
-  double _minTargetFor(GoalType type, GoalPeriod period) {
+  double _minTargetFor(GoalType type, GoalPeriod period, [bool? metric]) {
+    final useMetricUnits = metric ?? _useMetricUnits;
     final isWeekly = period == GoalPeriod.weekly;
     switch (type) {
       case GoalType.distance:
-        return isWeekly ? 5.0 : 20.0;
+        final km = isWeekly ? 5.0 : 20.0;
+        return useMetricUnits ? km : WorkoutFormatters.kmToMi(km).roundToDouble();
       case GoalType.workouts:
         return isWeekly ? 1.0 : 4.0;
       case GoalType.calories:
@@ -65,11 +87,13 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     }
   }
 
-  double _maxTargetFor(GoalType type, GoalPeriod period) {
+  double _maxTargetFor(GoalType type, GoalPeriod period, [bool? metric]) {
+    final useMetricUnits = metric ?? _useMetricUnits;
     final isWeekly = period == GoalPeriod.weekly;
     switch (type) {
       case GoalType.distance:
-        return isWeekly ? 150.0 : 600.0;
+        final km = isWeekly ? 150.0 : 600.0;
+        return useMetricUnits ? km : WorkoutFormatters.kmToMi(km).roundToDouble();
       case GoalType.workouts:
         return isWeekly ? 14.0 : 45.0;
       case GoalType.calories:
@@ -80,7 +104,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
   double _stepSizeFor(GoalType type) {
     switch (type) {
       case GoalType.distance:
-        return 5.0;
+        return 2.5;
       case GoalType.workouts:
         return 1.0;
       case GoalType.calories:
@@ -101,12 +125,170 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     _updateTarget(_targetValue + delta);
   }
 
+  Color _accentColorFor(GoalType type, KineticColors colors) {
+    switch (type) {
+      case GoalType.distance:
+        return colors.primary; // Neon Cyan
+      case GoalType.workouts:
+        return colors.secondary; // Amber
+      case GoalType.calories:
+        return colors.tertiary; // Coral / Crimson
+    }
+  }
+
+  // ── Intensity & Benchmark Calculation ──────────────────────────────────────
+
+  ({String titleVi, String titleEn, String descVi, String descEn, Color color, IconData icon})
+      _getIntensityInfo(KineticColors colors) {
+    final minVal = _minTargetFor(_selectedType, _selectedPeriod);
+    final maxVal = _maxTargetFor(_selectedType, _selectedPeriod);
+    final ratio = ((_targetValue - minVal) / (maxVal - minVal)).clamp(0.0, 1.0);
+
+    if (ratio < 0.28) {
+      return (
+        titleVi: 'Khởi động nhẹ nhàng',
+        titleEn: 'Base & Recovery',
+        descVi: 'Mục tiêu duy trì thể lực nền tảng, phù hợp để phục hồi và bắt đầu.',
+        descEn: 'Focus on active recovery, light aerobic conditioning and habit forming.',
+        color: const Color(0xFF4EBE9E),
+        icon: Icons.spa_rounded,
+      );
+    } else if (ratio < 0.60) {
+      return (
+        titleVi: 'Vừa sức & Đều đặn',
+        titleEn: 'Steady Progression',
+        descVi: 'Tần suất tối ưu cho sức khỏe tim mạch và nâng cao độ bền vững chắc.',
+        descEn: 'Optimal cadence for cardiovascular health and sustainable fitness gains.',
+        color: const Color(0xFF39B5F2),
+        icon: Icons.trending_up_rounded,
+      );
+    } else if (ratio < 0.85) {
+      return (
+        titleVi: 'Thử thách bứt phá',
+        titleEn: 'Challenger Tier',
+        descVi: 'Đốt mỡ tăng tốc, đòi hỏi ý chí kiên định và lộ trình dinh dưỡng tốt.',
+        descEn: 'Accelerated metabolic burn and aerobic capacity enhancement.',
+        color: const Color(0xFFA55EEA),
+        icon: Icons.bolt_rounded,
+      );
+    } else {
+      return (
+        titleVi: 'Chiến binh vô cực',
+        titleEn: 'Elite Beast Mode',
+        descVi: 'Cường độ khắc nghiệt của vận động viên bán chuyên và chuyên nghiệp.',
+        descEn: 'High-volume endurance demands elite discipline and dedication.',
+        color: const Color(0xFFFF5252),
+        icon: Icons.whatshot_rounded,
+      );
+    }
+  }
+
+  ({String landmarkVi, String landmarkEn, String calorieImpactVi, String calorieImpactEn, String scheduleVi, String scheduleEn})
+      _getRealWorldBenchmark(bool useMetricUnits) {
+    final isWeekly = _selectedPeriod == GoalPeriod.weekly;
+
+    switch (_selectedType) {
+      case GoalType.distance:
+        final kmEquiv = useMetricUnits ? _targetValue : _targetValue / 0.621371;
+        final unitStr = useMetricUnits ? 'km' : 'mi';
+
+        String landmarkVi;
+        String landmarkEn;
+        if (kmEquiv <= 15) {
+          landmarkVi = 'Tương đương ~3 vòng chạy bờ hồ Hoàn Kiếm';
+          landmarkEn = 'Equivalent to ~3 scenic lake loops';
+        } else if (kmEquiv <= 35) {
+          landmarkVi = 'Chinh phục trọn vẹn 1 vòng hồ Tây (17km) + các buổi chạy ngắn';
+          landmarkEn = 'Equivalent to a full West Lake perimeter tour + recovery runs';
+        } else if (kmEquiv <= 60) {
+          landmarkVi = 'Vượt xa cự ly một trận Full Marathon tiêu chuẩn (42.195 km)';
+          landmarkEn = 'Surpasses the iconic Full Marathon distance (42.2 km)';
+        } else if (kmEquiv <= 150) {
+          landmarkVi = 'Tương đương chạy bộ từ Hà Nội tới Phủ Lý (Hà Nam)';
+          landmarkEn = 'Equivalent to an epic cross-provincial endurance trek';
+        } else {
+          landmarkVi = 'Cự ly Ultra Marathon cự phách dành cho chiến binh thép';
+          landmarkEn = 'Ultra Marathon endurance scale reserved for relentless runners';
+        }
+
+        final kcal = (kmEquiv * 68).round();
+        final fatKg = (kcal / 7700).toStringAsFixed(2);
+        final sessions = isWeekly ? 4 : 16;
+        final perSession = (_targetValue / sessions).toStringAsFixed(1);
+
+        return (
+          landmarkVi: landmarkVi,
+          landmarkEn: landmarkEn,
+          calorieImpactVi: 'Giải phóng ~$kcal kcal (tương đương ~$fatKg kg mỡ thuần khiết)',
+          calorieImpactEn: 'Burn ~$kcal kcal (equiv. ~$fatKg kg metabolic fat loss)',
+          scheduleVi: 'Chia đều ~$sessions buổi/chu kỳ (khoảng $perSession $unitStr mỗi buổi)',
+          scheduleEn: 'Split across ~$sessions sessions (~$perSession $unitStr each)',
+        );
+
+      case GoalType.workouts:
+        final sessions = _targetValue.toInt();
+        final daysBetween = isWeekly
+            ? (7 / math.max(1, sessions)).toStringAsFixed(1)
+            : (30 / math.max(1, sessions)).toStringAsFixed(1);
+
+        String landmarkVi;
+        String landmarkEn;
+        if (sessions <= 3) {
+          landmarkVi = 'Khởi đầu thông minh, tạo đà xây dựng phản xạ vận động';
+          landmarkEn = 'Smart adaptive cadence for consistent recovery & habits';
+        } else if (sessions <= 5) {
+          landmarkVi = 'Tần suất vàng theo tiêu chuẩn của Tổ chức Y tế Thế giới (WHO)';
+          landmarkEn = 'Gold standard activity frequency recommended by WHO';
+        } else if (sessions <= 7) {
+          landmarkVi = 'Kỷ luật thép — Duy trì ngọn lửa vận động đều đặn mỗi ngày';
+          landmarkEn = 'Ironclad discipline — Daily athletic activation without break';
+        } else {
+          landmarkVi = 'Cường độ kép — Hai buổi rèn luyện mỗi ngày của vận động viên';
+          landmarkEn = 'Double-session athlete regimen pushing physical boundaries';
+        }
+
+        final estKcal = sessions * 360;
+
+        return (
+          landmarkVi: landmarkVi,
+          landmarkEn: landmarkEn,
+          calorieImpactVi: 'Ước tính tiêu hao ~$estKcal kcal qua các buổi tập',
+          calorieImpactEn: 'Estimated ~$estKcal active calories across workouts',
+          scheduleVi: 'Trung bình cứ mỗi $daysBetween ngày hoàn thành 1 buổi tập',
+          scheduleEn: '1 workout completed every $daysBetween days',
+        );
+
+      case GoalType.calories:
+        final kcal = _targetValue.toInt();
+        final fatKg = (kcal / 7700).toStringAsFixed(2);
+        final phoBowls = (kcal / 500).toStringAsFixed(1);
+        final days = isWeekly ? 7 : 30;
+        final perDay = (kcal / days).round();
+
+        return (
+          landmarkVi: 'Giải phóng năng lượng tương đương tiêu hao $phoBowls bữa ăn tiêu chuẩn',
+          landmarkEn: 'Metabolic deficit equivalent to burning $phoBowls standard meals',
+          calorieImpactVi: 'Đốt cháy ~$fatKg kg mô mỡ tích lũy khỏi cơ thể',
+          calorieImpactEn: 'Oxidizes ~$fatKg kg of pure stored body fat',
+          scheduleVi: 'Cần đốt cháy trung bình ~$perDay kcal mỗi ngày',
+          scheduleEn: 'Requires an average burn of ~$perDay kcal daily',
+        );
+    }
+  }
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+
   Future<void> _save() async {
-    final useMetricUnits = ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
+    final useMetricUnits = _useMetricUnits;
+    final currentLang = ref.read(appLanguageProvider);
+    final isVi = currentLang == AppLanguage.vi;
+
     if (_targetValue <= 0) {
       showAetronNotice(
         context,
-        message: 'Enter a valid target value greater than zero.',
+        message: isVi
+            ? 'Vui lòng chọn hoặc nhập giá trị mục tiêu hợp lệ lớn hơn 0.'
+            : 'Please set a valid target value greater than zero.',
         tone: AetronNoticeTone.error,
       );
       return;
@@ -114,7 +296,13 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
 
     setState(() => _isSaving = true);
 
-    final userId = Supabase.instance.client.auth.currentUser!.id;
+    String userId = 'guest-user';
+    try {
+      userId = Supabase.instance.client.auth.currentUser?.id ?? 'guest-user';
+    } catch (_) {
+      userId = 'guest-user';
+    }
+
     final existing = ref.read(userGoalProvider).valueOrNull;
     final normalizedTarget = _selectedType == GoalType.distance && !useMetricUnits
         ? _targetValue / 0.621371
@@ -141,19 +329,104 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
         setState(() => _isSaving = false);
         showAetronNotice(
           context,
-          message: 'Could not save goal. Check your connection and try again.',
+          message: isVi
+              ? 'Không thể lưu mục tiêu. Vui lòng kiểm tra kết nối mạng và thử lại.'
+              : 'Could not save goal. Please check your connection and try again.',
           tone: AetronNoticeTone.error,
         );
       }
     }
   }
 
-  void _showDirectValueEditor(BuildContext context, AppLanguage currentLang) {
-    final controller = TextEditingController(
-      text: _targetValue % 1 == 0
-          ? _targetValue.toInt().toString()
-          : _targetValue.toStringAsFixed(1),
+  Future<void> _confirmDeleteGoal(AppLanguage currentLang) async {
+    final colors = context.kinetic;
+    final isVi = currentLang == AppLanguage.vi;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.borderAccent, width: 1.2),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.error.withValues(alpha: 0.15),
+              ),
+              child: Icon(Icons.delete_outline_rounded, color: colors.error, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isVi ? 'Hủy bỏ mục tiêu này?' : 'Remove This Goal?',
+                style: KineticTypography.headlineSmall.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          isVi
+              ? 'Bạn có chắc chắn muốn xóa mục tiêu hiện tại? Dữ liệu tiến độ mục tiêu sẽ được đặt lại.'
+              : 'Are you sure you want to delete your active goal? All progress tracking will be reset.',
+          style: KineticTypography.bodyMedium.copyWith(color: colors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              isVi ? 'Hủy' : 'Cancel',
+              style: KineticTypography.label.copyWith(color: colors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              isVi ? 'Xóa mục tiêu' : 'Delete Goal',
+              style: KineticTypography.label.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(userGoalProvider.notifier).deleteGoal();
+        if (mounted) Navigator.of(context).pop();
+      } catch (_) {
+        if (mounted) {
+          showAetronNotice(
+            context,
+            message: isVi ? 'Không thể xóa mục tiêu.' : 'Could not delete goal.',
+            tone: AetronNoticeTone.error,
+          );
+        }
+      }
+    }
+  }
+
+  void _showDirectValueEditor(BuildContext context, AppLanguage currentLang) {
+    final colors = context.kinetic;
+    final isVi = currentLang == AppLanguage.vi;
+    final accent = _accentColorFor(_selectedType, colors);
+    final textVal = _targetValue % 1 == 0
+        ? _targetValue.toInt().toString()
+        : _targetValue.toStringAsFixed(1);
+    final controller = TextEditingController(text: textVal)
+      ..selection = TextSelection(baseOffset: 0, extentOffset: textVal.length);
 
     showModalBottomSheet<void>(
       context: context,
@@ -167,13 +440,13 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AetronColors.space,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.5), width: 1.2),
+            color: colors.surface1,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: accent.withValues(alpha: 0.3), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.7),
-                blurRadius: 28,
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 32,
               ),
             ],
           ),
@@ -181,47 +454,64 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                currentLang == AppLanguage.vi ? 'NHẬP CHÍNH XÁC MỤC TIÊU' : 'ENTER EXACT TARGET',
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  color: AetronColors.cyan,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.edit_note_rounded, size: 16, color: accent),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isVi ? 'NHẬP CHÍNH XÁC MỤC TIÊU' : 'ENTER EXACT TARGET',
+                    style: KineticTypography.unitLabel.copyWith(
+                      color: accent,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               TextField(
                 controller: controller,
                 autofocus: true,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
+                style: KineticTypography.displayLarge.copyWith(
+                  color: colors.textPrimary,
                   fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: AetronColors.textPrimary,
+                  fontWeight: FontWeight.w800,
                 ),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AetronColors.panelHigh,
-                  suffixText: _unitLabel(_selectedType, useMetricUnits: true).toUpperCase(),
-                  suffixStyle: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 14,
+                  fillColor: colors.surface2,
+                  suffixText: _unitLabel(
+                    _selectedType,
+                    useMetricUnits: _useMetricUnits,
+                    isVi: isVi,
+                  ).toUpperCase(),
+                  suffixStyle: KineticTypography.label.copyWith(
+                    color: accent,
                     fontWeight: FontWeight.w800,
-                    color: AetronColors.cyan,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AetronColors.borderSubtle),
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colors.borderSubtle),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: accent, width: 1.6),
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-              AppButton(
-                label: currentLang == AppLanguage.vi ? 'ÁP DỤNG MỤC TIÊU' : 'APPLY TARGET',
+              KineticButton(
+                label: isVi ? 'ÁP DỤNG MỤC TIÊU' : 'APPLY TARGET',
                 icon: Icons.check_circle_rounded,
+                variant: KineticButtonVariant.primary,
+                height: 48,
                 onPressed: () {
                   final parsed = double.tryParse(controller.text.trim());
                   if (parsed != null && parsed > 0) {
@@ -237,41 +527,50 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     );
   }
 
+  // ── Build Widget ────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
+    final isVi = currentLang == AppLanguage.vi;
     final hasGoal = ref.watch(userGoalProvider).valueOrNull != null;
     final useMetricUnits = ref.watch(metricUnitsPreferenceProvider).value ?? true;
-    final unit = _unitLabel(_selectedType, useMetricUnits: useMetricUnits);
-    final minVal = _minTargetFor(_selectedType, _selectedPeriod);
-    final maxVal = _maxTargetFor(_selectedType, _selectedPeriod);
+    final unit = _unitLabel(_selectedType, useMetricUnits: useMetricUnits, isVi: isVi);
+    final minVal = _minTargetFor(_selectedType, _selectedPeriod, useMetricUnits);
+    final maxVal = _maxTargetFor(_selectedType, _selectedPeriod, useMetricUnits);
     final step = _stepSizeFor(_selectedType);
+    final accent = _accentColorFor(_selectedType, colors);
 
     return Scaffold(
-      backgroundColor: AetronColors.voidBlack,
+      backgroundColor: colors.background,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            // Top Bar
+            // 1. Sleek Motivational Top Bar
             _buildTopBar(context, currentLang, hasGoal),
 
-            // Scrollable Content
+            // 2. Main Scrollable Playground
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 6, 18, 120),
                 children: [
-                  // 1. Goal Type 3D Selector (Distance / Workouts / Calories)
-                  _buildTypeSelector(currentLang),
+                  // 2.1 Athletic Discipline Selector (Distance / Sessions / Calories)
+                  _buildDisciplineSelector(colors, currentLang),
                   const SizedBox(height: 14),
 
-                  // 2. Period Sprint Selector (Weekly Sprint vs Monthly Campaign)
-                  _buildPeriodSelector(currentLang),
-                  const SizedBox(height: 16),
+                  // 2.2 Cadence Selector (Weekly Sprint vs Monthly Campaign)
+                  _buildCadenceSelector(colors, currentLang),
+                  const SizedBox(height: 18),
 
-                  // 3. Central Holographic Radial Target Dial
-                  _buildHolographicDialCard(
+                  // 2.3 HERO: Kinetic Target Energy Reactor Dial
+                  _buildEnergyReactorCard(
                     context,
+                    colors,
                     currentLang,
+                    accent,
                     unit,
                     minVal,
                     maxVal,
@@ -279,39 +578,45 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // 4. Mission Tier Presets (Starter / Pro / Elite / Beast)
-                  _buildMissionTierPresets(currentLang, useMetricUnits),
+                  // 2.4 Real-World Impact & Benchmark Projection
+                  _buildRealWorldImpactCard(colors, currentLang, useMetricUnits, accent),
                   const SizedBox(height: 18),
 
-                  // 5. Live AI Telemetry Forecast & Feasibility
-                  _buildAiForecastCard(currentLang, useMetricUnits),
-                  const SizedBox(height: 24),
+                  // 2.5 Athletic Goal Presets (Starter, Pro, Elite, Beast)
+                  _buildAthleticPresets(colors, currentLang, useMetricUnits, accent),
+                  const SizedBox(height: 18),
 
-                  // 6. Action Button
-                  _isSaving
-                      ? const Center(
-                          child: CircularProgressIndicator(color: AetronColors.cyan),
-                        )
-                      : Aetron3DPrimaryButton(
-                          label: hasGoal
-                              ? (currentLang == AppLanguage.vi ? 'CẬP NHẬT NHIỆM VỤ' : 'UPDATE GOAL PROTOCOL')
-                              : (currentLang == AppLanguage.vi ? 'KÍCH HOẠT NHIỆM VỤ' : 'ACTIVATE GOAL PROTOCOL'),
-                          icon: Icons.bolt_rounded,
-                          onPressed: _save,
-                        ),
+                  // 2.6 Target Reward / Badge Unlock Spotlight
+                  _buildBadgeUnlockPreview(colors, currentLang, accent),
                 ],
               ),
             ),
           ],
         ),
       ),
+
+      // 3. Fixed Sticky Bottom Action Dock
+      bottomNavigationBar: _buildStickyActionDock(
+        colors,
+        currentLang,
+        isVi,
+        hasGoal,
+        accent,
+        unit,
+      ),
     );
   }
 
+  // ── Top Bar ─────────────────────────────────────────────────────────────────
+
   Widget _buildTopBar(BuildContext context, AppLanguage currentLang, bool hasGoal) {
+    final colors = context.kinetic;
+    final isVi = currentLang == AppLanguage.vi;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Material(
             color: Colors.transparent,
@@ -321,68 +626,49 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AetronColors.panelHigh,
+                  color: colors.surface1,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AetronColors.borderSubtle),
+                  border: Border.all(color: colors.borderSubtle),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios_new_rounded,
-                  size: 16,
-                  color: AetronColors.textPrimary,
+                  size: 15,
+                  color: colors.textPrimary,
                 ),
               ),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  currentLang == AppLanguage.vi ? 'GIAO THỨC THỂ LỰC' : 'FITNESS PROTOCOL',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: AetronColors.cyanSoft.withValues(alpha: 0.8),
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                Text(
-                  hasGoal
-                      ? (currentLang == AppLanguage.vi ? 'Thiết Lập Mục Tiêu' : 'Edit Goal Matrix')
-                      : (currentLang == AppLanguage.vi ? 'Kích Hoạt Mục Tiêu' : 'Set New Target'),
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: AetronColors.textPrimary,
-                  ),
-                ),
-              ],
+            child: Text(
+              isVi ? 'Mục tiêu rèn luyện' : 'Fitness Goals',
+              style: KineticTypography.pageTitle.copyWith(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: colors.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (hasGoal)
             Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () async {
-                  final navigator = Navigator.of(context);
-                  await ref.read(userGoalProvider.notifier).deleteGoal();
-                  if (mounted) navigator.pop();
-                },
+                onTap: () => _confirmDeleteGoal(currentLang),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AetronColors.error.withValues(alpha: 0.15),
+                    color: colors.error.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AetronColors.error.withValues(alpha: 0.4)),
+                    border: Border.all(color: colors.error.withValues(alpha: 0.35)),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.delete_outline_rounded,
                     size: 18,
-                    color: AetronColors.error,
+                    color: colors.error,
                   ),
                 ),
               ),
@@ -392,100 +678,156 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     );
   }
 
-  Widget _buildTypeSelector(AppLanguage currentLang) {
-    final types = [
-      (GoalType.distance, Icons.route_rounded, 'CỰ LY', 'DISTANCE'),
-      (GoalType.workouts, Icons.fitness_center_rounded, 'BUỔI TẬP', 'SESSIONS'),
-      (GoalType.calories, Icons.local_fire_department_rounded, 'CALO', 'CALORIES'),
+  // ── 2.1 Athletic Discipline Selector ────────────────────────────────────────
+
+  Widget _buildDisciplineSelector(KineticColors colors, AppLanguage currentLang) {
+    final isVi = currentLang == AppLanguage.vi;
+
+    final items = [
+      (
+        GoalType.distance,
+        Icons.directions_run_rounded,
+        isVi ? 'Cự ly' : 'Distance',
+        _unitLabel(GoalType.distance, useMetricUnits: _useMetricUnits, isVi: isVi).toUpperCase(),
+        colors.primary,
+      ),
+      (
+        GoalType.workouts,
+        Icons.fitness_center_rounded,
+        isVi ? 'Buổi tập' : 'Sessions',
+        isVi ? 'BUỔI' : 'SESSIONS',
+        colors.secondary,
+      ),
+      (
+        GoalType.calories,
+        Icons.local_fire_department_rounded,
+        isVi ? 'Calo' : 'Calories',
+        'KCAL',
+        colors.tertiary,
+      ),
     ];
 
     return Row(
-      children: types.map((item) {
-        final type = item.$1;
-        final icon = item.$2;
-        final label = currentLang == AppLanguage.vi ? item.$3 : item.$4;
-        final isSelected = _selectedType == type;
-
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _selectedType = type;
-                    _targetValue = _defaultTargetFor(type, _selectedPeriod);
-                  });
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AetronColors.cyan.withValues(alpha: 0.18)
-                        : AetronColors.panelHigh,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? AetronColors.cyan
-                          : AetronColors.borderSubtle,
-                      width: isSelected ? 1.4 : 1.0,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: AetronColors.cyan.withValues(alpha: 0.25),
-                              blurRadius: 12,
-                              spreadRadius: -2,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        icon,
-                        size: 20,
-                        color: isSelected ? AetronColors.cyan : AetronColors.textSecondary,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: isSelected ? AetronColors.cyan : AetronColors.textSecondary,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+      children: [
+        for (int i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: _buildDisciplineCard(
+              colors: colors,
+              type: items[i].$1,
+              icon: items[i].$2,
+              title: items[i].$3,
+              badge: items[i].$4,
+              accent: items[i].$5,
+              isSelected: _selectedType == items[i].$1,
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ],
     );
   }
 
-  Widget _buildPeriodSelector(AppLanguage currentLang) {
+  Widget _buildDisciplineCard({
+    required KineticColors colors,
+    required GoalType type,
+    required IconData icon,
+    required String title,
+    required String badge,
+    required Color accent,
+    required bool isSelected,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _selectedType = type;
+            _targetValue = _defaultTargetFor(type, _selectedPeriod);
+          });
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? accent.withValues(alpha: 0.14) : colors.surface1,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? accent : colors.borderSubtle,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.22),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? accent : colors.surface2,
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: isSelected ? Colors.black : colors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: KineticTypography.headlineSmall.copyWith(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? colors.textPrimary : colors.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                badge,
+                style: KineticTypography.unitLabel.copyWith(
+                  fontSize: 10,
+                  color: isSelected ? accent : colors.textMuted,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── 2.2 Cadence Selector ───────────────────────────────────────────────────
+
+  Widget _buildCadenceSelector(KineticColors colors, AppLanguage currentLang) {
+    final isVi = currentLang == AppLanguage.vi;
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
+        color: colors.surface1,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AetronColors.borderSubtle),
+        border: Border.all(color: colors.borderSubtle),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _buildPeriodTab(
-              label: currentLang == AppLanguage.vi ? 'Sprint Hàng Tuần (7 Ngày)' : 'Weekly Sprint (7 Days)',
+            child: _buildCadenceTab(
+              colors: colors,
+              title: isVi ? 'Sprint Tuần Này' : 'Weekly Sprint',
+              subtitle: isVi ? 'Chu kỳ 7 ngày' : '7-Day Rolling',
+              icon: Icons.flash_on_rounded,
               isSelected: _selectedPeriod == GoalPeriod.weekly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -497,8 +839,11 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
             ),
           ),
           Expanded(
-            child: _buildPeriodTab(
-              label: currentLang == AppLanguage.vi ? 'Chiến Dịch Tháng (30 Ngày)' : 'Monthly Campaign',
+            child: _buildCadenceTab(
+              colors: colors,
+              title: isVi ? 'Chiến Dịch Tháng' : 'Monthly Campaign',
+              subtitle: isVi ? 'Mục tiêu 30 ngày' : '30-Day Milestone',
+              icon: Icons.flag_rounded,
               isSelected: _selectedPeriod == GoalPeriod.monthly,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -514,8 +859,11 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     );
   }
 
-  Widget _buildPeriodTab({
-    required String label,
+  Widget _buildCadenceTab({
+    required KineticColors colors,
+    required String title,
+    required String subtitle,
+    required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -526,191 +874,263 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? AetronColors.cyan.withValues(alpha: 0.22) : Colors.transparent,
+            color: isSelected ? colors.surface3 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: isSelected
-                ? Border.all(color: AetronColors.cyan.withValues(alpha: 0.4))
+                ? Border.all(color: colors.borderAccent, width: 1.2)
                 : null,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-              color: isSelected ? AetronColors.cyan : AetronColors.textSecondary,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? colors.primary : colors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: KineticTypography.label.copyWith(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected ? colors.textPrimary : colors.textMuted,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: KineticTypography.bodySmall.copyWith(
+                      fontSize: 10,
+                      color: isSelected ? colors.primary : colors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHolographicDialCard(
+  // ── 2.3 HERO: Kinetic Target Energy Reactor Dial ───────────────────────────
+
+  // ── 2.3 HERO: Kinetic Target Goal Card ─────────────────────────────────────
+
+  Widget _buildEnergyReactorCard(
     BuildContext context,
+    KineticColors colors,
     AppLanguage currentLang,
+    Color accent,
     String unit,
     double minVal,
     double maxVal,
     double step,
   ) {
-    final progressRatio = ((_targetValue - minVal) / (maxVal - minVal)).clamp(0.0, 1.0);
-    final displayValue = _targetValue % 1 == 0
-        ? _targetValue.toInt().toString()
-        : _targetValue.toStringAsFixed(1);
+    final isVi = currentLang == AppLanguage.vi;
+    final displayValue = _selectedType == GoalType.calories
+        ? _targetValue.toInt().toString().replaceAllMapped(
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]},',
+          )
+        : (_targetValue % 1 == 0
+            ? _targetValue.toInt().toString()
+            : _targetValue.toStringAsFixed(1));
+
+    final intensity = _getIntensityInfo(colors);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1.2),
+        color: colors.surface1,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.6),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: AetronColors.cyan.withValues(alpha: 0.15),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 20,
-            spreadRadius: -3,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Radial Holographic Arc & Big Typography
-          GestureDetector(
-            onTap: () => _showDirectValueEditor(context, currentLang),
-            child: SizedBox(
-              width: 210,
-              height: 210,
-              child: Stack(
-                alignment: Alignment.center,
+          // 1. Top Bar: Period Label & Quick Direct Input Action
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  // Custom Paint Arc
-                  CustomPaint(
-                    size: const Size(210, 210),
-                    painter: _RadialTargetGaugePainter(
-                      progress: progressRatio,
-                      color: AetronColors.cyan,
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: accent,
                     ),
                   ),
-
-                  // Center Content
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AetronColors.cyan.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          _selectedPeriod == GoalPeriod.weekly
-                              ? (currentLang == AppLanguage.vi ? 'MỤC TIÊU TUẦN' : 'WEEKLY TARGET')
-                              : (currentLang == AppLanguage.vi ? 'MỤC TIÊU THÁNG' : 'MONTHLY TARGET'),
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            color: AetronColors.cyan,
-                            letterSpacing: 1.0,
+                  const SizedBox(width: 6),
+                  Text(
+                    _selectedPeriod == GoalPeriod.weekly
+                        ? (isVi ? 'MỤC TIÊU TUẦN' : 'WEEKLY TARGET')
+                        : (isVi ? 'MỤC TIÊU THÁNG' : 'MONTHLY TARGET'),
+                    style: KineticTypography.unitLabel.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    _showDirectValueEditor(context, currentLang);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_note_rounded, size: 16, color: accent),
+                        const SizedBox(width: 4),
+                        Text(
+                          isVi ? 'Nhập số' : 'Enter value',
+                          style: KineticTypography.bodySmall.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: colors.textSecondary,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        displayValue,
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                          color: AetronColors.textPrimary,
-                          letterSpacing: -1.0,
-                          height: 1.0,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        unit.toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: AetronColors.cyanSoft,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // 2. Interactive Ergonomic Steppers with Hero Metric Center
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Clean Decrement Button
+              _buildStepButton(
+                colors: colors,
+                accent: accent,
+                icon: Icons.remove_rounded,
+                enabled: _targetValue > minVal,
+                onTap: () => _adjustTarget(-step),
+              ),
+
+              // Hero Metric Display (Tap to Edit)
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _showDirectValueEditor(context, currentLang);
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.edit_rounded, size: 10, color: AetronColors.muted),
-                          const SizedBox(width: 3),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                displayValue,
+                                style: KineticTypography.metricHero.copyWith(
+                                  fontSize: 52,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.5,
+                                  color: colors.textPrimary,
+                                  height: 1.0,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                unit.toUpperCase(),
+                                style: KineticTypography.unitLabel.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: accent,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
                           Text(
-                            currentLang == AppLanguage.vi ? 'Chạm để gõ' : 'Tap to edit',
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 9,
-                              color: AetronColors.muted,
+                            isVi ? 'Chạm để gõ số' : 'Tap to edit',
+                            style: KineticTypography.bodySmall.copyWith(
+                              fontSize: 11,
+                              color: colors.textMuted,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Stepper & Slider Controls Row
-          Row(
-            children: [
-              // Decrement Button
-              _buildStepButton(
-                icon: Icons.remove_rounded,
-                label: '-$step',
-                onTap: () => _adjustTarget(-step),
-              ),
-
-              // Interactive Slider
-              Expanded(
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 6,
-                    activeTrackColor: AetronColors.cyan,
-                    inactiveTrackColor: AetronColors.space,
-                    thumbColor: AetronColors.cyan,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-                    overlayColor: AetronColors.cyan.withValues(alpha: 0.25),
-                  ),
-                  child: Slider(
-                    value: _targetValue.clamp(minVal, maxVal),
-                    min: minVal,
-                    max: maxVal,
-                    onChanged: (val) {
-                      _updateTarget(val);
-                    },
+                    ),
                   ),
                 ),
               ),
 
-              // Increment Button
+              // Clean Increment Button
               _buildStepButton(
+                colors: colors,
+                accent: accent,
                 icon: Icons.add_rounded,
-                label: '+$step',
+                enabled: _targetValue < maxVal,
                 onTap: () => _adjustTarget(step),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+
+          // 3. Clean & Subtle Athletic Intensity Tag
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: intensity.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: intensity.color.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(intensity.icon, size: 14, color: intensity.color),
+                const SizedBox(width: 8),
+                Text(
+                  isVi ? intensity.titleVi : intensity.titleEn,
+                  style: KineticTypography.label.copyWith(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: intensity.color,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -718,234 +1138,61 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
   }
 
   Widget _buildStepButton({
+    required KineticColors colors,
+    required Color accent,
     required IconData icon,
-    required String label,
+    required bool enabled,
     required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(26),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            color: AetronColors.space,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.35)),
+            shape: BoxShape.circle,
+            color: enabled ? colors.surface2 : colors.surface2.withValues(alpha: 0.3),
+            border: Border.all(
+              color: enabled ? accent.withValues(alpha: 0.35) : colors.borderSubtle.withValues(alpha: 0.2),
+              width: 1.4,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: AetronColors.cyan),
-              const SizedBox(width: 2),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: AetronColors.cyan,
-                ),
-              ),
-            ],
+          child: Icon(
+            icon,
+            size: 26,
+            color: enabled ? accent : colors.textMuted.withValues(alpha: 0.4),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMissionTierPresets(AppLanguage currentLang, bool useMetricUnits) {
-    final isWeekly = _selectedPeriod == GoalPeriod.weekly;
+  // ── 2.4 Real-World Impact & Benchmark Projection ───────────────────────────
 
-    final presets = switch (_selectedType) {
-      GoalType.distance => [
-          ('Starter', 'Khởi Nguyên', isWeekly ? 20.0 : 80.0, Icons.spa_rounded, AetronColors.mint),
-          ('Pro', 'Bứt Phá', isWeekly ? 45.0 : 180.0, Icons.bolt_rounded, AetronColors.cyan),
-          ('Elite', 'Đẳng Cấp', isWeekly ? 80.0 : 320.0, Icons.workspace_premium_rounded, AetronColors.gold),
-          ('Beast', 'Vô Cực', isWeekly ? 120.0 : 480.0, Icons.whatshot_rounded, const Color(0xFFA55EEA)),
-        ],
-      GoalType.workouts => [
-          ('Starter', 'Khởi Nguyên', isWeekly ? 3.0 : 12.0, Icons.spa_rounded, AetronColors.mint),
-          ('Pro', 'Bứt Phá', isWeekly ? 5.0 : 20.0, Icons.bolt_rounded, AetronColors.cyan),
-          ('Elite', 'Đẳng Cấp', isWeekly ? 7.0 : 28.0, Icons.workspace_premium_rounded, AetronColors.gold),
-          ('Beast', 'Vô Cực', isWeekly ? 10.0 : 38.0, Icons.whatshot_rounded, const Color(0xFFA55EEA)),
-        ],
-      GoalType.calories => [
-          ('Starter', 'Khởi Nguyên', isWeekly ? 2000.0 : 8000.0, Icons.spa_rounded, AetronColors.mint),
-          ('Pro', 'Bứt Phá', isWeekly ? 4500.0 : 18000.0, Icons.bolt_rounded, AetronColors.cyan),
-          ('Elite', 'Đẳng Cấp', isWeekly ? 8000.0 : 32000.0, Icons.workspace_premium_rounded, AetronColors.gold),
-          ('Beast', 'Vô Cực', isWeekly ? 12000.0 : 48000.0, Icons.whatshot_rounded, const Color(0xFFA55EEA)),
-        ],
-    };
-
-    final unitLabel = _unitLabel(_selectedType, useMetricUnits: useMetricUnits);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          currentLang == AppLanguage.vi ? 'GÓI NHIỆM VỤ ĐỀ XUẤT' : 'RECOMMENDED PROTOCOLS',
-          style: const TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            color: AetronColors.cyanSoft,
-            letterSpacing: 1.4,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: presets.map((p) {
-            final title = currentLang == AppLanguage.vi ? p.$2 : p.$1;
-            final val = p.$3;
-            final icon = p.$4;
-            final color = p.$5;
-            final isSelected = (_targetValue - val).abs() < 0.5;
-
-            final displayVal = val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(0);
-
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      _updateTarget(val);
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: isSelected ? color.withValues(alpha: 0.18) : AetronColors.panelHigh,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected ? color : AetronColors.borderSubtle,
-                          width: isSelected ? 1.4 : 1.0,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: color.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(icon, size: 18, color: color),
-                          const SizedBox(height: 4),
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              color: color,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$displayVal $unitLabel',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: isSelected ? AetronColors.textPrimary : AetronColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAiForecastCard(AppLanguage currentLang, bool useMetricUnits) {
-    final isWeekly = _selectedPeriod == GoalPeriod.weekly;
-
-    // Calculations for forecast
-    String dailyOrSessionBreakdown;
-    String energyEquivalent;
-    String badgePotential;
-
-    switch (_selectedType) {
-      case GoalType.distance:
-        final sessionCount = isWeekly ? 4 : 16;
-        final kmPerSession = _targetValue / sessionCount;
-        dailyOrSessionBreakdown = currentLang == AppLanguage.vi
-            ? 'Khoảng ~$sessionCount buổi (${kmPerSession.toStringAsFixed(1)} km/buổi)'
-            : '~$sessionCount sessions (${kmPerSession.toStringAsFixed(1)} km/session)';
-        final kcalEst = (_targetValue * 65).round();
-        final fatLossKg = (kcalEst / 7700).toStringAsFixed(2);
-        energyEquivalent = currentLang == AppLanguage.vi
-            ? '~$kcalEst kcal (tương đương ~$fatLossKg kg mỡ)'
-            : '~$kcalEst kcal (~$fatLossKg kg fat burn)';
-        badgePotential = _targetValue >= 100
-            ? (currentLang == AppLanguage.vi ? '🥇 Thám Hiểm 100K' : '🥇 Century 100K')
-            : (_targetValue >= 42
-                ? (currentLang == AppLanguage.vi ? '🥈 Bán Marathon 21K' : '🥈 Half-Marathon 21K')
-                : (currentLang == AppLanguage.vi ? '🥉 Bứt Phá 5K' : '🥉 5K Pioneer'));
-        break;
-
-      case GoalType.workouts:
-        final daysInterval = isWeekly ? (7 / _targetValue).toStringAsFixed(1) : (30 / _targetValue).toStringAsFixed(1);
-        dailyOrSessionBreakdown = currentLang == AppLanguage.vi
-            ? 'Mỗi $daysInterval ngày tập 1 buổi'
-            : '1 workout every $daysInterval days';
-        final kcalEst = (_targetValue * 350).round();
-        energyEquivalent = currentLang == AppLanguage.vi
-            ? 'Ước tính tiêu hao ~$kcalEst kcal'
-            : 'Est. burn ~$kcalEst kcal';
-        badgePotential = _targetValue >= (isWeekly ? 7 : 25)
-            ? (currentLang == AppLanguage.vi ? '🥇 Vòng Xoáy Kiên Định' : '🥇 14-Day Orbit')
-            : (currentLang == AppLanguage.vi ? '🥈 Chiến Binh Tuần Lễ' : '🥈 Weekly Ignite');
-        break;
-
-      case GoalType.calories:
-        final kcalPerDay = (_targetValue / (isWeekly ? 7 : 30)).round();
-        dailyOrSessionBreakdown = currentLang == AppLanguage.vi
-            ? 'Cần đốt ~$kcalPerDay kcal/ngày'
-            : 'Target ~$kcalPerDay kcal/day';
-        final fatLossKg = (_targetValue / 7700).toStringAsFixed(2);
-        energyEquivalent = currentLang == AppLanguage.vi
-            ? 'Tương đương ~$fatLossKg kg calo chuyển hóa'
-            : 'Equiv. ~$fatLossKg kg metabolic fat loss';
-        badgePotential = _targetValue >= (isWeekly ? 5000 : 20000)
-            ? (currentLang == AppLanguage.vi ? '🥈 Lò Phản Ứng Calo' : '🥈 Calorie Reactor')
-            : (currentLang == AppLanguage.vi ? '🥉 Tia Lửa 3 Ngày' : '🥉 3-Day Spark');
-        break;
-    }
+  Widget _buildRealWorldImpactCard(
+    KineticColors colors,
+    AppLanguage currentLang,
+    bool useMetricUnits,
+    Color accent,
+  ) {
+    final isVi = currentLang == AppLanguage.vi;
+    final benchmark = _getRealWorldBenchmark(useMetricUnits);
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.35), width: 1.2),
+        color: colors.surface1,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.borderSubtle, width: 1.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: AetronColors.cyan.withValues(alpha: 0.08),
-            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -957,79 +1204,93 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AetronColors.cyan.withValues(alpha: 0.15),
+                  color: accent.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, size: 14, color: AetronColors.cyan),
+                child: Icon(Icons.auto_awesome_rounded, size: 15, color: accent),
               ),
               const SizedBox(width: 8),
               Text(
-                currentLang == AppLanguage.vi ? 'DỰ BÁO TIẾN ĐỘ MỤC TIÊU' : 'TELEMETRY PERFORMANCE FORECAST',
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: AetronColors.cyan,
-                  letterSpacing: 1.2,
+                isVi ? 'Ý NGHĨA & HIỆU QUẢ THỰC TẾ' : 'REAL-WORLD PERFORMANCE IMPACT',
+                style: KineticTypography.unitLabel.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                  letterSpacing: 1.0,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
 
-          _buildForecastRow(
-            icon: Icons.calendar_today_rounded,
-            label: currentLang == AppLanguage.vi ? 'Phân rã lộ trình:' : 'Session breakdown:',
-            value: dailyOrSessionBreakdown,
+          _buildImpactItem(
+            colors: colors,
+            icon: Icons.place_rounded,
+            title: isVi ? 'Cột mốc tương đương:' : 'Equivalent landmark:',
+            description: isVi ? benchmark.landmarkVi : benchmark.landmarkEn,
+            accent: accent,
           ),
           const SizedBox(height: 10),
-          _buildForecastRow(
+          _buildImpactItem(
+            colors: colors,
             icon: Icons.local_fire_department_rounded,
-            label: currentLang == AppLanguage.vi ? 'Chuyển hóa năng lượng:' : 'Energy metabolic impact:',
-            value: energyEquivalent,
+            title: isVi ? 'Chuyển hóa năng lượng:' : 'Metabolic energy burn:',
+            description: isVi ? benchmark.calorieImpactVi : benchmark.calorieImpactEn,
+            accent: accent,
           ),
           const SizedBox(height: 10),
-          _buildForecastRow(
-            icon: Icons.emoji_events_rounded,
-            label: currentLang == AppLanguage.vi ? 'Huy hiệu tiềm năng:' : 'Target badge unlock:',
-            value: badgePotential,
+          _buildImpactItem(
+            colors: colors,
+            icon: Icons.calendar_month_rounded,
+            title: isVi ? 'Phân rã lộ trình thực hiện:' : 'Recommended execution pace:',
+            description: isVi ? benchmark.scheduleVi : benchmark.scheduleEn,
+            accent: accent,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildForecastRow({
+  Widget _buildImpactItem({
+    required KineticColors colors,
     required IconData icon,
-    required String label,
-    required String value,
+    required String title,
+    required String description,
+    required Color accent,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 14, color: AetronColors.cyanSoft),
-        const SizedBox(width: 8),
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: colors.surface2,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 14, color: accent),
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 10,
-                  color: AetronColors.textSecondary,
+                title,
+                style: KineticTypography.bodySmall.copyWith(
+                  fontSize: 10.5,
+                  color: colors.textMuted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 1),
               Text(
-                value,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
+                description,
+                style: KineticTypography.bodyMedium.copyWith(
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: AetronColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary,
+                  height: 1.35,
                 ),
               ),
             ],
@@ -1039,95 +1300,395 @@ class _GoalScreenState extends ConsumerState<GoalScreen> {
     );
   }
 
-  String _unitLabel(GoalType type, {required bool useMetricUnits}) {
-    return switch (type) {
-      GoalType.distance => WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits),
-      GoalType.workouts => 'buổi',
-      GoalType.calories => 'kcal',
+  // ── 2.5 Athletic Goal Presets ──────────────────────────────────────────────
+
+  Widget _buildAthleticPresets(
+    KineticColors colors,
+    AppLanguage currentLang,
+    bool useMetricUnits,
+    Color accent,
+  ) {
+    final isVi = currentLang == AppLanguage.vi;
+    final isWeekly = _selectedPeriod == GoalPeriod.weekly;
+
+    final presets = switch (_selectedType) {
+      GoalType.distance => [
+          (
+            'Khởi Đầu',
+            'Starter',
+            useMetricUnits
+                ? (isWeekly ? 20.0 : 80.0)
+                : WorkoutFormatters.kmToMi(isWeekly ? 20.0 : 80.0).roundToDouble(),
+            Icons.spa_rounded,
+            const Color(0xFF4EBE9E),
+            isVi ? 'Làm quen' : 'Base',
+          ),
+          (
+            'Tiến Bộ',
+            'Pro',
+            useMetricUnits
+                ? (isWeekly ? 45.0 : 180.0)
+                : WorkoutFormatters.kmToMi(isWeekly ? 45.0 : 180.0).roundToDouble(),
+            Icons.trending_up_rounded,
+            const Color(0xFF39B5F2),
+            isVi ? 'Đều đặn' : 'Steady',
+          ),
+          (
+            'Bứt Phá',
+            'Elite',
+            useMetricUnits
+                ? (isWeekly ? 80.0 : 320.0)
+                : WorkoutFormatters.kmToMi(isWeekly ? 80.0 : 320.0).roundToDouble(),
+            Icons.bolt_rounded,
+            const Color(0xFFA55EEA),
+            isVi ? 'Nâng cao' : 'Challenge',
+          ),
+          (
+            'Vô Cực',
+            'Beast',
+            useMetricUnits
+                ? (isWeekly ? 120.0 : 480.0)
+                : WorkoutFormatters.kmToMi(isWeekly ? 120.0 : 480.0).roundToDouble(),
+            Icons.whatshot_rounded,
+            const Color(0xFFFF5252),
+            isVi ? 'Đỉnh cao' : 'Ultra',
+          ),
+        ],
+      GoalType.workouts => [
+          ('Khởi Đầu', 'Starter', isWeekly ? 3.0 : 12.0, Icons.spa_rounded, const Color(0xFF4EBE9E), isVi ? 'Làm quen' : 'Base'),
+          ('Tiến Bộ', 'Pro', isWeekly ? 5.0 : 20.0, Icons.trending_up_rounded, const Color(0xFF39B5F2), isVi ? 'Đều đặn' : 'Steady'),
+          ('Bứt Phá', 'Elite', isWeekly ? 7.0 : 28.0, Icons.bolt_rounded, const Color(0xFFA55EEA), isVi ? 'Nâng cao' : 'Challenge'),
+          ('Vô Cực', 'Beast', isWeekly ? 10.0 : 38.0, Icons.whatshot_rounded, const Color(0xFFFF5252), isVi ? 'Đỉnh cao' : 'Ultra'),
+        ],
+      GoalType.calories => [
+          ('Khởi Đầu', 'Starter', isWeekly ? 2000.0 : 8000.0, Icons.spa_rounded, const Color(0xFF4EBE9E), isVi ? 'Làm quen' : 'Base'),
+          ('Tiến Bộ', 'Pro', isWeekly ? 4500.0 : 18000.0, Icons.trending_up_rounded, const Color(0xFF39B5F2), isVi ? 'Đều đặn' : 'Steady'),
+          ('Bứt Phá', 'Elite', isWeekly ? 8000.0 : 32000.0, Icons.bolt_rounded, const Color(0xFFA55EEA), isVi ? 'Nâng cao' : 'Challenge'),
+          ('Vô Cực', 'Beast', isWeekly ? 12000.0 : 48000.0, Icons.whatshot_rounded, const Color(0xFFFF5252), isVi ? 'Đỉnh cao' : 'Ultra'),
+        ],
     };
-  }
-}
 
-// ─── Radial Target Gauge Custom Painter ─────────────────────────────────────
-class _RadialTargetGaugePainter extends CustomPainter {
-  final double progress;
-  final Color color;
+    final unitLabel = _unitLabel(_selectedType, useMetricUnits: useMetricUnits, isVi: isVi);
 
-  const _RadialTargetGaugePainter({
-    required this.progress,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 14;
-
-    const startAngle = 135.0 * (math.pi / 180.0);
-    const sweepAngle = 270.0 * (math.pi / 180.0);
-
-    // 1. Background Arc Track
-    final bgPaint = Paint()
-      ..color = AetronColors.space
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepAngle,
-      false,
-      bgPaint,
-    );
-
-    // 2. Active Glow Arc Track
-    final activeSweep = sweepAngle * progress.clamp(0.02, 1.0);
-
-    final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 18
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10)
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      activeSweep,
-      false,
-      glowPaint,
-    );
-
-    // 3. Main Active Gradient Arc
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    final gradient = SweepGradient(
-      startAngle: startAngle,
-      endAngle: startAngle + sweepAngle,
-      colors: [
-        AetronColors.cyanDim,
-        AetronColors.cyan,
-        AetronColors.mint,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isVi ? 'GÓI MỤC TIÊU ĐỀ XUẤT' : 'RECOMMENDED GOAL PRESETS',
+          style: KineticTypography.unitLabel.copyWith(
+            color: colors.primary,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (int i = 0; i < presets.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: _buildPresetCard(
+                  colors: colors,
+                  title: isVi ? presets[i].$1 : presets[i].$2,
+                  tag: presets[i].$6,
+                  targetVal: presets[i].$3,
+                  icon: presets[i].$4,
+                  presetColor: presets[i].$5,
+                  unitLabel: unitLabel,
+                  isSelected: (_targetValue - presets[i].$3).abs() < 0.5,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _updateTarget(presets[i].$3);
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
+  }
 
-    final activePaint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round;
+  Widget _buildPresetCard({
+    required KineticColors colors,
+    required String title,
+    required String tag,
+    required double targetVal,
+    required IconData icon,
+    required Color presetColor,
+    required String unitLabel,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final displayVal = targetVal % 1 == 0
+        ? targetVal.toInt().toString()
+        : targetVal.toStringAsFixed(0);
 
-    canvas.drawArc(
-      rect,
-      startAngle,
-      activeSweep,
-      false,
-      activePaint,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? presetColor.withValues(alpha: 0.16) : colors.surface1,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? presetColor : colors.borderSubtle,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: presetColor.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            children: [
+              Icon(icon, size: 16, color: presetColor),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KineticTypography.unitLabel.copyWith(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: presetColor,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$displayVal $unitLabel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KineticTypography.bodySmall.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? colors.textPrimary : colors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                tag,
+                style: KineticTypography.bodySmall.copyWith(
+                  fontSize: 9.5,
+                  color: isSelected ? presetColor : colors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  @override
-  bool shouldRepaint(covariant _RadialTargetGaugePainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
+  // ── 2.6 Target Reward / Badge Unlock Spotlight ─────────────────────────────
+
+  Widget _buildBadgeUnlockPreview(
+    KineticColors colors,
+    AppLanguage currentLang,
+    Color accent,
+  ) {
+    final isVi = currentLang == AppLanguage.vi;
+
+    String badgeName;
+    String badgeDesc;
+    IconData badgeIcon;
+
+    switch (_selectedType) {
+      case GoalType.distance:
+        if (_targetValue >= 80) {
+          badgeName = isVi ? '🥇 Huyền Thoại Vi Dã (Ultra 80K)' : '🥇 Century Ultra 80K';
+          badgeDesc = isVi ? 'Mở khóa huy hiệu cự ly đỉnh cao của Aetron.' : 'Unlocks top-tier endurance trophy.';
+          badgeIcon = Icons.military_tech_rounded;
+        } else if (_targetValue >= 42) {
+          badgeName = isVi ? '🥈 Bán Kỷ Lục Marathon' : '🥈 Marathon Vanguard';
+          badgeDesc = isVi ? 'Đạt chuẩn cự ly thi đấu quốc tế.' : 'Meets international road race milestone.';
+          badgeIcon = Icons.workspace_premium_rounded;
+        } else {
+          badgeName = isVi ? '🥉 Ngọn Lửa Khởi Sắc' : '🥉 Pacesetter 15K';
+          badgeDesc = isVi ? 'Xác lập nền tảng thể lực vững bền.' : 'Solidifies foundational endurance.';
+          badgeIcon = Icons.emoji_events_rounded;
+        }
+        break;
+
+      case GoalType.workouts:
+        if (_targetValue >= 6) {
+          badgeName = isVi ? '🥇 Kỷ Luật Sắt Đá' : '🥇 Relentless Orbit';
+          badgeDesc = isVi ? 'Bảo vệ và thăng hoa chuỗi ngày rèn luyện Streak.' : 'Shields and extends your daily streak.';
+          badgeIcon = Icons.local_fire_department_rounded;
+        } else {
+          badgeName = isVi ? '🥈 Nhịp Thể Lực Vàng' : '🥈 Cadence Keeper';
+          badgeDesc = isVi ? 'Duy trì tần suất vận động cân đối theo tuần.' : 'Consistent workout frequency unlocked.';
+          badgeIcon = Icons.fitness_center_rounded;
+        }
+        break;
+
+      case GoalType.calories:
+        badgeName = isVi ? '🔥 Lò Phản Ứng Calo' : '🔥 Metabolic Fusion';
+        badgeDesc = isVi ? 'Tăng tốc giải phóng calo và chuyển hóa trao đổi chất.' : 'Maximizes active metabolic caloric output.';
+        badgeIcon = Icons.whatshot_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.surface2.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(badgeIcon, size: 20, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  badgeName,
+                  style: KineticTypography.headlineSmall.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                Text(
+                  badgeDesc,
+                  style: KineticTypography.bodySmall.copyWith(
+                    fontSize: 11,
+                    color: colors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 3. Fixed Sticky Bottom Action Dock ──────────────────────────────────────
+
+  Widget _buildStickyActionDock(
+    KineticColors colors,
+    AppLanguage currentLang,
+    bool isVi,
+    bool hasGoal,
+    Color accent,
+    String unit,
+  ) {
+    final displayValue = _targetValue % 1 == 0
+        ? _targetValue.toInt().toString()
+        : _targetValue.toStringAsFixed(1);
+
+    final typeLabel = switch (_selectedType) {
+      GoalType.distance => isVi ? 'Cự ly' : 'Distance',
+      GoalType.workouts => isVi ? 'Buổi tập' : 'Sessions',
+      GoalType.calories => isVi ? 'Calo' : 'Calories',
+    };
+
+    final periodLabel = _selectedPeriod == GoalPeriod.weekly
+        ? (isVi ? 'tuần' : 'wk')
+        : (isVi ? 'tháng' : 'mo');
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+      decoration: BoxDecoration(
+        color: colors.surface1.withValues(alpha: 0.95),
+        border: Border(top: BorderSide(color: colors.borderSubtle, width: 1.0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Quick Recap
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 80),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$typeLabel • $periodLabel',
+                    style: KineticTypography.bodySmall.copyWith(
+                      fontSize: 11,
+                      color: colors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        displayValue,
+                        style: KineticTypography.headlineLarge.copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        unit,
+                        style: KineticTypography.unitLabel.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Main Primary CTA Button
+            Expanded(
+              child: KineticButton(
+                label: hasGoal
+                    ? (isVi ? 'LƯU MỤC TIÊU' : 'UPDATE GOAL')
+                    : (isVi ? 'KÍCH HOẠT MỤC TIÊU' : 'ACTIVATE GOAL'),
+                icon: Icons.bolt_rounded,
+                variant: KineticButtonVariant.primary,
+                height: 48,
+                isLoading: _isSaving,
+                onPressed: _isSaving ? null : _save,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _unitLabel(GoalType type, {required bool useMetricUnits, bool isVi = true}) {
+    return switch (type) {
+      GoalType.distance => WorkoutFormatters.distanceUnitLabel(useMetric: useMetricUnits),
+      GoalType.workouts => isVi ? 'buổi' : 'sessions',
+      GoalType.calories => 'kcal',
+    };
   }
 }

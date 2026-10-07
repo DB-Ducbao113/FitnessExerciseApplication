@@ -31,15 +31,23 @@ RecordedWorkoutAssessment assessWorkoutSession(WorkoutSession workout) {
 }
 
 String activityConsistencyWarningText(
-  RecordedWorkoutAssessment assessment,
-) {
+  RecordedWorkoutAssessment assessment, [
+  AppLanguage? lang,
+]) {
+  final isVi = lang == AppLanguage.vi;
   switch (assessment.validityFlag) {
     case WorkoutValidityFlag.verified:
-      return 'Verified GPS workout.';
+      return isVi
+          ? 'Buổi tập GPS đã xác minh.'
+          : 'Verified GPS workout.';
     case WorkoutValidityFlag.partial:
-      return 'Some route segments were flagged and excluded from goal distance.';
+      return isVi
+          ? 'Một số đoạn lộ trình bị gắn cờ và loại khỏi cự ly mục tiêu.'
+          : 'Some route segments were flagged and excluded from goal distance.';
     case WorkoutValidityFlag.unverified:
-      return 'Too many abnormal GPS segments were detected. This workout is not counted toward goals.';
+      return isVi
+          ? 'Phát hiện quá nhiều đoạn GPS bất thường. Buổi tập này không tính vào mục tiêu.'
+          : 'Too many abnormal GPS segments were detected. This workout is not counted toward goals.';
   }
 }
 
@@ -64,17 +72,18 @@ String workoutValidityLabel(WorkoutValidityFlag flag, [AppLanguage? lang]) {
   }
 }
 
-String workoutSegmentReasonLabel(String? reason) {
+String workoutSegmentReasonLabel(String? reason, [AppLanguage? lang]) {
+  final isVi = lang == AppLanguage.vi;
   switch (reason) {
     case 'pace_too_fast':
-      return 'Pace too fast';
+      return isVi ? 'Tốc độ quá nhanh' : 'Pace too fast';
     case 'pace_too_slow':
-      return 'Pace too slow';
+      return isVi ? 'Tốc độ quá chậm' : 'Pace too slow';
     case 'low_gps_accuracy':
-      return 'Low GPS accuracy';
+      return isVi ? 'Độ chính xác GPS thấp' : 'Low GPS accuracy';
     case 'valid':
     case null:
-      return 'Valid';
+      return isVi ? 'Hợp lệ' : 'Valid';
     default:
       return reason.replaceAll('_', ' ');
   }

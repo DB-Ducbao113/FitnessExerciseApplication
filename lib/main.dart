@@ -2,6 +2,7 @@ import 'package:fitness_exercise_application/app/app.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/core/services/notification_service.dart';
 import 'package:fitness_exercise_application/core/services/notification_state_store.dart';
+import 'package:fitness_exercise_application/core/storage/secure_local_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,7 +37,19 @@ void main() async {
       );
     }
 
-    await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+    await Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabaseAnonKey,
+      authOptions: FlutterAuthClientOptions(
+        localStorage: kIsWeb
+            ? SharedPreferencesLocalStorage(
+                persistSessionKey: 'supabasePersistSessionKey',
+              )
+            : SecureLocalStorage(
+                persistSessionKey: 'supabasePersistSessionKey',
+              ),
+      ),
+    );
     debugPrint('[Startup] supabase initialized');
 
     if (!kIsWeb) {
@@ -82,8 +95,8 @@ class _StartupErrorApp extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'App startup failed',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  'Khởi động ứng dụng thất bại / App startup failed',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -92,6 +105,7 @@ class _StartupErrorApp extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
+                  'Vui lòng cấu hình các dart-defines cần thiết trước khi khởi chạy.\n'
                   'If you launched from Xcode, add the required dart-defines before running.',
                   style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),

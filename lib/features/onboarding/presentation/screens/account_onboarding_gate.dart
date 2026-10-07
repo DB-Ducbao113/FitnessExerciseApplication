@@ -1,5 +1,5 @@
 import 'package:fitness_exercise_application/features/onboarding/presentation/screens/welcome_screen.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_globe_orbit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,10 +59,8 @@ class _AccountOnboardingGateState extends State<AccountOnboardingGate> {
       future: _shouldShowWelcome,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const AetronLoadingScaffold(
-            label: 'PREPARING WELCOME',
-            message: 'Loading your Aetron introduction.',
-            withGrid: false,
+          return const AetronGlobeOrbitScreen(
+            customTitle: 'Aetron',
           );
         }
         return snapshot.data!

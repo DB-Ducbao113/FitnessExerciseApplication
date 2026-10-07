@@ -1,6 +1,8 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_setup_screen.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_logout_dialog.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,10 +30,15 @@ class _AthleteSetupFlowState extends State<AthleteSetupFlow> {
   @override
   Widget build(BuildContext context) {
     if (_hasDisplayName == null) {
-      return const AetronLoadingScaffold(
-        label: 'PREPARING SETUP',
-        message: 'Loading athlete identity.',
-        withGrid: false,
+      final colors = context.kinetic;
+      return Scaffold(
+        backgroundColor: colors.background,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: colors.primary,
+            strokeWidth: 2.5,
+          ),
+        ),
       );
     }
     return _hasDisplayName!
@@ -92,170 +99,178 @@ class _AthleteNameScreenState extends ConsumerState<_AthleteNameScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(appLanguageProvider);
+    final colors = context.kinetic;
 
     return Scaffold(
-      backgroundColor: AetronColors.voidBlack,
-      body: AetronBackground(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AetronHeader(
-                  title: lang == AppLanguage.vi ? 'Thiết lập Vận động viên' : 'Athlete Setup',
-                  eyebrow: lang == AppLanguage.vi ? 'Hiệu chỉnh danh tính' : 'Identity calibration',
-                  compact: true,
-                  titleSize: 22,
-                ),
-                const Spacer(),
-                Container(
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        (lang == AppLanguage.vi ? 'HIỆU CHỈNH DANH TÍNH' : 'IDENTITY CALIBRATION').toUpperCase(),
+                        style: KineticTypography.unitLabel.copyWith(
+                          color: colors.primary,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        lang == AppLanguage.vi ? 'Thiết lập Vận động viên' : 'Athlete Setup',
+                        style: KineticTypography.headlineLarge.copyWith(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    tooltip: lang == AppLanguage.vi ? 'Đăng xuất' : 'Sign out',
+                    icon: Icon(Icons.logout_rounded, color: colors.textSecondary),
+                    onPressed: () async {
+                      final confirmed = await AetronLogoutDialog.show(context);
+                      if (confirmed == true && context.mounted) {
+                        await Supabase.instance.client.auth.signOut();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                            (_) => false,
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Center(
+                child: Container(
                   width: 82,
                   height: 82,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AetronColors.cyan.withValues(alpha: 0.12),
-                    border: Border.all(color: AetronColors.cyan),
+                    color: colors.primary.withValues(alpha: 0.12),
+                    border: Border.all(color: colors.primary),
                     boxShadow: [
                       BoxShadow(
-                        color: AetronColors.cyan.withValues(alpha: 0.18),
+                        color: colors.primary.withValues(alpha: 0.18),
                         blurRadius: 28,
                       ),
                     ],
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.person_outline_rounded,
-                    color: AetronColors.cyan,
+                    color: colors.primary,
                     size: 40,
                   ),
                 ),
-                const SizedBox(height: 26),
-                Text(
-                  lang == AppLanguage.vi ? 'BẠN TÊN LÀ GÌ?' : 'WHAT SHOULD\nWE CALL YOU?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    height: 1.02,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                  ),
+              ),
+              const SizedBox(height: 26),
+              Text(
+                lang == AppLanguage.vi ? 'BẠN TÊN LÀ GÌ?' : 'WHAT SHOULD\nWE CALL YOU?',
+                style: KineticTypography.displayLarge.copyWith(
+                  color: colors.textPrimary,
+                  fontSize: 28,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  lang == AppLanguage.vi
-                      ? 'Đây là tên Aetron sẽ dùng để chào bạn khi tập luyện.'
-                      : 'This is how Aetron will greet you during your training.',
-                  style: const TextStyle(
-                    color: AetronColors.muted,
-                    fontSize: 14,
-                    height: 1.35,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                lang == AppLanguage.vi
+                    ? 'Đây là tên Aetron sẽ dùng để chào bạn khi tập luyện.'
+                    : 'This is how Aetron will greet you during your training.',
+                style: KineticTypography.bodySmall.copyWith(
+                  color: colors.textMuted,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Form(
+                key: _formKey,
+                child: TextFormField(
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _continue(),
+                  style: KineticTypography.bodyLarge.copyWith(
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
-                ),
-                const SizedBox(height: 24),
-                Form(
-                  key: _formKey,
-                  child: TextFormField(
-                    controller: _nameController,
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _continue(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                  validator: (value) {
+                    final name = value?.trim() ?? '';
+                    if (name.length < 2) {
+                      return lang == AppLanguage.vi ? 'Nhập ít nhất 2 ký tự' : 'Enter at least 2 characters';
+                    }
+                    if (name.length > 24) {
+                      return lang == AppLanguage.vi ? 'Nhập tối đa 24 ký tự' : 'Use 24 characters or fewer';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: lang == AppLanguage.vi ? 'HỌ VÀ TÊN' : 'YOUR NAME',
+                    hintStyle: KineticTypography.bodyMedium.copyWith(
+                      color: colors.textMuted,
+                      letterSpacing: 1.0,
                     ),
-                    validator: (value) {
-                      final name = value?.trim() ?? '';
-                      if (name.length < 2) return lang == AppLanguage.vi ? 'Nhập ít nhất 2 ký tự' : 'Enter at least 2 characters';
-                      if (name.length > 24) return lang == AppLanguage.vi ? 'Nhập tối đa 24 ký tự' : 'Use 24 characters or fewer';
-                      return null;
-                    },
-                    decoration: InputDecoration(
-                      hintText: lang == AppLanguage.vi ? 'HỌ VÀ TÊN' : 'YOUR NAME',
-                      hintStyle: const TextStyle(
-                        color: AetronColors.muted,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
+                    prefixIcon: Icon(
+                      Icons.badge_outlined,
+                      color: colors.primary,
+                    ),
+                    filled: true,
+                    fillColor: colors.surface1,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: colors.borderSubtle,
                       ),
-                      prefixIcon: const Icon(
-                        Icons.badge_outlined,
-                        color: AetronColors.cyan,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: colors.borderSubtle,
                       ),
-                      filled: true,
-                      fillColor: AetronColors.panel,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: AetronColors.border,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: AetronColors.border,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: AetronColors.cyan,
-                          width: 1.4,
-                        ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: colors.primary,
+                        width: 1.4,
                       ),
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: AetronColors.danger,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-                const Spacer(flex: 2),
-                SizedBox(
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _continue,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AetronColors.cyan,
-                      foregroundColor: AetronColors.voidBlack,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              color: AetronColors.voidBlack,
-                              strokeWidth: 2.4,
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'CONTINUE',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Icon(Icons.arrow_forward_rounded),
-                            ],
-                          ),
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _errorMessage!,
+                  style: KineticTypography.bodySmall.copyWith(
+                    color: colors.error,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
-            ),
+              const Spacer(flex: 2),
+              KineticButton(
+                label: lang == AppLanguage.vi ? 'TIẾP TỤC' : 'CONTINUE',
+                icon: Icons.arrow_forward_rounded,
+                variant: KineticButtonVariant.primary,
+                isLoading: _isSaving,
+                onPressed: _isSaving ? null : _continue,
+                height: 54,
+              ),
+            ],
           ),
         ),
       ),

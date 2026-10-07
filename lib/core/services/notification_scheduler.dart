@@ -242,22 +242,44 @@ class NotificationScheduler {
     }
 
     if (quietHoursEnabled) {
-      final startHour = int.tryParse(quietStart.split(':')[0]) ?? 22;
-      final endHour = int.tryParse(quietEnd.split(':')[0]) ?? 7;
+      final startParts = quietStart.split(':');
+      final endParts = quietEnd.split(':');
+      final startH = int.tryParse(startParts[0]) ?? 22;
+      final startM = startParts.length > 1 ? (int.tryParse(startParts[1]) ?? 0) : 0;
+      final endH = int.tryParse(endParts[0]) ?? 7;
+      final endM = endParts.length > 1 ? (int.tryParse(endParts[1]) ?? 0) : 0;
 
-      if (scheduled.hour >= startHour || scheduled.hour < endHour) {
-        // Adjust scheduled time to 08:00 AM outside quiet hours
-        scheduled = tz.TZDateTime(
+      final schedMinutes = scheduled.hour * 60 + scheduled.minute;
+      final startMinutes = startH * 60 + startM;
+      final endMinutes = endH * 60 + endM;
+
+      bool inQuietHours;
+      if (startMinutes <= endMinutes) {
+        // Same-day window: e.g. 12:00 -> 13:00
+        inQuietHours = schedMinutes >= startMinutes && schedMinutes < endMinutes;
+      } else {
+        // Overnight window: e.g. 22:00 -> 07:00
+        inQuietHours = schedMinutes >= startMinutes || schedMinutes < endMinutes;
+      }
+
+      if (inQuietHours) {
+        // Postpone notification to exactly when quiet hours end
+        var shifted = tz.TZDateTime(
           tz.local,
           scheduled.year,
           scheduled.month,
           scheduled.day,
-          8,
-          0,
+          endH,
+          endM,
         );
-        if (scheduled.isBefore(localNow)) {
-          scheduled = scheduled.add(const Duration(days: 1));
+        // If scheduled time was already >= startMinutes on an overnight window,
+        // quiet end is on the NEXT calendar day.
+        if (startMinutes > endMinutes && schedMinutes >= startMinutes) {
+          shifted = shifted.add(const Duration(days: 1));
+        } else if (shifted.isBefore(localNow)) {
+          shifted = shifted.add(const Duration(days: 1));
         }
+        scheduled = shifted;
       }
     }
 

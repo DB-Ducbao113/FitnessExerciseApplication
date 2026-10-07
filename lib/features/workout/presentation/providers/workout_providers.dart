@@ -20,16 +20,23 @@ part 'workout_providers.g.dart';
 class WorkoutList extends _$WorkoutList {
   @override
   Future<List<WorkoutSession>> build() async {
-    final user = ref.read(currentUserIdProvider);
-    if (user == null) throw Exception('No user logged in');
+    final user = ref.watch(currentUserIdProvider);
+    if (user == null) return const [];
 
     final repository = ref.read(workoutRepositoryProvider);
 
-    // 1. Fetch remote sessions from Cloud so all devices (Web, iOS, Mac)
+    // 1. First sync any pending offline sessions to Cloud
+    try {
+      await repository.syncPendingData();
+    } catch (e) {
+      debugPrint('[WorkoutList] syncPendingData error: $e');
+    }
+
+    // 2. Fetch remote sessions from Cloud so all devices (Web, iOS, Mac)
     // stay in perfect real-time sync.
     try {
       final remoteSessions = await repository.fetchSessionsRemote(user);
-      if (!kIsWeb && remoteSessions.isNotEmpty) {
+      if (!kIsWeb) {
         await repository.replaceLocalCache(user, remoteSessions);
       }
       return remoteSessions;
@@ -37,28 +44,39 @@ class WorkoutList extends _$WorkoutList {
       debugPrint('[WorkoutList] Remote fetch fallback to local: $e');
     }
 
-    // 2. Fallback to local cache if offline or remote fetch failed
+    // 3. Fallback to local cache if offline or remote fetch failed
     return await repository.getSessionsLocal(user);
   }
 
   /// Refresh workout list
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    state = AsyncLoading<List<WorkoutSession>>().copyWithPrevious(state);
     state = await AsyncValue.guard(() async {
       final user = ref.read(currentUserIdProvider);
-      if (user == null) throw Exception('No user logged in');
+      if (user == null) return const [];
 
       final repository = ref.read(workoutRepositoryProvider);
+
+      // 1. Sync pending offline sessions first
+      try {
+        await repository.syncPendingData();
+      } catch (e) {
+        debugPrint('[WorkoutList.refresh] syncPendingData error: $e');
+      }
+
+      // 2. Fetch remote sessions
       try {
         final remoteSessions = await repository.fetchSessionsRemote(user);
-        if (!kIsWeb && remoteSessions.isNotEmpty) {
+        if (!kIsWeb) {
           await repository.replaceLocalCache(user, remoteSessions);
         }
         return remoteSessions;
       } catch (e) {
         debugPrint('[WorkoutList.refresh] Remote fetch error, using local: $e');
-        return await repository.getSessionsLocal(user);
       }
+
+      // 3. Fallback to local cache
+      return await repository.getSessionsLocal(user);
     });
   }
 
@@ -106,6 +124,7 @@ class WorkoutList extends _$WorkoutList {
     final user = ref.read(currentUserIdProvider);
     if (user == null) throw Exception('No user logged in');
 
+    final durationSec = (durationMinutes * 60).round();
     final resolvedCalories =
         caloriesKcal ??
         await (() async {
@@ -115,11 +134,11 @@ class WorkoutList extends _$WorkoutList {
             activityType: activityType,
             distanceKm: distanceKm,
             speedKmh: avgSpeedKmh ?? 0.0,
+            durationSec: durationSec,
           );
         })();
 
     // Quick Add -> Generate UUID -> Save immediately
-    final durationSec = (durationMinutes * 60).round();
     final endedAt = DateTime.now().toUtc();
     final session = WorkoutSession(
       id: const Uuid().v4(),
@@ -348,10 +367,46 @@ final todayStatsProvider = Provider<TodayStats>((ref) {
   if (todayWorkouts.isEmpty) return TodayStats.empty;
 
   return TodayStats(
-    distanceKm: todayWorkouts.fold(0.0, (s, w) => s + w.distanceKm),
+    distanceKm: todayWorkouts.fold(
+      0.0,
+      (s, w) => s + (w.gpsAnalysis.validDistanceKm > 0 ? w.gpsAnalysis.validDistanceKm : w.distanceKm),
+    ),
     durationSec: todayWorkouts.fold(0, (s, w) => s + w.durationSec),
     caloriesKcal: todayWorkouts.fold(0, (s, w) => s + w.caloriesKcal.round()),
     steps: todayWorkouts.fold(0, (s, w) => s + w.steps),
     workoutCount: todayWorkouts.length,
   );
 });
+
+/// Checks if there is an interrupted session that meets recovery criteria:
+/// - Under 24 hours old
+/// - Meaningful: duration >= 180s (3 minutes) OR distance >= 0.5 km (500m)
+/// - Currently marked unsynced
+final recoverableInterruptedSessionProvider =
+    FutureProvider.autoDispose<WorkoutSession?>((ref) async {
+  final user = ref.watch(currentUserIdProvider);
+  if (user == null) return null;
+
+  try {
+    final unsynced = await LocalDB.getUnsyncedWorkoutsForUser(user);
+    if (unsynced.isEmpty) return null;
+
+    final now = DateTime.now();
+    for (final workout in unsynced) {
+      if (workout.userId != user) continue;
+
+      final age = now.difference(workout.endedAt);
+      if (age.inHours >= 24) continue;
+
+      final isMeaningful =
+          workout.durationSec >= 180 || workout.distanceKm >= 0.5;
+      if (isMeaningful) {
+        return workout.toEntity();
+      }
+    }
+  } catch (e) {
+    debugPrint('[Recovery] recoverableInterruptedSessionProvider error: $e');
+  }
+  return null;
+});
+

@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_target.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 
 /// Live Target Progress HUD banner on RecordScreen during workouts.
@@ -28,6 +28,7 @@ class WorkoutTargetProgressHud extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final colors = context.kinetic;
     final isVi = currentLang == AppLanguage.vi;
 
     double progress = 0.0;
@@ -76,14 +77,15 @@ class WorkoutTargetProgressHud extends StatelessWidget {
     }
 
     final isDone = progress >= 1.0;
-    final displayColor = isDone ? AetronColors.gold : accentColor;
+    const completedGold = Color(0xFFFFD54F);
+    final displayColor = isDone ? completedGold : accentColor;
     final percentInt = (progress * 100).toInt();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1424).withValues(alpha: 0.92),
+        color: colors.surface1.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: displayColor.withValues(alpha: 0.45),
@@ -119,7 +121,7 @@ class WorkoutTargetProgressHud extends StatelessWidget {
                   Text(
                     targetLabel,
                     style: TextStyle(
-                      fontFamily: 'Outfit',
+                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
                       color: displayColor,
@@ -133,10 +135,10 @@ class WorkoutTargetProgressHud extends StatelessWidget {
                   Text(
                     remainingLabel,
                     style: TextStyle(
-                      fontFamily: 'Outfit',
+                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isDone ? AetronColors.gold : AetronColors.textSecondary,
+                      color: isDone ? completedGold : colors.textSecondary,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -149,8 +151,8 @@ class WorkoutTargetProgressHud extends StatelessWidget {
                     child: Text(
                       '$percentInt%',
                       style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 10,
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 11,
                         fontWeight: FontWeight.w900,
                         color: displayColor,
                       ),

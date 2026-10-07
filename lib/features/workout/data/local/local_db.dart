@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
@@ -15,7 +16,12 @@ class LocalDB {
   static Future<void>? _initFuture;
 
   static Future<void> init() async {
-    if (_isar != null) return;
+    if (_isar != null && _isar!.isOpen) return;
+    final existing = Isar.getInstance();
+    if (existing != null && existing.isOpen) {
+      _isar = existing;
+      return;
+    }
     if (_initFuture != null) return _initFuture!;
 
     _initFuture = _open();
@@ -28,6 +34,12 @@ class LocalDB {
 
   static Future<void> _open() async {
     if (kIsWeb) return;
+    final existing = Isar.getInstance();
+    if (existing != null && existing.isOpen) {
+      _isar = existing;
+      return;
+    }
+
     try {
       final dir = await getApplicationDocumentsDirectory();
       _isar = await Isar.open(
@@ -37,6 +49,36 @@ class LocalDB {
       );
     } catch (e) {
       debugPrint('[LocalDB] _open error: $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('already been opened')) {
+        _isar = Isar.getInstance();
+      } else if (errStr.contains('collection id') ||
+          errStr.contains('schema') ||
+          errStr.contains('corrupt') ||
+          errStr.contains('illegalarg')) {
+        // Schema mismatch or corrupted cache file: wipe obsolete local cache and recreate
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          final defaultFile = File('${dir.path}/default.isar');
+          if (await defaultFile.exists()) {
+            await defaultFile.delete();
+          }
+          final lockFile = File('${dir.path}/default.isar.lock');
+          if (await lockFile.exists()) {
+            await lockFile.delete();
+          }
+          _isar = await Isar.open(
+            [LocalWorkoutSchema, LocalGPSPointSchema, LocalStepIntervalSchema],
+            directory: dir.path,
+            inspector: false,
+          );
+        } catch (retryError) {
+          debugPrint('[LocalDB] _open recovery error: $retryError');
+          _isar = Isar.getInstance();
+        }
+      } else {
+        _isar = Isar.getInstance();
+      }
     }
   }
 
@@ -68,11 +110,14 @@ class LocalDB {
     await init();
     final isar = _isar;
     if (isar == null) return const [];
-    return await isar.localWorkouts
+    final workouts = await isar.localWorkouts
         .filter()
         .userIdEqualTo(userId)
         .sortByStartedAtDesc()
         .findAll();
+    return workouts
+        .where((w) => w.durationSec > 0 || w.distanceKm > 0 || w.steps > 0)
+        .toList();
   }
 
   /// Filtered by activity type.
@@ -84,12 +129,15 @@ class LocalDB {
     await init();
     final isar = _isar;
     if (isar == null) return const [];
-    return await isar.localWorkouts
+    final workouts = await isar.localWorkouts
         .filter()
         .userIdEqualTo(userId)
         .activityTypeEqualTo(activityType, caseSensitive: false)
         .sortByStartedAtDesc()
         .findAll();
+    return workouts
+        .where((w) => w.durationSec > 0 || w.distanceKm > 0 || w.steps > 0)
+        .toList();
   }
 
   static Future<LocalWorkout?> getSessionById(String sessionId) async {
@@ -137,6 +185,21 @@ class LocalDB {
     return await isar.localWorkouts.filter().isSyncedEqualTo(false).findAll();
   }
 
+  /// Get unsynced workouts belonging strictly to a specific user.
+  static Future<List<LocalWorkout>> getUnsyncedWorkoutsForUser(
+    String userId,
+  ) async {
+    if (kIsWeb) return const [];
+    await init();
+    final isar = _isar;
+    if (isar == null) return const [];
+    return await isar.localWorkouts
+        .filter()
+        .userIdEqualTo(userId)
+        .isSyncedEqualTo(false)
+        .findAll();
+  }
+
   /// Wipe all local cache for a specific user (used on logout).
   static Future<void> clearAllForUser(String userId) async {
     if (kIsWeb) return;
@@ -169,13 +232,26 @@ class LocalDB {
   }
 
   /// Hydrate local DB from cloud models to implement sync across devices.
-  static Future<void> syncRemoteSessions(List<WorkoutSession> remotes) async {
+  static Future<void> syncRemoteSessions(
+    List<WorkoutSession> remotes, {
+    String? forUserId,
+  }) async {
     if (kIsWeb) return;
     await init();
     final isar = _isar;
     if (isar == null) return;
+    final targetUserId =
+        forUserId ?? (remotes.isNotEmpty ? remotes.first.userId : null);
+
     await isar.writeTxn(() async {
       for (final remote in remotes) {
+        // Skip orphaned recording shells with 0 metrics
+        if (remote.durationSec <= 0 &&
+            remote.distanceKm <= 0 &&
+            remote.steps <= 0) {
+          continue;
+        }
+
         var existing = await isar.localWorkouts
             .filter()
             .sessionIdEqualTo(remote.id)
@@ -247,12 +323,11 @@ class LocalDB {
         }
       }
 
-      if (remotes.isNotEmpty) {
-        final userId = remotes.first.userId;
+      if (targetUserId != null && targetUserId.isNotEmpty) {
         final remoteIds = remotes.map((r) => r.id).toSet();
         final localForUser = await isar.localWorkouts
             .filter()
-            .userIdEqualTo(userId)
+            .userIdEqualTo(targetUserId)
             .findAll();
         for (final local in localForUser) {
           if (local.isSynced && !remoteIds.contains(local.sessionId)) {

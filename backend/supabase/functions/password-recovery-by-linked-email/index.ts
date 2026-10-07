@@ -18,9 +18,15 @@ Deno.serve(async (req: Request) => {
   try {
     const payload = await req.json().catch(() => ({}));
     const recoveryEmail = normalizeGmail(payload.recovery_email);
-    const redirectTo = typeof payload.redirect_to === "string" &&
-        payload.redirect_to.trim().length > 0
+    const requestedRedirect = typeof payload.redirect_to === "string"
       ? payload.redirect_to.trim()
+      : "";
+    const isAllowedRedirect = requestedRedirect.startsWith("io.supabase.flutter://") ||
+      requestedRedirect.startsWith("https://aetron.vercel.app") ||
+      requestedRedirect.startsWith("http://localhost:") ||
+      requestedRedirect.startsWith("http://127.0.0.1:");
+    const redirectTo = isAllowedRedirect && requestedRedirect.length > 0
+      ? requestedRedirect
       : resetRedirectTo;
 
     if (!recoveryEmail) return jsonResponse({ message: genericMessage });

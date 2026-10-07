@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+// [UPGRADE: 4-State EKF Core Service - Tạm thời comment import để làm UI/UX trước]
+// import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -21,6 +23,11 @@ class GpsSmoothingUpdate {
 
 class GpsSmoothingService {
   const GpsSmoothingService();
+
+  // [UPGRADE: EKF Reset Hook - Để trống khi dùng thuật toán cũ, kích hoạt lại khi bật EKF]
+  void reset() {
+    // _ekf.reset();
+  }
 
   GpsSmoothingUpdate smoothAcceptedPoint({
     required String activityType,
@@ -56,6 +63,9 @@ class GpsSmoothingService {
       activityType: activityType,
       isStationary: isStationary,
       acceptedDelta: acceptedDelta,
+      accuracyMeters: accuracyMeters,
+      speedMs: speedMs,
+      timeDeltaSec: timeDeltaSec,
     );
 
     final appendThreshold = _minAppendDistanceMeters(activityType);
@@ -100,12 +110,38 @@ class GpsSmoothingService {
     required String activityType,
     required bool isStationary,
     required double acceptedDelta,
+    required double accuracyMeters,
+    required double speedMs,
+    required double timeDeltaSec,
   }) {
     if (previousSmoothedPoint == null) return acceptedPoint;
     if (isStationary && acceptedDelta < _stationaryFreezeMeters(activityType)) {
       return previousSmoothedPoint;
     }
 
+    /*
+    // =========================================================================
+    // [UPGRADE: 4-State Extended Kalman Filter (EKF) Core]
+    // Tạm thời comment khối này để làm UI/UX trước theo yêu cầu của bạn.
+    // Khi muốn kích hoạt lại, chỉ việc mở comment khối này và comment khối bên dưới:
+    // =========================================================================
+    final headingDeg = previousAcceptedPoint != null
+        ? _bearing(previousAcceptedPoint, acceptedPoint)
+        : null;
+
+    final estimate = _ekf.update(
+      measurementPoint: acceptedPoint,
+      accuracyMeters: accuracyMeters,
+      timeDeltaSec: timeDeltaSec,
+      speedMs: speedMs,
+      headingDeg: headingDeg,
+    );
+
+    return estimate.position;
+    // =========================================================================
+    */
+
+    // --- THUẬT TOÁN GỐC (Fixed Alpha & Turn-Boost) ---
     var alpha = switch (confidence) {
       GpsConfidence.high => 0.72,
       GpsConfidence.medium => 0.52,

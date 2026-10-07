@@ -4,7 +4,8 @@ import 'package:fitness_exercise_application/features/history/presentation/scree
 import 'package:fitness_exercise_application/features/home/presentation/screens/home_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_screen.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/screens/analytics_screen.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,16 +47,53 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 
+  DateTime? _lastBackPressTime;
+
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(mainTabControllerProvider);
+    final colors = context.kinetic;
+    final currentLang = ref.watch(appLanguageProvider);
 
-    return Scaffold(
-      backgroundColor: AetronColors.voidBlack,
-      body: IndexedStack(index: currentIndex, children: _screens),
-      bottomNavigationBar: _AetronDock(
-        currentIndex: currentIndex,
-        onChanged: _onTabSelected,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (currentIndex != 0) {
+          _onTabSelected(0);
+          return;
+        }
+
+        final now = DateTime.now();
+        if (_lastBackPressTime == null ||
+            now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+          _lastBackPressTime = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              duration: const Duration(seconds: 2),
+              backgroundColor: colors.surface2,
+              content: Text(
+                currentLang == AppLanguage.vi
+                    ? 'Nhấn lần nữa để thoát ứng dụng'
+                    : 'Press back again to exit',
+                style: KineticTypography.bodySmall.copyWith(
+                  color: colors.textPrimary,
+                ),
+              ),
+            ),
+          );
+          return;
+        }
+
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: IndexedStack(index: currentIndex, children: _screens),
+        bottomNavigationBar: _AetronDock(
+          currentIndex: currentIndex,
+          onChanged: _onTabSelected,
+        ),
       ),
     );
   }
@@ -79,6 +117,7 @@ class _AetronDock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLang = ref.watch(appLanguageProvider);
     final bottom = MediaQuery.of(context).padding.bottom;
+    final colors = context.kinetic;
 
     return RepaintBoundary(
       child: Padding(
@@ -86,10 +125,10 @@ class _AetronDock extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F1523).withValues(alpha: 0.92),
+            color: colors.surface1.withValues(alpha: 0.94),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.10),
+              color: colors.borderSubtle,
               width: 1.0,
             ),
             boxShadow: [
@@ -99,7 +138,7 @@ class _AetronDock extends ConsumerWidget {
                 offset: const Offset(0, 8),
               ),
               BoxShadow(
-                color: const Color(0xFF00E5FF).withValues(alpha: 0.04),
+                color: colors.primary.withValues(alpha: 0.05),
                 blurRadius: 16,
               ),
             ],
@@ -142,6 +181,8 @@ class _DockItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -158,19 +199,19 @@ class _DockItem extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected
-                    ? AetronColors.cyan.withValues(alpha: 0.14)
+                    ? colors.primary.withValues(alpha: 0.14)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
                 border: selected
                     ? Border.all(
-                        color: AetronColors.cyan.withValues(alpha: 0.35),
+                        color: colors.primary.withValues(alpha: 0.35),
                         width: 1.0,
                       )
                     : null,
               ),
               child: Icon(
                 selected ? selectedIcon : icon,
-                color: selected ? AetronColors.cyan : AetronColors.muted,
+                color: selected ? colors.primary : colors.textMuted,
                 size: selected ? 20 : 18,
               ),
             ),
@@ -180,9 +221,9 @@ class _DockItem extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontFamily: AetronTypography.fontFamily,
-                color: selected ? AetronColors.textPrimary : AetronColors.muted,
-                fontSize: 10,
+                fontFamily: KineticTypography.fontFamily,
+                color: selected ? colors.textPrimary : colors.textMuted,
+                fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 letterSpacing: 0.1,
               ),

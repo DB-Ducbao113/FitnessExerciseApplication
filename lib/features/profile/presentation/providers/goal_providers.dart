@@ -12,7 +12,13 @@ import 'package:fitness_exercise_application/shared/formatters/workout_formatter
 // Goal state
 final userGoalProvider =
     StateNotifierProvider<UserGoalNotifier, AsyncValue<UserGoal?>>(
-      (ref) => UserGoalNotifier(ref.watch(supabaseClientProvider)),
+      (ref) {
+        try {
+          return UserGoalNotifier(ref.watch(supabaseClientProvider));
+        } catch (_) {
+          return UserGoalNotifier(null);
+        }
+      },
     );
 
 class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
@@ -20,10 +26,12 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
     _load();
   }
 
-  final SupabaseClient _supabase;
+  final SupabaseClient? _supabase;
 
   Future<UserGoal?> _fetchGoal(String userId) async {
-    final row = await _supabase
+    final client = _supabase;
+    if (client == null) return null;
+    final row = await client
         .from(DbTables.userGoals)
         .select()
         .eq('user_id', userId)
@@ -33,17 +41,24 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
   }
 
   Future<void> _upsertGoal(UserGoal goal) async {
+    final client = _supabase;
+    if (client == null) return;
     final data = <String, dynamic>{...goal.toMap()};
     if (goal.id.isNotEmpty) {
       data['id'] = goal.id;
     }
-    await _supabase
+    await client
         .from(DbTables.userGoals)
         .upsert(data, onConflict: 'user_id');
   }
 
   Future<void> _load() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final client = _supabase;
+    if (client == null) {
+      state = const AsyncValue.data(null);
+      return;
+    }
+    final userId = client.auth.currentUser?.id;
     if (userId == null) {
       state = const AsyncValue.data(null);
       return;
@@ -69,9 +84,11 @@ class UserGoalNotifier extends StateNotifier<AsyncValue<UserGoal?>> {
   }
 
   Future<void> deleteGoal() async {
-    final userId = _supabase.auth.currentUser?.id;
+    final client = _supabase;
+    if (client == null) return;
+    final userId = client.auth.currentUser?.id;
     if (userId == null) return;
-    await _supabase.from(DbTables.userGoals).delete().eq('user_id', userId);
+    await client.from(DbTables.userGoals).delete().eq('user_id', userId);
     state = const AsyncValue.data(null);
   }
 }
@@ -130,7 +147,10 @@ final goalProgressProvider = Provider<GoalProgress?>((ref) {
   double current;
   switch (goal.goalType) {
     case GoalType.distance:
-      current = relevant.fold(0.0, (s, w) => s + w.gpsAnalysis.validDistanceKm);
+      current = relevant.fold(
+        0.0,
+        (s, w) => s + (w.gpsAnalysis.validDistanceKm > 0 ? w.gpsAnalysis.validDistanceKm : w.distanceKm),
+      );
       break;
     case GoalType.workouts:
       current = relevant.length.toDouble();

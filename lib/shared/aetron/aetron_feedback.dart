@@ -8,6 +8,7 @@ Future<bool> showAetronConfirmDialog(
   required String title,
   required String message,
   required String confirmLabel,
+  String? cancelLabel,
   IconData icon = Icons.help_outline_rounded,
   bool destructive = false,
 }) async {
@@ -18,6 +19,7 @@ Future<bool> showAetronConfirmDialog(
           title: title,
           message: message,
           confirmLabel: confirmLabel,
+          cancelLabel: cancelLabel,
           icon: icon,
           destructive: destructive,
           onCancel: () => Navigator.of(dialogContext).pop(false),
@@ -53,6 +55,7 @@ class AetronConfirmDialog extends StatelessWidget {
     required this.title,
     required this.message,
     required this.confirmLabel,
+    this.cancelLabel,
     required this.icon,
     required this.destructive,
     required this.onCancel,
@@ -62,6 +65,7 @@ class AetronConfirmDialog extends StatelessWidget {
   final String title;
   final String message;
   final String confirmLabel;
+  final String? cancelLabel;
   final IconData icon;
   final bool destructive;
   final VoidCallback onCancel;
@@ -144,7 +148,7 @@ class AetronConfirmDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('CANCEL'),
+                      child: Text((cancelLabel ?? 'CANCEL').toUpperCase()),
                     ),
                   ),
                   const SizedBox(width: 10),

@@ -337,7 +337,7 @@ class Aetron3DOrbButton extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: 'Outfit',
                   color: Colors.white,
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
                 ),
                 textAlign: TextAlign.center,

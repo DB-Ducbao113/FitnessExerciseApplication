@@ -1,10 +1,11 @@
-# Miscellaneous
+# Miscellaneous & OS
 *.class
 *.log
 hs_err_pid*
 *.pyc
 *.swp
 .DS_Store
+**/.DS_Store
 .atom/
 .build/
 .buildlog/
@@ -14,18 +15,17 @@ hs_err_pid*
 **/xcshareddata/swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# IntelliJ & VS Code
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
+backend/.vscode/
+.metadata
+devtools_options.yaml
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# Flutter / Dart
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -38,14 +38,10 @@ ios/build/
 /coverage/
 /.turbo/
 dist/
+package/
+build_web/
 
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
+# Android Studio / Release Keystores
 /android/app/debug
 /android/app/profile
 /android/app/release
@@ -56,32 +52,25 @@ app.*.map.json
 *.jks
 *.keystore
 
-# Ignore shell scripts, batch scripts, example files, and local packaging
+# Symbolication & Obfuscation
+app.*.symbols
+app.*.map.json
+
+# Local scripts & packaging
 *.sh
 *.bat
 *.cmd
 *.ps1
 *.example
-build_web/
-package/
 
-# Local tooling / editor files
-.metadata
-devtools_options.yaml
-.idea/
-.vscode/
-docs/
-backend/.vscode/
+# Secrets & Environment variables
 .env*
 backend/.env*
 *.env
 backend/remote_schema_public_dump.sql
 
-# Frontend local files
-frontend/node_modules/
-frontend/.env*
-
-# Supabase local temp/state
+# Supabase & Backend local temp state
+deno.lock
 supabase/.temp/
 backend/supabase/.temp/
 backend/supabase/.branches/
@@ -93,7 +82,5 @@ GEMINI.md
 .tools/
 .skills/
 
-# Temporary plan & checklist files
-RELEASE_CHECKLIST.md
-ai_post_workout_insight_plan.html
-
+# Vercel deployment cache
+.vercel

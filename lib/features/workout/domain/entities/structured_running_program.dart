@@ -44,7 +44,7 @@ class ProgramStep {
         return const Color(0xFFB388FF); // Soft Violet Warmup
       case ProgramPhaseType.run:
       case ProgramPhaseType.tempo:
-        return const Color(0xFF00E5FF); // Electric Cyan Run
+        return const Color(0xFFA8DCE7); // Electric Cyan Run
       case ProgramPhaseType.sprint:
         return const Color(0xFFFF5E1E); // Radiant Orange Sprint
       case ProgramPhaseType.walk:
@@ -85,6 +85,7 @@ class StructuredRunningProgram {
   final List<String> instructionsEn;
   final List<String> instructionsVi;
   final List<ProgramStep> steps;
+  final String imageAsset;
 
   const StructuredRunningProgram({
     required this.id,
@@ -100,6 +101,7 @@ class StructuredRunningProgram {
     required this.instructionsEn,
     required this.instructionsVi,
     required this.steps,
+    required this.imageAsset,
   });
 
   int get totalDurationSeconds =>

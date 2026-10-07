@@ -1,9 +1,11 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/personal_records.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+const Color _trophyGold = Color(0xFFFFD54F);
 
 class PersonalRecordsTrophyWall extends StatelessWidget {
   final DetailedPersonalRecords records;
@@ -19,6 +21,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final all = records.allRecords;
     final unlockedCount = records.unlockedCount;
 
@@ -26,10 +29,10 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
+        color: colors.surface1,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AetronColors.gold.withValues(alpha: 0.4),
+          color: _trophyGold.withValues(alpha: 0.4),
           width: 1.2,
         ),
         boxShadow: [
@@ -39,7 +42,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: AetronColors.gold.withValues(alpha: 0.12),
+            color: _trophyGold.withValues(alpha: 0.12),
             blurRadius: 18,
             spreadRadius: -2,
           ),
@@ -59,12 +62,12 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                     height: 34,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AetronColors.gold.withValues(alpha: 0.18),
-                      border: Border.all(color: AetronColors.gold.withValues(alpha: 0.5)),
+                      color: _trophyGold.withValues(alpha: 0.18),
+                      border: Border.all(color: _trophyGold.withValues(alpha: 0.5)),
                     ),
                     child: const Icon(
                       Icons.emoji_events_rounded,
-                      color: AetronColors.gold,
+                      color: _trophyGold,
                       size: 18,
                     ),
                   ),
@@ -75,20 +78,20 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                       Text(
                         currentLang == AppLanguage.vi ? 'ĐỀN THỜ KỶ LỤC' : 'PR HALL OF FAME',
                         style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 9,
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: AetronColors.gold.withValues(alpha: 0.9),
+                          color: _trophyGold.withValues(alpha: 0.9),
                           letterSpacing: 1.2,
                         ),
                       ),
                       Text(
                         currentLang == AppLanguage.vi ? 'Kỷ Lục Cá Nhân (PRs)' : 'Personal Bests',
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: AetronColors.textPrimary,
+                          color: colors.textPrimary,
                         ),
                       ),
                     ],
@@ -100,17 +103,17 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AetronColors.gold.withValues(alpha: 0.15),
+                  color: _trophyGold.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AetronColors.gold.withValues(alpha: 0.4)),
+                  border: Border.all(color: _trophyGold.withValues(alpha: 0.4)),
                 ),
                 child: Text(
                   '$unlockedCount / ${all.length} ${currentLang == AppLanguage.vi ? 'KỶ LỤC' : 'RECORDS'}',
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 10,
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
-                    color: AetronColors.gold,
+                    color: _trophyGold,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -147,6 +150,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
 
   void _showRecordDetailSheet(BuildContext context, SingleRecordItem record) {
     HapticFeedback.lightImpact();
+    final colors = context.kinetic;
     final isUnlocked = record.isUnlocked;
     final isVi = currentLang == AppLanguage.vi;
 
@@ -158,10 +162,10 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AetronColors.space.withValues(alpha: 0.96),
+            color: colors.surface1.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: isUnlocked ? AetronColors.gold : AetronColors.borderSubtle,
+              color: isUnlocked ? _trophyGold : colors.borderSubtle,
               width: 1.5,
             ),
             boxShadow: [
@@ -171,7 +175,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
               ),
               if (isUnlocked)
                 BoxShadow(
-                  color: AetronColors.gold.withValues(alpha: 0.25),
+                  color: _trophyGold.withValues(alpha: 0.25),
                   blurRadius: 24,
                   spreadRadius: -2,
                 ),
@@ -184,7 +188,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AetronColors.borderSubtle,
+                  color: colors.borderSubtle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -197,28 +201,28 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isUnlocked
-                      ? AetronColors.gold.withValues(alpha: 0.2)
-                      : AetronColors.panelHigh,
+                      ? _trophyGold.withValues(alpha: 0.2)
+                      : colors.surface2,
                   border: Border.all(
-                    color: isUnlocked ? AetronColors.gold : AetronColors.borderSubtle,
+                    color: isUnlocked ? _trophyGold : colors.borderSubtle,
                     width: 2,
                   ),
                 ),
                 child: Icon(
                   isUnlocked ? Icons.emoji_events_rounded : Icons.lock_outline_rounded,
                   size: 32,
-                  color: isUnlocked ? AetronColors.gold : AetronColors.textSecondary,
+                  color: isUnlocked ? _trophyGold : colors.textSecondary,
                 ),
               ),
               const SizedBox(height: 14),
 
               Text(
                 isVi ? record.titleVi : record.titleEn,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
+                style: TextStyle(
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: AetronColors.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -228,10 +232,10 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                     ? (isVi ? 'KỶ LỤC CÁ NHÂN ĐÃ XÁC LẬP' : 'PERSONAL BEST ESTABLISHED')
                     : (isVi ? 'CHƯA MỞ KHÓA' : 'NOT YET UNLOCKED'),
                 style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 10,
+                  fontFamily: 'Plus Jakarta Sans',
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
-                  color: isUnlocked ? AetronColors.gold : AetronColors.muted,
+                  color: isUnlocked ? _trophyGold : colors.textMuted,
                   letterSpacing: 1.2,
                 ),
               ),
@@ -242,9 +246,9 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AetronColors.panelHigh,
+                  color: colors.surface2,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AetronColors.borderSubtle),
+                  border: Border.all(color: colors.borderSubtle),
                 ),
                 child: Column(
                   children: [
@@ -254,20 +258,20 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                         children: [
                           Text(
                             isVi ? 'THÀNH TÍCH ĐỈNH CAO' : 'PEAK RECORD',
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 11,
-                              color: AetronColors.textSecondary,
+                              color: colors.textSecondary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           Text(
                             _formatRecordValue(record, useMetricUnits),
                             style: const TextStyle(
-                              fontFamily: 'Outfit',
+                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
-                              color: AetronColors.gold,
+                              color: _trophyGold,
                             ),
                           ),
                         ],
@@ -279,20 +283,20 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                           children: [
                             Text(
                               isVi ? 'NGÀY XÁC LẬP' : 'DATE ACHIEVED',
-                              style: const TextStyle(
-                                fontFamily: 'Outfit',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
                                 fontSize: 11,
-                                color: AetronColors.textSecondary,
+                                color: colors.textSecondary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                             Text(
                               '${record.achievedAt!.toLocal().day.toString().padLeft(2, '0')}/${record.achievedAt!.toLocal().month.toString().padLeft(2, '0')}/${record.achievedAt!.toLocal().year}',
-                              style: const TextStyle(
-                                fontFamily: 'Outfit',
+                              style: TextStyle(
+                                fontFamily: 'Plus Jakarta Sans',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
-                                color: AetronColors.textPrimary,
+                                color: colors.textPrimary,
                               ),
                             ),
                           ],
@@ -302,11 +306,11 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                       Text(
                         isVi ? record.unlockHintVi : record.unlockHintEn,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
+                        style: TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AetronColors.textSecondary,
+                          color: colors.textSecondary,
                         ),
                       ),
                     ],
@@ -315,10 +319,36 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              AppButton(
-                label: isVi ? 'ĐÓNG' : 'CLOSE',
-                icon: Icons.check_circle_outline_rounded,
-                onPressed: () => Navigator.of(context).pop(),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.surface2,
+                    foregroundColor: colors.textPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: colors.borderSubtle),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        isVi ? 'ĐÓNG' : 'CLOSE',
+                        style: const TextStyle(
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -359,14 +389,15 @@ class _TrophyCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isUnlocked = record.isUnlocked;
     final isVi = currentLang == AppLanguage.vi;
     final title = isVi ? record.titleVi : record.titleEn;
 
     final accentColor = switch (record.category) {
-      'speed' => AetronColors.cyan,
-      'distance' => AetronColors.gold,
-      'energy' => AetronColors.mint,
+      'speed' => colors.primary,
+      'distance' => _trophyGold,
+      'energy' => const Color(0xFF2AF598),
       _ => const Color(0xFFA55EEA),
     };
 
@@ -389,10 +420,10 @@ class _TrophyCardItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isUnlocked ? const Color(0xFF0F1524) : AetronColors.space.withValues(alpha: 0.5),
+            color: isUnlocked ? colors.surface1 : colors.background.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isUnlocked ? accentColor.withValues(alpha: 0.45) : AetronColors.borderSubtle,
+              color: isUnlocked ? accentColor.withValues(alpha: 0.45) : colors.borderSubtle,
               width: 1.2,
             ),
             boxShadow: isUnlocked
@@ -416,16 +447,16 @@ class _TrophyCardItem extends StatelessWidget {
                   Icon(
                     isUnlocked ? icon : Icons.lock_outline_rounded,
                     size: 18,
-                    color: isUnlocked ? accentColor : AetronColors.muted,
+                    color: isUnlocked ? accentColor : colors.textMuted,
                   ),
                   if (isUnlocked && record.achievedAt != null)
                     Text(
                       '${record.achievedAt!.toLocal().day.toString().padLeft(2, '0')}/${record.achievedAt!.toLocal().month.toString().padLeft(2, '0')}',
                       style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 9,
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AetronColors.textSecondary.withValues(alpha: 0.8),
+                        color: colors.textSecondary.withValues(alpha: 0.8),
                       ),
                     ),
                 ],
@@ -437,10 +468,10 @@ class _TrophyCardItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: isUnlocked ? AetronColors.textPrimary : AetronColors.textSecondary,
+                  color: isUnlocked ? colors.textPrimary : colors.textSecondary,
                 ),
               ),
 
@@ -452,10 +483,10 @@ class _TrophyCardItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: isUnlocked ? 15 : 10,
                   fontWeight: FontWeight.w900,
-                  color: isUnlocked ? accentColor : AetronColors.muted,
+                  color: isUnlocked ? accentColor : colors.textMuted,
                 ),
               ),
             ],

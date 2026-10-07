@@ -2,14 +2,14 @@ import 'dart:math' as math;
 
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_globe_orbit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const _welcomeSeenKey = 'aetron_welcome_seen_v1';
+const kWelcomeSeenPrefKey = 'aetron_welcome_seen_v1';
 
 class WelcomeGate extends StatefulWidget {
   const WelcomeGate({super.key});
@@ -27,7 +27,7 @@ class _WelcomeGateState extends State<WelcomeGate> {
       return false;
     }
     final prefs = await SharedPreferences.getInstance();
-    return !(prefs.getBool(_welcomeSeenKey) ?? false);
+    return !(prefs.getBool(kWelcomeSeenPrefKey) ?? false);
   }
 
   Future<void> _completeWelcome() async {
@@ -35,7 +35,7 @@ class _WelcomeGateState extends State<WelcomeGate> {
     setState(() => _showResourceLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_welcomeSeenKey, true);
+      await prefs.setBool(kWelcomeSeenPrefKey, true);
     } catch (error) {
       debugPrint('[WelcomeGate] Could not persist welcome state: $error');
     }
@@ -57,9 +57,8 @@ class _WelcomeGateState extends State<WelcomeGate> {
       future: _shouldShowWelcome,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const AetronLoadingScaffold(
-            label: 'BOOTING AETRON',
-            message: 'Initializing performance interface.',
+          return const AetronGlobeOrbitScreen(
+            customTitle: 'Aetron',
           );
         }
         return snapshot.data!
@@ -158,7 +157,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     final pages = _getPages(isVi);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: const Color(0xFF09181C),
       body: Stack(
         children: [
           // ── Background Ambient Grid & Glow ──
@@ -173,7 +172,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF00E5FF).withValues(alpha: 0.12),
+                    const Color(0xFFA8DCE7).withValues(alpha: 0.12),
                     Colors.transparent,
                   ],
                 ),
@@ -499,7 +498,7 @@ class _WelcomeTopBar extends ConsumerWidget {
                         ),
                         child: const Icon(
                           Icons.arrow_back_ios_new_rounded,
-                          color: Color(0xFF00E5FF),
+                          color: Color(0xFFA8DCE7),
                           size: 16,
                         ),
                       ),
@@ -509,11 +508,11 @@ class _WelcomeTopBar extends ConsumerWidget {
                         width: 8,
                         height: 8,
                         decoration: const BoxDecoration(
-                          color: Color(0xFF00E5FF),
+                          color: Color(0xFFA8DCE7),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0xFF00E5FF),
+                              color: Color(0xFFA8DCE7),
                               blurRadius: 8,
                               spreadRadius: 1,
                             ),
@@ -527,12 +526,12 @@ class _WelcomeTopBar extends ConsumerWidget {
             // Center Brand Badge
             ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF00E5FF), Color(0xFF39F2B8)],
+                colors: [Color(0xFFA8DCE7), Color(0xFF39F2B8)],
               ).createShader(bounds),
               child: const Text(
                 'AETRON',
                 style: TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 4.0,
@@ -567,10 +566,10 @@ class _WelcomeTopBar extends ConsumerWidget {
                 child: Text(
                   currentLang == AppLanguage.vi ? '🇻🇳 VI' : '🇬🇧 EN',
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
+                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF00E5FF),
+                    color: Color(0xFFA8DCE7),
                   ),
                 ),
               ),
@@ -587,7 +586,7 @@ class _WelcomeTopBar extends ConsumerWidget {
               child: Text(
                 currentLang == AppLanguage.vi ? 'BỎ QUA' : 'SKIP',
                 style: const TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.0,
@@ -647,10 +646,10 @@ class _OnboardingHero extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    const Color(0xFF070B14).withValues(alpha: 0.6),
+                    const Color(0xFF09181C).withValues(alpha: 0.6),
                     Colors.transparent,
-                    const Color(0xFF070B14).withValues(alpha: 0.85),
-                    const Color(0xFF070B14),
+                    const Color(0xFF09181C).withValues(alpha: 0.85),
+                    const Color(0xFF09181C),
                   ],
                   stops: const [0, 0.4, 0.85, 1.0],
                 ),
@@ -691,7 +690,7 @@ class _WelcomeCopyCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00E5FF).withValues(alpha: 0.08),
+            color: const Color(0xFFA8DCE7).withValues(alpha: 0.08),
             blurRadius: 28,
             offset: const Offset(0, 4),
           ),
@@ -715,7 +714,7 @@ class _WelcomeCopyCard extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E5FF).withValues(alpha: 0.12),
+                  color: const Color(0xFFA8DCE7).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: const Color(0x4400E5FF),
@@ -724,9 +723,9 @@ class _WelcomeCopyCard extends StatelessWidget {
                 child: Text(
                   data.eyebrow,
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    color: Color(0xFF00E5FF),
-                    fontSize: 10,
+                    fontFamily: 'Plus Jakarta Sans',
+                    color: Color(0xFFA8DCE7),
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.8,
                   ),
@@ -735,7 +734,7 @@ class _WelcomeCopyCard extends StatelessWidget {
               Text(
                 data.step,
                 style: const TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: 'Plus Jakarta Sans',
                   color: Color(0xFF7D8DA6),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -751,7 +750,7 @@ class _WelcomeCopyCard extends StatelessWidget {
             textScaler: MediaQuery.textScalerOf(context),
             text: TextSpan(
               style: const TextStyle(
-                fontFamily: 'Outfit',
+                fontFamily: 'Plus Jakarta Sans',
                 color: Colors.white,
                 fontSize: 26,
                 height: 1.15,
@@ -763,7 +762,7 @@ class _WelcomeCopyCard extends StatelessWidget {
                 TextSpan(
                   text: data.titleAccent,
                   style: const TextStyle(
-                    color: Color(0xFF00E5FF),
+                    color: Color(0xFFA8DCE7),
                     shadows: [
                       Shadow(
                         color: Color(0x8800E5FF),
@@ -782,7 +781,7 @@ class _WelcomeCopyCard extends StatelessWidget {
           Text(
             data.description,
             style: const TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: 'Plus Jakarta Sans',
               color: Color(0xFF94A3B8),
               fontSize: 14,
               height: 1.45,
@@ -843,7 +842,7 @@ class _TelemetryPill extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: const Color(0xFF00E5FF), size: 16),
+          Icon(icon, color: const Color(0xFFA8DCE7), size: 16),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
@@ -851,7 +850,7 @@ class _TelemetryPill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontFamily: 'Outfit',
+                fontFamily: 'Plus Jakarta Sans',
                 color: Color(0xFFC3F5FF),
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -886,12 +885,12 @@ class _ModernActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
           colors: isLastPage
-              ? const [Color(0xFF00E5FF), Color(0xFF39F2B8)]
-              : const [Color(0xFF00E5FF), Color(0xFF00B0FF)],
+              ? const [Color(0xFFA8DCE7), Color(0xFF39F2B8)]
+              : const [Color(0xFFA8DCE7), Color(0xFF00B0FF)],
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00E5FF).withValues(alpha: 0.36),
+            color: const Color(0xFFA8DCE7).withValues(alpha: 0.36),
             blurRadius: 18,
             offset: const Offset(0, 5),
           ),
@@ -917,7 +916,7 @@ class _ModernActionButton extends StatelessWidget {
                       Text(
                         label,
                         style: const TextStyle(
-                          fontFamily: 'Outfit',
+                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.8,
@@ -963,14 +962,14 @@ class _PageDots extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             gradient: selected
                 ? const LinearGradient(
-                    colors: [Color(0xFF00E5FF), Color(0xFF39F2B8)],
+                    colors: [Color(0xFFA8DCE7), Color(0xFF39F2B8)],
                   )
                 : null,
             color: selected ? null : const Color(0xFF1E293B),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                      color: const Color(0xFFA8DCE7).withValues(alpha: 0.5),
                       blurRadius: 8,
                       spreadRadius: 1,
                     ),
@@ -996,7 +995,7 @@ class _WelcomeGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.035)
+      ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.035)
       ..strokeWidth = 1;
     const step = 36.0;
     for (var x = 0.0; x <= size.width; x += step) {
@@ -1023,7 +1022,7 @@ class _HeroScanPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: [
           Colors.transparent,
-          const Color(0xFF00E5FF).withValues(alpha: 0.72),
+          const Color(0xFFA8DCE7).withValues(alpha: 0.72),
           Colors.transparent,
         ],
       ).createShader(Rect.fromLTWH(0, y - 12, size.width, 24))
@@ -1031,7 +1030,7 @@ class _HeroScanPainter extends CustomPainter {
     canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
 
     final particlePaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.36);
+      ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.36);
     for (var i = 0; i < 16; i++) {
       final seed = i * 38.0;
       final x = (math.sin(progress * math.pi * 2 + i) * 0.5 + 0.5) * size.width;
@@ -1063,14 +1062,14 @@ class _FeatureHeroPainter extends CustomPainter {
     final radius = math.min(size.width, size.height) * 0.26;
 
     final glowPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.18)
+      ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.18)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 42);
     canvas.drawCircle(center, radius * 1.5, glowPaint);
 
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.36);
+      ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.36);
     for (final scale in [0.72, 1.0, 1.28]) {
       canvas.drawCircle(center, radius * scale, ringPaint);
     }
@@ -1081,10 +1080,10 @@ class _FeatureHeroPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..shader = SweepGradient(
         colors: [
-          const Color(0xFF00E5FF).withValues(alpha: 0),
-          const Color(0xFF00E5FF),
+          const Color(0xFFA8DCE7).withValues(alpha: 0),
+          const Color(0xFFA8DCE7),
           const Color(0xFF39F2B8),
-          const Color(0xFF00E5FF).withValues(alpha: 0),
+          const Color(0xFFA8DCE7).withValues(alpha: 0),
         ],
         transform: GradientRotation(progress * math.pi * 2),
       ).createShader(Rect.fromCircle(center: center, radius: radius * 1.16));
@@ -1125,12 +1124,12 @@ class _FeatureHeroPainter extends CustomPainter {
       ..strokeWidth = 12
       ..strokeCap = StrokeCap.round
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.32);
+      ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.32);
     final routePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFF00E5FF);
+      ..color = const Color(0xFFA8DCE7);
     canvas.drawPath(path, routeGlow);
     canvas.drawPath(path, routePaint);
 
@@ -1156,7 +1155,7 @@ class _FeatureHeroPainter extends CustomPainter {
   ) {
     final baseY = center.dy + radius * 0.55;
     final barPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.76)
+      ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.76)
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 10;
     for (var i = 0; i < 6; i++) {
@@ -1218,7 +1217,7 @@ class _FeatureHeroPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = const Color(0xFF00E5FF).withValues(alpha: 0.8),
+        ..color = const Color(0xFFA8DCE7).withValues(alpha: 0.8),
     );
   }
 

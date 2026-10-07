@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fitness_exercise_application/features/profile/data/models/user_profile_model.dart';
 import 'package:fitness_exercise_application/core/constants/db_tables.dart';
@@ -132,7 +132,11 @@ class UserProfileRemoteDataSource {
       await _supabase.rpc('delete_user_account');
       return;
     } catch (e) {
-      // Fallback to table-by-table deletion if RPC is not deployed yet
+      debugPrint('[RemoteDataSource] RPC delete_user_account fallback: $e');
+      // If error is network or auth issue, rethrow immediately
+      if (e is PostgrestException && e.code != 'PGRST202' && e.code != '42883') {
+        rethrow;
+      }
     }
 
     // 3. Fallback table-by-table deletion
@@ -176,30 +180,25 @@ class UserProfileRemoteDataSource {
           );
     } catch (_) {}
 
-    try {
-      await _supabase
-          .from(DbTables.workoutSessions)
-          .delete()
-          .eq('user_id', userId);
-    } catch (_) {}
+    // Core tables must not be silently swallowed if disconnected
+    await _supabase
+        .from(DbTables.workoutSessions)
+        .delete()
+        .eq('user_id', userId);
 
     try {
       await _supabase.from('user_recovery_emails').delete().eq('user_id', userId);
     } catch (_) {}
 
-    try {
-      await _supabase
-          .from(DbTables.userGoals)
-          .delete()
-          .eq('user_id', userId);
-    } catch (_) {}
+    await _supabase
+        .from(DbTables.userGoals)
+        .delete()
+        .eq('user_id', userId);
 
-    try {
-      await _supabase
-          .from(DbTables.userProfiles)
-          .delete()
-          .eq('user_id', userId);
-    } catch (_) {}
+    await _supabase
+        .from(DbTables.userProfiles)
+        .delete()
+        .eq('user_id', userId);
   }
 }
 

@@ -3,18 +3,17 @@ import 'package:fitness_exercise_application/features/settings/presentation/prov
 import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_action_dock.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_header.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_hero_distance.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_route_recap.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_splits_card.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_telemetry_grid.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_share_card.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
-import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-
-bool _hasSteps(String activityType) {
-  final t = activityType.toLowerCase();
-  return t == 'running' || t == 'walking';
-}
 
 class WorkoutSummaryScreen extends ConsumerWidget {
   final String sessionId;
@@ -48,8 +47,47 @@ class WorkoutSummaryScreen extends ConsumerWidget {
     this.lapSplits = const [],
   });
 
+  void _navigateToHome(BuildContext context) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainShell()),
+      (_) => false,
+    );
+  }
+
+  void _openShareSheet(
+    BuildContext context, {
+    required double effectiveDistanceKm,
+    required bool useMetricUnits,
+    required AppLanguage currentLang,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => WorkoutShareCardSheet(
+        activityType: activityType,
+        distanceKm: effectiveDistanceKm,
+        durationSeconds: durationSeconds,
+        avgSpeedKmh: avgSpeedKmh,
+        calories: calories,
+        steps: steps,
+        useMetricUnits: useMetricUnits,
+        currentLang: currentLang,
+      ),
+    );
+  }
+
+  void _navigateToDetails(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => WorkoutDetailsScreen(workoutId: sessionId),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
@@ -68,232 +106,93 @@ class WorkoutSummaryScreen extends ConsumerWidget {
         ? gpsAnalysis.validDistanceKm
         : distanceKm;
 
-    final avgPace = gpsAnalysis.effectivePaceSecPerKm != null
-        ? WorkoutFormatters.formatPaceFromSecondsPerKm(
-            gpsAnalysis.effectivePaceSecPerKm!,
-            useMetric: useMetricUnits,
-          )
-        : WorkoutFormatters.formatPaceFromSpeedKmh(
-            avgSpeedKmh,
-            useMetric: useMetricUnits,
-          );
-
-    final showSteps = _hasSteps(activityType) && steps > 0;
-
-    return Scaffold(
-      backgroundColor: AetronColors.background,
-      body: AetronBackground(
-        child: SafeArea(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _navigateToHome(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
           child: Column(
             children: [
-              AetronHeader(
-                title: AppTranslations.get('workout_summary', currentLang),
-                eyebrow: currentLang == AppLanguage.vi ? 'HOÀN THÀNH BUỔI TẬP' : 'WORKOUT COMPLETED',
+              // Top Sticky Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: KineticSummaryHeader(
+                  activityType: activityType,
+                  trackingMode: trackingMode,
+                  currentLang: currentLang,
+                  onBackToHome: () => _navigateToHome(context),
+                ),
               ),
+
+              // Scrollable Telemetry Body
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AetronSpacing.page),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Celebration Banner
-                      AppCard(
-                        padding: const EdgeInsets.all(AetronSpacing.lg),
-                        hasGlow: true,
-                        glowColor: AetronColors.mint,
-                        borderColor: AetronColors.mint.withValues(alpha: 0.45),
-                        backgroundColor: AetronColors.panelHigh,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: AetronColors.mint.withValues(alpha: 0.18),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: AetronColors.mint.withValues(alpha: 0.5)),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AetronColors.mint.withValues(alpha: 0.35),
-                                    blurRadius: 16,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.emoji_events_rounded,
-                                color: AetronColors.mint,
-                                size: 34,
-                              ),
-                            ),
-                            const SizedBox(width: AetronSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    currentLang == AppLanguage.vi ? 'XUẤT SẮC!' : 'GREAT WORK!',
-                                    style: AetronTypography.headingLarge.copyWith(
-                                      color: AetronColors.mint,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    currentLang == AppLanguage.vi ? 'Đã lưu buổi tập thành công' : 'Workout saved successfully',
-                                    style: AetronTypography.bodySmall.copyWith(
-                                      color: AetronColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                      // 1. Hero Distance & Celebration Bento
+                      KineticSummaryHeroDistance(
+                        distanceKm: effectiveDistanceKm,
+                        activityType: activityType,
+                        useMetricUnits: useMetricUnits,
+                        validityFlag: gpsAnalysis.validityFlag,
+                        currentLang: currentLang,
                       ),
-                      const SizedBox(height: AetronSpacing.lg),
+                      const SizedBox(height: 12),
 
-                      // Route Map Recap
+                      // 2. Telemetry Grid (4 Bento Cards)
+                      KineticSummaryTelemetryGrid(
+                        activityType: activityType,
+                        durationSeconds: durationSeconds,
+                        movingTimeSeconds: movingTimeSeconds,
+                        avgSpeedKmh: avgSpeedKmh,
+                        effectivePaceSecPerKm: gpsAnalysis.effectivePaceSecPerKm,
+                        calories: calories,
+                        steps: steps,
+                        useMetricUnits: useMetricUnits,
+                        currentLang: currentLang,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 3. Route Map Recap (Outdoor GPS routes)
                       if (effectiveRoutePoints.length >= 2) ...[
-                        AppCard(
-                          padding: EdgeInsets.zero,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(AetronRadius.large),
-                            child: SizedBox(
-                              height: 220,
-                              child: WorkoutRoutePreviewMap(
-                                routePoints: effectiveRoutePoints,
-                                routeSegments: effectiveRouteSegments,
-                                activityType: activityType,
-                                icon: Icons.directions_run_rounded,
-                                accentColor: AetronColors.cyan,
-                                glowColor: AetronColors.cyan.withValues(alpha: 0.3),
-                                highlightColor: AetronColors.cyanSoft,
-                                startColor: AetronColors.mint,
-                                endColor: AetronColors.danger,
-                                badgeText: activityType.toUpperCase(),
-                              ),
-                            ),
-                          ),
+                        KineticSummaryRouteRecap(
+                          routePoints: effectiveRoutePoints,
+                          routeSegments: effectiveRouteSegments,
+                          activityType: activityType,
+                          currentLang: currentLang,
                         ),
-                        const SizedBox(height: AetronSpacing.lg),
+                        const SizedBox(height: 12),
                       ],
 
-                      // Key Telemetry Stats
-                      SectionHeader(
-                        title: currentLang == AppLanguage.vi ? 'TỔNG QUAN DỮ LIỆU' : 'TELEMETRY OVERVIEW',
-                        padding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(height: AetronSpacing.sm),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: StatCard(
-                              label: AppTranslations.get('distance', currentLang),
-                              value: WorkoutFormatters.formatDistance(
-                                effectiveDistanceKm,
-                                useMetric: useMetricUnits,
-                                decimals: 2,
-                              ),
-                              icon: Icons.route_rounded,
-                              accentColor: AetronColors.cyan,
-                            ),
-                          ),
-                          const SizedBox(width: AetronSpacing.sm),
-                          Expanded(
-                            child: StatCard(
-                              label: AppTranslations.get('duration', currentLang),
-                              value: WorkoutFormatters.formatDurationFromSeconds(durationSeconds),
-                              icon: Icons.timer_rounded,
-                              accentColor: AetronColors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AetronSpacing.sm),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: StatCard(
-                              label: AppTranslations.get('avg_pace', currentLang),
-                              value: avgPace,
-                              icon: Icons.speed_rounded,
-                              accentColor: AetronColors.mint,
-                            ),
-                          ),
-                          const SizedBox(width: AetronSpacing.sm),
-                          Expanded(
-                            child: StatCard(
-                              label: AppTranslations.get('calories', currentLang),
-                              value: '$calories',
-                              unit: 'kcal',
-                              icon: Icons.local_fire_department_rounded,
-                              accentColor: AetronColors.gold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (showSteps) ...[
-                        const SizedBox(height: AetronSpacing.sm),
-                        StatCard(
-                          label: currentLang == AppLanguage.vi ? 'Tổng số bước' : 'Total Steps',
-                          value: '$steps',
-                          unit: currentLang == AppLanguage.vi ? 'bước' : 'steps',
-                          icon: Icons.directions_walk_rounded,
-                          accentColor: AetronColors.cyanSoft,
+                      // 4. Lap Splits Breakdown (If available)
+                      if (lapSplits.isNotEmpty) ...[
+                        KineticSummarySplitsCard(
+                          lapSplits: lapSplits,
+                          useMetricUnits: useMetricUnits,
+                          currentLang: currentLang,
                         ),
+                        const SizedBox(height: 16),
                       ],
-                      const SizedBox(height: AetronSpacing.md),
 
-                      // Share Card Button
-                      AppButton(
-                        label: currentLang == AppLanguage.vi
-                            ? 'CHIA SẺ BUỔI TẬP'
-                            : 'SHARE WORKOUT',
-                        icon: Icons.ios_share_rounded,
-                        variant: AppButtonVariant.outlined,
-                        fullWidth: true,
-                        onPressed: () {
-                          showModalBottomSheet<void>(
-                            context: context,
-                            backgroundColor: Colors.transparent,
-                            isScrollControlled: true,
-                            builder: (_) => WorkoutShareCardSheet(
-                              activityType: activityType,
-                              distanceKm: effectiveDistanceKm,
-                              durationSeconds: durationSeconds,
-                              avgSpeedKmh: avgSpeedKmh,
-                              calories: calories,
-                              steps: steps,
-                              useMetricUnits: useMetricUnits,
-                              currentLang: currentLang,
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AetronSpacing.sm),
-
-                      // Primary Done Action
-                      AppButton(
-                        label: currentLang == AppLanguage.vi ? 'HOÀN THÀNH' : 'DONE',
-                        icon: Icons.check_rounded,
-                        onPressed: () {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const MainShell()),
-                            (_) => false,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AetronSpacing.sm),
-                      AppButton(
-                        label: currentLang == AppLanguage.vi ? 'XEM CHI TIẾT' : 'VIEW FULL DETAILS',
-                        variant: AppButtonVariant.outlined,
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => WorkoutDetailsScreen(workoutId: sessionId),
-                            ),
-                          );
-                        },
+                      // 5. Action Dock (Share, Done, Details)
+                      KineticSummaryActionDock(
+                        currentLang: currentLang,
+                        onShare: () => _openShareSheet(
+                          context,
+                          effectiveDistanceKm: effectiveDistanceKm,
+                          useMetricUnits: useMetricUnits,
+                          currentLang: currentLang,
+                        ),
+                        onDone: () => _navigateToHome(context),
+                        onViewDetails: () => _navigateToDetails(context),
                       ),
                     ],
                   ),

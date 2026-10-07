@@ -83,7 +83,7 @@ class WorkoutHeroMetricChip extends StatelessWidget {
             label.toUpperCase(),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.62),
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
             ),

@@ -29,7 +29,7 @@ enum BadgeTier {
       case BadgeTier.gold:
         return const Color(0xFFFFBA20);
       case BadgeTier.quantum:
-        return const Color(0xFF00E5FF);
+        return const Color(0xFFA8DCE7);
     }
   }
 
@@ -55,7 +55,7 @@ enum BadgeTier {
       case BadgeTier.gold:
         return const Color(0xFFFFBA20).withValues(alpha: 0.40);
       case BadgeTier.quantum:
-        return const Color(0xFF00E5FF).withValues(alpha: 0.45);
+        return const Color(0xFFA8DCE7).withValues(alpha: 0.45);
     }
   }
 

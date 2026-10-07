@@ -1,15 +1,16 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/user_profile.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_feedback.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_logout_dialog.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   final UserProfile? existingProfile;
@@ -31,12 +32,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   late String _selectedGender;
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
+  bool _hasInitializedUnits = false;
+
+  void _populateControllers(bool useMetricUnits) {
     final profile = widget.existingProfile;
-    final useMetricUnits =
-        ref.read(metricUnitsPreferenceProvider).valueOrNull ?? true;
     final weight = profile?.weightKg;
     final totalInches = (profile?.heightCm ?? 0) / 2.54;
     var feet = totalInches ~/ 12;
@@ -45,24 +44,35 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       feet += 1;
       inches = 0;
     }
-    _weightController = TextEditingController(
-      text: weight == null
-          ? ''
-          : _formatValue(useMetricUnits ? weight : weight * 2.2046226218),
-    );
-    _heightController = TextEditingController(
-      text: profile != null ? profile.heightCm.toString() : '',
-    );
-    _heightFeetController = TextEditingController(
-      text: profile == null ? '' : '$feet',
-    );
-    _heightInchesController = TextEditingController(
-      text: profile == null ? '' : '$inches',
-    );
-    _ageController = TextEditingController(
-      text: profile != null ? profile.age.toString() : '',
-    );
-    final user = Supabase.instance.client.auth.currentUser;
+    _weightController.text = weight == null
+        ? ''
+        : _formatValue(useMetricUnits ? weight : weight * 2.2046226218);
+    _heightController.text = profile != null ? profile.heightCm.toString() : '';
+    _heightFeetController.text = profile == null ? '' : '$feet';
+    _heightInchesController.text = profile == null ? '' : '$inches';
+    _ageController.text = profile != null ? profile.age.toString() : '';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.existingProfile;
+    final metricPrefAsync = ref.read(metricUnitsPreferenceProvider);
+    final useMetricUnits = metricPrefAsync.valueOrNull ?? true;
+    _hasInitializedUnits = metricPrefAsync.hasValue;
+
+    _weightController = TextEditingController();
+    _heightController = TextEditingController();
+    _heightFeetController = TextEditingController();
+    _heightInchesController = TextEditingController();
+    _ageController = TextEditingController();
+
+    _populateControllers(useMetricUnits);
+
+    User? user;
+    try {
+      user = Supabase.instance.client.auth.currentUser;
+    } catch (_) {}
     final initialName = (user?.userMetadata?['display_name'] ??
             user?.userMetadata?['full_name'] ??
             user?.userMetadata?['name']) as String? ??
@@ -154,6 +164,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         );
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+            (_) => false,
+          );
         }
       }
     } catch (e, st) {
@@ -214,61 +229,93 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   DateTime _approximateDateOfBirth(int age) {
     final now = DateTime.now();
-    return DateTime(now.year - age, now.month, now.day);
+    final targetYear = now.year - age;
+    if (now.month == 2 && now.day == 29) {
+      final isLeapYear = (targetYear % 4 == 0 && targetYear % 100 != 0) ||
+          (targetYear % 400 == 0);
+      return DateTime(targetYear, 2, isLeapYear ? 29 : 28);
+    }
+    return DateTime(targetYear, now.month, now.day);
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<bool>>(metricUnitsPreferenceProvider, (previous, next) {
+      if (next.hasValue && !_hasInitializedUnits) {
+        _hasInitializedUnits = true;
+        _populateControllers(next.value!);
+      }
+    });
     final currentLang = ref.watch(appLanguageProvider);
     final isEditing = widget.existingProfile != null;
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
+    final colors = context.kinetic;
 
     return Scaffold(
-      backgroundColor: AetronColors.voidBlack,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  if (isEditing)
+                  if (isEditing) ...[
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                      color: AetronColors.cyanSoft,
+                      color: colors.primary,
                     ),
-                  const SizedBox(width: 4),
+                    const SizedBox(width: 4),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          currentLang == AppLanguage.vi
-                              ? (isEditing ? 'CẬP NHẬT SINH TRẮC' : 'KHỞI TẠO CHỈ SỐ')
-                              : (isEditing ? 'BIOMETRIC UPDATE' : 'INITIAL CALIBRATION'),
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 10,
+                          isEditing
+                              ? AppTranslations.get('edit_profile', currentLang)
+                              : AppTranslations.get('profile', currentLang),
+                          style: KineticTypography.headlineSmall.copyWith(
+                            color: colors.textPrimary,
                             fontWeight: FontWeight.w800,
-                            color: AetronColors.cyanSoft.withValues(alpha: 0.8),
-                            letterSpacing: 1.5,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          isEditing ? AppTranslations.get('edit_profile', currentLang) : AppTranslations.get('profile', currentLang),
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: AetronColors.textPrimary,
+                          currentLang == AppLanguage.vi
+                              ? (isEditing
+                                  ? 'Cập nhật chỉ số sinh trắc học'
+                                  : 'Thiết lập chỉ số sinh trắc học')
+                              : (isEditing
+                                  ? 'Update biometric metrics'
+                                  : 'Initial biometric calibration'),
+                          style: KineticTypography.bodySmall.copyWith(
+                            color: colors.textSecondary,
+                            fontSize: 12.5,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  if (!isEditing)
+                    IconButton(
+                      tooltip: currentLang == AppLanguage.vi ? 'Đăng xuất' : 'Sign out',
+                      icon: Icon(Icons.logout_rounded, color: colors.textSecondary),
+                      onPressed: () async {
+                        final confirmed = await AetronLogoutDialog.show(context);
+                        if (confirmed == true && context.mounted) {
+                          await Supabase.instance.client.auth.signOut();
+                          if (context.mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                              (_) => false,
+                            );
+                          }
+                        }
+                      },
+                    ),
                 ],
               ),
             ),
@@ -280,32 +327,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        AppTranslations.get('biometric_data', currentLang).toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: AetronColors.cyanSoft,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        currentLang == AppLanguage.vi
-                            ? (isEditing ? 'Cập nhật chỉ số sức khỏe của bạn' : 'Thiết lập chỉ số ban đầu cho ứng dụng')
-                            : (isEditing ? 'Update your health profile metrics' : 'Set your baseline metrics'),
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: AetronColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       _UnitSelector(
                         useMetricUnits: useMetricUnits,
                         onChanged: _setUseMetricUnits,
+                        currentLang: currentLang,
                       ),
                       const SizedBox(height: 16),
                       _GlassCard(
@@ -316,18 +341,21 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               height: 64,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AetronColors.cyan.withValues(alpha: 0.15),
-                                border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.4), width: 1.4),
+                                color: colors.primary.withValues(alpha: 0.15),
+                                border: Border.all(
+                                  color: colors.primary.withValues(alpha: 0.4),
+                                  width: 1.4,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AetronColors.cyan.withValues(alpha: 0.25),
+                                    color: colors.primary.withValues(alpha: 0.25),
                                     blurRadius: 16,
                                   ),
                                 ],
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.person_outline_rounded,
-                                color: AetronColors.cyan,
+                                color: colors.primary,
                                 size: 30,
                               ),
                             ),
@@ -475,11 +503,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               alignment: Alignment.centerLeft,
                               child: Text(
                                 AppTranslations.get('gender', currentLang),
-                                style: const TextStyle(
-                                  fontFamily: 'Outfit',
-                                  color: AetronColors.textPrimary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
+                                style: KineticTypography.bodyMedium.copyWith(
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
@@ -512,11 +538,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Aetron3DPrimaryButton(
+                      const SizedBox(height: 24),
+                      KineticButton(
                         label: currentLang == AppLanguage.vi
-                            ? (isEditing ? 'CẬP NHẬT HỒ SƠ →' : 'LƯU HỒ SƠ →')
-                            : (isEditing ? 'UPDATE PROFILE →' : 'SAVE PROFILE →'),
+                            ? (isEditing ? 'CẬP NHẬT HỒ SƠ' : 'LƯU HỒ SƠ')
+                            : (isEditing ? 'UPDATE PROFILE' : 'SAVE PROFILE'),
+                        icon: Icons.arrow_forward_rounded,
+                        variant: KineticButtonVariant.primary,
+                        height: 52,
                         isLoading: _isLoading,
                         onPressed: _isLoading ? null : _saveProfile,
                       ),
@@ -537,49 +566,50 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 }
 
 class _UnitSelector extends StatelessWidget {
-  const _UnitSelector({required this.useMetricUnits, required this.onChanged});
+  const _UnitSelector({
+    required this.useMetricUnits,
+    required this.onChanged,
+    this.currentLang,
+  });
 
   final bool useMetricUnits;
   final ValueChanged<bool> onChanged;
+  final AppLanguage? currentLang;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+    final isVi = currentLang == AppLanguage.vi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 6),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
-            'PREFERRED UNITS',
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              color: AetronColors.cyanSoft,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
+            isVi ? 'ĐƠN VỊ ĐO ƯA THÍCH' : 'PREFERRED UNITS',
+            style: KineticTypography.unitLabel.copyWith(
+              color: colors.primary,
+              letterSpacing: 1.2,
             ),
           ),
         ),
         Container(
-          height: 52,
+          height: 48,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: AetronColors.panelHigh,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            color: colors.surface1,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: colors.borderSubtle,
+              width: 1.0,
+            ),
           ),
           child: Row(
             children: [
               Expanded(
                 child: _UnitOption(
-                  label: 'METRIC',
+                  label: isVi ? 'HỆ MÉT' : 'METRIC',
                   detail: 'kg / cm',
                   selected: useMetricUnits,
                   onTap: () => onChanged(true),
@@ -587,7 +617,7 @@ class _UnitSelector extends StatelessWidget {
               ),
               Expanded(
                 child: _UnitOption(
-                  label: 'IMPERIAL',
+                  label: isVi ? 'HỆ ANH' : 'IMPERIAL',
                   detail: 'lb / ft',
                   selected: !useMetricUnits,
                   onTap: () => onChanged(false),
@@ -616,16 +646,20 @@ class _UnitOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AetronColors.cyan.withValues(alpha: 0.18) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: selected
+              ? colors.primary.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AetronColors.cyan : Colors.transparent,
+            color: selected ? colors.primary : Colors.transparent,
             width: selected ? 1.4 : 1.0,
           ),
         ),
@@ -634,21 +668,19 @@ class _UnitOption extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                color: selected ? AetronColors.cyan : AetronColors.textSecondary,
+              style: KineticTypography.unitLabel.copyWith(
+                color: selected ? colors.primary : colors.textMuted,
                 fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.1,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
               ),
             ),
             Text(
               detail,
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                color: selected ? AetronColors.textPrimary : AetronColors.textSecondary.withValues(alpha: 0.6),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+              style: KineticTypography.bodySmall.copyWith(
+                color: selected ? colors.textPrimary : colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -677,43 +709,42 @@ class _InputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(
-        fontFamily: 'Outfit',
-        color: AetronColors.textPrimary,
-        fontWeight: FontWeight.w800,
+      style: KineticTypography.bodyMedium.copyWith(
+        color: colors.textPrimary,
+        fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(
-          fontFamily: 'Outfit',
-          color: AetronColors.textSecondary,
+        labelStyle: KineticTypography.bodyMedium.copyWith(
+          color: colors.textMuted,
         ),
-        hintStyle: const TextStyle(
-          fontFamily: 'Outfit',
-          color: AetronColors.textSecondary,
+        hintStyle: KineticTypography.bodyMedium.copyWith(
+          color: colors.textMuted.withValues(alpha: 0.6),
         ),
-        prefixIcon: Icon(icon, color: AetronColors.cyan, size: 20),
+        prefixIcon: Icon(icon, color: colors.primary, size: 20),
         filled: true,
-        fillColor: AetronColors.space,
+        fillColor: colors.surface2,
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AetronColors.cyan.withValues(alpha: 0.25)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.borderSubtle),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AetronColors.cyan, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.primary, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AetronColors.danger),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AetronColors.danger),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.error, width: 1.4),
         ),
       ),
       validator: validator,
@@ -736,8 +767,10 @@ class _GenderOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final selected = value == groupValue;
-    final color = value == 'male' ? AetronColors.cyan : const Color(0xffff4081);
+    final activeColor = value == 'male' ? colors.primary : colors.secondary;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -745,17 +778,17 @@ class _GenderOption extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: selected
-              ? color.withValues(alpha: 0.15)
-              : AetronColors.space,
-          borderRadius: BorderRadius.circular(16),
+              ? activeColor.withValues(alpha: 0.15)
+              : colors.surface2,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? color : AetronColors.borderSubtle,
+            color: selected ? activeColor : colors.borderSubtle,
             width: selected ? 1.4 : 1.0,
           ),
           boxShadow: [
             if (selected)
               BoxShadow(
-                color: color.withValues(alpha: 0.15),
+                color: activeColor.withValues(alpha: 0.15),
                 blurRadius: 8,
               ),
           ],
@@ -765,17 +798,15 @@ class _GenderOption extends StatelessWidget {
           children: [
             Icon(
               value == 'male' ? Icons.male_rounded : Icons.female_rounded,
-              color: selected ? color : AetronColors.textSecondary,
+              color: selected ? activeColor : colors.textMuted,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                color: selected ? AetronColors.textPrimary : AetronColors.textSecondary,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
+              style: KineticTypography.bodyMedium.copyWith(
+                color: selected ? colors.textPrimary : colors.textMuted,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -792,22 +823,22 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AetronColors.cyan.withValues(alpha: 0.3), width: 1.2),
+        color: colors.surface1,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colors.borderSubtle,
+          width: 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: AetronColors.cyan.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 16,
-            spreadRadius: -2,
+            offset: const Offset(0, 4),
           ),
         ],
       ),

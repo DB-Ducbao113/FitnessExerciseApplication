@@ -1,11 +1,10 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_ai_insight.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_3d_decorations.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Full-Page 3D AI Coach Insight & Telemetry Analytics Screen
+/// Full-Page AI Coach Insight & Telemetry Analytics Screen
 class WorkoutAiInsightDetailScreen extends ConsumerWidget {
   final WorkoutAiInsight insight;
 
@@ -88,466 +87,406 @@ class WorkoutAiInsightDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
     final isLlm = insight.source == 'llm';
-    final accentColor = isLlm ? AetronColors.cyan : AetronColors.mint;
+    final accentColor = isLlm ? colors.primary : colors.secondary;
 
     return Scaffold(
-      backgroundColor: AetronColors.background,
+      backgroundColor: colors.background,
       body: SafeArea(
-        top: false,
-        child: AetronBackground(
-          child: Column(
-            children: [
-              // ── 3D Top Navigation Bar ─────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AetronSpacing.page,
-                  AetronSpacing.lg + 8,
-                  AetronSpacing.page,
-                  AetronSpacing.xs,
-                ),
-                child: Row(
-                  children: [
-                    Aetron3DOrbButton(
-                      icon: Icons.arrow_back_rounded,
-                      size: 44,
-                      iconSize: 20,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isVi ? 'PHÂN TÍCH TỪ AI COACH' : 'AI COACH ANALYSIS',
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
-                              color: AetronColors.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isLlm ? 'Google Gemini 1.5 Flash • Active' : 'Adaptive Smart Engine • Active',
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              color: accentColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AetronRadius.pill),
-                        border: Border.all(
-                          color: accentColor.withValues(alpha: 0.35),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        isLlm ? 'AI ACTIVE' : 'SMART OFFLINE',
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          color: accentColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Scrollable Body ───────────────────────────────────────────
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AetronSpacing.page,
-                    AetronSpacing.sm,
-                    AetronSpacing.page,
-                    AetronSpacing.xxl,
+        child: Column(
+          children: [
+            // Top Navigation Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary),
+                    iconSize: 20,
                   ),
-                  children: [
-                    // 1. Hero Summary Card
-                    Container(
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        color: AetronColors.panelHigh,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: accentColor.withValues(alpha: 0.45),
-                          width: 1.5,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isVi ? 'PHÂN TÍCH TỪ AI COACH' : 'AI COACH ANALYSIS',
+                          style: KineticTypography.headlineSmall.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            blurRadius: 28,
-                            offset: const Offset(0, 12),
+                        const SizedBox(height: 2),
+                        Text(
+                          isLlm ? 'Google Gemini 1.5 Flash • Active' : 'Adaptive Smart Engine • Active',
+                          style: KineticTypography.bodySmall.copyWith(
+                            color: accentColor,
+                            fontWeight: FontWeight.w600,
                           ),
-                          BoxShadow(
-                            color: accentColor.withValues(alpha: 0.15),
-                            blurRadius: 24,
-                            spreadRadius: -2,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: accentColor.withValues(alpha: 0.15),
-                                  border: Border.all(
-                                    color: accentColor.withValues(alpha: 0.5),
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: accentColor.withValues(alpha: 0.35),
-                                      blurRadius: 14,
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  isLlm ? Icons.auto_awesome_rounded : Icons.psychology_rounded,
-                                  color: accentColor,
-                                  size: 26,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isVi ? 'TỔNG QUAN HIỆU SUẤT' : 'PERFORMANCE OVERVIEW',
-                                      style: TextStyle(
-                                        fontFamily: 'Outfit',
-                                        color: accentColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      isVi
-                                          ? 'Độ chuẩn xác tín hiệu: 100%'
-                                          : 'Signal Match Confidence: 100%',
-                                      style: const TextStyle(
-                                        fontFamily: 'Outfit',
-                                        color: AetronColors.textSecondary,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          if (insight.headline.isNotEmpty) ...[
-                            Text(
-                              insight.headline,
-                              style: const TextStyle(
-                                fontFamily: 'Outfit',
-                                color: AetronColors.textPrimary,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          Text(
-                            insight.mainInsight,
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              color: AetronColors.textPrimary.withValues(alpha: 0.9),
-                              fontSize: 14.5,
-                              height: 1.5,
-                              fontWeight: FontWeight.normal,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.35),
+                        width: 1,
                       ),
                     ),
-                    const SizedBox(height: AetronSpacing.lg),
-
-                    // 2. Strengths Section Card
-                    if (insight.strengths.isNotEmpty) ...[
-                      _DetailCardSection(
-                        title: isVi ? 'ĐIỂM NỔI BẬT ĐẠT ĐƯỢC' : 'KEY STRENGTHS ACHIEVED',
-                        icon: Icons.check_circle_rounded,
-                        accentColor: AetronColors.mint,
-                        items: insight.strengths,
+                    child: Text(
+                      isLlm ? 'AI ACTIVE' : 'SMART OFFLINE',
+                      style: KineticTypography.unitLabel.copyWith(
+                        color: accentColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
                       ),
-                      const SizedBox(height: AetronSpacing.lg),
-                    ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                    // 3. Watchouts / Focus Areas Card
-                    if (insight.watchouts.isNotEmpty) ...[
-                      _DetailCardSection(
-                        title: isVi ? 'LƯU Ý VỀ THỂ LỰC & CẢI THIỆN' : 'PHYSIOLOGICAL FOCUS AREAS',
-                        icon: Icons.lightbulb_rounded,
-                        accentColor: AetronColors.gold,
-                        items: insight.watchouts,
+            // Scrollable Body
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                children: [
+                  // 1. Hero Summary Card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: colors.surface1,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.35),
+                        width: 1.2,
                       ),
-                      const SizedBox(height: AetronSpacing.lg),
-                    ],
-
-                    // 4. Next Session Blueprint Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D1726),
-                        borderRadius: BorderRadius.circular(26),
-                        border: Border.all(
-                          color: AetronColors.cyan.withValues(alpha: 0.4),
-                          width: 1.4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                          BoxShadow(
-                            color: AetronColors.cyan.withValues(alpha: 0.12),
-                            blurRadius: 16,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AetronColors.cyan.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.track_changes_rounded,
-                                  size: 20,
-                                  color: AetronColors.cyan,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isVi ? 'KẾ HOẠCH BUỔI TẬP KẾ TIẾP' : 'NEXT SESSION BLUEPRINT',
-                                      style: const TextStyle(
-                                        fontFamily: 'Outfit',
-                                        color: AetronColors.cyan,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      isVi
-                                          ? 'Được AI Coach đề xuất dựa trên tải vận động'
-                                          : 'Prescribed by AI Coach based on training load',
-                                      style: const TextStyle(
-                                        fontFamily: 'Outfit',
-                                        color: AetronColors.textSecondary,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          // 3 Metric Pills
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _MetricPillBox(
-                                  label: isVi ? 'HOẠT ĐỘNG' : 'ACTIVITY',
-                                  value: _formatActivityLabel(
-                                    insight.nextSessionSuggestion.recommendedActivity,
-                                    currentLang,
-                                  ),
-                                  icon: _getActivityIcon(insight.nextSessionSuggestion.recommendedActivity),
-                                  accentColor: AetronColors.cyan,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _MetricPillBox(
-                                  label: isVi ? 'THỜI LƯỢNG' : 'DURATION',
-                                  value: '${insight.nextSessionSuggestion.targetDurationMin} ${isVi ? 'phút' : 'min'}',
-                                  icon: Icons.timer_rounded,
-                                  accentColor: AetronColors.mint,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _MetricPillBox(
-                                  label: isVi ? 'CƯỜNG ĐỘ' : 'INTENSITY',
-                                  value: _formatIntensityLabel(
-                                    insight.nextSessionSuggestion.targetIntensity,
-                                    currentLang,
-                                  ),
-                                  icon: Icons.bolt_rounded,
-                                  accentColor: AetronColors.gold,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          if (insight.nextSessionSuggestion.reason.isNotEmpty) ...[
-                            const SizedBox(height: 16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
                             Container(
-                              padding: const EdgeInsets.all(14),
+                              width: 48,
+                              height: 48,
                               decoration: BoxDecoration(
-                                color: AetronColors.space.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(16),
+                                shape: BoxShape.circle,
+                                color: accentColor.withValues(alpha: 0.15),
                                 border: Border.all(
-                                  color: AetronColors.borderSubtle,
-                                  width: 1,
+                                  color: accentColor.withValues(alpha: 0.5),
+                                  width: 1.5,
                                 ),
                               ),
-                              child: Row(
+                              child: Icon(
+                                isLlm ? Icons.auto_awesome_rounded : Icons.psychology_rounded,
+                                color: accentColor,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(
-                                    Icons.format_quote_rounded,
-                                    color: AetronColors.cyanSoft,
-                                    size: 20,
+                                  Text(
+                                    isVi ? 'TỔNG QUAN HIỆU SUẤT' : 'PERFORMANCE OVERVIEW',
+                                    style: KineticTypography.unitLabel.copyWith(
+                                      color: accentColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                    ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      insight.nextSessionSuggestion.reason,
-                                      style: const TextStyle(
-                                        fontFamily: 'Outfit',
-                                        color: AetronColors.textPrimary,
-                                        fontSize: 13,
-                                        height: 1.4,
-                                        fontStyle: FontStyle.italic,
-                                      ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isVi
+                                        ? 'Độ chuẩn xác tín hiệu: 100%'
+                                        : 'Signal Match Confidence: 100%',
+                                    style: KineticTypography.bodySmall.copyWith(
+                                      color: colors.textSecondary,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (insight.headline.isNotEmpty) ...[
+                          Text(
+                            insight.headline,
+                            style: KineticTypography.headlineSmall.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: AetronSpacing.lg),
-
-                    // 5. Mathematical Telemetry Signals Card
-                    if (insight.usedSignals.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AetronColors.panel,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: AetronColors.borderSubtle,
-                            width: 1.2,
+                        Text(
+                          insight.mainInsight,
+                          style: KineticTypography.bodyMedium.copyWith(
+                            color: colors.textPrimary,
+                            height: 1.5,
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 2. Strengths Section Card
+                  if (insight.strengths.isNotEmpty) ...[
+                    _DetailCardSection(
+                      title: isVi ? 'ĐIỂM NỔI BẬT ĐẠT ĐƯỢC' : 'KEY STRENGTHS ACHIEVED',
+                      icon: Icons.check_circle_rounded,
+                      accentColor: colors.secondary,
+                      items: insight.strengths,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 3. Watchouts / Focus Areas Card
+                  if (insight.watchouts.isNotEmpty) ...[
+                    _DetailCardSection(
+                      title: isVi ? 'LƯU Ý VỀ THỂ LỰC & CẢI THIỆN' : 'PHYSIOLOGICAL FOCUS AREAS',
+                      icon: Icons.lightbulb_rounded,
+                      accentColor: colors.tertiary,
+                      items: insight.watchouts,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 4. Next Session Blueprint Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: colors.surface1,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: colors.primary.withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Row(
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colors.surface2,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.track_changes_rounded,
+                                size: 20,
+                                color: colors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isVi ? 'KẾ HOẠCH BUỔI TẬP KẾ TIẾP' : 'NEXT SESSION BLUEPRINT',
+                                    style: KineticTypography.unitLabel.copyWith(
+                                      color: colors.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isVi
+                                        ? 'Được AI Coach đề xuất dựa trên tải vận động'
+                                        : 'Prescribed by AI Coach based on training load',
+                                    style: KineticTypography.bodySmall.copyWith(
+                                      color: colors.textSecondary,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 3 Metric Pills
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MetricPillBox(
+                                label: isVi ? 'HOẠT ĐỘNG' : 'ACTIVITY',
+                                value: _formatActivityLabel(
+                                  insight.nextSessionSuggestion.recommendedActivity,
+                                  currentLang,
+                                ),
+                                icon: _getActivityIcon(insight.nextSessionSuggestion.recommendedActivity),
+                                accentColor: colors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _MetricPillBox(
+                                label: isVi ? 'THỜI LƯỢNG' : 'DURATION',
+                                value: '${insight.nextSessionSuggestion.targetDurationMin} ${isVi ? 'phút' : 'min'}',
+                                icon: Icons.timer_rounded,
+                                accentColor: colors.secondary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _MetricPillBox(
+                                label: isVi ? 'CƯỜNG ĐỘ' : 'INTENSITY',
+                                value: _formatIntensityLabel(
+                                  insight.nextSessionSuggestion.targetIntensity,
+                                  currentLang,
+                                ),
+                                icon: Icons.bolt_rounded,
+                                accentColor: colors.tertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        if (insight.nextSessionSuggestion.reason.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: colors.surface2,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: colors.borderSubtle,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.data_usage_rounded,
-                                  size: 16,
-                                  color: AetronColors.cyanSoft,
+                                Icon(
+                                  Icons.format_quote_rounded,
+                                  color: colors.primary,
+                                  size: 20,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  isVi ? 'CƠ SỞ TÍN HIỆU TOÁN HỌC ĐÃ PHÂN TÍCH' : 'TELEMETRY SIGNALS ANALYZED',
-                                  style: const TextStyle(
-                                    fontFamily: 'Outfit',
-                                    color: AetronColors.cyanSoft,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
+                                Expanded(
+                                  child: Text(
+                                    insight.nextSessionSuggestion.reason,
+                                    style: KineticTypography.bodyMedium.copyWith(
+                                      color: colors.textPrimary,
+                                      fontSize: 13,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            ...insight.usedSignals.map((sig) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: AetronColors.cyan,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        _formatSignalName(sig, currentLang),
-                                        style: const TextStyle(
-                                          fontFamily: 'Outfit',
-                                          color: AetronColors.textSecondary,
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                          ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 5. Mathematical Telemetry Signals Card
+                  if (insight.usedSignals.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: colors.surface1,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: colors.borderSubtle,
+                          width: 1.2,
                         ),
                       ),
-                      const SizedBox(height: AetronSpacing.xl),
-                    ],
-
-                    // 6. Done Button
-                    AppButton(
-                      label: isVi ? 'QUAY LẠI' : 'BACK TO WORKOUT',
-                      icon: Icons.check_rounded,
-                      onPressed: () => Navigator.of(context).pop(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.data_usage_rounded,
+                                size: 16,
+                                color: colors.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                isVi ? 'CƠ SỞ TÍN HIỆU TOÁN HỌC ĐÃ PHÂN TÍCH' : 'TELEMETRY SIGNALS ANALYZED',
+                                style: KineticTypography.unitLabel.copyWith(
+                                  color: colors.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ...insight.usedSignals.map((sig) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: colors.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _formatSignalName(sig, currentLang),
+                                      style: KineticTypography.bodySmall.copyWith(
+                                        color: colors.textSecondary,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
                     ),
+                    const SizedBox(height: 20),
                   ],
-                ),
+
+                  // 6. Done Button
+                  KineticButton(
+                    label: isVi ? 'QUAY LẠI' : 'BACK TO WORKOUT',
+                    icon: Icons.check_rounded,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -572,22 +511,17 @@ class _DetailCardSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(24),
+        color: colors.surface1,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: accentColor.withValues(alpha: 0.35),
           width: 1.2,
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,8 +532,7 @@ class _DetailCardSection extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(
-                  fontFamily: 'Outfit',
+                style: KineticTypography.unitLabel.copyWith(
                   color: accentColor,
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
@@ -626,10 +559,9 @@ class _DetailCardSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item,
-                        style: const TextStyle(
-                          fontFamily: 'Outfit',
-                          color: AetronColors.textPrimary,
-                          fontSize: 13.5,
+                        style: KineticTypography.bodySmall.copyWith(
+                          color: colors.textPrimary,
+                          fontSize: 13,
                           height: 1.45,
                           fontWeight: FontWeight.w500,
                         ),
@@ -662,11 +594,13 @@ class _MetricPillBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
-        borderRadius: BorderRadius.circular(16),
+        color: colors.surface2,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: accentColor.withValues(alpha: 0.3),
           width: 1,
@@ -678,10 +612,9 @@ class _MetricPillBox extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(
-              fontFamily: 'Outfit',
+            style: KineticTypography.unitLabel.copyWith(
               color: accentColor,
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
               letterSpacing: 0.4,
             ),
@@ -692,10 +625,9 @@ class _MetricPillBox extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              color: AetronColors.textSecondary,
-              fontSize: 9.5,
+            style: KineticTypography.bodySmall.copyWith(
+              color: colors.textSecondary,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
             ),

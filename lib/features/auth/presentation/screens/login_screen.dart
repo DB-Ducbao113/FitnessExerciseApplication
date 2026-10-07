@@ -11,8 +11,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// ─── Design tokens (mirrors stitch dark palette) ────────────────────────────
+const _bg = Color(0xFF0C1316);
+const _surface = Color(0xFF162025);
+const _surfaceLow = Color(0xFF11181C);
+const _outlineVariant = Color(0xFF23323A);
+const _primary = Color(0xFFA8DCE7);
+const _onPrimary = Color(0xFF09181C);
+const _onSurface = Color(0xFFE2E8EA);
+const _onSurfaceVariant = Color(0xFF90A2A7);
+const _error = Color(0xFFFF4B6E);
+
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialErrorMessage;
+  const LoginScreen({super.key, this.initialErrorMessage});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -28,49 +40,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
-  bool _rememberMe = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    _errorMessage = widget.initialErrorMessage;
     WidgetsBinding.instance.addObserver(this);
 
-    _authSubscription =
-        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      final session =
-          data.session ?? Supabase.instance.client.auth.currentSession;
-      if (session != null && mounted) {
-        setState(() {
-          _isGoogleLoading = false;
-          _isLoading = false;
-        });
-        unawaited(
-          ref.read(appBootstrapServiceProvider).hydrateUser(session.user.id),
-        );
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const AuthWrapper()),
+    try {
+      _authSubscription =
+          Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        final session =
+            data.session ?? Supabase.instance.client.auth.currentSession;
+        if (session != null && mounted) {
+          setState(() {
+            _isGoogleLoading = false;
+            _isLoading = false;
+          });
+          unawaited(
+            ref.read(appBootstrapServiceProvider).hydrateUser(session.user.id),
           );
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const AuthWrapper()),
+            );
+          }
         }
-      }
-    });
+      });
+    } catch (_) {}
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // If user returns from external browser without completing login, reset spinner
       Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted &&
-            Supabase.instance.client.auth.currentSession == null &&
-            _isGoogleLoading) {
-          setState(() {
-            _isGoogleLoading = false;
-          });
-        }
+        if (!mounted) return;
+        try {
+          if (Supabase.instance.client.auth.currentSession == null &&
+              _isGoogleLoading) {
+            setState(() {
+              _isGoogleLoading = false;
+            });
+          }
+        } catch (_) {}
       });
     }
   }
@@ -159,431 +174,299 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget build(BuildContext context) {
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
+    final topPad = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
-      body: Stack(
+      backgroundColor: _bg,
+      body: Column(
         children: [
-          // ── 1. Top Section: Cyber Scenic Athlete Header ───────────────────
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.of(context).size.height * 0.42,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  'assets/login_header.png',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          const Color(0xFF070B14).withValues(alpha: 0.4),
-                          Colors.transparent,
-                          const Color(0xFF070B14).withValues(alpha: 0.85),
-                          const Color(0xFF070B14),
-                        ],
-                        stops: const [0.0, 0.4, 0.85, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── 2. Bottom Section: Cyber Dark Glassmorphic Card ───────────────
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.35,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF0A111E),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x3300E5FF),
-                    blurRadius: 28,
-                    offset: Offset(0, -6),
-                    spreadRadius: -2,
-                  ),
-                  BoxShadow(
-                    color: Colors.black,
-                    blurRadius: 36,
-                    offset: Offset(0, -10),
-                  ),
-                ],
-                border: Border(
-                  top: BorderSide(
-                    color: Color(0xFF00E5FF),
-                    width: 1.5,
+          // ── Top App Bar (matches stitch home/activity header) ─────────────
+          Container(
+            color: _bg.withValues(alpha: 0.97),
+            padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 12),
+            child: SizedBox(
+              height: 32,
+              child: Center(
+                child: Text(
+                  isVi ? 'Đăng nhập' : 'Sign In',
+                  style: const TextStyle(
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _onSurface,
+                    letterSpacing: -0.01 * 18,
                   ),
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Drag Handle
-                        Center(
-                          child: Container(
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
+            ),
+          ),
+          // Divider matching stitch border-b border-[#23323a]
+          const Divider(height: 1, thickness: 1, color: _outlineVariant),
 
-                        // Title
-                        Text(
-                          isVi
-                              ? 'Đăng Nhập Vào Aetron'
-                              : 'Login to Access Your\nWorkout Dashboard',
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: -0.3,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Email Field
-                        TextFormField(
-                          controller: _emailController,
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                          validator: validateUsername,
-                          decoration: _inputDecoration(
-                            hintText: isVi
-                                ? 'Nhập email hoặc tên tài khoản'
-                                : 'Enter your email',
-                            prefixIcon: Icons.mail_outline_rounded,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Password Field
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return isVi
-                                  ? 'Vui lòng nhập mật khẩu'
-                                  : 'Enter your password';
-                            }
-                            if (value.length < 6) {
-                              return 'Minimum 6 characters';
-                            }
-                            return null;
-                          },
-                          decoration: _inputDecoration(
-                            hintText: isVi
-                                ? 'Nhập mật khẩu của bạn'
-                                : 'Enter your password',
-                            prefixIcon: Icons.lock_outline_rounded,
-                            suffixIcon: IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.7),
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Remember Me & Forgot Password Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _rememberMe = !_rememberMe;
-                                });
-                              },
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: Checkbox(
-                                      value: _rememberMe,
-                                      activeColor: const Color(0xFF00E5FF),
-                                      checkColor: const Color(0xFF070B14),
-                                      side: const BorderSide(
-                                        color: Color(0x6600E5FF),
-                                        width: 1.5,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      onChanged: (val) {
-                                        setState(() {
-                                          _rememberMe = val ?? true;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    isVi ? 'Ghi nhớ đăng nhập' : 'Remember me',
-                                    style: const TextStyle(
-                                      fontFamily: 'Outfit',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => ForgotPasswordScreen(
-                                      initialEmail: _emailController.text
-                                              .trim()
-                                              .isNotEmpty
-                                          ? _emailController.text.trim()
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                isVi ? 'Quên mật khẩu?' : 'Forgot password?',
-                                style: const TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF00E5FF),
+          // ── Scrollable Body ───────────────────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Hero image area (editorial athletic photo) ──────────
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        children: [
+                          Image.asset(
+                            'assets/login_header.png',
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              height: 180,
+                              color: _surface,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.fitness_center_rounded,
+                                  color: _primary,
+                                  size: 48,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 12),
-                          _AuthMessage(_errorMessage!),
-                        ],
-
-                        const SizedBox(height: 20),
-
-                        // Vibrant Cyber Gradient Login Button
-                        Container(
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF00E5FF),
-                                Color(0xFF0072FF),
+                          ),
+                          // Gradient scrim — same as stitch home hero
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    _bg.withValues(alpha: 0.2),
+                                    _bg.withValues(alpha: 0.80),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Bottom overlay text
+                          Positioned(
+                            bottom: 16,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isVi ? 'Hành trình của bạn' : 'Your journey',
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                    letterSpacing: 0.05 * 10,
+                                  ),
+                                ),
+                                Text(
+                                  isVi
+                                      ? 'Sẵn sàng tiếp tục?'
+                                      : 'Ready to continue?',
+                                  style: const TextStyle(
+                                    fontFamily: 'Plus Jakarta Sans',
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: _onSurface,
+                                    letterSpacing: -0.015 * 22,
+                                  ),
+                                ),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.45),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                           ),
-                          child: ElevatedButton(
-                            onPressed: _isLoading || _isGoogleLoading
-                                ? null
-                                : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              foregroundColor: const Color(0xFF070B14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      color: Color(0xFF070B14),
-                                      strokeWidth: 2.4,
-                                    ),
-                                  )
-                                : Text(
-                                    isVi ? 'Đăng Nhập' : 'Login',
-                                    style: const TextStyle(
-                                      fontFamily: 'Outfit',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF070B14),
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
-                        // Divider
-                        Row(
-                          children: [
-                            const Expanded(child: Divider(color: Color(0x2200E5FF))),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
-                              child: Text(
-                                isVi ? 'Hoặc tiếp tục với' : 'Or sign in with',
-                                style: TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white.withValues(alpha: 0.45),
-                                ),
-                              ),
-                            ),
-                            const Expanded(child: Divider(color: Color(0x2200E5FF))),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
+                    // ── Email / Username field ──────────────────────────────
+                    _SectionLabel(isVi ? 'EMAIL HOẶC TÀI KHOẢN' : 'EMAIL OR USERNAME'),
+                    const SizedBox(height: 6),
+                    _StitchTextField(
+                      controller: _emailController,
+                      hintText: isVi
+                          ? 'Nhập email hoặc tên tài khoản'
+                          : 'Enter your email or username',
+                      prefixIcon: Icons.mail_outline_rounded,
+                      validator: (value) {
+                        final trimmed = (value ?? '').trim();
+                        if (trimmed.isEmpty) {
+                          return isVi
+                              ? 'Vui lòng nhập email hoặc tên tài khoản'
+                              : 'Enter your email or username';
+                        }
+                        if (trimmed.contains('@')) {
+                          if (!trimmed.contains('.') || trimmed.length < 5) {
+                            return isVi
+                                ? 'Địa chỉ email không hợp lệ'
+                                : 'Invalid email address';
+                          }
+                          return null;
+                        }
+                        return validateUsername(trimmed, isVi: isVi);
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
-                        // Social Auth (Google)
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: (_isGoogleLoading || _isLoading)
-                                ? null
-                                : _loginWithGoogle,
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF101B2B),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0x3300E5FF),
-                                ),
+                    // ── Password field ──────────────────────────────────────
+                    _SectionLabel(isVi ? 'MẬT KHẨU' : 'PASSWORD'),
+                    const SizedBox(height: 6),
+                    _StitchTextField(
+                      controller: _passwordController,
+                      hintText: isVi
+                          ? 'Nhập mật khẩu của bạn'
+                          : 'Enter your password',
+                      prefixIcon: Icons.lock_outline_rounded,
+                      obscureText: _obscurePassword,
+                      suffixIcon: IconButton(
+                        onPressed: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: _primary.withValues(alpha: 0.7),
+                          size: 20,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return isVi
+                              ? 'Vui lòng nhập mật khẩu'
+                              : 'Enter your password';
+                        }
+                        if (value.length < 6) {
+                          return isVi
+                              ? 'Tối thiểu 6 ký tự'
+                              : 'Minimum 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    // ── Forgot password ─────────────────────────────────────
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ForgotPasswordScreen(
+                                initialEmail: _emailController.text.trim().isNotEmpty
+                                    ? _emailController.text.trim()
+                                    : null,
                               ),
-                              child: _isGoogleLoading
-                                  ? const Center(
-                                      child: SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          color: Color(0xFF00E5FF),
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Image.asset(
-                                          'assets/GoogleLogo.jpg',
-                                          width: 20,
-                                          height: 20,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          isVi
-                                              ? 'Tiếp tục với Google'
-                                              : 'Continue with Google',
-                                          style: const TextStyle(
-                                            fontFamily: 'Outfit',
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                             ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          isVi ? 'Quên mật khẩu?' : 'Forgot password?',
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _primary,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                      ),
+                    ),
 
-                        // Create Account Link
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              isVi
-                                  ? 'Chưa có tài khoản? '
-                                  : 'Don\'t have an account? ',
-                              style: const TextStyle(
-                                fontFamily: 'Outfit',
-                                fontSize: 13,
-                                color: Colors.white60,
-                              ),
+                    // ── Error message ───────────────────────────────────────
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      _ErrorMessage(_errorMessage!),
+                    ],
+                    const SizedBox(height: 20),
+
+                    // ── Primary CTA (stitch: bg-[#A8DCE7] text-[#09181c] pill) ─
+                    _PrimaryButton(
+                      label: isVi ? 'Đăng Nhập' : 'Sign In',
+                      isLoading: _isLoading,
+                      disabled: _isGoogleLoading,
+                      onPressed: _login,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Divider ─────────────────────────────────────────────
+                    Row(
+                      children: [
+                        const Expanded(child: Divider(color: _outlineVariant)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Text(
+                            isVi ? 'Hoặc tiếp tục với' : 'Or continue with',
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _onSurfaceVariant,
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const RegisterScreen(),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                isVi ? 'Tạo tài khoản' : 'Create an account',
-                                style: const TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF00E5FF),
-                                ),
+                          ),
+                        ),
+                        const Expanded(child: Divider(color: _outlineVariant)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Google button ───────────────────────────────────────
+                    _GoogleButton(
+                      label: isVi ? 'Tiếp tục với Google' : 'Continue with Google',
+                      isLoading: _isGoogleLoading,
+                      disabled: _isLoading,
+                      onPressed: _loginWithGoogle,
+                    ),
+                    const SizedBox(height: 28),
+
+                    // ── Sign up link ────────────────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          isVi
+                              ? 'Chưa có tài khoản? '
+                              : "Don't have an account? ",
+                          style: const TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
+                            fontSize: 13,
+                            color: _onSurfaceVariant,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const RegisterScreen(),
                               ),
+                            );
+                          },
+                          child: Text(
+                            isVi ? 'Tạo tài khoản' : 'Create account',
+                            style: const TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _primary,
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -592,54 +475,233 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       ),
     );
   }
+}
 
-  InputDecoration _inputDecoration({
-    required String hintText,
-    required IconData prefixIcon,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: TextStyle(
-        fontFamily: 'Outfit',
-        color: Colors.white.withValues(alpha: 0.35),
-        fontSize: 13,
-      ),
-      filled: true,
-      fillColor: const Color(0xFF101B2B),
-      prefixIcon: Icon(prefixIcon, color: const Color(0xFF00E5FF), size: 18),
-      suffixIcon: suffixIcon,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(
-          color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: Color(0xFF00E5FF),
-          width: 1.5,
-        ),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFFF4B6E)),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFFF4B6E), width: 1.5),
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared design components (stitch-aligned)
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: _onSurfaceVariant,
+        letterSpacing: 0.03 * 10,
       ),
     );
   }
 }
 
+class _StitchTextField extends StatelessWidget {
+  const _StitchTextField({
+    required this.controller,
+    required this.hintText,
+    required this.prefixIcon,
+    this.obscureText = false,
+    this.suffixIcon,
+    this.validator,
+  });
 
+  final TextEditingController controller;
+  final String hintText;
+  final IconData prefixIcon;
+  final bool obscureText;
+  final Widget? suffixIcon;
+  final FormFieldValidator<String>? validator;
 
-class _AuthMessage extends StatelessWidget {
-  const _AuthMessage(this.message);
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      style: const TextStyle(
+        fontFamily: 'Plus Jakarta Sans',
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: _onSurface,
+      ),
+      validator: validator,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(
+          fontFamily: 'Plus Jakarta Sans',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: _onSurfaceVariant,
+        ),
+        filled: true,
+        fillColor: _surfaceLow,
+        prefixIcon: Icon(prefixIcon, color: _onSurfaceVariant, size: 18),
+        suffixIcon: suffixIcon,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _error, width: 1.5),
+        ),
+      ),
+    );
+  }
+}
 
+/// Primary action button — bg #A8DCE7, text #09181c, pill, shadow (stitch CTA)
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
+    required this.label,
+    required this.isLoading,
+    required this.disabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isLoading;
+  final bool disabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: (isLoading || disabled) ? null : onPressed,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 52,
+        decoration: BoxDecoration(
+          color: _primary,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: _primary.withValues(alpha: 0.25),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: _onPrimary,
+                    strokeWidth: 2.4,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontFamily: 'Plus Jakarta Sans',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _onPrimary,
+                        letterSpacing: 0.01 * 14,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: _onPrimary,
+                      size: 18,
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Google sign-in button — dark surface, border outline-variant
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({
+    required this.label,
+    required this.isLoading,
+    required this.disabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isLoading;
+  final bool disabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: (isLoading || disabled) ? null : onPressed,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: _surfaceLow,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: _outlineVariant),
+        ),
+        child: isLoading
+            ? const Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: _primary,
+                    strokeWidth: 2,
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/GoogleLogo.jpg',
+                    width: 20,
+                    height: 20,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.g_mobiledata,
+                      color: _primary,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _onSurface,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _ErrorMessage extends StatelessWidget {
+  const _ErrorMessage(this.message);
   final String message;
 
   @override
@@ -647,25 +709,25 @@ class _AuthMessage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0x22FF4B6E),
+        color: _error.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x66FF4B6E)),
+        border: Border.all(color: _error.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.error_outline_rounded,
-            color: Color(0xFFFF4B6E),
+            color: _error,
             size: 16,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                color: Color(0xFFFFB3C3),
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
                 fontSize: 12,
+                color: _error.withValues(alpha: 0.9),
               ),
             ),
           ),

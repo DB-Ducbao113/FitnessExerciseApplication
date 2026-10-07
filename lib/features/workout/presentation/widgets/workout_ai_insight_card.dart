@@ -2,7 +2,7 @@ import 'package:fitness_exercise_application/core/localization/app_translations.
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_ai_insight.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_ai_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_ai_insight_detail_screen.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -111,14 +111,15 @@ class _CompactAiInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = currentLang == AppLanguage.vi;
     final isLlm = insight.source == 'llm';
-    final accentColor = isLlm ? AetronColors.cyan : AetronColors.mint;
+    final accentColor = isLlm ? colors.primary : const Color(0xFF2AF598);
 
     return Container(
-      margin: hasMargin ? const EdgeInsets.symmetric(vertical: AetronSpacing.xs) : EdgeInsets.zero,
+      margin: hasMargin ? const EdgeInsets.symmetric(vertical: 6) : EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
+        color: colors.surface1,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: accentColor.withValues(alpha: 0.40),
@@ -178,7 +179,7 @@ class _CompactAiInsightCard extends StatelessWidget {
                       child: Text(
                         isVi ? 'AI COACH INSIGHT' : 'AI COACH INSIGHT',
                         style: TextStyle(
-                          fontFamily: 'Outfit',
+                          fontFamily: 'Plus Jakarta Sans',
                           color: accentColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
@@ -190,7 +191,7 @@ class _CompactAiInsightCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                       decoration: BoxDecoration(
                         color: accentColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AetronRadius.pill),
+                        borderRadius: BorderRadius.circular(999),
                         border: Border.all(
                           color: accentColor.withValues(alpha: 0.35),
                           width: 1,
@@ -199,9 +200,9 @@ class _CompactAiInsightCard extends StatelessWidget {
                       child: Text(
                         isLlm ? 'AI ACTIVE' : 'SMART OFFLINE',
                         style: TextStyle(
-                          fontFamily: 'Outfit',
+                          fontFamily: 'Plus Jakarta Sans',
                           color: accentColor,
-                          fontSize: 9.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
                         ),
@@ -215,9 +216,9 @@ class _CompactAiInsightCard extends StatelessWidget {
                 if (insight.headline.isNotEmpty) ...[
                   Text(
                     insight.headline,
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      color: AetronColors.textPrimary,
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      color: colors.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.2,
@@ -230,8 +231,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                 Text(
                   insight.mainInsight,
                   style: TextStyle(
-                    fontFamily: 'Outfit',
-                    color: AetronColors.textPrimary.withValues(alpha: 0.85),
+                    fontFamily: 'Plus Jakarta Sans',
+                    color: colors.textPrimary.withValues(alpha: 0.85),
                     fontSize: 12.5,
                     height: 1.35,
                   ),
@@ -247,10 +248,10 @@ class _CompactAiInsightCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F1B2B),
+                        color: colors.surface2,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: AetronColors.cyan.withValues(alpha: 0.35),
+                          color: colors.primary.withValues(alpha: 0.35),
                           width: 1,
                         ),
                       ),
@@ -260,14 +261,14 @@ class _CompactAiInsightCard extends StatelessWidget {
                           Icon(
                             _getActivityIcon(insight.nextSessionSuggestion.recommendedActivity),
                             size: 13,
-                            color: AetronColors.cyan,
+                            color: colors.primary,
                           ),
                           const SizedBox(width: 5),
                           Text(
                             '${_formatActivityLabel(insight.nextSessionSuggestion.recommendedActivity, currentLang)} • ${insight.nextSessionSuggestion.targetDurationMin} ${isVi ? 'phút' : 'min'} • ${_formatIntensityLabel(insight.nextSessionSuggestion.targetIntensity, currentLang)}',
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
-                              color: AetronColors.cyanSoft,
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
+                              color: colors.primary,
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.3,
@@ -285,7 +286,7 @@ class _CompactAiInsightCard extends StatelessWidget {
                         Text(
                           isVi ? 'Chi tiết' : 'Details',
                           style: TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             color: accentColor,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -352,6 +353,7 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = widget.currentLang == AppLanguage.vi;
 
     return AnimatedBuilder(
@@ -359,19 +361,19 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
       builder: (context, child) {
         return Container(
           margin: widget.hasMargin
-              ? const EdgeInsets.symmetric(vertical: AetronSpacing.xs)
+              ? const EdgeInsets.symmetric(vertical: 6)
               : EdgeInsets.zero,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AetronColors.panelHigh,
+            color: colors.surface1,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: AetronColors.cyan.withValues(alpha: _pulseAnimation.value * 0.5),
+              color: colors.primary.withValues(alpha: _pulseAnimation.value * 0.5),
               width: 1.4,
             ),
             boxShadow: [
               BoxShadow(
-                color: AetronColors.cyan.withValues(alpha: _pulseAnimation.value * 0.15),
+                color: colors.primary.withValues(alpha: _pulseAnimation.value * 0.15),
                 blurRadius: 16,
               ),
             ],
@@ -386,11 +388,11 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
                     height: 32,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AetronColors.cyan.withValues(alpha: 0.15),
+                      color: colors.primary.withValues(alpha: 0.15),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.auto_awesome_rounded,
-                      color: AetronColors.cyan,
+                      color: colors.primary,
                       size: 16,
                     ),
                   ),
@@ -399,9 +401,9 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
                     isVi
                         ? 'AI COACH ĐANG PHÂN TÍCH...'
                         : 'AI COACH IS ANALYZING...',
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      color: AetronColors.cyan,
+                    style: TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      color: colors.primary,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
@@ -414,7 +416,7 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
                 height: 12,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: AetronColors.panelBright.withValues(alpha: _pulseAnimation.value),
+                  color: colors.surface2.withValues(alpha: _pulseAnimation.value),
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -423,7 +425,7 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
                 height: 12,
                 width: 180,
                 decoration: BoxDecoration(
-                  color: AetronColors.panelBright.withValues(alpha: _pulseAnimation.value * 0.8),
+                  color: colors.surface2.withValues(alpha: _pulseAnimation.value * 0.8),
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
@@ -451,32 +453,33 @@ class _AiInsightErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = currentLang == AppLanguage.vi;
 
     return Container(
-      margin: hasMargin ? const EdgeInsets.symmetric(vertical: AetronSpacing.xs) : EdgeInsets.zero,
+      margin: hasMargin ? const EdgeInsets.symmetric(vertical: 6) : EdgeInsets.zero,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AetronColors.panelHigh,
+        color: colors.surface1,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AetronColors.danger.withValues(alpha: 0.3),
+          color: colors.error.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline_rounded,
-            color: AetronColors.danger,
+            color: colors.error,
             size: 18,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               isVi ? 'Không thể tải AI insight' : 'Unable to load AI insight',
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                color: AetronColors.textSecondary,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                color: colors.textSecondary,
                 fontSize: 11.5,
               ),
             ),
@@ -485,9 +488,9 @@ class _AiInsightErrorCard extends StatelessWidget {
             onPressed: onRetry,
             child: Text(
               isVi ? 'Thử lại' : 'Retry',
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                color: AetronColors.cyan,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                color: colors.primary,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),

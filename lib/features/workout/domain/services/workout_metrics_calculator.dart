@@ -41,6 +41,7 @@ class WorkoutMetricsCalculator {
           activityType: activityType,
           distanceKm: distanceKm,
           speedKmh: avgSpeedKmh,
+          durationSec: durationSec,
         )
         .round();
   }

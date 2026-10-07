@@ -19,23 +19,11 @@ class KineticProfileTopBar extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AETRON ATHLETE',
-              style: KineticTypography.pageEyebrow.copyWith(
-                color: colors.primary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              AppTranslations.get('profile', currentLang),
-              style: KineticTypography.pageTitle.copyWith(
-                color: colors.textPrimary,
-              ),
-            ),
-          ],
+        Text(
+          AppTranslations.get('profile', currentLang),
+          style: KineticTypography.pageTitle.copyWith(
+            color: colors.textPrimary,
+          ),
         ),
 
         // Settings Orb Button

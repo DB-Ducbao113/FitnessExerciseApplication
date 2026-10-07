@@ -1,0 +1,198 @@
+import 'package:fitness_exercise_application/features/workout/presentation/screens/running_programs_screen.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
+import 'package:flutter/material.dart';
+
+class KineticExploreRoutes extends StatelessWidget {
+  final bool isVi;
+  
+  const KineticExploreRoutes({
+    super.key, 
+    this.isVi = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.kinetic;
+
+    final routes = [
+      {
+        'title': 'Couch to 5K',
+        'distance': isVi ? '8 tuần' : '8 weeks',
+        'subtitle': isVi ? 'Cho người mới' : 'For beginners',
+        'icon': Icons.directions_run_rounded,
+        'image': 'assets/plan_couch_to_5k.jpg',
+      },
+      {
+        'title': 'Easy Base Run',
+        'distance': '45 min',
+        'subtitle': isVi ? 'Xây dựng sức bền' : 'Build endurance',
+        'icon': Icons.timer_outlined,
+        'image': 'assets/plan_easy_base_run.jpg',
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isVi ? 'GIÁO ÁN LUYỆN TẬP' : 'TRAINING PLANS',
+                style: KineticTypography.unitLabel.copyWith(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  letterSpacing: 0.08,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RunningProgramsScreen(),
+                    ),
+                  );
+                },
+                child: Text(
+                  isVi ? 'Xem tất cả' : 'View all',
+                  style: KineticTypography.bodySmall.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: routes.map((route) {
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: route == routes.first ? 6 : 0,
+                    left: route == routes.last ? 6 : 0,
+                  ),
+                  child: KineticCard(
+                    padding: EdgeInsets.zero,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RunningProgramsScreen(),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image Thumbnail with badge
+                        SizedBox(
+                          height: 90,
+                          width: double.infinity,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.asset(
+                                route['image'] as String,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: colors.surface2,
+                                ),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      colors.surface1.withValues(alpha: 0.9),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.background.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: colors.borderSubtle,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    route['distance'] as String,
+                                    style: KineticTypography.unitLabel.copyWith(
+                                      color: colors.primary,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Title & Subtitle
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                route['title'] as String,
+                                style: KineticTypography.label.copyWith(
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(
+                                    route['icon'] as IconData,
+                                    size: 11,
+                                    color: colors.primary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      route['subtitle'] as String,
+                                      style:
+                                          KineticTypography.bodySmall.copyWith(
+                                        color: colors.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}

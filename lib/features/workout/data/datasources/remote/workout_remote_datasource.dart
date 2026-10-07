@@ -99,6 +99,7 @@ class WorkoutRemoteDataSource {
           .from(DbTables.workoutSessions)
           .select()
           .eq('user_id', userId)
+          .neq('processing_status', kClientRecordingStatus)
           .order('started_at', ascending: false);
 
       return (response as List)
@@ -106,6 +107,12 @@ class WorkoutRemoteDataSource {
             (json) => WorkoutSessionModel.fromJson(
               json as Map<String, dynamic>,
             ).toEntity(),
+          )
+          .where(
+            (session) =>
+                session.durationSec > 0 ||
+                session.distanceKm > 0 ||
+                session.steps > 0,
           )
           .toList();
     } on PostgrestException catch (e) {

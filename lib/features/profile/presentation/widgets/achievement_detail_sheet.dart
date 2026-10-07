@@ -1,6 +1,7 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/profile/domain/entities/achievement_badge.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -33,36 +34,21 @@ class AchievementDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final tier = badge.tier;
     final isUnlocked = badge.isUnlocked;
-    final primaryColor = isUnlocked ? tier.primaryColor : AetronColors.muted;
-    final glowColor = isUnlocked ? tier.glowColor : Colors.transparent;
+    final primaryColor = isUnlocked ? colors.primary : colors.textMuted;
 
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
-          color: AetronColors.space.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(28),
+          color: colors.surface2,
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isUnlocked
-                ? primaryColor.withValues(alpha: 0.6)
-                : AetronColors.borderSubtle,
+            color: isUnlocked ? colors.borderAccent : colors.borderSubtle,
             width: 1.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.7),
-              blurRadius: 28,
-              offset: const Offset(0, 10),
-            ),
-            if (isUnlocked)
-              BoxShadow(
-                color: glowColor,
-                blurRadius: 24,
-                spreadRadius: -2,
-              ),
-          ],
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -74,87 +60,51 @@ class AchievementDetailSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AetronColors.borderSubtle,
+                  color: colors.borderSubtle,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Large Glowing 3D Emblem Container
+              // Emblem Container
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Outer Glow Halo
                   Container(
-                    width: 100,
-                    height: 100,
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        if (isUnlocked)
-                          BoxShadow(
-                            color: primaryColor.withValues(alpha: 0.4),
-                            blurRadius: 32,
-                            spreadRadius: 4,
-                          ),
-                      ],
-                    ),
-                  ),
-
-                  // Emblem Body
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isUnlocked
-                            ? [
-                                tier.primaryColor.withValues(alpha: 0.35),
-                                tier.secondaryColor.withValues(alpha: 0.20),
-                                AetronColors.panelHigh,
-                              ]
-                            : [
-                                AetronColors.panelBright.withValues(alpha: 0.3),
-                                AetronColors.panelHigh,
-                              ],
-                      ),
+                      color: colors.surface1,
                       border: Border.all(
-                        color: isUnlocked
-                            ? tier.primaryColor
-                            : AetronColors.borderSubtle,
-                        width: 2.2,
+                        color: isUnlocked ? colors.primary : colors.borderSubtle,
+                        width: 2.0,
                       ),
                     ),
                     child: Center(
                       child: Icon(
                         badge.icon,
-                        size: 44,
-                        color: isUnlocked
-                            ? tier.primaryColor
-                            : AetronColors.textSecondary.withValues(alpha: 0.6),
+                        size: 38,
+                        color: isUnlocked ? colors.primary : colors.textMuted,
                       ),
                     ),
                   ),
 
-                  // Locked Badge Icon Overlay
                   if (!isUnlocked)
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
-                          color: AetronColors.voidBlack,
+                          color: colors.background,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AetronColors.borderSubtle),
+                          border: Border.all(color: colors.borderSubtle),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.lock_rounded,
-                          size: 16,
-                          color: AetronColors.muted,
+                          size: 14,
+                          color: colors.textMuted,
                         ),
                       ),
                     ),
@@ -167,14 +117,11 @@ class AchievementDetailSheet extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: primaryColor.withValues(alpha: 0.4),
-                      ),
+                      color: colors.surface1,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.borderSubtle),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -183,10 +130,9 @@ class AchievementDetailSheet extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           tier.label(currentLang),
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                          style: KineticTypography.unitLabel.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
                             color: primaryColor,
                             letterSpacing: 1.0,
                           ),
@@ -196,12 +142,11 @@ class AchievementDetailSheet extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AetronColors.panelHigh,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AetronColors.borderSubtle),
+                      color: colors.surface1,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.borderSubtle),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -209,16 +154,15 @@ class AchievementDetailSheet extends StatelessWidget {
                         Icon(
                           badge.category.icon,
                           size: 13,
-                          color: AetronColors.cyanSoft,
+                          color: colors.secondary,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           badge.category.label(currentLang).toUpperCase(),
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 10,
+                          style: KineticTypography.unitLabel.copyWith(
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: AetronColors.cyanSoft,
+                            color: colors.secondary,
                             letterSpacing: 0.8,
                           ),
                         ),
@@ -233,12 +177,10 @@ class AchievementDetailSheet extends StatelessWidget {
               Text(
                 badge.title(currentLang),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
+                style: KineticTypography.headlineMedium.copyWith(
                   fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AetronColors.textPrimary,
-                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w800,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -247,50 +189,38 @@ class AchievementDetailSheet extends StatelessWidget {
               Text(
                 badge.description(currentLang),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Outfit',
+                style: KineticTypography.bodyMedium.copyWith(
                   fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AetronColors.textSecondary,
+                  color: colors.textSecondary,
                   height: 1.4,
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Inspiration Quote Box
+              // Quote Box
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AetronColors.panelHigh.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isUnlocked
-                        ? tier.primaryColor.withValues(alpha: 0.25)
-                        : AetronColors.borderSubtle,
-                  ),
+                  color: colors.surface1,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.borderSubtle),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.format_quote_rounded,
                       size: 20,
-                      color: isUnlocked
-                          ? tier.primaryColor
-                          : AetronColors.textSecondary,
+                      color: isUnlocked ? colors.primary : colors.textMuted,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         badge.quote(currentLang),
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
+                        style: KineticTypography.bodySmall.copyWith(
                           fontSize: 12,
                           fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w500,
-                          color: isUnlocked
-                              ? AetronColors.textPrimary
-                              : AetronColors.textSecondary,
+                          color: isUnlocked ? colors.textPrimary : colors.textSecondary,
                         ),
                       ),
                     ),
@@ -304,9 +234,9 @@ class AchievementDetailSheet extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AetronColors.panel,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AetronColors.borderSubtle),
+                  color: colors.surface1,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.borderSubtle),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,35 +246,22 @@ class AchievementDetailSheet extends StatelessWidget {
                       children: [
                         Text(
                           isUnlocked
-                              ? (currentLang == AppLanguage.vi
-                                  ? 'TRẠNG THÁI'
-                                  : 'STATUS')
-                              : (currentLang == AppLanguage.vi
-                                  ? 'TIẾN ĐỘ THỰC HIỆN'
-                                  : 'PROGRESS'),
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: isUnlocked
-                                ? AetronColors.mint
-                                : AetronColors.cyanSoft,
+                              ? (currentLang == AppLanguage.vi ? 'TRẠNG THÁI' : 'STATUS')
+                              : (currentLang == AppLanguage.vi ? 'TIẾN ĐỘ THỰC HIỆN' : 'PROGRESS'),
+                          style: KineticTypography.unitLabel.copyWith(
+                            fontSize: 11,
+                            color: isUnlocked ? colors.secondary : colors.primary,
                             letterSpacing: 1.0,
                           ),
                         ),
                         Text(
                           isUnlocked
-                              ? (currentLang == AppLanguage.vi
-                                  ? '100% HOÀN THÀNH'
-                                  : '100% CONQUERED')
+                              ? (currentLang == AppLanguage.vi ? '100% HOÀN THÀNH' : '100% CONQUERED')
                               : '${badge.progressPercent}%',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
+                          style: KineticTypography.label.copyWith(
                             fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: isUnlocked
-                                ? AetronColors.mint
-                                : tier.primaryColor,
+                            fontWeight: FontWeight.w800,
+                            color: isUnlocked ? colors.secondary : colors.primary,
                           ),
                         ),
                       ],
@@ -353,13 +270,13 @@ class AchievementDetailSheet extends StatelessWidget {
 
                     // Progress Bar
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: badge.progress,
+                        value: badge.progress.clamp(0.0, 1.0),
                         minHeight: 8,
-                        backgroundColor: AetronColors.panelHigh,
+                        backgroundColor: colors.surface3,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          isUnlocked ? AetronColors.mint : tier.primaryColor,
+                          isUnlocked ? colors.secondary : colors.primary,
                         ),
                       ),
                     ),
@@ -370,22 +287,18 @@ class AchievementDetailSheet extends StatelessWidget {
                       children: [
                         Text(
                           badge.formattedProgress(currentLang),
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
+                          style: KineticTypography.label.copyWith(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: AetronColors.textPrimary,
+                            color: colors.textPrimary,
                           ),
                         ),
                         Text(
                           badge.remainingText(currentLang),
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
+                          style: KineticTypography.bodySmall.copyWith(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: isUnlocked
-                                ? AetronColors.mint
-                                : AetronColors.textSecondary,
+                            color: isUnlocked ? colors.secondary : colors.textSecondary,
                           ),
                         ),
                       ],
@@ -396,10 +309,13 @@ class AchievementDetailSheet extends StatelessWidget {
               const SizedBox(height: 20),
 
               // Action Button
-              AppButton(
-                label: currentLang == AppLanguage.vi ? 'ĐÓNG' : 'CLOSE',
-                icon: Icons.check_circle_outline_rounded,
-                onPressed: () => Navigator.of(context).pop(),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  label: Text(currentLang == AppLanguage.vi ? 'ĐÓNG' : 'CLOSE'),
+                ),
               ),
             ],
           ),
@@ -408,3 +324,4 @@ class AchievementDetailSheet extends StatelessWidget {
     );
   }
 }
+

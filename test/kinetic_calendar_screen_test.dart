@@ -69,7 +69,7 @@ void main() {
         ),
       );
 
-      expect(find.text('AETRON ARCHIVE'), findsOneWidget);
+      expect(find.text('AETRON ARCHIVE'), findsNothing);
       expect(find.text('Lịch sử tập luyện'), findsOneWidget);
       expect(find.text('15 BUỔI'), findsOneWidget);
     });
@@ -222,7 +222,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('AETRON ARCHIVE'), findsOneWidget);
+      expect(find.text('AETRON ARCHIVE'), findsNothing);
       expect(find.text('1 BUỔI'), findsOneWidget);
       expect(find.text('Tất cả'), findsOneWidget);
       expect(find.text('TẤT CẢ'), findsOneWidget);

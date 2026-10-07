@@ -15,26 +15,26 @@ export 'aetron_globe_orbit_screen.dart';
 class AetronColors {
   const AetronColors._();
 
-  // Core Palette - Modern Stealth Dark
-  static const voidBlack = Color(0xff080b12);
-  static const space = Color(0xff0d121f);
-  static const panel = Color(0xff121828);
-  static const panelHigh = Color(0xff172034);
-  static const panelBright = Color(0xff222e47);
-  static const cyan = Color(0xff00e5ff);
-  static const cyanDim = Color(0xff00bcd4);
-  static const cyanSoft = Color(0xffe0f7fc);
-  static const blue = Color(0xff2563eb);
-  static const gold = Color(0xfff59e0b);
-  static const mint = Color(0xff10b981);
-  static const danger = Color(0xfff43f5e);
-  static const muted = Color(0xff8896ab);
-  static const text = Color(0xfff8fafc);
-  static const border = Color(0x1fffffff);
+  // Core Palette - Kinetic Aligned
+  static const voidBlack = Color(0xFF0C1113);
+  static const space = Color(0xFF12181B);
+  static const panel = Color(0xFF192226);
+  static const panelHigh = Color(0xFF192226);
+  static const panelBright = Color(0xFF222F35);
+  static const cyan = Color(0xFFA8DCE7);
+  static const cyanDim = Color(0xFF7CB8C4);
+  static const cyanSoft = Color(0xFFE2F4F7);
+  static const blue = Color(0xFFA8DCE7);
+  static const gold = Color(0xFFFFD54F);
+  static const mint = Color(0xFF2AF598);
+  static const danger = Color(0xFFFF5252);
+  static const muted = Color(0xFF75838A);
+  static const text = Color(0xFFF3F7F8);
+  static const border = Color(0x14ffffff);
 
   // Semantic Tokens
   static const primary = cyan;
-  static const secondary = blue;
+  static const secondary = mint;
   static const background = voidBlack;
   static const surface = space;
   static const card = panel;
@@ -42,7 +42,7 @@ class AetronColors {
   static const textPrimary = text;
   static const textSecondary = muted;
   static const borderSubtle = Color(0x14ffffff);
-  static const borderAccent = Color(0x2800e5ff);
+  static const borderAccent = Color(0x28A8DCE7);
   static const success = mint;
   static const warning = gold;
   static const error = danger;
@@ -146,7 +146,7 @@ class AetronTypography {
   static const label = TextStyle(
     fontFamily: fontFamily,
     color: AetronColors.textSecondary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.8,
   );
@@ -183,7 +183,7 @@ class AetronText {
   static const label = TextStyle(
     fontFamily: AetronTypography.fontFamily,
     color: AetronColors.muted,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: FontWeight.w800,
     letterSpacing: 1.2,
   );
@@ -314,7 +314,7 @@ class AetronHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: AetronColors.space.withValues(alpha: 0.86),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.58)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
       child: Row(

@@ -22,7 +22,7 @@ class WorkoutSensorBootstrapper {
       environmentHint: 'indoor',
       recordingSource: 'step_fallback',
       gpsFallbackActive: true,
-      modeDecisionLocked: true,
+      modeDecisionLocked: false,
       errorMessage: errorMessage,
     );
   }

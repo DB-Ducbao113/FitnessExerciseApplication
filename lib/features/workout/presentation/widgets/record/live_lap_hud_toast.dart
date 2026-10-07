@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -66,6 +66,17 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
   }
 
   @override
+  void didUpdateWidget(LiveLapHudToast oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.split != widget.split) {
+      _dismissTimer?.cancel();
+      _ctrl.forward(from: 0.0);
+      HapticFeedback.heavyImpact();
+      _dismissTimer = Timer(const Duration(seconds: 5), _hideAndDismiss);
+    }
+  }
+
+  @override
   void dispose() {
     _dismissTimer?.cancel();
     _ctrl.dispose();
@@ -74,6 +85,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = widget.currentLang == AppLanguage.vi;
     final split = widget.split;
     final prev = widget.previousSplit;
@@ -92,7 +104,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
 
     // Delta pace vs previous lap split
     String? deltaText;
-    Color deltaColor = AetronColors.cyan;
+    Color deltaColor = colors.primary;
     IconData deltaIcon = Icons.bolt_rounded;
 
     if (prev != null) {
@@ -102,7 +114,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
         deltaText = isVi
             ? '⚡ Nhanh hơn ${diffSec}s so với $unitLabel ${prev.index}'
             : '⚡ ${diffSec}s faster than $unitLabel ${prev.index}';
-        deltaColor = AetronColors.mint;
+        deltaColor = const Color(0xFF2AF598);
         deltaIcon = Icons.trending_up_rounded;
       } else if (diffSec < -1) {
         // Slower
@@ -115,7 +127,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
       } else {
         // Steady
         deltaText = isVi ? '🎯 Giữ nhịp độ hoàn hảo' : '🎯 Steady pace maintained';
-        deltaColor = AetronColors.cyan;
+        deltaColor = colors.primary;
         deltaIcon = Icons.remove_rounded;
       }
     }
@@ -164,7 +176,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                     child: Text(
                       '${split.index}',
                       style: TextStyle(
-                        fontFamily: 'Outfit',
+                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                         color: deltaColor,
@@ -183,8 +195,8 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                       Text(
                         lapTitle,
                         style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 10,
+                          fontFamily: 'Plus Jakarta Sans',
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: deltaColor,
                           letterSpacing: 1.1,
@@ -195,11 +207,11 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                         children: [
                           Text(
                             paceStr,
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
-                              color: AetronColors.textPrimary,
+                              color: colors.textPrimary,
                               height: 1.1,
                             ),
                           ),
@@ -207,11 +219,10 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                           Text(
                             isVi ? 'Pace chặng' : 'Split Pace',
                             style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 10,
+                              fontFamily: 'Plus Jakarta Sans',
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: AetronColors.textSecondary
-                                  .withValues(alpha: 0.8),
+                              color: colors.textSecondary.withValues(alpha: 0.8),
                             ),
                           ),
                         ],
@@ -226,8 +237,8 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                               child: Text(
                                 deltaText,
                                 style: TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 10,
+                                  fontFamily: 'Plus Jakarta Sans',
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: deltaColor,
                                 ),
@@ -243,9 +254,9 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                 ),
 
                 // Dismiss Icon
-                const Icon(
+                Icon(
                   Icons.close_rounded,
-                  color: AetronColors.textSecondary,
+                  color: colors.textSecondary,
                   size: 18,
                 ),
               ],
@@ -275,6 +286,7 @@ class LiveDeltaPaceGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = currentLang == AppLanguage.vi;
 
     final diffKmh = currentSpeedKmh - avgSpeedKmh;
@@ -282,10 +294,10 @@ class LiveDeltaPaceGauge extends StatelessWidget {
     final isSlower = diffKmh < -0.3;
 
     final statusColor = isFaster
-        ? AetronColors.mint
+        ? const Color(0xFF2AF598)
         : isSlower
             ? const Color(0xFFFF9F1C)
-            : AetronColors.cyan;
+            : colors.primary;
 
     final statusText = isFaster
         ? (isVi ? '▲ Nhanh hơn TB' : '▲ Faster than avg')
@@ -324,8 +336,8 @@ class LiveDeltaPaceGauge extends StatelessWidget {
           Text(
             statusText,
             style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 10,
+              fontFamily: 'Plus Jakarta Sans',
+              fontSize: 11,
               fontWeight: FontWeight.w800,
               color: statusColor,
               letterSpacing: 0.4,

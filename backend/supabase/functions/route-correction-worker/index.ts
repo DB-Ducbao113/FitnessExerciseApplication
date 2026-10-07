@@ -1,3 +1,4 @@
+// @deno-types="https://esm.sh/@supabase/supabase-js@2.105.1"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
 
 type RoutePoint = {
@@ -66,8 +67,16 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Method not allowed" }, 405);
     }
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+      Deno.env.get("AETRON_SERVICE_ROLE_KEY");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const apiKeyHeader = req.headers.get("apikey") ?? "";
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+    if (
+      !serviceRoleKey ||
+      (bearerToken !== serviceRoleKey && apiKeyHeader !== serviceRoleKey)
+    ) {
       return json({ error: "Unauthorized" }, 401);
     }
 
@@ -81,12 +90,7 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      },
+      serviceRoleKey,
     );
 
     const job = await fetchQueuedJob(supabase, { workoutId, jobId });

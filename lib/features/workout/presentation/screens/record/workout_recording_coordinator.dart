@@ -194,6 +194,14 @@ class WorkoutRecordingCoordinator {
     if (workoutId == null || workoutId.isEmpty) return;
 
     _activeWorkoutId = workoutId;
+
+    final now = DateTime.now();
+    final lastSync = _lastLiveRouteSnapshotSyncAt;
+    if (lastSync != null &&
+        now.difference(lastSync) < _kLiveRouteSnapshotInterval) {
+      return;
+    }
+
     _pendingLiveRouteSnapshot = _PendingLiveRouteSnapshot(
       workoutId: workoutId,
       routeSegments: routeSegments

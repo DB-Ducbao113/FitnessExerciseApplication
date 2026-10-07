@@ -48,28 +48,17 @@ class KineticDetailsTopBar extends StatelessWidget {
           ),
           const SizedBox(width: 12),
 
-          // Title & Eyebrow
+          // Title
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'AETRON ARCHIVE',
-                  style: KineticTypography.pageEyebrow.copyWith(
-                    color: colors.primary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  AppTranslations.get('workout_details', currentLang),
-                  style: KineticTypography.pageTitleCompact.copyWith(
-                    color: colors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              AppTranslations.get('workout_details', currentLang),
+              style: KineticTypography.pageTitleCompact.copyWith(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
 

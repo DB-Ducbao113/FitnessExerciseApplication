@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/structured_running_program.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 
 class GuidedProgramHud extends StatelessWidget {
@@ -29,6 +29,7 @@ class GuidedProgramHud extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final colors = context.kinetic;
     final step = program.steps[currentStepIndex];
     final totalSteps = program.steps.length;
     final stepProgress = (stepElapsedSeconds / step.durationSeconds).clamp(0.0, 1.0);
@@ -37,7 +38,7 @@ class GuidedProgramHud extends StatelessWidget {
     final stepTip = isVi ? step.tipVi : step.tipEn;
 
     // Pace Feedback Evaluation
-    final paceFeedback = _evaluatePace(step, currentPaceMinSecKm, isVi);
+    final paceFeedback = _evaluatePace(step, currentPaceMinSecKm, isVi, colors.primary);
 
     final minutes = (stepRemainingSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (stepRemainingSeconds % 60).toString().padLeft(2, '0');
@@ -46,7 +47,7 @@ class GuidedProgramHud extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: const Color(0xF00B1320),
+        color: colors.surface1.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: step.phaseColor.withValues(alpha: 0.55),
@@ -89,8 +90,8 @@ class GuidedProgramHud extends StatelessWidget {
                     Text(
                       '${isVi ? "HIỆP" : "STEP"} ${currentStepIndex + 1}/$totalSteps',
                       style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 10,
+                        fontFamily: KineticTypography.fontFamily,
+                        fontSize: 11,
                         fontWeight: FontWeight.w900,
                         color: step.phaseColor,
                         letterSpacing: 0.8,
@@ -103,8 +104,8 @@ class GuidedProgramHud extends StatelessWidget {
               Expanded(
                 child: Text(
                   stepTitle,
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
+                  style: TextStyle(
+                    fontFamily: KineticTypography.fontFamily,
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -127,18 +128,18 @@ class GuidedProgramHud extends StatelessWidget {
                         children: [
                           Text(
                             isVi ? 'BỎ QUA' : 'SKIP',
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 10,
+                            style: TextStyle(
+                              fontFamily: KineticTypography.fontFamily,
+                              fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: AetronColors.cyanSoft,
+                              color: colors.primary,
                             ),
                           ),
                           const SizedBox(width: 2),
-                          const Icon(
+                          Icon(
                             Icons.skip_next_rounded,
                             size: 16,
-                            color: AetronColors.cyanSoft,
+                            color: colors.primary,
                           ),
                         ],
                       ),
@@ -157,7 +158,7 @@ class GuidedProgramHud extends StatelessWidget {
               Text(
                 '$minutes:$seconds',
                 style: TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: KineticTypography.fontFamily,
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                   color: stepRemainingSeconds <= 5
@@ -177,11 +178,11 @@ class GuidedProgramHud extends StatelessWidget {
                   children: [
                     Text(
                       '${isVi ? "Mục tiêu" : "Target"}: ${step.targetPaceDisplay}',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
+                      style: TextStyle(
+                        fontFamily: KineticTypography.fontFamily,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AetronColors.textSecondary,
+                        color: colors.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -199,8 +200,8 @@ class GuidedProgramHud extends StatelessWidget {
                           child: Text(
                             paceFeedback.label,
                             style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 10,
+                              fontFamily: KineticTypography.fontFamily,
+                              fontSize: 11,
                               fontWeight: FontWeight.w900,
                               color: paceFeedback.color,
                             ),
@@ -231,7 +232,7 @@ class GuidedProgramHud extends StatelessWidget {
           Text(
             '💡 $stepTip',
             style: TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: KineticTypography.fontFamily,
               fontSize: 11,
               fontStyle: FontStyle.italic,
               color: Colors.white.withValues(alpha: 0.75),
@@ -244,11 +245,16 @@ class GuidedProgramHud extends StatelessWidget {
     );
   }
 
-  _PaceFeedback _evaluatePace(ProgramStep step, double currentPaceSecKm, bool isVi) {
+  _PaceFeedback _evaluatePace(
+    ProgramStep step,
+    double currentPaceSecKm,
+    bool isVi,
+    Color primaryColor,
+  ) {
     if (currentPaceSecKm <= 0 || currentPaceSecKm > 1200) {
       return _PaceFeedback(
         label: isVi ? 'ĐANG BẮT TỐC ĐỘ' : 'ACQUIRING PACE',
-        color: AetronColors.cyanSoft,
+        color: primaryColor,
       );
     }
 
@@ -258,7 +264,7 @@ class GuidedProgramHud extends StatelessWidget {
     if (minPace == null || maxPace == null) {
       return _PaceFeedback(
         label: isVi ? 'DUY TRÌ ĐỀU' : 'KEEP STEADY',
-        color: const Color(0xFF00E5FF),
+        color: const Color(0xFFA8DCE7),
       );
     }
 

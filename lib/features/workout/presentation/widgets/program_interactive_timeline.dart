@@ -1,6 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/structured_running_program.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:fitness_exercise_application/shared/formatters/workout_formatters.dart';
 import 'package:flutter/material.dart';
 
@@ -56,6 +56,7 @@ class _TimelineStepNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final color = step.phaseColor;
     final title = isVi ? step.titleVi : step.titleEn;
     final tip = isVi ? step.tipVi : step.tipEn;
@@ -103,7 +104,7 @@ class _TimelineStepNode extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           color.withValues(alpha: 0.6),
-                          AetronColors.borderSubtle,
+                          colors.borderSubtle,
                         ],
                       ),
                     ),
@@ -119,7 +120,7 @@ class _TimelineStepNode extends StatelessWidget {
               margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F1524),
+                color: colors.surface1,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: color.withValues(alpha: 0.35),
@@ -144,7 +145,7 @@ class _TimelineStepNode extends StatelessWidget {
                         child: Text(
                           title,
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -165,7 +166,7 @@ class _TimelineStepNode extends StatelessWidget {
                         child: Text(
                           durStr,
                           style: TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
                             color: color,
@@ -189,7 +190,7 @@ class _TimelineStepNode extends StatelessWidget {
                       _StepPill(
                         icon: Icons.favorite_rounded,
                         label: step.targetHrZone,
-                        color: AetronColors.cyanSoft,
+                        color: colors.primary,
                       ),
                     ],
                   ),
@@ -203,16 +204,16 @@ class _TimelineStepNode extends StatelessWidget {
                         Icon(
                           Icons.lightbulb_outline_rounded,
                           size: 13,
-                          color: AetronColors.gold.withValues(alpha: 0.85),
+                          color: const Color(0xFFFFD54F).withValues(alpha: 0.85),
                         ),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
                             tip,
-                            style: const TextStyle(
-                              fontFamily: 'Outfit',
+                            style: TextStyle(
+                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 11,
-                              color: AetronColors.textSecondary,
+                              color: colors.textSecondary,
                               height: 1.3,
                             ),
                           ),
@@ -243,10 +244,11 @@ class _StepPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFF070B14),
+        color: colors.background,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: color.withValues(alpha: 0.3),
@@ -257,13 +259,17 @@ class _StepPill extends StatelessWidget {
         children: [
           Icon(icon, size: 11, color: color),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: color,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Plus Jakarta Sans',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],

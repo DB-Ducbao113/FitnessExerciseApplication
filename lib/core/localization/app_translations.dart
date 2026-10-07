@@ -149,8 +149,8 @@ class AppTranslations {
     'male': {AppLanguage.vi: 'Nam', AppLanguage.en: 'Male'},
     'female': {AppLanguage.vi: 'Nữ', AppLanguage.en: 'Female'},
     'system_actions': {
-      AppLanguage.vi: 'THAO TÁC HỆ THỐNG',
-      AppLanguage.en: 'SYSTEM ACTIONS',
+      AppLanguage.vi: 'TIỆN ÍCH & TÀI KHOẢN',
+      AppLanguage.en: 'ACCOUNT & PREFERENCES',
     },
     'security': {AppLanguage.vi: 'Bảo mật', AppLanguage.en: 'Security'},
     'achievements': {AppLanguage.vi: 'Thành tựu', AppLanguage.en: 'Achievements'},
@@ -375,7 +375,7 @@ class AppTranslations {
     'gps_required': {AppLanguage.vi: 'YÊU CẦU GPS', AppLanguage.en: 'GPS REQUIRED'},
     'gps_optional': {AppLanguage.vi: 'GPS TÙY CHỌN', AppLanguage.en: 'GPS OPTIONAL'},
     'start_mode': {AppLanguage.vi: 'BẮT ĐẦU CHẾ ĐỘ →', AppLanguage.en: 'START MODE →'},
-    'gps_ready_status': {AppLanguage.vi: 'HỆ THỐNG GPS ĐÃ SẴN SÀNG', AppLanguage.en: 'GPS SYSTEM IS READY'},
+    'gps_ready_status': {AppLanguage.vi: 'GPS ĐÃ SẴN SÀNG', AppLanguage.en: 'GPS READY'},
     'gps_disabled_status': {AppLanguage.vi: 'VỊ TRÍ / GPS CHƯA ĐƯỢC BẬT', AppLanguage.en: 'LOCATION / GPS IS DISABLED'},
     'enable_gps_action': {AppLanguage.vi: 'BẬT GPS / CẤP QUYỀN VỊ TRÍ', AppLanguage.en: 'ENABLE GPS / GRANT LOCATION'},
     'security_upgrade_title': {AppLanguage.vi: 'NÂNG CẤP MẬT KHẨU BẢO MẬT', AppLanguage.en: 'SECURITY PASSWORD UPGRADE'},
@@ -687,7 +687,7 @@ class AppTranslations {
     },
     'personalized_subtitle': {
       AppLanguage.vi:
-          'Hệ thống học thói quen tập của bạn để đưa ra gợi ý phù hợp.',
+          'Tự động gợi ý dựa trên thói quen tập luyện của bạn.',
       AppLanguage.en:
           'We learn your routine and only send a nudge when it is useful.',
     },

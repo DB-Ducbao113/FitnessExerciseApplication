@@ -5,9 +5,9 @@ import 'package:fitness_exercise_application/features/home/presentation/provider
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/notification_settings_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
-import 'package:fitness_exercise_application/features/settings/presentation/widgets/settings_section.dart';
+import 'package:fitness_exercise_application/features/settings/presentation/widgets/kinetic_time_input_sheet.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -24,14 +24,15 @@ class NotificationSettingsScreen extends ConsumerStatefulWidget {
 class _NotificationSettingsScreenState
     extends ConsumerState<NotificationSettingsScreen> {
   bool _masterEnabled = true;
-  bool _workoutReminders = true;
+
+  // Group 1: Luyện tập & Chuỗi ngày (Daily Workout & Streak)
+  bool _workoutAndStreakEnabled = true;
   String _morningTime = '08:00';
-  bool _goalProgress = true;
-  bool _eveningCheckIn = true;
-  String _eveningTime = '20:00';
-  bool _achievements = true;
-  bool _streakReminders = true;
-  bool _inactivityReminders = true;
+
+  // Group 2: Mục tiêu & Thành tích (Goals & Milestones)
+  bool _goalsAndMilestonesEnabled = true;
+
+  // Group 3: Khung giờ yên tĩnh (Quiet Hours)
   bool _quietHours = true;
   String _quietStart = '22:00';
   String _quietEnd = '07:00';
@@ -47,480 +48,662 @@ class _NotificationSettingsScreenState
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final allowed =
-        await NotificationService.instance.areNotificationsAllowed();
+    var allowed = true;
+    try {
+      allowed = await NotificationService.instance.areNotificationsAllowed();
+    } catch (_) {
+      allowed = true;
+    }
 
     if (!mounted) return;
     setState(() {
       _masterEnabled = prefs.getBool(kNotificationsPrefKey) ?? true;
-      _workoutReminders = prefs.getBool(kWorkoutRemindersPrefKey) ?? true;
+
+      // Group 1: Tập luyện & Chuỗi ngày
+      final workout = prefs.getBool(kWorkoutRemindersPrefKey) ?? true;
+      final streak = prefs.getBool(kStreakRemindersPrefKey) ?? true;
+      final inactivity = prefs.getBool(kInactivityRemindersPrefKey) ?? true;
+      _workoutAndStreakEnabled = workout || streak || inactivity;
       _morningTime = prefs.getString(kMorningTimePrefKey) ?? '08:00';
-      _goalProgress = prefs.getBool(kGoalProgressPrefKey) ?? true;
-      _eveningCheckIn = prefs.getBool(kEveningCheckInPrefKey) ?? true;
-      _eveningTime = prefs.getString(kEveningTimePrefKey) ?? '20:00';
-      _achievements = prefs.getBool(kAchievementPrefKey) ?? true;
-      _streakReminders = prefs.getBool(kStreakRemindersPrefKey) ?? true;
-      _inactivityReminders =
-          prefs.getBool(kInactivityRemindersPrefKey) ?? true;
+
+      // Group 2: Mục tiêu & Thành tích
+      final goal = prefs.getBool(kGoalProgressPrefKey) ?? true;
+      final achievements = prefs.getBool(kAchievementPrefKey) ?? true;
+      final evening = prefs.getBool(kEveningCheckInPrefKey) ?? true;
+      _goalsAndMilestonesEnabled = goal || achievements || evening;
+
+      // Group 3: Khung giờ yên tĩnh
       _quietHours = prefs.getBool(kQuietHoursPrefKey) ?? true;
       _quietStart = prefs.getString(kQuietHoursStartPrefKey) ?? '22:00';
       _quietEnd = prefs.getString(kQuietHoursEndPrefKey) ?? '07:00';
+
       _isOsAllowed = allowed;
       _loading = false;
     });
   }
 
-  Future<void> _updatePrefBool(String key, bool value) async {
+  Future<void> _updateMaster(bool val) async {
+    setState(() => _masterEnabled = val);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
+    await prefs.setBool(kNotificationsPrefKey, val);
+    if (!mounted) return;
     _triggerScheduler();
   }
 
-  Future<void> _updatePrefString(String key, String value) async {
+  Future<void> _toggleWorkoutAndStreak(bool val) async {
+    setState(() => _workoutAndStreakEnabled = val);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, value);
+    await prefs.setBool(kWorkoutRemindersPrefKey, val);
+    await prefs.setBool(kStreakRemindersPrefKey, val);
+    await prefs.setBool(kInactivityRemindersPrefKey, val);
+    if (!mounted) return;
+    _triggerScheduler();
+  }
+
+  Future<void> _toggleGoalsAndMilestones(bool val) async {
+    setState(() => _goalsAndMilestonesEnabled = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kGoalProgressPrefKey, val);
+    await prefs.setBool(kAchievementPrefKey, val);
+    await prefs.setBool(kEveningCheckInPrefKey, val);
+    if (!mounted) return;
+    _triggerScheduler();
+  }
+
+  Future<void> _toggleQuietHours(bool val) async {
+    setState(() => _quietHours = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kQuietHoursPrefKey, val);
+    if (!mounted) return;
+    _triggerScheduler();
+  }
+
+  Future<void> _updateMorningTime(String val) async {
+    setState(() => _morningTime = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kMorningTimePrefKey, val);
+    if (!mounted) return;
+    _triggerScheduler();
+  }
+
+  Future<void> _updateQuietTime({String? start, String? end}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (start != null) {
+      setState(() => _quietStart = start);
+      await prefs.setString(kQuietHoursStartPrefKey, start);
+    }
+    if (end != null) {
+      setState(() => _quietEnd = end);
+      await prefs.setString(kQuietHoursEndPrefKey, end);
+    }
+    if (!mounted) return;
     _triggerScheduler();
   }
 
   void _triggerScheduler() {
+    if (!mounted) return;
     ref.invalidate(notificationSettingsProvider);
     ref.invalidate(notificationsPreferenceProvider);
 
-    final lang = ref.read(appLanguageProvider);
-    final workouts = ref.read(workoutListProvider).valueOrNull ?? [];
-    final activeGoal = ref.read(userGoalProvider).valueOrNull;
-    final streak = ref.read(streakProvider).currentStreak;
-    final useMetric = ref.read(metricUnitsPreferenceProvider).value ?? true;
+    try {
+      final lang = ref.read(appLanguageProvider);
+      final workouts = ref.read(workoutListProvider).valueOrNull ?? [];
+      final activeGoal = ref.read(userGoalProvider).valueOrNull;
+      final streak = ref.read(streakProvider).currentStreak;
+      final useMetric = ref.read(metricUnitsPreferenceProvider).value ?? true;
 
-    NotificationScheduler.refreshSchedules(
-      notificationsEnabled: _masterEnabled,
-      workoutRemindersEnabled: _workoutReminders,
-      morningReminderTime: _morningTime,
-      goalProgressEnabled: _goalProgress,
-      eveningCheckInEnabled: _eveningCheckIn,
-      eveningCheckInTime: _eveningTime,
-      achievementEnabled: _achievements,
-      streakRemindersEnabled: _streakReminders,
-      inactivityRemindersEnabled: _inactivityReminders,
-      quietHoursEnabled: _quietHours,
-      quietHoursStart: _quietStart,
-      quietHoursEnd: _quietEnd,
-      lang: lang,
-      workouts: workouts,
-      activeGoal: activeGoal,
-      currentStreak: streak,
-      useMetricUnits: useMetric,
-    );
+      NotificationScheduler.refreshSchedules(
+        notificationsEnabled: _masterEnabled,
+        workoutRemindersEnabled: _workoutAndStreakEnabled,
+        morningReminderTime: _morningTime,
+        goalProgressEnabled: _goalsAndMilestonesEnabled,
+        eveningCheckInEnabled: _goalsAndMilestonesEnabled,
+        eveningCheckInTime: '20:00',
+        achievementEnabled: _goalsAndMilestonesEnabled,
+        streakRemindersEnabled: _workoutAndStreakEnabled,
+        inactivityRemindersEnabled: _workoutAndStreakEnabled,
+        quietHoursEnabled: _quietHours,
+        quietHoursStart: _quietStart,
+        quietHoursEnd: _quietEnd,
+        lang: lang,
+        workouts: workouts,
+        activeGoal: activeGoal,
+        currentStreak: streak,
+        useMetricUnits: useMetric,
+      );
+    } catch (e) {
+      debugPrint('[NotificationSettings] Trigger scheduler error: $e');
+    }
   }
 
   Future<void> _pickTime(String current, Function(String) onPicked) async {
-    final parts = current.split(':');
-    final initialTime = TimeOfDay(
-      hour: int.tryParse(parts[0]) ?? 8,
-      minute: int.tryParse(parts[1]) ?? 0,
+    final isVi = ref.read(appLanguageProvider) == AppLanguage.vi;
+    final picked = await showKineticTimeInputSheet(
+      context,
+      initialTime: current,
+      isVi: isVi,
     );
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AetronColors.cyan,
-              surface: AetronColors.panelHigh,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      final formatted =
-          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      onPicked(formatted);
+    if (picked != null && mounted) {
+      onPicked(picked);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
+    final isVi = currentLang == AppLanguage.vi;
 
     return Scaffold(
-      backgroundColor: AetronColors.background,
-      body: AetronBackground(
-        withGrid: false,
-        child: SafeArea(
-          child: Column(
-            children: [
-              AetronHeader(
-                title: 'NOTIFICATIONS',
-                eyebrow: 'ALERT & REMINDER SETTINGS',
-                leading: IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: AetronColors.textPrimary,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: _loading
-                    ? const Center(child: LoadingState(label: 'LOADING PREFERENCES'))
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(AetronSpacing.page),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // OS Permission Card if disabled
-                            if (!_isOsAllowed) ...[
-                              AppCard(
-                                padding: const EdgeInsets.all(AetronSpacing.md),
-                                borderColor: AetronColors.warning,
-                                backgroundColor: AetronColors.panel,
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.notifications_off_rounded,
-                                      color: AetronColors.warning,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: AetronSpacing.md),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Notifications disabled in OS Settings',
-                                            style: AetronTypography.headingSmall.copyWith(
-                                              color: AetronColors.textPrimary,
-                                              fontSize: 13.5,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Allow notifications in your phone settings to receive reminders.',
-                                            style: AetronTypography.bodySmall,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => openAppSettings(),
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: AetronColors.cyan,
-                                      ),
-                                      child: const Text('OPEN'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: AetronSpacing.lg),
-                            ],
-
-                             // Master Switch Card
-                            AppCard(
-                              padding: const EdgeInsets.all(AetronSpacing.md),
-                              borderColor: _masterEnabled ? AetronColors.cyan : AetronColors.borderSubtle,
-                              child: SwitchListTile(
-                                value: _masterEnabled,
-                                activeThumbColor: AetronColors.cyan,
-                                title: Text(
-                                  currentLang == AppLanguage.vi ? 'Cho phép Thông báo' : 'Allow Notifications',
-                                  style: AetronTypography.headingMedium.copyWith(
-                                    color: AetronColors.textPrimary,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  currentLang == AppLanguage.vi
-                                      ? 'Bật hoặc tắt tất cả các thông báo nhắc nhở thể thao'
-                                      : 'Enable or disable all fitness reminders & alerts',
-                                  style: AetronTypography.bodySmall,
-                                ),
-                                onChanged: (val) {
-                                  setState(() => _masterEnabled = val);
-                                  _updatePrefBool(kNotificationsPrefKey, val);
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: AetronSpacing.lg),
-
-                            // LIVE NOTIFICATION PREVIEW CARD
-                            SectionHeader(
-                              title: currentLang == AppLanguage.vi ? 'XEM TRƯỚC THÔNG BÁO' : 'NOTIFICATION PREVIEW',
-                              padding: EdgeInsets.zero,
-                            ),
-                            const SizedBox(height: AetronSpacing.xs),
-                            _NotificationPreviewCard(
-                              enabled: _masterEnabled,
-                              morningTime: _morningTime,
-                            ),
-                            const SizedBox(height: AetronSpacing.lg),
-
-                            // GRANULAR CATEGORIES
-                            SettingsSection(
-                              title: currentLang == AppLanguage.vi ? 'DANH MỤC NHẮC NHỞ' : 'REMINDER CATEGORIES',
-                              children: [
-                                // Workout Reminders
-                                SwitchListTile(
-                                  value: _workoutReminders,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    currentLang == AppLanguage.vi ? 'Nhắc nhở tập luyện' : 'Workout Reminders',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    currentLang == AppLanguage.vi
-                                        ? 'Nhắc nhở buổi sáng lúc $_morningTime'
-                                        : 'Morning reminder at $_morningTime',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _workoutReminders = val);
-                                          _updatePrefBool(kWorkoutRemindersPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                                if (_workoutReminders && _masterEnabled)
-                                  ListTile(
-                                    title: Text(
-                                      currentLang == AppLanguage.vi ? 'Giờ nhắc nhở buổi sáng' : 'Morning Reminder Time',
-                                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                                    ),
-                                    trailing: ActionChip(
-                                      label: Text(_morningTime, style: const TextStyle(color: AetronColors.cyan, fontWeight: FontWeight.bold)),
-                                      backgroundColor: AetronColors.panelHigh,
-                                      onPressed: () => _pickTime(_morningTime, (val) {
-                                        setState(() => _morningTime = val);
-                                        _updatePrefString(kMorningTimePrefKey, val);
-                                      }),
-                                    ),
-                                  ),
-                                const Divider(height: 1),
-
-                                // Goal Progress
-                                SwitchListTile(
-                                  value: _goalProgress,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    currentLang == AppLanguage.vi ? 'Cập nhật tiến độ mục tiêu' : 'Goal Progress Updates',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    'Afternoon check-in on active targets',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _goalProgress = val);
-                                          _updatePrefBool(kGoalProgressPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                                const Divider(height: 1),
-
-                                // Evening Check-in
-                                SwitchListTile(
-                                  value: _eveningCheckIn,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    'Evening Check-in',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    'Summary at $_eveningTime',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _eveningCheckIn = val);
-                                          _updatePrefBool(kEveningCheckInPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                                const Divider(height: 1),
-
-                                // Achievement
-                                SwitchListTile(
-                                  value: _achievements,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    'Achievement & Goal Complete',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    'Instant alerts when you hit a target',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _achievements = val);
-                                          _updatePrefBool(kAchievementPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                                const Divider(height: 1),
-
-                                // Streak Reminders
-                                SwitchListTile(
-                                  value: _streakReminders,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    'Streak Protection Alerts',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    'Alerts when active streak is at risk',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _streakReminders = val);
-                                          _updatePrefBool(kStreakRemindersPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                                const Divider(height: 1),
-
-                                // Inactivity Reminders
-                                SwitchListTile(
-                                  value: _inactivityReminders,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    'Inactivity Reminders',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    'Alerts when no workout recorded for 48h (12h cooldown)',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _inactivityReminders = val);
-                                          _updatePrefBool(kInactivityRemindersPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: AetronSpacing.lg),
-
-                            // QUIET HOURS
-                            SettingsSection(
-                              title: 'QUIET HOURS',
-                              children: [
-                                SwitchListTile(
-                                  value: _quietHours,
-                                  activeThumbColor: AetronColors.cyan,
-                                  title: Text(
-                                    'Do Not Disturb Window',
-                                    style: AetronTypography.headingSmall.copyWith(color: Colors.white),
-                                  ),
-                                  subtitle: Text(
-                                    '$_quietStart — $_quietEnd (Suppresses non-critical alerts)',
-                                    style: AetronTypography.bodySmall,
-                                  ),
-                                  onChanged: _masterEnabled
-                                      ? (val) {
-                                          setState(() => _quietHours = val);
-                                          _updatePrefBool(kQuietHoursPrefKey, val);
-                                        }
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationPreviewCard extends StatelessWidget {
-  const _NotificationPreviewCard({
-    required this.enabled,
-    required this.morningTime,
-  });
-
-  final bool enabled;
-  final String morningTime;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(AetronSpacing.md),
-      backgroundColor: AetronColors.panelHigh,
-      borderColor: AetronColors.cyan.withValues(alpha: 0.3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: AetronColors.cyan,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Center(
-                  child: Text(
-                    'A',
-                    style: TextStyle(
-                      color: AetronColors.space,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: colors.textPrimary,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isVi ? 'THÔNG BÁO' : 'NOTIFICATIONS',
+                          style: KineticTypography.headlineSmall.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        Text(
+                          isVi ? 'NHẮC NHỞ LUYỆN TẬP' : 'SMART REMINDERS',
+                          style: KineticTypography.unitLabel.copyWith(
+                            color: colors.textMuted,
+                            fontSize: 11,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                'AETRON',
-                style: AetronTypography.caption.copyWith(
-                  color: AetronColors.textSecondary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                morningTime,
-                style: AetronTypography.caption.copyWith(
-                  color: AetronColors.muted,
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            enabled ? 'Ready to move? 🏃' : 'Notifications Paused',
-            style: AetronTypography.headingSmall.copyWith(
-              color: enabled ? AetronColors.textPrimary : AetronColors.textSecondary,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w800,
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            enabled
-                ? "You haven't logged a workout today. Lace up and keep moving!"
-                : 'Turn on notifications to receive workout reminders and goal achievements.',
-            style: AetronTypography.bodySmall.copyWith(
-              color: AetronColors.textSecondary,
-              fontSize: 13,
-              height: 1.4,
+
+            Expanded(
+              child: _loading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // OS Permission Notice (if OS disabled)
+                          if (!_isOsAllowed) ...[
+                            KineticCard(
+                              borderColor: colors.error,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.notifications_off_rounded,
+                                    color: colors.error,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          isVi
+                                              ? 'Thông báo bị tắt trong hệ thống'
+                                              : 'Notifications disabled in OS Settings',
+                                          style: KineticTypography.bodyMedium.copyWith(
+                                            color: colors.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isVi
+                                              ? 'Bật quyền để nhận nhắc nhở đúng giờ.'
+                                              : 'Allow permissions in system settings to receive timely alerts.',
+                                          style: KineticTypography.bodySmall.copyWith(
+                                            color: colors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => openAppSettings(),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: colors.primary,
+                                    ),
+                                    child: Text(
+                                      isVi ? 'MỞ' : 'OPEN',
+                                      style: KineticTypography.unitLabel.copyWith(
+                                        color: colors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // 1. Master Push Notification Card
+                          KineticCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            borderColor: _masterEnabled
+                                ? colors.primary.withValues(alpha: 0.4)
+                                : colors.borderSubtle,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: _masterEnabled
+                                        ? colors.primary.withValues(alpha: 0.15)
+                                        : colors.surface2,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _masterEnabled
+                                        ? Icons.notifications_active_rounded
+                                        : Icons.notifications_off_rounded,
+                                    color: _masterEnabled ? colors.primary : colors.textMuted,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isVi ? 'Nhận thông báo' : 'Push Notifications',
+                                        style: KineticTypography.headlineSmall.copyWith(
+                                          color: colors.textPrimary,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        isVi
+                                            ? 'Bật hoặc tắt toàn bộ nhắc nhở thể thao'
+                                            : 'Enable or disable all fitness reminders',
+                                        style: KineticTypography.bodySmall.copyWith(
+                                          color: colors.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Switch(
+                                  value: _masterEnabled,
+                                  activeThumbColor: colors.primary,
+                                  onChanged: _updateMaster,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Section Label
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 10),
+                            child: Text(
+                              (isVi ? 'TÙY CHỌN NHẮC NHỞ' : 'SMART REMINDERS').toUpperCase(),
+                              style: KineticTypography.unitLabel.copyWith(
+                                color: colors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+
+                          // 2. Group 1 Card: Luyện tập & Chuỗi ngày (Daily Workout & Streak)
+                          Opacity(
+                            opacity: _masterEnabled ? 1.0 : 0.5,
+                            child: KineticCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(9),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFF9F43).withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.local_fire_department_rounded,
+                                          color: Color(0xFFFF9F43),
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              isVi ? 'Luyện tập & Chuỗi ngày' : 'Workouts & Streak',
+                                              style: KineticTypography.bodyLarge.copyWith(
+                                                color: colors.textPrimary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              isVi
+                                                  ? 'Nhắc giờ tập hàng ngày & giữ ngọn lửa Streak'
+                                                  : 'Daily workout alerts & streak protection',
+                                              style: KineticTypography.bodySmall.copyWith(
+                                                color: colors.textSecondary,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Switch(
+                                        value: _workoutAndStreakEnabled && _masterEnabled,
+                                        activeThumbColor: colors.primary,
+                                        onChanged: _masterEnabled ? _toggleWorkoutAndStreak : null,
+                                      ),
+                                    ],
+                                  ),
+                                  if (_workoutAndStreakEnabled && _masterEnabled) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      height: 1,
+                                      color: colors.borderSubtle,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time_rounded,
+                                          size: 16,
+                                          color: colors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            isVi ? 'Giờ nhắc tập mỗi ngày' : 'Daily Reminder Time',
+                                            style: KineticTypography.bodySmall.copyWith(
+                                              color: colors.textPrimary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(8),
+                                          onTap: () => _pickTime(_morningTime, _updateMorningTime),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: colors.surface2,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: colors.borderSubtle),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  _morningTime,
+                                                  style: TextStyle(
+                                                    color: colors.primary,
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 13,
+                                                    fontFamily: KineticTypography.fontFamily,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.arrow_drop_down_rounded,
+                                                  size: 18,
+                                                  color: colors.primary,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // 3. Group 2 Card: Mục tiêu & Thành tích (Goals & Milestones)
+                          Opacity(
+                            opacity: _masterEnabled ? 1.0 : 0.5,
+                            child: KineticCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(9),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFBA20).withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.emoji_events_rounded,
+                                      color: Color(0xFFFFBA20),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          isVi ? 'Mục tiêu & Thành tích' : 'Goals & Achievements',
+                                          style: KineticTypography.bodyLarge.copyWith(
+                                            color: colors.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isVi
+                                              ? 'Cập nhật tiến độ tuần và thông báo huy hiệu mới'
+                                              : 'Weekly target updates & badge unlocks',
+                                          style: KineticTypography.bodySmall.copyWith(
+                                            color: colors.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: _goalsAndMilestonesEnabled && _masterEnabled,
+                                    activeThumbColor: colors.primary,
+                                    onChanged: _masterEnabled ? _toggleGoalsAndMilestones : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // 4. Group 3 Card: Khung giờ yên tĩnh (Quiet Hours)
+                          Opacity(
+                            opacity: _masterEnabled ? 1.0 : 0.5,
+                            child: KineticCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(9),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF818CF8).withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.bedtime_rounded,
+                                          color: Color(0xFF818CF8),
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              isVi ? 'Khung giờ yên tĩnh' : 'Quiet Hours',
+                                              style: KineticTypography.bodyLarge.copyWith(
+                                                color: colors.textPrimary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              isVi
+                                                  ? 'Tắt thông báo trong khoảng thời gian nghỉ ngơi'
+                                                  : 'Mute alerts during sleep & rest window',
+                                              style: KineticTypography.bodySmall.copyWith(
+                                                color: colors.textSecondary,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Switch(
+                                        value: _quietHours && _masterEnabled,
+                                        activeThumbColor: colors.primary,
+                                        onChanged: _masterEnabled ? _toggleQuietHours : null,
+                                      ),
+                                    ],
+                                  ),
+                                  if (_quietHours && _masterEnabled) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      height: 1,
+                                      color: colors.borderSubtle,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.nightlight_round,
+                                          size: 16,
+                                          color: colors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            isVi ? 'Thời gian nghỉ ngơi' : 'Quiet Window',
+                                            style: KineticTypography.bodySmall.copyWith(
+                                              color: colors.textPrimary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        // Start Time Chip
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(8),
+                                          onTap: () => _pickTime(
+                                            _quietStart,
+                                            (val) => _updateQuietTime(start: val),
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: colors.surface2,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: colors.borderSubtle),
+                                            ),
+                                            child: Text(
+                                              _quietStart,
+                                              style: TextStyle(
+                                                color: colors.primary,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 12,
+                                                fontFamily: KineticTypography.fontFamily,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                                          child: Icon(
+                                            Icons.arrow_forward_rounded,
+                                            size: 14,
+                                            color: colors.textMuted,
+                                          ),
+                                        ),
+                                        // End Time Chip
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(8),
+                                          onTap: () => _pickTime(
+                                            _quietEnd,
+                                            (val) => _updateQuietTime(end: val),
+                                          ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: colors.surface2,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: colors.borderSubtle),
+                                            ),
+                                            child: Text(
+                                              _quietEnd,
+                                              style: TextStyle(
+                                                color: colors.primary,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 12,
+                                                fontFamily: KineticTypography.fontFamily,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

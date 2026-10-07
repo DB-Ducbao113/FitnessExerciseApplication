@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/widgets/kinetic_activity_card.dart';
 import 'package:fitness_exercise_application/features/activity/presentation/widgets/kinetic_activity_cockpit.dart';
+import 'package:fitness_exercise_application/features/activity/presentation/widgets/kinetic_activity_top_bar.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_target.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
-import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_target_selector_sheet.dart';
+import 'package:fitness_exercise_application/shared/aetron/aetron_skeleton.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -22,9 +23,7 @@ const List<ActivityOptionItem> _kActivities = [
     type: 'running',
     nameVi: 'Chạy bộ',
     nameEn: 'Running',
-    tagVi: 'Ngoài trời / Máy chạy',
-    tagEn: 'Outdoor / Treadmill',
-    imagePath: 'assets/running_real.jpg',
+    imagePath: 'assets/activity_running_bright.jpg',
     icon: Icons.directions_run_rounded,
     accentColor: Color(0xFFA8DCE7),
     requireGps: true,
@@ -33,25 +32,23 @@ const List<ActivityOptionItem> _kActivities = [
     type: 'cycling',
     nameVi: 'Đạp xe',
     nameEn: 'Cycling',
-    tagVi: 'Ngoài trời / Máy đạp',
-    tagEn: 'Outdoor / Stationary',
-    imagePath: 'assets/cycling_real.jpg',
+    imagePath: 'assets/activity_cycling_bright.jpg',
     icon: Icons.directions_bike_rounded,
     accentColor: Color(0xFF39B5F2),
     requireGps: true,
   ),
   ActivityOptionItem(
     type: 'walking',
-    nameVi: 'Đi bộ & Hiking',
-    nameEn: 'Walking & Hiking',
-    tagVi: 'Ngoài trời / Trong nhà',
-    tagEn: 'Outdoor / Indoor',
-    imagePath: 'assets/walking_real.jpg',
+    nameVi: 'Đi bộ',
+    nameEn: 'Walking',
+    imagePath: 'assets/activity_walking_bright.jpg',
     icon: Icons.directions_walk_rounded,
     accentColor: Color(0xFF4EBE9E),
-    requireGps: false,
+    requireGps: true,
   ),
 ];
+
+final selectedActivityTypeProvider = StateProvider<String>((ref) => 'running');
 
 class ActivityScreen extends ConsumerStatefulWidget {
   const ActivityScreen({super.key});
@@ -63,7 +60,8 @@ class ActivityScreen extends ConsumerStatefulWidget {
 class _ActivityScreenState extends ConsumerState<ActivityScreen>
     with WidgetsBindingObserver {
   String _selectedType = 'running';
-  WorkoutTarget _selectedTarget = WorkoutTarget.free;
+  final WorkoutTarget _selectedTarget = WorkoutTarget.free;
+  bool _isRefreshing = false;
 
   bool get _isOutdoor => _selectedOption.requireGps;
 
@@ -85,6 +83,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
   @override
   void initState() {
     super.initState();
+    _selectedType = ref.read(selectedActivityTypeProvider);
     WidgetsBinding.instance.addObserver(this);
     _refreshLocationStatus(requestIfNeeded: true);
   }
@@ -158,18 +157,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
     }
 
     await _refreshLocationStatus();
-  }
-
-  Future<void> _openTargetSelector(AppLanguage currentLang) async {
-    final target = await WorkoutTargetSelectorSheet.show(
-      context,
-      initialTarget: _selectedTarget,
-      currentLang: currentLang,
-      accentColor: _selectedOption.accentColor,
-    );
-    if (target != null && mounted) {
-      setState(() => _selectedTarget = target);
-    }
   }
 
   void _showMapPreviewDialog(AppLanguage currentLang) {
@@ -278,6 +265,14 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
     final workoutsAsync = ref.watch(workoutListProvider);
     final workouts = workoutsAsync.valueOrNull ?? const <WorkoutSession>[];
 
+    ref.listen<String>(selectedActivityTypeProvider, (previous, next) {
+      if (next != _selectedType && mounted) {
+        setState(() {
+          _selectedType = next;
+        });
+      }
+    });
+
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -285,48 +280,67 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
         child: Column(
           children: [
             // 1. Top Header Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  isVi ? 'Chọn bộ môn tập' : 'Select Activity',
-                  style: KineticTypography.pageTitle.copyWith(
-                    color: colors.textPrimary,
-                  ),
-                ),
-              ),
+            KineticActivityTopBar(
+              isVi: isVi,
+              isOutdoor: _isOutdoor,
+              checkingLocation: _checkingLocation,
+              hasLocationPermission: _hasLocationPermission,
+              gpsEnabled: _gpsEnabled,
+              onGpsTap: _handleGpsAction,
+              onMapPreviewTap: () => _showMapPreviewDialog(currentLang),
             ),
 
-            // 2. Scrollable Activity Mode Cards
+            // 2. Scrollable Activity Mode Cards with Pull-to-Refresh Grey Skeleton
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                itemCount: _kActivities.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final option = _kActivities[index];
-                  final isSelected = option.type == _selectedType;
-
-                  return KineticActivityCard(
-                    option: option,
-                    isSelected: isSelected,
-                    workouts: workouts,
-                    isVi: isVi,
-                    onSelect: () {
-                      setState(() {
-                        _selectedType = option.type;
-                      });
-                    },
-                  );
+              child: RefreshIndicator(
+                color: colors.primary,
+                backgroundColor: colors.surface2,
+                onRefresh: () async {
+                  setState(() => _isRefreshing = true);
+                  try {
+                    await Future.wait([
+                      ref.read(workoutListProvider.notifier).refresh(),
+                      _refreshLocationStatus(requestIfNeeded: false),
+                    ]);
+                  } finally {
+                    if (mounted) setState(() => _isRefreshing = false);
+                  }
                 },
+                child: _isRefreshing
+                    ? const ActivitySkeletonView()
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        itemCount: _kActivities.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final option = _kActivities[index];
+                          final isSelected = option.type == _selectedType;
+
+                          return KineticActivityCard(
+                            option: option,
+                            isSelected: isSelected,
+                            workouts: workouts,
+                            isVi: isVi,
+                            onSelect: () {
+                              setState(() {
+                                _selectedType = option.type;
+                              });
+                              ref
+                                  .read(selectedActivityTypeProvider.notifier)
+                                  .state = option.type;
+                            },
+                          );
+                        },
+                      ),
               ),
             ),
 
-            // 4. Cockpit Tray Dock (GPS Diagnostics, Targets, Start Button)
+            // 4. Cockpit Tray Dock (GPS Diagnostics & Start Button)
             KineticActivityCockpit(
               activityName: isVi ? _selectedOption.nameVi : _selectedOption.nameEn,
-              isOutdoor: _isOutdoor,
+              isOutdoor: true,
               gpsEnabled: _gpsEnabled,
               checkingLocation: _checkingLocation,
               hasLocationPermission: _hasLocationPermission,
@@ -334,10 +348,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
               selectedTarget: _selectedTarget,
               isVi: isVi,
               onRefreshGps: _handleGpsAction,
-              onTargetCustomizeTap: () => _openTargetSelector(currentLang),
-              onTargetChanged: (target) {
-                setState(() => _selectedTarget = target);
-              },
               onStartTap: _startWorkout,
               onMapPreviewTap: () => _showMapPreviewDialog(currentLang),
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/password_validator.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Timer? _resendTimer;
   int _resendCountdown = 0;
 
+  String? _sentEmail;
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +65,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   Future<void> _sendResetEmail() async {
-    if (!_formKey.currentState!.validate()) return;
+    // If we're already on success state, form is no longer mounted in the widget tree.
+    // Use the saved email without form validation.
+    final targetEmail = _isSent ? (_sentEmail ?? _emailController.text.trim()) : _emailController.text.trim();
+    if (!_isSent) {
+      if (!(_formKey.currentState?.validate() ?? false)) return;
+    } else {
+      if (targetEmail.isEmpty || !targetEmail.contains('@')) return;
+    }
 
     final lang = ref.read(appLanguageProvider);
 
@@ -73,12 +83,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
     try {
       await Supabase.instance.client.auth.resetPasswordForEmail(
-        _emailController.text.trim(),
+        targetEmail,
         redirectTo: kIsWeb ? null : _kResetCallbackUrl,
       );
 
       if (!mounted) return;
       setState(() {
+        _sentEmail = targetEmail;
         _isSent = true;
         _isLoading = false;
       });
@@ -111,11 +122,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final kinetic = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: kinetic.background,
       body: Stack(
         children: [
           // ── 1. Top Section: Cyber Scenic Athlete Header Artwork ───────────
@@ -131,6 +143,18 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   'assets/login_header.png',
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: kinetic.surface1,
+                      child: Center(
+                        child: Icon(
+                          Icons.lock_reset_rounded,
+                          size: 64,
+                          color: kinetic.primary,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 Positioned.fill(
                   child: DecoratedBox(
@@ -139,10 +163,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          const Color(0xFF070B14).withValues(alpha: 0.35),
+                          kinetic.background.withValues(alpha: 0.35),
                           Colors.transparent,
-                          const Color(0xFF070B14).withValues(alpha: 0.85),
-                          const Color(0xFF070B14),
+                          kinetic.background.withValues(alpha: 0.85),
+                          kinetic.background,
                         ],
                         stops: const [0.0, 0.4, 0.85, 1.0],
                       ),
@@ -159,7 +183,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Material(
-                        color: const Color(0xFF0E1726),
+                        color: kinetic.surface2,
                         borderRadius: BorderRadius.circular(16),
                         child: InkWell(
                           onTap: () => Navigator.of(context).pop(),
@@ -169,19 +193,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0x3300E5FF),
+                                color: kinetic.primary.withValues(alpha: 0.3),
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.arrow_back_ios_new_rounded,
-                              color: Color(0xFF00E5FF),
+                              color: kinetic.primary,
                               size: 18,
                             ),
                           ),
                         ),
                       ),
                       Material(
-                        color: const Color(0xFF0E1726),
+                        color: kinetic.surface2,
                         borderRadius: BorderRadius.circular(16),
                         child: InkWell(
                           onTap: () {
@@ -201,7 +225,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0x3300E5FF),
+                                color: kinetic.primary.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
@@ -214,11 +238,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                                 const SizedBox(width: 6),
                                 Text(
                                   isVi ? 'VI' : 'EN',
-                                  style: const TextStyle(
-                                    fontFamily: 'Outfit',
-                                    color: Color(0xFF00E5FF),
+                                  style: KineticTypography.unitLabel.copyWith(
+                                    color: kinetic.primary,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 12,
                                     letterSpacing: 1.0,
                                   ),
                                 ),
@@ -241,17 +263,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             right: 0,
             bottom: 0,
             child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF0A111E),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              decoration: BoxDecoration(
+                color: kinetic.surface1,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                 boxShadow: [
                   BoxShadow(
-                    color: Color(0x3300E5FF),
+                    color: kinetic.primary.withValues(alpha: 0.2),
                     blurRadius: 28,
-                    offset: Offset(0, -6),
+                    offset: const Offset(0, -6),
                     spreadRadius: -2,
                   ),
-                  BoxShadow(
+                  const BoxShadow(
                     color: Colors.black,
                     blurRadius: 36,
                     offset: Offset(0, -10),
@@ -259,7 +281,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ],
                 border: Border(
                   top: BorderSide(
-                    color: Color(0xFF00E5FF),
+                    color: kinetic.primary,
                     width: 1.5,
                   ),
                 ),
@@ -298,7 +320,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                color: const Color(0xFFA8DCE7).withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -319,7 +341,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ],
                 ),
                 border: Border.all(
-                  color: const Color(0xFF00E5FF).withValues(alpha: 0.6),
+                  color: const Color(0xFFA8DCE7).withValues(alpha: 0.6),
                   width: 1.5,
                 ),
                 boxShadow: const [
@@ -332,7 +354,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ),
               child: const Icon(
                 Icons.lock_reset_rounded,
-                color: Color(0xFF00E5FF),
+                color: Color(0xFFA8DCE7),
                 size: 36,
               ),
             ),
@@ -344,7 +366,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             isVi ? 'KHÔI PHỤC MẬT KHẨU' : 'FORGOT PASSWORD',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: 'Plus Jakarta Sans',
               fontSize: 22,
               fontWeight: FontWeight.w900,
               letterSpacing: 0.8,
@@ -358,7 +380,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 : 'Enter your registered email address to receive a secure password reset link.',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: 'Plus Jakarta Sans',
               fontSize: 14,
               fontWeight: FontWeight.w400,
               color: Color(0xFF8FA0B8),
@@ -371,8 +393,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           Text(
             isVi ? 'ĐỊA CHỈ EMAIL' : 'EMAIL ADDRESS',
             style: const TextStyle(
-              fontFamily: 'Outfit',
-              color: Color(0xFF00E5FF),
+              fontFamily: 'Plus Jakarta Sans',
+              color: Color(0xFFA8DCE7),
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
@@ -383,7 +405,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             style: const TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: 'Plus Jakarta Sans',
               color: Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -391,7 +413,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             decoration: InputDecoration(
               hintText: isVi ? 'name@example.com' : 'name@example.com',
               hintStyle: const TextStyle(
-                fontFamily: 'Outfit',
+                fontFamily: 'Plus Jakarta Sans',
                 color: Color(0xFF4A5B73),
                 fontSize: 14,
               ),
@@ -399,7 +421,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               fillColor: const Color(0xFF0F1826),
               prefixIcon: const Icon(
                 Icons.alternate_email_rounded,
-                color: Color(0xFF00E5FF),
+                color: Color(0xFFA8DCE7),
                 size: 20,
               ),
               contentPadding: const EdgeInsets.symmetric(
@@ -415,7 +437,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(
-                  color: Color(0xFF00E5FF),
+                  color: Color(0xFFA8DCE7),
                   width: 1.5,
                 ),
               ),
@@ -471,7 +493,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Text(
                       _errorMessage!,
                       style: const TextStyle(
-                        fontFamily: 'Outfit',
+                        fontFamily: 'Plus Jakarta Sans',
                         color: Color(0xFFFFB3C3),
                         fontSize: 12,
                       ),
@@ -490,7 +512,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [
-                  Color(0xFF00E5FF),
+                  Color(0xFFA8DCE7),
                   Color(0xFF2AF598),
                 ],
               ),
@@ -519,7 +541,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       child: CircularProgressIndicator(
                         strokeWidth: 2.2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          Color(0xFF070B14),
+                          Color(0xFF09181C),
                         ),
                       ),
                     )
@@ -531,17 +553,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                               ? 'GỬI LIÊN KẾT XÁC THỰC'
                               : 'SEND RESET LINK',
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.2,
-                            color: Color(0xFF070B14),
+                            color: Color(0xFF09181C),
                           ),
                         ),
                         const SizedBox(width: 8),
                         const Icon(
                           Icons.send_rounded,
-                          color: Color(0xFF070B14),
+                          color: Color(0xFF09181C),
                           size: 18,
                         ),
                       ],
@@ -574,7 +596,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   child: const Text(
                     'G',
                     style: TextStyle(
-                      fontFamily: 'Outfit',
+                      fontFamily: 'Plus Jakarta Sans',
                       color: Color(0xFF1A73E8),
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
@@ -588,7 +610,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         ? 'Đăng nhập bằng Google? Bạn không cần mật khẩu Aetron. Chỉ cần chọn "Đăng nhập với Google" ở màn hình chính.'
                         : 'Using Google Sign-In? You do not need an Aetron password. Simply choose "Continue with Google" on the login screen.',
                     style: const TextStyle(
-                      fontFamily: 'Outfit',
+                      fontFamily: 'Plus Jakarta Sans',
                       color: Color(0xFF8FA0B8),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -607,14 +629,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(
                 Icons.arrow_back_rounded,
-                color: Color(0xFF00E5FF),
+                color: Color(0xFFA8DCE7),
                 size: 16,
               ),
               label: Text(
                 isVi ? 'Quay lại Đăng nhập' : 'Back to Login',
                 style: const TextStyle(
-                  fontFamily: 'Outfit',
-                  color: Color(0xFF00E5FF),
+                  fontFamily: 'Plus Jakarta Sans',
+                  color: Color(0xFFA8DCE7),
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -686,7 +708,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           isVi ? 'ĐÃ GỬI LIÊN KẾT XÁC THỰC!' : 'CHECK YOUR INBOX!',
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontFamily: 'Outfit',
+            fontFamily: 'Plus Jakarta Sans',
             fontSize: 22,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.8,
@@ -703,7 +725,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               color: const Color(0xFF0F2233),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                color: const Color(0xFFA8DCE7).withValues(alpha: 0.5),
               ),
             ),
             child: Row(
@@ -711,15 +733,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               children: [
                 const Icon(
                   Icons.email_rounded,
-                  color: Color(0xFF00E5FF),
+                  color: Color(0xFFA8DCE7),
                   size: 14,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   email,
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    color: Color(0xFF00E5FF),
+                    fontFamily: 'Plus Jakarta Sans',
+                    color: Color(0xFFA8DCE7),
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -737,7 +759,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               : 'We sent a secure password reset link to your email. Click the link in the message to set a new password (please also check your Spam folder).',
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontFamily: 'Outfit',
+            fontFamily: 'Plus Jakarta Sans',
             fontSize: 14,
             fontWeight: FontWeight.w400,
             color: Color(0xFF8FA0B8),
@@ -752,7 +774,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
-                Color(0xFF00E5FF),
+                Color(0xFFA8DCE7),
                 Color(0xFF2AF598),
               ],
             ),
@@ -780,17 +802,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 Text(
                   isVi ? 'MỞ HỘP THƯ EMAIL' : 'OPEN EMAIL APP',
                   style: const TextStyle(
-                    fontFamily: 'Outfit',
+                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.2,
-                    color: Color(0xFF070B14),
+                    color: Color(0xFF09181C),
                   ),
                 ),
                 const SizedBox(width: 8),
                 const Icon(
                   Icons.open_in_new_rounded,
-                  color: Color(0xFF070B14),
+                  color: Color(0xFF09181C),
                   size: 16,
                 ),
               ],
@@ -808,7 +830,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             padding: const EdgeInsets.symmetric(vertical: 14),
             side: BorderSide(
               color: _resendCountdown == 0
-                  ? const Color(0xFF00E5FF)
+                  ? const Color(0xFFA8DCE7)
                   : const Color(0xFF1E2E45),
             ),
             shape: RoundedRectangleBorder(
@@ -822,16 +844,48 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     : 'Resend in (${_resendCountdown}s)')
                 : (isVi ? 'GỬI LẠI EMAIL' : 'RESEND EMAIL'),
             style: TextStyle(
-              fontFamily: 'Outfit',
+              fontFamily: 'Plus Jakarta Sans',
               fontSize: 13,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.0,
               color: _resendCountdown == 0
-                  ? const Color(0xFF00E5FF)
+                  ? const Color(0xFFA8DCE7)
                   : const Color(0xFF4A5B73),
             ),
           ),
         ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0x22FF4B6E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x66FF4B6E)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFFF4B6E),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      fontFamily: 'Plus Jakarta Sans',
+                      color: Color(0xFFFF4B6E),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
 
         // Back to Login Button
@@ -846,7 +900,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             label: Text(
               isVi ? 'Quay lại Đăng nhập' : 'Back to Login',
               style: const TextStyle(
-                fontFamily: 'Outfit',
+                fontFamily: 'Plus Jakarta Sans',
                 color: Color(0xFF8FA0B8),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -944,7 +998,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     final isVi = currentLang == AppLanguage.vi;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070B14),
+      backgroundColor: const Color(0xFF09181C),
       body: Stack(
         children: [
           // ── 1. Top Section: Cyber Scenic Header Artwork ───────────────────
@@ -968,10 +1022,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          const Color(0xFF070B14).withValues(alpha: 0.35),
+                          const Color(0xFF09181C).withValues(alpha: 0.35),
                           Colors.transparent,
-                          const Color(0xFF070B14).withValues(alpha: 0.85),
-                          const Color(0xFF070B14),
+                          const Color(0xFF09181C).withValues(alpha: 0.85),
+                          const Color(0xFF09181C),
                         ],
                         stops: const [0.0, 0.4, 0.85, 1.0],
                       ),
@@ -1007,7 +1061,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                 ],
                 border: Border(
                   top: BorderSide(
-                    color: Color(0xFF00E5FF),
+                    color: Color(0xFFA8DCE7),
                     width: 1.5,
                   ),
                 ),
@@ -1028,7 +1082,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             width: 40,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF00E5FF)
+                              color: const Color(0xFFA8DCE7)
                                   .withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(2),
                             ),
@@ -1050,7 +1104,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                 ],
                               ),
                               border: Border.all(
-                                color: const Color(0xFF00E5FF)
+                                color: const Color(0xFFA8DCE7)
                                     .withValues(alpha: 0.6),
                                 width: 1.5,
                               ),
@@ -1064,7 +1118,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             ),
                             child: const Icon(
                               Icons.security_rounded,
-                              color: Color(0xFF00E5FF),
+                              color: Color(0xFFA8DCE7),
                               size: 36,
                             ),
                           ),
@@ -1078,7 +1132,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               : 'SET NEW PASSWORD',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
@@ -1092,7 +1146,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               : 'Create a strong password to secure your athlete profile & telemetry.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                             color: Color(0xFF8FA0B8),
@@ -1105,8 +1159,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         Text(
                           isVi ? 'MẬT KHẨU MỚI' : 'NEW PASSWORD',
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            color: Color(0xFF00E5FF),
+                            fontFamily: 'Plus Jakarta Sans',
+                            color: Color(0xFFA8DCE7),
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.5,
@@ -1118,7 +1172,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           obscureText: _obscurePassword,
                           onChanged: (_) => setState(() {}),
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -1128,7 +1182,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                 ? 'Tối thiểu 8 ký tự'
                                 : 'At least 8 characters',
                             hintStyle: const TextStyle(
-                              fontFamily: 'Outfit',
+                              fontFamily: 'Plus Jakarta Sans',
                               color: Color(0xFF4A5B73),
                               fontSize: 14,
                             ),
@@ -1136,7 +1190,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             fillColor: const Color(0xFF0F1826),
                             prefixIcon: const Icon(
                               Icons.lock_outline_rounded,
-                              color: Color(0xFF00E5FF),
+                              color: Color(0xFFA8DCE7),
                               size: 20,
                             ),
                             suffixIcon: IconButton(
@@ -1166,7 +1220,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: const BorderSide(
-                                color: Color(0xFF00E5FF),
+                                color: Color(0xFFA8DCE7),
                                 width: 1.5,
                               ),
                             ),
@@ -1199,8 +1253,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         Text(
                           isVi ? 'XÁC NHẬN MẬT KHẨU' : 'CONFIRM PASSWORD',
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            color: Color(0xFF00E5FF),
+                            fontFamily: 'Plus Jakarta Sans',
+                            color: Color(0xFFA8DCE7),
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.5,
@@ -1212,7 +1266,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           obscureText: _obscureConfirmPassword,
                           onChanged: (_) => setState(() {}),
                           style: const TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -1222,7 +1276,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                 ? 'Nhập lại mật khẩu mới'
                                 : 'Repeat new password',
                             hintStyle: const TextStyle(
-                              fontFamily: 'Outfit',
+                              fontFamily: 'Plus Jakarta Sans',
                               color: Color(0xFF4A5B73),
                               fontSize: 14,
                             ),
@@ -1230,7 +1284,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             fillColor: const Color(0xFF0F1826),
                             prefixIcon: const Icon(
                               Icons.verified_user_outlined,
-                              color: Color(0xFF00E5FF),
+                              color: Color(0xFFA8DCE7),
                               size: 20,
                             ),
                             suffixIcon: IconButton(
@@ -1261,7 +1315,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: const BorderSide(
-                                color: Color(0xFF00E5FF),
+                                color: Color(0xFFA8DCE7),
                                 width: 1.5,
                               ),
                             ),
@@ -1321,7 +1375,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   child: Text(
                                     _errorMessage!,
                                     style: const TextStyle(
-                                      fontFamily: 'Outfit',
+                                      fontFamily: 'Plus Jakarta Sans',
                                       color: Color(0xFFFFB3C3),
                                       fontSize: 12,
                                     ),
@@ -1359,7 +1413,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   child: Text(
                                     _successMessage!,
                                     style: const TextStyle(
-                                      fontFamily: 'Outfit',
+                                      fontFamily: 'Plus Jakarta Sans',
                                       color: Color(0xFFB3FFDE),
                                       fontSize: 12,
                                     ),
@@ -1378,7 +1432,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [
-                                Color(0xFF00E5FF),
+                                Color(0xFFA8DCE7),
                                 Color(0xFF2AF598),
                               ],
                             ),
@@ -1407,7 +1461,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.2,
                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF070B14),
+                                        Color(0xFF09181C),
                                       ),
                                     ),
                                   )
@@ -1419,17 +1473,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                             ? 'CẬP NHẬT MẬT KHẨU'
                                             : 'UPDATE PASSWORD',
                                         style: const TextStyle(
-                                          fontFamily: 'Outfit',
+                                          fontFamily: 'Plus Jakarta Sans',
                                           fontSize: 14,
                                           fontWeight: FontWeight.w900,
                                           letterSpacing: 1.2,
-                                          color: Color(0xFF070B14),
+                                          color: Color(0xFF09181C),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
                                       const Icon(
                                         Icons.check_rounded,
-                                        color: Color(0xFF070B14),
+                                        color: Color(0xFF09181C),
                                         size: 18,
                                       ),
                                     ],

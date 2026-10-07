@@ -16,7 +16,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
 
     return LegalDocumentLayout(
       title: title,
-      lastUpdated: 'July 2026',
+      lastUpdated: currentLang == AppLanguage.vi ? 'Tháng 7, 2026' : 'July 2026',
       sections: sections,
       lang: currentLang,
       showDisclaimer: true,

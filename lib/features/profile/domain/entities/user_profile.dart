@@ -44,17 +44,26 @@ class UserProfile with _$UserProfile {
     }
   }
 
-  // Calculate calories burned for distance-based activities.
+  // Calculate calories burned for distance-based activities or time-based MET fallback.
   double calculateCalories({
     required String activityType,
     required double distanceKm,
     double speedKmh = 0,
+    int durationSec = 0,
   }) {
     final genderFactor = gender.toLowerCase() == 'female' ? 0.95 : 1.0;
-    if (distanceKm <= 0) return 0;
-    if (!_isDistanceBasedActivity(activityType)) return 0;
-    final k = _getDistanceCalorieFactor(activityType, speedKmh);
-    return weightKg * distanceKm * k * genderFactor;
+    if (distanceKm > 0 && _isDistanceBasedActivity(activityType)) {
+      final k = _getDistanceCalorieFactor(activityType, speedKmh);
+      return weightKg * distanceKm * k * genderFactor;
+    }
+
+    if (durationSec > 0) {
+      final met = _getMetForActivity(activityType);
+      final durationHours = durationSec / 3600.0;
+      return met * weightKg * durationHours * genderFactor;
+    }
+
+    return 0;
   }
 
   bool _isDistanceBasedActivity(String activityType) {
@@ -66,6 +75,17 @@ class UserProfile with _$UserProfile {
       default:
         return false;
     }
+  }
+
+  double _getMetForActivity(String activityType) {
+    final type = activityType.toLowerCase();
+    if (type.contains('run')) return 9.8;
+    if (type.contains('cycl') || type.contains('bike')) return 7.5;
+    if (type.contains('walk')) return 3.8;
+    if (type.contains('swim')) return 8.0;
+    if (type.contains('yoga')) return 3.0;
+    if (type.contains('strength') || type.contains('gym') || type.contains('weight')) return 5.0;
+    return 4.5;
   }
 
   double _getDistanceCalorieFactor(String activityType, double speedKmh) {

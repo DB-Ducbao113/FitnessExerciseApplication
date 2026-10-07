@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -76,11 +76,11 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
     super.dispose();
   }
 
-  Color get _accentColor {
+  Color _getAccentColor(KineticColors colors) {
     final type = widget.activityType.toLowerCase();
-    if (type == 'cycling') return AetronColors.blue;
-    if (type == 'walking') return AetronColors.mint;
-    return AetronColors.cyan;
+    if (type == 'cycling') return const Color(0xFF39B5F2);
+    if (type == 'walking') return const Color(0xFF4EBE9E);
+    return colors.primary;
   }
 
   IconData get _activityIcon {
@@ -92,42 +92,43 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.kinetic;
     final isVi = widget.currentLang == AppLanguage.vi;
-    final accent = _accentColor;
+    final accent = _getAccentColor(colors);
 
     final String statusText;
     final String subText;
 
     if (widget.isLockingGps) {
-      statusText = isVi ? 'ĐANG KHÓA TÍN HIỆU GPS' : 'LOCKING GPS SATELLITES';
+      statusText = isVi ? 'ĐANG KẾT NỐI GPS' : 'CONNECTING GPS';
       subText = isVi
-          ? 'Đang kết nối vệ tinh với độ chính xác cao nhất...'
-          : 'Connecting to high-precision satellite telemetry...';
+          ? 'Đang xác định vị trí chính xác...'
+          : 'Acquiring precise satellite location...';
     } else {
       switch (widget.countdown) {
         case 3:
-          statusText = isVi ? 'CHUẨN BỊ XUẤT PHÁT' : 'GET READY';
+          statusText = isVi ? 'CHUẨN BỊ' : 'GET READY';
           subText = isVi
-              ? 'Hít thở sâu & sẵn sàng tư thế...'
-              : 'Take a deep breath & find your posture...';
+              ? 'Hít thở sâu & chuẩn bị tư thế...'
+              : 'Take a deep breath & get ready...';
           break;
         case 2:
-          statusText = isVi ? 'HIỆU CHUẨN CẢM BIẾN' : 'SENSORS CALIBRATED';
+          statusText = isVi ? 'SẴN SÀNG' : 'STEADY';
           subText = isVi
-              ? 'Đã bật viễn trắc đo bước & GPS...'
-              : 'Telemetry & motion sensors ready...';
+              ? 'GPS và cảm biến đã sẵn sàng...'
+              : 'Sensors and GPS ready...';
           break;
         case 1:
-          statusText = isVi ? 'SẴN SÀNG BỨT PHÁ' : 'SET YOUR PACE';
+          statusText = isVi ? 'XUẤT PHÁT' : 'SET';
           subText = isVi
-              ? 'Bắt đầu đếm nhịp trong 1 giây!'
-              : 'Starting session in 1 second!';
+              ? 'Bắt đầu trong 1 giây!'
+              : 'Starting in 1 second!';
           break;
         default:
-          statusText = isVi ? 'XUẤT PHÁT NGAY!' : 'GO! PUSH YOUR LIMITS!';
+          statusText = isVi ? 'BẮT ĐẦU!' : 'GO!';
           subText = isVi
-              ? 'Chinh phục mục tiêu hôm nay!'
-              : 'Unleash your maximum performance!';
+              ? 'Chúc bạn một buổi tập tuyệt vời!'
+              : 'Have a great workout!';
           break;
       }
     }
@@ -136,7 +137,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
       onTap: widget.onSkip,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        color: AetronColors.voidBlack.withValues(alpha: 0.88),
+        color: colors.background.withValues(alpha: 0.90),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -203,7 +204,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         Text(
                           widget.activityType.toUpperCase(),
                           style: TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: accent,
@@ -304,7 +305,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                                   : 'GO!',
                               key: ValueKey(widget.countdown),
                               style: TextStyle(
-                                fontFamily: 'Outfit',
+                                fontFamily: 'Plus Jakarta Sans',
                                 fontSize: widget.countdown > 0 ? 88 : 58,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
@@ -338,7 +339,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                           statusText,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                             color: accent,
@@ -349,10 +350,10 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         Text(
                           subText,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
+                          style: TextStyle(
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 13,
-                            color: AetronColors.textSecondary,
+                            color: colors.textSecondary,
                             height: 1.4,
                           ),
                         ),
@@ -369,10 +370,10 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF141C2E).withValues(alpha: 0.8),
+                      color: colors.surface2.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: AetronColors.borderSubtle,
+                        color: colors.borderSubtle,
                       ),
                     ),
                     child: Row(
@@ -385,9 +386,9 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          isVi ? 'CHẠM ĐỂ BỎ QUA VÀ CHẠY NGAY' : 'TAP TO START IMMEDIATELY',
+                          isVi ? 'CHẠM ĐỂ BẮT ĐẦU NGAY' : 'TAP TO START IMMEDIATELY',
                           style: TextStyle(
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: accent.withValues(alpha: 0.9),

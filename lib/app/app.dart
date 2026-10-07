@@ -11,6 +11,8 @@ import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
+
 class AetronTheme {
   const AetronTheme._();
 
@@ -125,16 +127,21 @@ class AetronTheme {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       navigatorKey: aetronNavigatorKey,
       title: 'Aetron',
-      theme: AetronTheme.darkTheme,
+      theme: KineticTheme.lightTheme,
+      darkTheme: KineticTheme.darkTheme,
+      themeMode: themeMode,
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const KineticScrollBehavior(),
       home: const NotificationLifecycleObserver(
         child: AuthWrapper(),
       ),
@@ -187,7 +194,7 @@ class _NotificationLifecycleObserverState
     final useMetric = ref.read(metricUnitsPreferenceProvider).value ?? true;
 
     NotificationScheduler.refreshSchedules(
-      notificationsEnabled: settings.workoutRemindersEnabled,
+      notificationsEnabled: settings.notificationsEnabled,
       workoutRemindersEnabled: settings.workoutRemindersEnabled,
       morningReminderTime: settings.morningTime,
       goalProgressEnabled: settings.goalProgressEnabled,

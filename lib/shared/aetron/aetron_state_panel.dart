@@ -1,24 +1,30 @@
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum AetronStateTone { error, offline }
 
-class AetronStatePanel extends StatelessWidget {
+class AetronStatePanel extends ConsumerWidget {
   const AetronStatePanel({
     super.key,
     required this.title,
     required this.message,
     required this.tone,
+    this.retryLabel,
     this.onRetry,
   });
 
   final String title;
   final String message;
   final AetronStateTone tone;
+  final String? retryLabel;
   final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(appLanguageProvider);
+    final isVi = lang == AppLanguage.vi;
     final isOffline = tone == AetronStateTone.offline;
     final accent = isOffline ? AetronColors.gold : AetronColors.danger;
     final icon = isOffline
@@ -67,7 +73,9 @@ class AetronStatePanel extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 19),
-                label: const Text('RETRY'),
+                label: Text(
+                  (retryLabel ?? (isVi ? 'THỬ LẠI' : 'RETRY')).toUpperCase(),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: accent,
                   side: BorderSide(color: accent.withValues(alpha: 0.6)),
@@ -84,11 +92,14 @@ class AetronStatePanel extends StatelessWidget {
   }
 }
 
-class AetronOfflineBanner extends StatelessWidget {
+class AetronOfflineBanner extends ConsumerWidget {
   const AetronOfflineBanner({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(appLanguageProvider);
+    final isVi = lang == AppLanguage.vi;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -97,16 +108,18 @@ class AetronOfflineBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AetronColors.gold.withValues(alpha: 0.34)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.cloud_off_rounded, color: AetronColors.gold, size: 17),
-          SizedBox(width: 8),
+          const Icon(Icons.cloud_off_rounded, color: AetronColors.gold, size: 17),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'OFFLINE MODE - SHOWING SAVED DATA',
-              style: TextStyle(
+              isVi
+                  ? 'CHẾ ĐỘ NGOẠI TUYẾN - HIỂN THỊ DỮ LIỆU ĐÃ LƯU'
+                  : 'OFFLINE MODE - SHOWING SAVED DATA',
+              style: const TextStyle(
                 color: AetronColors.gold,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.8,
               ),

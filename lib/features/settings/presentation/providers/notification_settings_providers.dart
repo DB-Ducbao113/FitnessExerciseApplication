@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +16,7 @@ const kQuietHoursEndPrefKey = 'settings.notifications.quiet_hours_end';
 
 class NotificationSettingsData {
   const NotificationSettingsData({
+    required this.notificationsEnabled,
     required this.workoutRemindersEnabled,
     required this.morningTime,
     required this.goalProgressEnabled,
@@ -28,6 +30,7 @@ class NotificationSettingsData {
     required this.quietHoursEnd,
   });
 
+  final bool notificationsEnabled;
   final bool workoutRemindersEnabled;
   final String morningTime;
   final bool goalProgressEnabled;
@@ -45,6 +48,7 @@ final notificationSettingsProvider =
     FutureProvider<NotificationSettingsData>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return NotificationSettingsData(
+    notificationsEnabled: prefs.getBool(kNotificationsPrefKey) ?? true,
     workoutRemindersEnabled: prefs.getBool(kWorkoutRemindersPrefKey) ?? true,
     morningTime: prefs.getString(kMorningTimePrefKey) ?? '08:00',
     goalProgressEnabled: prefs.getBool(kGoalProgressPrefKey) ?? true,

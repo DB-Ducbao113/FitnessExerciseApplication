@@ -1,3 +1,4 @@
+import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,8 @@ class AppProgressBar extends StatelessWidget {
     this.height = 6.0,
     this.borderRadius = AetronRadius.pill,
     this.showPercentage = false,
+    this.label,
+    this.lang,
   });
 
   final double progress; // 0.0 to 1.0
@@ -18,11 +21,14 @@ class AppProgressBar extends StatelessWidget {
   final double height;
   final double borderRadius;
   final bool showPercentage;
+  final String? label;
+  final AppLanguage? lang;
 
   @override
   Widget build(BuildContext context) {
     final clampedProgress = progress.clamp(0.0, 1.0);
     final effectiveTrack = trackColor ?? AetronColors.panelBright.withValues(alpha: 0.4);
+    final defaultLabel = lang == AppLanguage.vi ? 'TIẾN ĐỘ' : 'PROGRESS';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -33,7 +39,7 @@ class AppProgressBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'PROGRESS',
+                label ?? defaultLabel,
                 style: AetronTypography.label.copyWith(
                   color: AetronColors.textSecondary,
                 ),
