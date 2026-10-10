@@ -1,18 +1,56 @@
 name: Deploy Flutter Web to Vercel
 
+# Pipeline design:
+#   push (main / feat branch) -> lint + test + build ONLY (no deployment)
+#   workflow_dispatch        -> lint + test + build -> human-triggered production deploy
+# Production deploys therefore never happen automatically: they require an
+# explicit "Run workflow" action (and, once configured, an approval on the
+# `production` environment — see the `environment:` key on the deploy job).
+#
+# NOTE: no `pull_request` trigger on purpose — fork PRs must never gain access
+# to build/deploy secrets.
+
 on:
   push:
     branches:
       - main
+      - feat/gps-pipeline-state-refactor
   workflow_dispatch:
 
+# Least privilege: this workflow only reads the repository.
+permissions:
+  contents: read
+
+# One pipeline at a time per ref; never cancel a deployment in flight.
+concurrency:
+  group: deploy-vercel-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
+    name: 🔍 Lint, test & build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
+
+      - name: 🔐 Preflight — required build secrets present?
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          missing=0
+          for name in SUPABASE_URL SUPABASE_ANON_KEY GOOGLE_WEB_CLIENT_ID GOOGLE_IOS_CLIENT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing GitHub Actions secret::$name is not configured (Settings -> Secrets and variables -> Actions). The value is never printed."
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: 🐦 Setup Flutter SDK
         uses: subosito/flutter-action@v2
@@ -24,12 +62,18 @@ jobs:
       - name: 📦 Install Dependencies
         run: flutter pub get
 
+      - name: 🔍 Static Analysis (quality gate)
+        run: flutter analyze
+
+      - name: 🧪 Tests (quality gate)
+        run: flutter test
+
       - name: 🔨 Build Flutter Web Release
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://xsqptdzselqyefpmdozz.supabase.co' }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzcXB0ZHpzZWxxeWVmcG1kb3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNjU4MjEsImV4cCI6MjA4NTg0MTgyMX0.MfdUQpEDB4m5d7xv4wmjKf52sRmapewG-r1ecW6Hndk' }}
-          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID || '741155040974-vj5atqn3ev6ehnnd15k1a93hi2thkj0o.apps.googleusercontent.com' }}
-          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID || '741155040974-jvfb8ca41otk67f9pp1st5aqcp3mdqn9.apps.googleusercontent.com' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
         run: |
           flutter build web --release \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
@@ -37,15 +81,90 @@ jobs:
             --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
             --dart-define=GOOGLE_IOS_CLIENT_ID="$GOOGLE_IOS_CLIENT_ID"
 
-      - name: 📋 Copy Vercel Configuration to Build Output
+      - name: 📋 Assemble Vercel Build Output API structure
         run: |
-          cp vercel.json build/web/vercel.json 2>/dev/null || true
+          mkdir -p .vercel/output/static
+          cp -R build/web/. .vercel/output/static/
+          cp tooling/vercel-output-config.json .vercel/output/config.json
+
+      - name: 📤 Upload prebuilt output (consumed by the deploy job)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-prebuilt
+          path: .vercel/output
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: 📝 Build job summary
+        if: always()
+        run: |
+          echo "### Build job: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Stages: checkout -> secret preflight -> pub get -> analyze -> test -> build web -> assemble Vercel output" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: 🚀 Deploy to Vercel (production)
+    needs: build                              # deploy only if analyze + tests + build ALL succeeded
+    if: github.event_name == 'workflow_dispatch'   # explicit confirmation required — no auto prod deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production                   # add "Required reviewers" in repo settings to force an approval
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Download prebuilt output
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-prebuilt
+          path: .vercel/output
+
+      - name: ✅ Verify prebuilt output integrity
+        run: |
+          fail=0
+          if [ ! -f .vercel/output/config.json ]; then
+            echo "::error title=Bad artifact::.vercel/output/config.json missing after download"
+            fail=1
+          fi
+          if [ ! -d .vercel/output/static ] || [ ! -f .vercel/output/static/index.html ]; then
+            echo "::error title=Bad artifact::.vercel/output/static/index.html missing after download"
+            fail=1
+          fi
+          exit "$fail"
+
+      - name: 🔐 Preflight — required Vercel secrets present?
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          missing=0
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing GitHub Actions secret::$name is not configured (Settings -> Secrets and variables -> Actions). The value is never printed. This is the check that replaces amondnet/vercel-action's 'Input required and not supplied: vercel-token'."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: 🔗 Write Vercel project linkage (from secrets, never echoed)
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
       - name: 🚀 Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./build/web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        # Pinned CLI version for reproducible deploys (bump deliberately).
+        # GitHub masks secret values in logs; the token is only ever read from
+        # this environment variable, never written into the repository.
+        run: npx --yes vercel@63.1.2 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+
+      - name: 📝 Deploy job summary
+        if: always()
+        run: |
+          echo "### Deploy job: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: ${{ github.event_name }} (production deploy runs only on workflow_dispatch)" >> "$GITHUB_STEP_SUMMARY"
