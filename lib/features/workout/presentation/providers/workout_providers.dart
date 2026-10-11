@@ -18,6 +18,12 @@ part 'workout_providers.g.dart';
 /// Workout List Provider
 @riverpod
 class WorkoutList extends _$WorkoutList {
+  /// Sessions finished on this device whose background remote save is still
+  /// in flight. They are merged into every fetch result so History and
+  /// Analytics show them immediately and keep showing them until the server
+  /// confirms them (server version then replaces the optimistic entry).
+  final List<WorkoutSession> _pendingLocalSessions = [];
+
   @override
   Future<List<WorkoutSession>> build() async {
     final user = ref.watch(currentUserIdProvider);
@@ -39,13 +45,39 @@ class WorkoutList extends _$WorkoutList {
       if (!kIsWeb) {
         await repository.replaceLocalCache(user, remoteSessions);
       }
-      return remoteSessions;
+      return _mergePendingLocalSessions(remoteSessions);
     } catch (e) {
       debugPrint('[WorkoutList] Remote fetch fallback to local: $e');
     }
 
     // 3. Fallback to local cache if offline or remote fetch failed
-    return await repository.getSessionsLocal(user);
+    return _mergePendingLocalSessions(
+      await repository.getSessionsLocal(user),
+    );
+  }
+
+  /// Shows a just-finished session in the list immediately, without waiting
+  /// for its background remote save (which can take tens of seconds; a plain
+  /// refetch would race the save and leave the list stale on web).
+  void insertLocalSession(WorkoutSession session) {
+    if (_pendingLocalSessions.any((s) => s.id == session.id)) return;
+    _pendingLocalSessions.insert(0, session);
+    state = AsyncData<List<WorkoutSession>>(
+      _mergePendingLocalSessions(state.valueOrNull ?? const []),
+    );
+  }
+
+  List<WorkoutSession> _mergePendingLocalSessions(
+    List<WorkoutSession> serverSessions,
+  ) {
+    final merged = [...serverSessions];
+    // Drop optimistic entries the server has now confirmed.
+    _pendingLocalSessions.removeWhere(
+      (pending) => merged.any((s) => s.id == pending.id),
+    );
+    merged.insertAll(0, _pendingLocalSessions);
+    merged.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return merged;
   }
 
   /// Refresh workout list
@@ -70,13 +102,15 @@ class WorkoutList extends _$WorkoutList {
         if (!kIsWeb) {
           await repository.replaceLocalCache(user, remoteSessions);
         }
-        return remoteSessions;
+        return _mergePendingLocalSessions(remoteSessions);
       } catch (e) {
         debugPrint('[WorkoutList.refresh] Remote fetch error, using local: $e');
       }
 
       // 3. Fallback to local cache
-      return await repository.getSessionsLocal(user);
+      return _mergePendingLocalSessions(
+        await repository.getSessionsLocal(user),
+      );
     });
   }
 
@@ -84,6 +118,7 @@ class WorkoutList extends _$WorkoutList {
   Future<void> deleteWorkout(String workoutId) async {
     final repository = ref.read(workoutRepositoryProvider);
     await repository.deleteSession(workoutId);
+    _pendingLocalSessions.removeWhere((s) => s.id == workoutId);
     ref.invalidateSelf();
   }
 
@@ -94,6 +129,7 @@ class WorkoutList extends _$WorkoutList {
 
     final repository = ref.read(workoutRepositoryProvider);
     await repository.deleteAllSessions(user);
+    _pendingLocalSessions.clear();
     ref.invalidateSelf();
   }
 

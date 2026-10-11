@@ -654,7 +654,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       } catch (e) {
         debugPrint('[Workout] Local session cache error: $e');
       }
-      _ref.invalidate(workoutListProvider);
+      // Show the finished session in History/Analytics right away instead of
+      // invalidating (the refetch would race the background remote save and
+      // return a list without this session on web).
+      _ref
+          .read(workoutListProvider.notifier)
+          .insertLocalSession(finalization.session);
 
       // 2. IMMEDIATELY transition state to finished so UI navigates to Summary
       // without waiting on slow network or remote database roundtrips.
