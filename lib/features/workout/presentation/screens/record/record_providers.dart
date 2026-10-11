@@ -728,22 +728,27 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       debugPrint('[Workout] Unauthenticated session saved locally only');
     }
 
-    try {
-      _recordingCoordinator.markRemoteWorkoutShellReady();
-      await _recordingCoordinator.flushPendingRawTracking(
-        workoutId: finalization.sessionId,
-        force: true,
-      );
-      _recordingCoordinator.queueLiveRouteSnapshot(
-        workoutId: finalization.sessionId,
-        routeSegments: routeSegments,
-        lastGpsGapDurationSec: lastGpsGapDurationSec,
-        isGpsSignalWeak: isGpsSignalWeak,
-      );
-      await _recordingCoordinator.syncLiveRouteSnapshot(force: true);
-    } catch (e) {
-      debugPrint('[Workout] Remote telemetry sync error: $e');
-    }
+    // Raw tracking flush runs independently (may throw on web due to no Isar);
+    // route snapshot must not be blocked by it.
+    unawaited(
+      _recordingCoordinator
+          .flushPendingRawTracking(
+            workoutId: finalization.sessionId,
+            force: true,
+          )
+          .catchError(
+            (e) =>
+                debugPrint('[Workout] RawTracking flush error: $e'),
+          ),
+    );
+    _recordingCoordinator.markRemoteWorkoutShellReady();
+    _recordingCoordinator.queueLiveRouteSnapshot(
+      workoutId: finalization.sessionId,
+      routeSegments: routeSegments,
+      lastGpsGapDurationSec: lastGpsGapDurationSec,
+      isGpsSignalWeak: isGpsSignalWeak,
+    );
+    await _recordingCoordinator.syncLiveRouteSnapshot(force: true);
 
     if (savedRemotely) {
       try {

@@ -219,6 +219,7 @@ class WorkoutRecordingCoordinator {
     required String workoutId,
     required bool force,
   }) async {
+    if (kIsWeb) return; // web has no Isar; raw points uploaded via live snapshot
     if (!_remoteWorkoutShellReady) return;
     if (_pendingRawGpsPoints.isEmpty && _pendingRawStepIntervals.isEmpty) {
       return;
