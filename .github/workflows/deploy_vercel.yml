@@ -147,13 +147,19 @@ jobs:
           done
           exit "$missing"
 
-      - name: 🔍 Diagnose Vercel API access (before deploy)
+      - name: 🔍 Diagnose Vercel API access & link project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          echo "Linking projectId=$VERCEL_PROJECT_ID orgId=$VERCEL_ORG_ID"
+          # Secrets pasted by hand often carry stray whitespace/newlines
+          # (which make URLs/JSON invalid). Tokens and IDs never contain
+          # legitimate whitespace - strip it defensively.
+          VERCEL_TOKEN=$(printf '%s' "$VERCEL_TOKEN" | tr -d '[:space:]')
+          VERCEL_ORG_ID=$(printf '%s' "$VERCEL_ORG_ID" | tr -d '[:space:]')
+          VERCEL_PROJECT_ID=$(printf '%s' "$VERCEL_PROJECT_ID" | tr -d '[:space:]')
+          echo "Linking projectId=$VERCEL_PROJECT_ID orgId=$VERCEL_ORG_ID (token length ${#VERCEL_TOKEN})"
           if ! npx --yes vercel@63.1.2 whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
             echo "::warning title=whoami inconclusive::vercel whoami could not resolve a user for this token. This is NORMAL for team-scoped or granular tokens and does NOT mean the token is invalid - the project API probe below is the authoritative check."
           else
@@ -161,23 +167,19 @@ jobs:
           fi
           code=$(curl -s -o /tmp/vercel_probe.json -w "%{http_code}" --max-time 20 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID") || code="curl-exit-$?"
           echo "Project settings probe HTTP status: $code"
           case "$code" in
-            200) echo "Token can read the project - linkage OK.";;
+            200)
+              echo "Token can read the project - linkage OK."
+              mkdir -p .vercel
+              printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+              ;;
             401) echo "::error title=HTTP 401::VERCEL_TOKEN was rejected (invalid or revoked). Recreate the token and update the VERCEL_TOKEN secret."; exit 1;;
-            403) echo "::error title=HTTP 403::Token is valid but has NO ACCESS to this team project. Recreate the token with TEAM scope (vercel.com -> your team -> Settings -> Tokens, or scope 'All teams' on token creation) and update VERCEL_TOKEN. If it is a fine-grained token, grant Projects read + Deployments write."; exit 1;;
-            404) echo "::error title=HTTP 404::Project not visible to this token: check VERCEL_PROJECT_ID/VERCEL_ORG_ID secrets match .vercel/repo.json (expected projectId prj_8arwUQrc9hKH1WDG65OwgLNtu9Xf, orgId team_a1d2s7caXDI2Zvd0dKGwlvsh), or the token belongs to another account."; exit 1;;
-            *)   echo "::error title=HTTP $code::Unexpected Vercel API response: $(head -c 300 /tmp/vercel_probe.json | tr '\n' ' ')"; exit 1;;
+            403) echo "::error title=HTTP 403::Token is valid but has NO ACCESS to this team project. Your Vercel account must be a Member of the owning team (team_a1d2s7caXDI2Zvd0dKGwlvsh) - ask the team owner for an invite, accept it, then retry (Full Account tokens pick up team membership automatically)."; exit 1;;
+            404) echo "::error title=HTTP 404::Project not visible: either the VERCEL_PROJECT_ID/VERCEL_ORG_ID secrets are wrong (expected projectId prj_8arwUQrc9hKH1WDG65OwgLNtu9Xf, orgId team_a1d2s7caXDI2Zvd0dKGwlvsh) or the token's Vercel account is not a member of the owning team."; exit 1;;
+            *)   echo "::error title=Probe failed ($code)::curl/api failure. curl exit 3 = malformed URL (check the ID secrets for stray characters); other codes = network/proxy issue. Body: $(head -c 300 /tmp/vercel_probe.json 2>/dev/null | tr '\n' ' ')"; exit 1;;
           esac
-
-      - name: 🔗 Write Vercel project linkage (from secrets, never echoed)
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          mkdir -p .vercel
-          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
       - name: 🚀 Deploy to Vercel
         env:
