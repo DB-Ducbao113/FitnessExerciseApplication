@@ -756,6 +756,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       } catch (e) {
         debugPrint('[Workout] Remote job enqueue error: $e');
       }
+      // The row now exists on the server: refresh the shared workout list so
+      // History/Analytics/Home show this session without requiring an app
+      // reload (the invalidate in stopWorkout runs before the remote save).
+      if (mounted) {
+        _ref.invalidate(workoutListProvider);
+      }
     } else {
       debugPrint(
         '[Workout] Skipping job enqueue — session not saved to Supabase yet',
