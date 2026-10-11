@@ -147,6 +147,30 @@ jobs:
           done
           exit "$missing"
 
+      - name: 🔍 Diagnose Vercel API access (before deploy)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "Linking projectId=$VERCEL_PROJECT_ID orgId=$VERCEL_ORG_ID"
+          if ! npx --yes vercel@63.1.2 whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
+            echo "::error title=Invalid Vercel token::whoami failed - VERCEL_TOKEN is not a valid/active token. Recreate it at vercel.com -> Account Settings -> Tokens and update the VERCEL_TOKEN secret."
+            exit 1
+          fi
+          echo "Token identity: OK (account email withheld from logs)"
+          code=$(curl -s -o /tmp/vercel_probe.json -w "%{http_code}" --max-time 20 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
+          echo "Project settings probe HTTP status: $code"
+          case "$code" in
+            200) echo "Token can read the project - linkage OK.";;
+            401) echo "::error title=HTTP 401::VERCEL_TOKEN was rejected (invalid or revoked). Recreate the token and update the VERCEL_TOKEN secret."; exit 1;;
+            403) echo "::error title=HTTP 403::Token is valid but has NO ACCESS to this team project. Recreate the token with TEAM scope (vercel.com -> your team -> Settings -> Tokens, or scope 'All teams' on token creation) and update VERCEL_TOKEN. If it is a fine-grained token, grant Projects read + Deployments write."; exit 1;;
+            404) echo "::error title=HTTP 404::Project not visible to this token: check VERCEL_PROJECT_ID/VERCEL_ORG_ID secrets match .vercel/repo.json (expected projectId prj_8arwUQrc9hKH1WDG65OwgLNtu9Xf, orgId team_a1d2s7caXDI2Zvd0dKGwlvsh), or the token belongs to another account."; exit 1;;
+            *)   echo "::error title=HTTP $code::Unexpected Vercel API response: $(head -c 300 /tmp/vercel_probe.json | tr '\n' ' ')"; exit 1;;
+          esac
+
       - name: 🔗 Write Vercel project linkage (from secrets, never echoed)
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
