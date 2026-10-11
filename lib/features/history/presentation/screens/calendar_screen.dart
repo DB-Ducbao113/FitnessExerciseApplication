@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/daily_workout_list.dart';
@@ -7,6 +9,7 @@ import 'package:fitness_exercise_application/features/history/presentation/widge
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_telemetry_bento.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_top_bar.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
@@ -117,6 +120,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final isOffline = ref.watch(appConnectionProvider).valueOrNull == false;
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
+
+    // A just-finished workout is saved to the cloud in the background, often
+    // after the record controller was disposed (its late invalidate is
+    // skipped). Refresh whenever this tab (index 2) becomes active so the new
+    // session always shows up without requiring an app reload.
+    ref.listen(mainTabControllerProvider, (previous, next) {
+      if (previous != next && next == 2) {
+        unawaited(ref.read(workoutListProvider.notifier).refresh());
+      }
+    });
 
     return Scaffold(
       backgroundColor: colors.background,

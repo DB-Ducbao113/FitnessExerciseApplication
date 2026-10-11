@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
@@ -13,6 +15,7 @@ import 'package:fitness_exercise_application/features/analytics/presentation/wid
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
@@ -58,6 +61,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final isOffline = ref.watch(appConnectionProvider).valueOrNull == false;
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
+
+    // Same as History: refresh the shared workout list whenever this tab
+    // (index 3) becomes active so sessions saved by the record flow's
+    // background sync appear without requiring an app reload.
+    ref.listen(mainTabControllerProvider, (previous, next) {
+      if (previous != next && next == 3) {
+        unawaited(ref.read(workoutListProvider.notifier).refresh());
+      }
+    });
 
     return Scaffold(
       backgroundColor: colors.background,
