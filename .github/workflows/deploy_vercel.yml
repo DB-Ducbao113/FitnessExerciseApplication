@@ -155,10 +155,10 @@ jobs:
         run: |
           echo "Linking projectId=$VERCEL_PROJECT_ID orgId=$VERCEL_ORG_ID"
           if ! npx --yes vercel@63.1.2 whoami --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
-            echo "::error title=Invalid Vercel token::whoami failed - VERCEL_TOKEN is not a valid/active token. Recreate it at vercel.com -> Account Settings -> Tokens and update the VERCEL_TOKEN secret."
-            exit 1
+            echo "::warning title=whoami inconclusive::vercel whoami could not resolve a user for this token. This is NORMAL for team-scoped or granular tokens and does NOT mean the token is invalid - the project API probe below is the authoritative check."
+          else
+            echo "Token identity: OK (account email withheld from logs)"
           fi
-          echo "Token identity: OK (account email withheld from logs)"
           code=$(curl -s -o /tmp/vercel_probe.json -w "%{http_code}" --max-time 20 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
