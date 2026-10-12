@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/daily_workout_list.dart';
@@ -7,6 +9,7 @@ import 'package:fitness_exercise_application/features/history/presentation/widge
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_telemetry_bento.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_top_bar.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
@@ -18,9 +21,7 @@ final historyRangeProvider = StateProvider<HistoryRange>(
   (ref) => HistoryRange.all,
 );
 
-final historyActivityFilterProvider = StateProvider<String>(
-  (ref) => 'all',
-);
+final historyActivityFilterProvider = StateProvider<String>((ref) => 'all');
 
 enum HistoryRange { all, week, month, year }
 
@@ -118,6 +119,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
+    // A just-finished workout is saved to the cloud in the background, often
+    // after the record controller was disposed (its late invalidate is
+    // skipped). Refresh whenever this tab (index 2) becomes active so the new
+    // session always shows up without requiring an app reload.
+    ref.listen(mainTabControllerProvider, (previous, next) {
+      if (previous != next && next == 2) {
+        unawaited(ref.read(workoutListProvider.notifier).refresh());
+      }
+    });
+
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -155,10 +166,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     final filtered = activityFilter == 'all'
                         ? timeFiltered
                         : timeFiltered
-                            .where((w) =>
-                                w.activityType.toLowerCase() ==
-                                activityFilter.toLowerCase())
-                            .toList();
+                              .where(
+                                (w) =>
+                                    w.activityType.toLowerCase() ==
+                                    activityFilter.toLowerCase(),
+                              )
+                              .toList();
 
                     final summary = _computeSummary(filtered);
 
@@ -180,8 +193,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           currentLang: currentLang,
                           onSelected: (val) {
                             ref
-                                .read(historyActivityFilterProvider.notifier)
-                                .state = val;
+                                    .read(
+                                      historyActivityFilterProvider.notifier,
+                                    )
+                                    .state =
+                                val;
                           },
                         ),
                         const SizedBox(height: 10),
@@ -224,8 +240,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.error_outline_rounded,
-                                size: 40, color: colors.error),
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 40,
+                              color: colors.error,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               currentLang == AppLanguage.vi

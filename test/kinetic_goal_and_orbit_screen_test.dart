@@ -101,6 +101,55 @@ void main() {
   });
 
   group('AetronGlobeOrbitScreen Visualizer Tests', () {
+    testWidgets('fits the complete loading HUD on a compact iPhone viewport', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        buildTestable(
+          const AetronGlobeOrbitScreen(
+            customTitle: 'Aetron',
+            customSubtitle: 'Synchronizing system data...',
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Aetron'), findsOneWidget);
+      expect(find.text('Synchronizing system data...'), findsOneWidget);
+      expect(find.text('12 GPS'), findsOneWidget);
+      expect(find.text('20,200 KM'), findsOneWidget);
+    });
+
+    testWidgets(
+      'completes once without prolonged motion when animations are disabled',
+      (tester) async {
+        var completionCount = 0;
+
+        await tester.pumpWidget(
+          buildTestable(
+            MediaQuery(
+              data: const MediaQueryData(disableAnimations: true),
+              child: AetronGlobeOrbitScreen(
+                duration: const Duration(seconds: 10),
+                onComplete: () => completionCount += 1,
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(completionCount, 1);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(completionCount, 1);
+      },
+    );
+
     testWidgets('renders 3D orbit telemetry HUD and brand typography in dark theme', (tester) async {
       await tester.pumpWidget(
         buildTestable(

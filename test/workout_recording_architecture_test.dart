@@ -205,7 +205,7 @@ void main() {
     test('finalizes canonical distance, speed and timestamps', () {
       final state = WorkoutSessionState(
         status: RecordingState.stopping,
-        sessionId: 'session-1',
+        sessionId: '11111111-1111-4111-8111-111111111111',
         activityType: 'Running',
         trackingMode: 'outdoor',
         recordingSource: 'gps',
@@ -229,7 +229,7 @@ void main() {
         ],
       );
 
-      expect(result.session.id, 'session-1');
+      expect(result.session.id, '11111111-1111-4111-8111-111111111111');
       expect(result.session.distanceKm, closeTo(5.0, 0.0001));
       expect(result.avgSpeedKmh, closeTo(10.0, 0.0001));
       expect(result.session.steps, 6200);
@@ -270,6 +270,43 @@ void main() {
       expect(result.session.id, isNotEmpty);
       expect(result.session.routeMatchStatus, 'pending');
       expect(result.session.routeDistanceSource, 'filtered');
+    });
+
+    test('replaces a non-UUID session id with a valid UUID', () {
+      // Regression: workout_sessions.id is a Postgres uuid column. Finalizing
+      // with a raw epoch string made the Supabase upsert fail with
+      // "invalid input syntax for type uuid", silently losing the workout.
+      final state = WorkoutSessionState(
+        status: RecordingState.stopping,
+        sessionId: 'session-1',
+        activityType: 'Running',
+        trackingMode: 'outdoor',
+        recordingSource: 'gps',
+        durationSeconds: 300,
+        distanceMeters: 1000,
+      );
+
+      final result = finalizer.finalize(
+        state: state,
+        userId: 'user-1',
+        finishedAt: DateTime.utc(2026, 4, 14, 10, 0),
+        caloriesBurned: 50,
+        fallbackStrideLengthMeters: 0.8,
+        trackingEngine: trackingEngine,
+        rawGpsPositions: const [],
+        filteredRouteSegments: const [],
+      );
+
+      expect(
+        result.session.id,
+        matches(
+          RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+            r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+          ),
+        ),
+      );
+      expect(result.sessionId, result.session.id);
     });
 
     test('serializes filtered route segments into filteredRouteJson', () {

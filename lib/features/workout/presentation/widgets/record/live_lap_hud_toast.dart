@@ -175,9 +175,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                   child: Center(
                     child: Text(
                       '${split.index}',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 18,
+                      style: KineticTypography.headlineSmall.copyWith(
                         fontWeight: FontWeight.w900,
                         color: deltaColor,
                       ),
@@ -194,9 +192,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                     children: [
                       Text(
                         lapTitle,
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 11,
+                        style: KineticTypography.unitLabel.copyWith(
                           fontWeight: FontWeight.w800,
                           color: deltaColor,
                           letterSpacing: 1.1,
@@ -207,10 +203,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                         children: [
                           Text(
                             paceStr,
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
+                            style: KineticTypography.metricSmall.copyWith(
                               color: colors.textPrimary,
                               height: 1.1,
                             ),
@@ -218,9 +211,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                           const SizedBox(width: 6),
                           Text(
                             isVi ? 'Pace chặng' : 'Split Pace',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 11,
+                            style: KineticTypography.caption.copyWith(
                               fontWeight: FontWeight.w600,
                               color: colors.textSecondary.withValues(alpha: 0.8),
                             ),
@@ -236,9 +227,7 @@ class _LiveLapHudToastState extends State<LiveLapHudToast>
                             Expanded(
                               child: Text(
                                 deltaText,
-                                style: TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 11,
+                                style: KineticTypography.unitLabel.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: deltaColor,
                                 ),
@@ -335,9 +324,7 @@ class LiveDeltaPaceGauge extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             statusText,
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 11,
+            style: KineticTypography.unitLabel.copyWith(
               fontWeight: FontWeight.w800,
               color: statusColor,
               letterSpacing: 0.4,

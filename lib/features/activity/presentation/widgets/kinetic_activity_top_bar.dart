@@ -27,7 +27,12 @@ class KineticActivityTopBar extends StatelessWidget {
     final isGpsReady = hasLocationPermission && gpsEnabled;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+      padding: const EdgeInsets.fromLTRB(
+        KineticTokens.page,
+        14,
+        KineticTokens.page,
+        10,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -36,9 +41,6 @@ class KineticActivityTopBar extends StatelessWidget {
             child: Text(
               isVi ? 'Chọn bộ môn' : 'Select Activity',
               style: KineticTypography.pageTitle.copyWith(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
                 color: colors.textPrimary,
               ),
               maxLines: 1,
@@ -86,8 +88,6 @@ class KineticActivityTopBar extends StatelessWidget {
               isVi ? 'DÒ GPS' : 'SEARCHING',
               style: KineticTypography.unitLabel.copyWith(
                 color: colors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -138,7 +138,6 @@ class KineticActivityTopBar extends StatelessWidget {
                   isVi ? 'GPS SẴN SÀNG' : 'GPS READY',
                   style: KineticTypography.unitLabel.copyWith(
                     color: colors.primary,
-                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -177,7 +176,6 @@ class KineticActivityTopBar extends StatelessWidget {
                 isVi ? 'BẬT GPS' : 'ENABLE GPS',
                 style: KineticTypography.unitLabel.copyWith(
                   color: colors.tertiary,
-                  fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -209,8 +207,6 @@ class KineticActivityTopBar extends StatelessWidget {
             isVi ? 'TRONG NHÀ' : 'INDOOR',
             style: KineticTypography.unitLabel.copyWith(
               color: colors.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],

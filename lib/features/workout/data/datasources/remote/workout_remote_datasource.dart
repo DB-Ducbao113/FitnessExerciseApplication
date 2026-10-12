@@ -119,12 +119,12 @@ class WorkoutRemoteDataSource {
       debugPrint(
         '[WorkoutRemoteDataSource] getSessionsByUser error: ${e.message}',
       );
-      return [];
+      rethrow;
     } catch (e) {
       debugPrint(
         '[WorkoutRemoteDataSource] getSessionsByUser unexpected error: $e',
       );
-      return [];
+      rethrow;
     }
   }
 

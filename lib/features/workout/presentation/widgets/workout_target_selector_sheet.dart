@@ -140,19 +140,14 @@ class _WorkoutTargetSelectorSheetState
                       children: [
                         Text(
                           isVi ? 'THIẾT LẬP MỤC TIÊU' : 'SET WORKOUT TARGET',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
+                          style: KineticTypography.pageEyebrow.copyWith(
                             color: accent,
                             letterSpacing: 1.2,
                           ),
                         ),
                         Text(
                           isVi ? 'Chọn mục tiêu buổi tập' : 'Select Session Goal',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 17,
+                          style: KineticTypography.headlineSmall.copyWith(
                             fontWeight: FontWeight.w900,
                             color: colors.textPrimary,
                           ),
@@ -253,7 +248,6 @@ class _WorkoutTargetSelectorSheetState
                 child: Text(
                   isVi ? 'XÁC NHẬN MỤC TIÊU' : 'CONFIRM TARGET',
                   style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,
@@ -316,9 +310,7 @@ class _WorkoutTargetSelectorSheetState
               const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 11,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight:
                       isSelected ? FontWeight.w900 : FontWeight.w700,
                   color: isSelected ? Colors.white : colors.textSecondary,
@@ -356,9 +348,7 @@ class _WorkoutTargetSelectorSheetState
               children: [
                 Text(
                   isVi ? 'Chạy Tự Do (Free Workout)' : 'Free Workout',
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 14,
+                  style: KineticTypography.bodyMedium.copyWith(
                     fontWeight: FontWeight.w900,
                     color: colors.textPrimary,
                   ),
@@ -368,9 +358,7 @@ class _WorkoutTargetSelectorSheetState
                   isVi
                       ? 'Luyện tập thoải mái không giới hạn cự ly hay thời lượng.'
                       : 'Run or walk freely without constraints or timers.',
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 11,
+                  style: KineticTypography.caption.copyWith(
                     color: colors.textSecondary,
                   ),
                 ),
@@ -482,11 +470,10 @@ class _WorkoutTargetSelectorSheetState
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
-            fontSize: 12,
+          style: KineticTypography.bodySmall.copyWith(
             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
             color: isSelected ? accent : colors.textPrimary,
+            fontFeatures: KineticTypography.tabularFigures,
           ),
         ),
       ),

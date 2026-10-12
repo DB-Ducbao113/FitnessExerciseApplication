@@ -188,7 +188,6 @@ class _TelemetryCard extends StatelessWidget {
                   label,
                   style: KineticTypography.unitLabel.copyWith(
                     color: colors.textMuted,
-                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -205,10 +204,8 @@ class _TelemetryCard extends StatelessWidget {
               Flexible(
                 child: Text(
                   value,
-                  style: KineticTypography.metricMedium.copyWith(
+                  style: KineticTypography.metricCard.copyWith(
                     color: colors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -218,9 +215,8 @@ class _TelemetryCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   unit!,
-                  style: KineticTypography.label.copyWith(
+                  style: KineticTypography.unitLabel.copyWith(
                     color: colors.textMuted,
-                    fontSize: 11,
                   ),
                 ),
               ],
@@ -230,9 +226,8 @@ class _TelemetryCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle!,
-              style: KineticTypography.bodySmall.copyWith(
+              style: KineticTypography.caption.copyWith(
                 color: colors.textSecondary,
-                fontSize: 11,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

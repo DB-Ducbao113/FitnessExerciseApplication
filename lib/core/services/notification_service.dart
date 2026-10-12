@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
-import 'package:fitness_exercise_application/features/analytics/presentation/screens/analytics_screen.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -72,24 +72,28 @@ class NotificationService {
     final payload = response.payload;
     if (payload == null || payload.isEmpty) return;
 
-    debugPrint('[NotificationService] Notification tapped with payload: $payload');
+    debugPrint(
+      '[NotificationService] Notification tapped with payload: $payload',
+    );
     final navigator = aetronNavigatorKey.currentState;
     if (navigator == null) return;
 
     switch (payload) {
       case 'open_activity':
         navigator.push(
-          MaterialPageRoute(builder: (_) => const ActivityScreen()),
+          MaterialPageRoute(
+            builder: (_) => const MainShell(initialIndex: activityTabIndex),
+          ),
         );
         break;
       case 'open_goal':
-        navigator.push(
-          MaterialPageRoute(builder: (_) => const GoalScreen()),
-        );
+        navigator.push(MaterialPageRoute(builder: (_) => const GoalScreen()));
         break;
       case 'open_analytics':
         navigator.push(
-          MaterialPageRoute(builder: (_) => const StatsScreen()),
+          MaterialPageRoute(
+            builder: (_) => const MainShell(initialIndex: analyticsTabIndex),
+          ),
         );
         break;
     }
@@ -186,10 +190,12 @@ class NotificationService {
     await initialize();
     if (!_available) return;
 
-    final channelId =
-        isAchievement ? _channelIdAchievements : _channelIdReminders;
-    final channelName =
-        isAchievement ? 'Achievements & Goals' : 'Workout Reminders';
+    final channelId = isAchievement
+        ? _channelIdAchievements
+        : _channelIdReminders;
+    final channelName = isAchievement
+        ? 'Achievements & Goals'
+        : 'Workout Reminders';
 
     try {
       await _notifications.zonedSchedule(
@@ -213,7 +219,9 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         payload: payload,
       );
-      debugPrint('[NotificationService] Scheduled notif #$id for $scheduledDate');
+      debugPrint(
+        '[NotificationService] Scheduled notif #$id for $scheduledDate',
+      );
     } catch (e) {
       debugPrint('[NotificationService] Schedule error for #$id: $e');
     }

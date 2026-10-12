@@ -177,12 +177,10 @@ class _AthleteNameScreenState extends ConsumerState<_AthleteNameScreen> {
               const SizedBox(height: 26),
               Text(
                 lang == AppLanguage.vi ? 'BẠN TÊN LÀ GÌ?' : 'WHAT SHOULD\nWE CALL YOU?',
-                style: KineticTypography.displayLarge.copyWith(
+                style: KineticTypography.headlineLarge.copyWith(
                   color: colors.textPrimary,
-                  fontSize: 28,
                   height: 1.1,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
                 ),
               ),
               const SizedBox(height: 10),

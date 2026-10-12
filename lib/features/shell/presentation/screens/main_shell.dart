@@ -4,13 +4,13 @@ import 'package:fitness_exercise_application/features/history/presentation/scree
 import 'package:fitness_exercise_application/features/home/presentation/screens/home_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/profile_screen.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/screens/analytics_screen.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-final mainTabControllerProvider = StateProvider<int>((ref) => 0);
 
 class MainShell extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -33,11 +33,12 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialIndex != 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(mainTabControllerProvider.notifier).state = widget.initialIndex;
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(mainTabControllerProvider.notifier).state =
+            widget.initialIndex;
+      }
+    });
   }
 
   void _onTabSelected(int index) {
@@ -107,8 +108,16 @@ class _AetronDock extends ConsumerWidget {
 
   static const _items = [
     (Icons.home_outlined, Icons.home_rounded, 'nav_home'),
-    (Icons.directions_run_outlined, Icons.directions_run_rounded, 'nav_activity'),
-    (Icons.calendar_month_outlined, Icons.calendar_month_rounded, 'nav_history'),
+    (
+      Icons.directions_run_outlined,
+      Icons.directions_run_rounded,
+      'nav_activity',
+    ),
+    (
+      Icons.calendar_month_outlined,
+      Icons.calendar_month_rounded,
+      'nav_history',
+    ),
     (Icons.analytics_outlined, Icons.analytics_rounded, 'nav_analytics'),
     (Icons.person_outline, Icons.person_rounded, 'nav_profile'),
   ];
@@ -127,10 +136,7 @@ class _AetronDock extends ConsumerWidget {
           decoration: BoxDecoration(
             color: colors.surface1.withValues(alpha: 0.94),
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: colors.borderSubtle,
-              width: 1.0,
-            ),
+            border: Border.all(color: colors.borderSubtle, width: 1.0),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.50),
@@ -192,8 +198,8 @@ class _DockItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
+              duration: KineticTokens.motionTab,
+              curve: KineticTokens.animCurve,
               width: selected ? 48 : 36,
               height: 32,
               alignment: Alignment.center,
@@ -220,10 +226,8 @@ class _DockItem extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: KineticTypography.fontFamily,
+              style: KineticTypography.caption.copyWith(
                 color: selected ? colors.textPrimary : colors.textMuted,
-                fontSize: 11,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 letterSpacing: 0.1,
               ),
@@ -234,4 +238,3 @@ class _DockItem extends StatelessWidget {
     );
   }
 }
-

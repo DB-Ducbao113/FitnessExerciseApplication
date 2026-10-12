@@ -178,12 +178,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         isVi ? 'AI COACH INSIGHT' : 'AI COACH INSIGHT',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
+                        style: KineticTypography.pageEyebrow.copyWith(
                           color: accentColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.0,
                         ),
                       ),
                     ),
@@ -199,12 +195,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                       ),
                       child: Text(
                         isLlm ? 'AI ACTIVE' : 'SMART OFFLINE',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
+                        style: KineticTypography.unitLabel.copyWith(
                           color: accentColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
@@ -216,12 +208,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                 if (insight.headline.isNotEmpty) ...[
                   Text(
                     insight.headline,
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
+                    style: KineticTypography.headlineSmall.copyWith(
                       color: colors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -230,11 +218,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                 ],
                 Text(
                   insight.mainInsight,
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
+                  style: KineticTypography.bodyMedium.copyWith(
                     color: colors.textPrimary.withValues(alpha: 0.85),
-                    fontSize: 12.5,
-                    height: 1.35,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -266,10 +251,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                           const SizedBox(width: 5),
                           Text(
                             '${_formatActivityLabel(insight.nextSessionSuggestion.recommendedActivity, currentLang)} • ${insight.nextSessionSuggestion.targetDurationMin} ${isVi ? 'phút' : 'min'} • ${_formatIntensityLabel(insight.nextSessionSuggestion.targetIntensity, currentLang)}',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
+                            style: KineticTypography.unitLabel.copyWith(
                               color: colors.primary,
-                              fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.3,
                             ),
@@ -285,10 +268,8 @@ class _CompactAiInsightCard extends StatelessWidget {
                       children: [
                         Text(
                           isVi ? 'Chi tiết' : 'Details',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
+                          style: KineticTypography.unitLabel.copyWith(
                             color: accentColor,
-                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -401,10 +382,8 @@ class _AiInsightLoadingCardState extends State<_AiInsightLoadingCard>
                     isVi
                         ? 'AI COACH ĐANG PHÂN TÍCH...'
                         : 'AI COACH IS ANALYZING...',
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
+                    style: KineticTypography.unitLabel.copyWith(
                       color: colors.primary,
-                      fontSize: 11.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
                     ),
@@ -477,10 +456,8 @@ class _AiInsightErrorCard extends StatelessWidget {
           Expanded(
             child: Text(
               isVi ? 'Không thể tải AI insight' : 'Unable to load AI insight',
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
+              style: KineticTypography.bodySmall.copyWith(
                 color: colors.textSecondary,
-                fontSize: 11.5,
               ),
             ),
           ),
@@ -488,11 +465,9 @@ class _AiInsightErrorCard extends StatelessWidget {
             onPressed: onRetry,
             child: Text(
               isVi ? 'Thử lại' : 'Retry',
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
+              style: KineticTypography.label.copyWith(
                 color: colors.primary,
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
               ),
             ),
           ),

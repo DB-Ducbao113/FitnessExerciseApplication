@@ -104,7 +104,7 @@ class _ActivityQuickSwitchCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: KineticTokens.motionTab,
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             decoration: BoxDecoration(

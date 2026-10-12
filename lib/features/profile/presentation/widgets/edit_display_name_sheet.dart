@@ -175,12 +175,9 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                     children: [
                       Text(
                         AppTranslations.get('edit_display_name', currentLang),
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
+                        style: KineticTypography.pageTitleCompact.copyWith(
                           color: colors.textPrimary,
-                          fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: -0.3,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -188,10 +185,8 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                         isVi
                             ? 'Tên này sẽ hiển thị trên trang chủ và bảng xếp hạng'
                             : 'This name will appear on home and leaderboards',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
+                        style: KineticTypography.bodySmall.copyWith(
                           color: colors.textSecondary,
-                          fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -208,25 +203,18 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
               autofocus: true,
               maxLength: 30,
               textCapitalization: TextCapitalization.words,
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
+              style: KineticTypography.bodyLarge.copyWith(
                 color: colors.textPrimary,
-                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
               decoration: InputDecoration(
                 labelText: AppTranslations.get('display_name', currentLang),
-                labelStyle: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
+                labelStyle: KineticTypography.label.copyWith(
                   color: colors.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
                 ),
                 hintText: AppTranslations.get('display_name_hint', currentLang),
-                hintStyle: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
+                hintStyle: KineticTypography.bodyMedium.copyWith(
                   color: colors.textMuted,
-                  fontSize: 14,
                 ),
                 prefixIcon: Icon(
                   Icons.person_outline_rounded,
@@ -246,10 +234,8 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                     : null,
                 filled: true,
                 fillColor: colors.surface2,
-                counterStyle: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
+                counterStyle: KineticTypography.caption.copyWith(
                   color: colors.textSecondary,
-                  fontSize: 11,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -323,10 +309,8 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                     Expanded(
                       child: Text(
                         _errorMessage!,
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
+                        style: KineticTypography.bodySmall.copyWith(
                           color: colors.error,
-                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -357,10 +341,8 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                     ),
                     child: Text(
                       AppTranslations.get('cancel', currentLang),
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
+                      style: KineticTypography.bodyMedium.copyWith(
                         color: colors.textSecondary,
-                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -413,12 +395,9 @@ class _EditDisplayNameSheetState extends ConsumerState<EditDisplayNameSheet> {
                                     'save_changes',
                                     currentLang,
                                   ),
-                                  style: TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
+                                  style: KineticTypography.bodyMedium.copyWith(
                                     color: colors.onPrimary,
-                                    fontSize: 14,
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.3,
                                   ),
                                 ),
                               ],

@@ -1,13 +1,12 @@
+import 'dart:convert';
+
 import 'package:fitness_exercise_application/features/workout/domain/entities/route_match_result.dart';
 
 class RouteMatchQualityService {
   const RouteMatchQualityService();
 
   RouteMatchResult normalize(RouteMatchResult result) {
-    final hasMatchedGeometry =
-        result.matchedRouteJson.isNotEmpty && result.matchedRouteJson != '[]';
-
-    if (!hasMatchedGeometry) {
+    if (!_hasUsableMatchedGeometry(result.matchedRouteJson)) {
       return result.copyWith(
         routeMatchStatus: 'match_failed_fallback_filtered',
         routeDistanceSource: 'filtered',
@@ -20,10 +19,16 @@ class RouteMatchQualityService {
         if ((result.matchedDistanceKm ?? 0) > 0) {
           return result.copyWith(routeDistanceSource: 'matched');
         }
-        return result.copyWith(routeDistanceSource: 'filtered_display_matched');
+        return result.copyWith(
+          routeDistanceSource: 'filtered_display_matched',
+          matchedDistanceKm: null,
+        );
       case 'matched_success_medium_confidence':
       case 'partial_match':
-        return result.copyWith(routeDistanceSource: 'filtered_display_matched');
+        return result.copyWith(
+          routeDistanceSource: 'filtered_display_matched',
+          matchedDistanceKm: _positiveDistanceOrNull(result.matchedDistanceKm),
+        );
       case 'match_failed_fallback_filtered':
         return result.copyWith(
           routeDistanceSource: 'filtered',
@@ -41,6 +46,9 @@ class RouteMatchQualityService {
           return result.copyWith(
             routeMatchStatus: 'matched_success_medium_confidence',
             routeDistanceSource: 'filtered_display_matched',
+            matchedDistanceKm: _positiveDistanceOrNull(
+              result.matchedDistanceKm,
+            ),
           );
         }
         return result.copyWith(
@@ -49,5 +57,45 @@ class RouteMatchQualityService {
           matchedDistanceKm: null,
         );
     }
+  }
+
+  double? _positiveDistanceOrNull(double? distanceKm) {
+    if (distanceKm == null || !distanceKm.isFinite || distanceKm <= 0) {
+      return null;
+    }
+    return distanceKm;
+  }
+
+  bool _hasUsableMatchedGeometry(String raw) {
+    if (raw.trim().isEmpty) return false;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return false;
+
+      for (final segment in decoded) {
+        if (segment is! List) continue;
+        final validPointCount = segment.where(_isValidPoint).length;
+        if (validPointCount >= 2) return true;
+      }
+    } on FormatException {
+      return false;
+    }
+    return false;
+  }
+
+  bool _isValidPoint(Object? value) {
+    if (value is! Map) return false;
+    final lat = value['lat'];
+    final lng = value['lng'];
+    if (lat is! num || lng is! num) return false;
+    final latitude = lat.toDouble();
+    final longitude = lng.toDouble();
+    return latitude.isFinite &&
+        longitude.isFinite &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
   }
 }

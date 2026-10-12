@@ -633,9 +633,7 @@ class _Map3DPerspectiveOrb extends StatelessWidget {
             child: Center(
               child: Text(
                 is3D ? "3D" : "2D",
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 13.5,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight: FontWeight.w900,
                   color: is3D ? colors.primary : Colors.white70,
                   letterSpacing: 0.8,
@@ -772,11 +770,8 @@ class _MapStylePickerSheet extends ConsumerWidget {
               const SizedBox(width: 12),
               Text(
                 isVi ? "CHỌN KIỂU BẢN ĐỒ" : "SELECT MAP STYLE",
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
+                style: KineticTypography.pageEyebrow.copyWith(
                   color: colors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
                   letterSpacing: 1.1,
                 ),
               ),
@@ -787,10 +782,8 @@ class _MapStylePickerSheet extends ConsumerWidget {
             isVi
                 ? "Tùy chỉnh góc nhìn bản đồ phù hợp với sở thích của bạn:"
                 : "Customize your map style to match your preference:",
-            style: TextStyle(
-              fontFamily: KineticTypography.fontFamily,
+            style: KineticTypography.bodySmall.copyWith(
               color: colors.textSecondary,
-              fontSize: 13,
             ),
           ),
           const SizedBox(height: 18),
@@ -894,15 +887,14 @@ class _MapStylePickerSheet extends ConsumerWidget {
                       children: [
                         Text(
                           title,
-                          style: TextStyle(
-                            fontFamily: KineticTypography.fontFamily,
-                            fontSize: 15,
+                          style: KineticTypography.bodySmall.copyWith(
                             fontWeight: isSelected
                                 ? FontWeight.w900
                                 : FontWeight.w700,
                             color: isSelected
                                 ? colors.primary
                                 : colors.textPrimary,
+                            fontSize: 15,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -919,9 +911,7 @@ class _MapStylePickerSheet extends ConsumerWidget {
                           ),
                           child: Text(
                             badge,
-                            style: TextStyle(
-                              fontFamily: KineticTypography.fontFamily,
-                              fontSize: 11,
+                            style: KineticTypography.unitLabel.copyWith(
                               fontWeight: FontWeight.w900,
                               color: isSelected
                                   ? colors.primary
@@ -934,9 +924,7 @@ class _MapStylePickerSheet extends ConsumerWidget {
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: TextStyle(
-                        fontFamily: KineticTypography.fontFamily,
-                        fontSize: 12,
+                      style: KineticTypography.bodySmall.copyWith(
                         color: colors.textSecondary,
                       ),
                     ),
@@ -1029,11 +1017,9 @@ class _Aetron3DUserAvatarMarkerState extends State<_Aetron3DUserAvatarMarker>
                     child: Center(
                       child: Text(
                         widget.initials,
-                        style: TextStyle(
-                          fontFamily: KineticTypography.fontFamily,
+                        style: KineticTypography.headlineSmall.copyWith(
                           color: colors.primary,
                           fontWeight: FontWeight.w900,
-                          fontSize: 16,
                         ),
                       ),
                     ),

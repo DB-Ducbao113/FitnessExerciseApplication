@@ -26,7 +26,10 @@ class KineticRecentActivityCard extends StatelessWidget {
     final colors = context.kinetic;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: KineticTokens.page,
+        vertical: 8,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -36,10 +39,8 @@ class KineticRecentActivityCard extends StatelessWidget {
             children: [
               Text(
                 isVi ? 'HOẠT ĐỘNG GẦN NHẤT' : 'RECENT ACTIVITY',
-                style: KineticTypography.unitLabel.copyWith(
+                style: KineticTypography.sectionEyebrow.copyWith(
                   color: colors.textMuted,
-                  fontSize: 11,
-                  letterSpacing: 0.08,
                 ),
               ),
               if (workouts.isNotEmpty)
@@ -117,7 +118,6 @@ class KineticRecentActivityCard extends StatelessWidget {
                         ? 'Bắt đầu buổi tập đầu tiên'
                         : 'Start first workout',
                     icon: Icons.play_arrow_rounded,
-                    height: 46,
                     isFullWidth: false,
                     onPressed: onStartFirstWorkoutTap,
                   ),
@@ -207,9 +207,8 @@ class KineticRecentActivityCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         dateStr,
-                        style: KineticTypography.bodySmall.copyWith(
+                        style: KineticTypography.caption.copyWith(
                           color: colors.textMuted,
-                          fontSize: 11,
                         ),
                       ),
                     ],
@@ -274,7 +273,6 @@ class KineticRecentActivityCard extends StatelessWidget {
                           isVi ? 'THỜI GIAN' : 'DURATION',
                           style: KineticTypography.unitLabel.copyWith(
                             color: colors.textMuted,
-                            fontSize: 11,
                           ),
                         ),
                         const SizedBox(height: 2),

@@ -1,6 +1,8 @@
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 enum KineticButtonVariant {
   primary,
@@ -9,7 +11,18 @@ enum KineticButtonVariant {
   danger,
 }
 
-class KineticButton extends StatelessWidget {
+/// Unified Kinetic Button — the single button component for the app.
+///
+/// Features:
+/// - 4 variants: primary, secondary, ghost, danger
+/// - Consistent height from KineticTokens
+/// - Loading state with spinner
+/// - Built-in semantics for accessibility
+/// - Material ink ripple feedback
+/// - Primary variant has glow shadow
+/// - 120ms press-scale micro-interaction (scale 0.97, easeOut)
+///   with light haptic — instant under OS Reduce Motion
+class KineticButton extends StatefulWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
@@ -27,21 +40,66 @@ class KineticButton extends StatelessWidget {
     this.variant = KineticButtonVariant.primary,
     this.isLoading = false,
     this.isFullWidth = true,
-    this.height = 48,
+    this.height = KineticTokens.buttonHeight,
     this.semanticLabel,
   });
 
   @override
+  State<KineticButton> createState() => _KineticButtonState();
+}
+
+class _KineticButtonState extends State<KineticButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pressController;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    // Created once here — never in build().
+    _pressController = AnimationController(
+      vsync: this,
+      duration: KineticTokens.motionPress,
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(
+        parent: _pressController,
+        curve: KineticTokens.motionPressCurve,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
+
+  void _handleHighlightChanged(bool highlighted) {
+    if (KineticTokens.reduceMotionOf(context)) return;
+    if (highlighted) {
+      _pressController.forward();
+    } else {
+      _pressController.reverse();
+    }
+  }
+
+  void _handleTap() {
+    HapticFeedback.lightImpact();
+    widget.onPressed?.call();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.kinetic;
-    final isDisabled = onPressed == null || isLoading;
+    final isDisabled = widget.onPressed == null || widget.isLoading;
 
     final Color bgColor;
     final Color fgColor;
     final BorderSide? border;
     final List<BoxShadow>? shadows;
 
-    switch (variant) {
+    switch (widget.variant) {
       case KineticButtonVariant.primary:
         bgColor = isDisabled ? colors.surface3 : colors.primary;
         fgColor = isDisabled ? colors.textMuted : colors.onPrimary;
@@ -77,10 +135,10 @@ class KineticButton extends StatelessWidget {
     }
 
     Widget content = Row(
-      mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (isLoading) ...[
+        if (widget.isLoading) ...[
           SizedBox(
             width: 18,
             height: 18,
@@ -90,13 +148,13 @@ class KineticButton extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-        ] else if (icon != null) ...[
-          Icon(icon, size: 18, color: fgColor),
+        ] else if (widget.icon != null) ...[
+          Icon(widget.icon, size: 18, color: fgColor),
           const SizedBox(width: 8),
         ],
         Flexible(
           child: Text(
-            label,
+            widget.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: KineticTypography.label.copyWith(
@@ -111,30 +169,36 @@ class KineticButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: !isDisabled,
-      label: semanticLabel ?? label,
+      label: widget.semanticLabel ?? widget.label,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minHeight: 48,
-          minWidth: isFullWidth ? double.infinity : 48,
+          minHeight: KineticTokens.minTouchTarget,
+          minWidth: widget.isFullWidth
+              ? double.infinity
+              : KineticTokens.minTouchTarget,
         ),
-        child: Container(
-          height: height,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(8),
-            border: border != null ? Border.fromBorderSide(border) : null,
-            boxShadow: shadows,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: isDisabled ? null : onPressed,
-              borderRadius: BorderRadius.circular(8),
-              splashColor: fgColor.withValues(alpha: 0.12),
-              highlightColor: fgColor.withValues(alpha: 0.06),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: content,
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
+              border: border != null ? Border.fromBorderSide(border) : null,
+              boxShadow: shadows,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isDisabled ? null : _handleTap,
+                onHighlightChanged: isDisabled ? null : _handleHighlightChanged,
+                borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
+                splashColor: fgColor.withValues(alpha: 0.12),
+                highlightColor: fgColor.withValues(alpha: 0.06),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: content,
+                ),
               ),
             ),
           ),

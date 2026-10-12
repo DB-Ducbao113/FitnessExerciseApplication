@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/personal_records.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/widgets/kinetic_activity_mix_bento.dart';
@@ -13,6 +14,7 @@ import 'package:fitness_exercise_application/features/analytics/presentation/wid
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_state_panel.dart';
@@ -59,6 +61,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
+    // Same as History: refresh the shared workout list whenever this tab
+    // (index 3) becomes active so sessions saved by the record flow's
+    // background sync appear without requiring an app reload.
+    ref.listen(mainTabControllerProvider, (previous, next) {
+      if (previous != next && next == 3) {
+        unawaited(ref.read(workoutListProvider.notifier).refresh());
+      }
+    });
+
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
@@ -72,7 +83,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   data: (workouts) {
                     final filtered = _filterWorkouts(workouts, period);
                     final comparison = _calculateComparison(workouts, period);
-                    final records = DetailedPersonalRecords.fromWorkouts(workouts);
+                    final records = DetailedPersonalRecords.fromWorkouts(
+                      workouts,
+                    );
 
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -101,8 +114,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                               workouts: filtered,
                               period: period,
                               currentDistanceKm: comparison.currentDistanceKm,
-                              previousDistanceKm:
-                                  comparison.previousDistanceKm,
+                              previousDistanceKm: comparison.previousDistanceKm,
                               useMetricUnits: useMetricUnits,
                               isVi: isVi,
                             ),
@@ -236,7 +248,9 @@ class _GoalProgressCard extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              isVi ? 'Đặt mục tiêu tập luyện đầu tiên' : 'Set your fitness goal',
+              isVi
+                  ? 'Đặt mục tiêu tập luyện đầu tiên'
+                  : 'Set your fitness goal',
               style: KineticTypography.headlineSmall.copyWith(
                 color: colors.textPrimary,
                 fontWeight: FontWeight.w800,
@@ -257,9 +271,9 @@ class _GoalProgressCard extends ConsumerWidget {
               icon: Icons.flag_rounded,
               variant: KineticButtonVariant.secondary,
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const GoalScreen()),
-                );
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const GoalScreen()));
               },
             ),
           ],
@@ -303,7 +317,10 @@ class _GoalProgressCard extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    AppTranslations.get('goal_progress', currentLang).toUpperCase(),
+                    AppTranslations.get(
+                      'goal_progress',
+                      currentLang,
+                    ).toUpperCase(),
                     style: KineticTypography.unitLabel.copyWith(
                       color: colors.primary,
                       letterSpacing: 1.2,
@@ -348,16 +365,19 @@ class _GoalProgressCard extends ConsumerWidget {
                     children: [
                       Text(
                         '${goal.percent}%',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: goal.isAchieved ? colors.primary : colors.textPrimary,
+                        style: KineticTypography.pageTitleCompact.copyWith(
+                          color: goal.isAchieved
+                              ? colors.primary
+                              : colors.textPrimary,
                           fontFeatures: KineticTypography.tabularFigures,
                         ),
                       ),
                       const SizedBox(width: 2),
-                      Icon(Icons.chevron_right_rounded, size: 16, color: colors.primary),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: colors.primary,
+                      ),
                     ],
                   ),
                 ),
@@ -367,20 +387,14 @@ class _GoalProgressCard extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             '${goal.currentLabel} / ${goal.targetLabel} ${goal.unit}',
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
+            style: KineticTypography.metricSmall.copyWith(
               color: colors.textPrimary,
-              fontFeatures: KineticTypography.tabularFigures,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             remainingLabel,
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 12,
+            style: KineticTypography.bodySmall.copyWith(
               color: goal.isAchieved ? colors.primary : colors.textSecondary,
               fontWeight: goal.isAchieved ? FontWeight.w800 : FontWeight.w500,
             ),
@@ -424,11 +438,7 @@ class _EmptyAnalyticsPanel extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.analytics_outlined,
-            size: 44,
-            color: colors.textSecondary,
-          ),
+          Icon(Icons.analytics_outlined, size: 44, color: colors.textSecondary),
           const SizedBox(height: 12),
           Text(
             isVi
@@ -451,13 +461,14 @@ class _EmptyAnalyticsPanel extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           KineticButton(
-            label:
-                AppTranslations.get('start_workout', currentLang).toUpperCase(),
+            label: AppTranslations.get(
+              'start_workout',
+              currentLang,
+            ).toUpperCase(),
             icon: Icons.play_arrow_rounded,
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ActivityScreen()),
-              );
+              ref.read(mainTabControllerProvider.notifier).state =
+                  activityTabIndex;
             },
           ),
         ],

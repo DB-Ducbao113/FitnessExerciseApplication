@@ -70,7 +70,6 @@ class KineticDetailsHeroDistance extends StatelessWidget {
                   unitLabel,
                   style: KineticTypography.unitLabel.copyWith(
                     color: colors.primary,
-                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -82,9 +81,8 @@ class KineticDetailsHeroDistance extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               '${currentLang == AppLanguage.vi ? 'Khoảng cách hợp lệ theo GPS' : 'GPS valid distance'}: ${(useMetricUnits ? workout.gpsAnalysis.validDistanceKm : WorkoutFormatters.kmToMi(workout.gpsAnalysis.validDistanceKm)).toStringAsFixed(2)} $unitLabel',
-              style: KineticTypography.bodySmall.copyWith(
+              style: KineticTypography.caption.copyWith(
                 color: colors.textMuted,
-                fontSize: 11,
               ),
             ),
           ],

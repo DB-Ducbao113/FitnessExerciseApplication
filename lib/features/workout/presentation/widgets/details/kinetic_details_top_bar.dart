@@ -54,7 +54,6 @@ class KineticDetailsTopBar extends StatelessWidget {
               AppTranslations.get('workout_details', currentLang),
               style: KineticTypography.pageTitleCompact.copyWith(
                 color: colors.textPrimary,
-                fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
               maxLines: 1,

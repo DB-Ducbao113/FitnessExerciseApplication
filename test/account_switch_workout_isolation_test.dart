@@ -6,13 +6,19 @@ import 'package:fitness_exercise_application/features/workout/providers/workout_
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+final _activeUserProvider = StateProvider<String?>((ref) => 'user-a');
+
 class _FakeWorkoutRepository implements WorkoutRepository {
   final Map<String, List<WorkoutSession>> userSessions;
+  bool failRemoteFetch = false;
 
   _FakeWorkoutRepository(this.userSessions);
 
   @override
-  Future<void> cacheSessionLocal(WorkoutSession session, {bool isSynced = false}) async {}
+  Future<void> cacheSessionLocal(
+    WorkoutSession session, {
+    bool isSynced = false,
+  }) async {}
 
   @override
   Future<void> deleteAllSessions(String userId) async {
@@ -28,6 +34,7 @@ class _FakeWorkoutRepository implements WorkoutRepository {
 
   @override
   Future<List<WorkoutSession>> fetchSessionsRemote(String userId) async {
+    if (failRemoteFetch) throw StateError('offline');
     return userSessions[userId] ?? [];
   }
 
@@ -52,7 +59,10 @@ class _FakeWorkoutRepository implements WorkoutRepository {
   }
 
   @override
-  Future<void> replaceLocalCache(String userId, List<WorkoutSession> sessions) async {
+  Future<void> replaceLocalCache(
+    String userId,
+    List<WorkoutSession> sessions,
+  ) async {
     userSessions[userId] = List.from(sessions);
   }
 
@@ -113,65 +123,153 @@ void main() {
       expect(workouts.first.distanceKm, 5.2);
     });
 
-    test('WorkoutList automatically switches to empty list when user changes to user-b', () async {
-      String? activeUser = 'user-a';
+    test(
+      'WorkoutList automatically switches to empty list when user changes to user-b',
+      () async {
+        String? activeUser = 'user-a';
 
+        final container = ProviderContainer(
+          overrides: [
+            currentUserIdProvider.overrideWith((ref) => activeUser),
+            workoutRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // 1. Initial state with user-a
+        final workoutsA = await container.read(workoutListProvider.future);
+        expect(workoutsA.length, 1);
+        expect(workoutsA.first.userId, 'user-a');
+
+        // 2. User logs out and User B logs in
+        activeUser = 'user-b';
+        container.invalidate(currentUserIdProvider);
+
+        // Read workoutListProvider again
+        final workoutsB = await container.read(workoutListProvider.future);
+        expect(workoutsB.isEmpty, true);
+      },
+    );
+
+    test(
+      'WorkoutList returns empty list when user is null (logged out)',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            currentUserIdProvider.overrideWith((ref) => null),
+            workoutRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final workouts = await container.read(workoutListProvider.future);
+        expect(workouts.isEmpty, true);
+      },
+    );
+
+    test('WorkoutList rejects a remote row owned by another user', () async {
+      fakeRepo.userSessions['user-b'] = [userAWorkout];
       final container = ProviderContainer(
         overrides: [
-          currentUserIdProvider.overrideWith((ref) => activeUser),
-          workoutRepositoryProvider.overrideWithValue(fakeRepo),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      // 1. Initial state with user-a
-      final workoutsA = await container.read(workoutListProvider.future);
-      expect(workoutsA.length, 1);
-      expect(workoutsA.first.userId, 'user-a');
-
-      // 2. User logs out and User B logs in
-      activeUser = 'user-b';
-      container.invalidate(currentUserIdProvider);
-
-      // Read workoutListProvider again
-      final workoutsB = await container.read(workoutListProvider.future);
-      expect(workoutsB.isEmpty, true);
-    });
-
-    test('WorkoutList returns empty list when user is null (logged out)', () async {
-      final container = ProviderContainer(
-        overrides: [
-          currentUserIdProvider.overrideWith((ref) => null),
+          currentUserIdProvider.overrideWith((ref) => 'user-b'),
           workoutRepositoryProvider.overrideWithValue(fakeRepo),
         ],
       );
       addTearDown(container.dispose);
 
       final workouts = await container.read(workoutListProvider.future);
-      expect(workouts.isEmpty, true);
+      expect(workouts, isEmpty);
     });
 
-    test('Empty remote sessions does not leak cached data across accounts', () async {
-      String? activeUser = 'user-a';
-
+    test('remote failure falls back to the current user local cache', () async {
+      fakeRepo.failRemoteFetch = true;
       final container = ProviderContainer(
         overrides: [
-          currentUserIdProvider.overrideWith((ref) => activeUser),
+          currentUserIdProvider.overrideWith((ref) => 'user-a'),
           workoutRepositoryProvider.overrideWithValue(fakeRepo),
         ],
       );
       addTearDown(container.dispose);
 
-      // Verify user-a has workouts
-      expect((await container.read(workoutListProvider.future)).length, 1);
-
-      // Switch to user-b who has 0 workouts in DB
-      activeUser = 'user-b';
-      container.invalidate(currentUserIdProvider);
-
-      final result = await container.read(workoutListProvider.future);
-      // User B must get empty list, not user-a's records and not phantom 0s
-      expect(result, isEmpty);
+      final workouts = await container.read(workoutListProvider.future);
+      expect(workouts, [userAWorkout]);
     });
+
+    test(
+      'Empty remote sessions does not leak cached data across accounts',
+      () async {
+        String? activeUser = 'user-a';
+
+        final container = ProviderContainer(
+          overrides: [
+            currentUserIdProvider.overrideWith((ref) => activeUser),
+            workoutRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // Verify user-a has workouts
+        expect((await container.read(workoutListProvider.future)).length, 1);
+
+        // Switch to user-b who has 0 workouts in DB
+        activeUser = 'user-b';
+        container.invalidate(currentUserIdProvider);
+
+        final result = await container.read(workoutListProvider.future);
+        // User B must get empty list, not user-a's records and not phantom 0s
+        expect(result, isEmpty);
+      },
+    );
+
+    test(
+      'pending local session from user-a is never exposed after switching to user-b',
+      () async {
+        final pendingUserAWorkout = WorkoutSession(
+          id: 'pending-session-a',
+          userId: 'user-a',
+          activityType: 'running',
+          startedAt: DateTime(2026, 10, 8, 10),
+          endedAt: DateTime(2026, 10, 8, 10, 20),
+          durationSec: 1200,
+          movingTimeSec: 1200,
+          distanceKm: 3.1,
+          steps: 2800,
+          avgSpeedKmh: 9.3,
+          caloriesKcal: 210,
+          mode: 'outdoor',
+          createdAt: DateTime(2026, 10, 8, 10, 20),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            currentUserIdProvider.overrideWith(
+              (ref) => ref.watch(_activeUserProvider),
+            ),
+            workoutRepositoryProvider.overrideWithValue(fakeRepo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // Keep the generated auto-dispose notifier alive across the account
+        // change, matching the shell screen's long-lived subscription.
+        final subscription = container.listen(workoutListProvider, (_, _) {});
+        addTearDown(subscription.close);
+
+        await container.read(workoutListProvider.future);
+        container
+            .read(workoutListProvider.notifier)
+            .insertLocalSession(pendingUserAWorkout);
+        expect(
+          container.read(workoutListProvider).requireValue,
+          contains(pendingUserAWorkout),
+        );
+
+        container.read(_activeUserProvider.notifier).state = 'user-b';
+
+        final workoutsForUserB = await container.read(
+          workoutListProvider.future,
+        );
+        expect(workoutsForUserB, isEmpty);
+      },
+    );
   });
 }

@@ -148,10 +148,7 @@ class _TelemetryCard extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                style: KineticTypography.unitLabel.copyWith(
                   color: colors.textSecondary,
                   letterSpacing: 0.6,
                 ),
@@ -174,23 +171,15 @@ class _TelemetryCard extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
+                style: KineticTypography.metricCompact.copyWith(
                   color: colors.textPrimary,
-                  letterSpacing: -0.5,
-                  fontFeatures: KineticTypography.tabularFigures,
                 ),
               ),
               if (unit.isNotEmpty) ...[
                 const SizedBox(width: 4),
                 Text(
                   unit,
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                  style: KineticTypography.unitLabel.copyWith(
                     color: accentColor,
                     letterSpacing: 0.5,
                   ),

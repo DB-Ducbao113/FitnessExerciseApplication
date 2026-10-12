@@ -130,9 +130,7 @@ class KineticActivityMixBento extends StatelessWidget {
                 ),
                 child: Text(
                   durationFormatted,
-                  style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 12,
+                  style: KineticTypography.bodySmall.copyWith(
                     fontWeight: FontWeight.w800,
                     color: colors.primary,
                     fontFeatures: KineticTypography.tabularFigures,
@@ -286,9 +284,7 @@ class _SportTile extends StatelessWidget {
                   const SizedBox(width: 5),
                   Text(
                     name,
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 11,
+                    style: KineticTypography.caption.copyWith(
                       fontWeight: FontWeight.w700,
                       color: colors.textPrimary,
                     ),
@@ -301,10 +297,7 @@ class _SportTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             pct,
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+            style: KineticTypography.pageTitleCompact.copyWith(
               color: dotColor,
               fontFeatures: KineticTypography.tabularFigures,
             ),
@@ -312,9 +305,7 @@ class _SportTile extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             distance,
-            style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
-              fontSize: 11,
+            style: KineticTypography.caption.copyWith(
               fontWeight: FontWeight.w600,
               color: colors.textSecondary,
               fontFeatures: KineticTypography.tabularFigures,

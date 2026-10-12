@@ -30,7 +30,10 @@ class KineticHeroCard extends StatelessWidget {
     return Semantics(
       label: '$title, $weeklyProgressText',
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        margin: const EdgeInsets.symmetric(
+          horizontal: KineticTokens.page,
+          vertical: 8,
+        ),
         height: 320,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -183,7 +186,6 @@ class KineticHeroCard extends StatelessWidget {
                       label: ctaLabel,
                       icon: Icons.play_arrow_rounded,
                       variant: KineticButtonVariant.primary,
-                      height: 50,
                       onPressed: onStartTap,
                     ),
                   ],

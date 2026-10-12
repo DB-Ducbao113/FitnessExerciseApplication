@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:fitness_exercise_application/app/bootstrap.dart';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/google_oauth.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/username_auth.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/register_screen.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/widgets/auth_language_toggle.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -32,7 +34,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen>
     with WidgetsBindingObserver {
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -49,27 +51,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     WidgetsBinding.instance.addObserver(this);
 
     try {
-      _authSubscription =
-          Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-        final session =
-            data.session ?? Supabase.instance.client.auth.currentSession;
-        if (session != null && mounted) {
-          setState(() {
-            _isGoogleLoading = false;
-            _isLoading = false;
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange
+          .listen((data) {
+            final session =
+                data.session ?? Supabase.instance.client.auth.currentSession;
+            if (session != null && mounted) {
+              setState(() {
+                _isGoogleLoading = false;
+                _isLoading = false;
+              });
+              unawaited(
+                ref
+                    .read(appBootstrapServiceProvider)
+                    .hydrateUser(session.user.id),
+              );
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const AuthWrapper()),
+                );
+              }
+            }
           });
-          unawaited(
-            ref.read(appBootstrapServiceProvider).hydrateUser(session.user.id),
-          );
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          } else {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const AuthWrapper()),
-            );
-          }
-        }
-      });
     } catch (_) {}
   }
 
@@ -94,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -109,12 +113,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     try {
       final authClient = Supabase.instance.client.auth;
-      final input = _emailController.text.trim();
-      final resolvedEmail =
-          input.contains('@') ? input : internalEmailForUsername(input);
+      final username = normalizeUsername(_usernameController.text);
+      final internalEmail = internalEmailForUsername(username);
 
       final response = await authClient.signInWithPassword(
-        email: resolvedEmail,
+        email: internalEmail,
         password: _passwordController.text,
       );
 
@@ -185,18 +188,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             color: _bg.withValues(alpha: 0.97),
             padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 12),
             child: SizedBox(
-              height: 32,
-              child: Center(
-                child: Text(
-                  isVi ? 'Đăng nhập' : 'Sign In',
-                  style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: _onSurface,
-                    letterSpacing: -0.01 * 18,
+              height: 36,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    isVi ? 'Đăng nhập' : 'Sign In',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: _onSurface,
+                      letterSpacing: -0.01 * 18,
+                    ),
                   ),
-                ),
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: AuthLanguageToggle(),
+                  ),
+                ],
               ),
             ),
           ),
@@ -223,17 +232,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             width: double.infinity,
                             fit: BoxFit.cover,
                             alignment: Alignment.topCenter,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              height: 180,
-                              color: _surface,
-                              child: const Center(
-                                child: Icon(
-                                  Icons.fitness_center_rounded,
-                                  color: _primary,
-                                  size: 48,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  height: 180,
+                                  color: _surface,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.fitness_center_rounded,
+                                      color: _primary,
+                                      size: 48,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
                           ),
                           // Gradient scrim — same as stitch home hero
                           Positioned.fill(
@@ -261,7 +271,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 Text(
                                   isVi ? 'Hành trình của bạn' : 'Your journey',
                                   style: const TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: _primary,
@@ -273,7 +282,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       ? 'Sẵn sàng tiếp tục?'
                                       : 'Ready to continue?',
                                   style: const TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
                                     color: _onSurface,
@@ -288,32 +296,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     ),
                     const SizedBox(height: 24),
 
-                    // ── Email / Username field ──────────────────────────────
-                    _SectionLabel(isVi ? 'EMAIL HOẶC TÀI KHOẢN' : 'EMAIL OR USERNAME'),
+                    // ── Username field ──────────────────────────────────────
+                    _SectionLabel(isVi ? 'TÊN ĐĂNG NHẬP' : 'USERNAME'),
                     const SizedBox(height: 6),
                     _StitchTextField(
-                      controller: _emailController,
+                      controller: _usernameController,
                       hintText: isVi
-                          ? 'Nhập email hoặc tên tài khoản'
-                          : 'Enter your email or username',
-                      prefixIcon: Icons.mail_outline_rounded,
-                      validator: (value) {
-                        final trimmed = (value ?? '').trim();
-                        if (trimmed.isEmpty) {
-                          return isVi
-                              ? 'Vui lòng nhập email hoặc tên tài khoản'
-                              : 'Enter your email or username';
-                        }
-                        if (trimmed.contains('@')) {
-                          if (!trimmed.contains('.') || trimmed.length < 5) {
-                            return isVi
-                                ? 'Địa chỉ email không hợp lệ'
-                                : 'Invalid email address';
-                          }
-                          return null;
-                        }
-                        return validateUsername(trimmed, isVi: isVi);
-                      },
+                          ? 'Nhập tên đăng nhập'
+                          : 'Enter your username',
+                      prefixIcon: Icons.person_outline_rounded,
+                      validator: (value) => validateUsername(value, isVi: isVi),
                     ),
                     const SizedBox(height: 16),
 
@@ -328,8 +320,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       prefixIcon: Icons.lock_outline_rounded,
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                         icon: Icon(
                           _obscurePassword
                               ? Icons.visibility_outlined
@@ -360,24 +353,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => ForgotPasswordScreen(
-                                initialEmail: _emailController.text.trim().isNotEmpty
-                                    ? _emailController.text.trim()
-                                    : null,
-                              ),
+                              builder: (_) => const ForgotPasswordScreen(),
                             ),
                           );
                         },
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 8),
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
                           isVi ? 'Quên mật khẩu?' : 'Forgot password?',
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _primary,
@@ -411,7 +401,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           child: Text(
                             isVi ? 'Hoặc tiếp tục với' : 'Or continue with',
                             style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: _onSurfaceVariant,
@@ -425,7 +414,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     // ── Google button ───────────────────────────────────────
                     _GoogleButton(
-                      label: isVi ? 'Tiếp tục với Google' : 'Continue with Google',
+                      label: isVi
+                          ? 'Tiếp tục với Google'
+                          : 'Continue with Google',
                       isLoading: _isGoogleLoading,
                       disabled: _isLoading,
                       onPressed: _loginWithGoogle,
@@ -441,7 +432,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               ? 'Chưa có tài khoản? '
                               : "Don't have an account? ",
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 13,
                             color: _onSurfaceVariant,
                           ),
@@ -457,7 +447,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           child: Text(
                             isVi ? 'Tạo tài khoản' : 'Create account',
                             style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: _primary,
@@ -481,7 +470,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 // Shared design components (stitch-aligned)
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
   final String text;
@@ -491,7 +479,6 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: _onSurfaceVariant,
@@ -524,7 +511,6 @@ class _StitchTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       style: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: _onSurface,
@@ -533,7 +519,6 @@ class _StitchTextField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: _onSurfaceVariant,
@@ -542,8 +527,10 @@ class _StitchTextField extends StatelessWidget {
         fillColor: _surfaceLow,
         prefixIcon: Icon(prefixIcon, color: _onSurfaceVariant, size: 18),
         suffixIcon: suffixIcon,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: _outlineVariant),
@@ -584,7 +571,7 @@ class _PrimaryButton extends StatelessWidget {
     return GestureDetector(
       onTap: (isLoading || disabled) ? null : onPressed,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: KineticTokens.motionPress,
         height: 52,
         decoration: BoxDecoration(
           color: _primary,
@@ -613,7 +600,6 @@ class _PrimaryButton extends StatelessWidget {
                     Text(
                       label,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: _onPrimary,
@@ -687,7 +673,6 @@ class _GoogleButton extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: _onSurface,
@@ -715,17 +700,12 @@ class _ErrorMessage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: _error,
-            size: 16,
-          ),
+          const Icon(Icons.error_outline_rounded, color: _error, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 fontSize: 12,
                 color: _error.withValues(alpha: 0.9),
               ),

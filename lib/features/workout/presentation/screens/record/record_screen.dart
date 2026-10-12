@@ -28,6 +28,7 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 
@@ -129,15 +130,18 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         );
       } else {
         // Fetch asynchronously in background without blocking the countdown timer
-        ref.read(userProfileProvider(userId).future).then((profile) {
-          if (profile != null) {
-            notifier.setUserProfile(
-              weightKg: profile.weightKg,
-              heightCm: profile.heightCm,
-              gender: profile.gender,
-            );
-          }
-        }).catchError((_) {});
+        ref
+            .read(userProfileProvider(userId).future)
+            .then((profile) {
+              if (profile != null) {
+                notifier.setUserProfile(
+                  weightKg: profile.weightKg,
+                  heightCm: profile.heightCm,
+                  gender: profile.gender,
+                );
+              }
+            })
+            .catchError((_) {});
       }
     }
 
@@ -244,8 +248,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         message = isVi
             ? 'Dịch vụ định vị đang bị tắt. Vui lòng bật GPS trên máy để ghi nhận lộ trình buổi tập.'
             : (kIsWeb
-                ? 'Location services are disabled in your browser. Please allow location access for this site.'
-                : 'Location services are disabled. Please enable GPS and try again.');
+                  ? 'Location services are disabled in your browser. Please allow location access for this site.'
+                  : 'Location services are disabled. Please enable GPS and try again.');
         actionLabel = isVi
             ? (kIsWeb ? 'Thử Lại' : 'Mở Cài Đặt')
             : (kIsWeb ? 'Try Again' : 'Open Settings');
@@ -318,10 +322,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               _isLockingStartupGps = false;
             });
             _hasStartedWorkout = true;
-            ref.read(workoutSessionProvider.notifier).startWorkout(
-              widget.activityType,
-              startupGpsLock: null,
-            );
+            ref
+                .read(workoutSessionProvider.notifier)
+                .startWorkout(widget.activityType, startupGpsLock: null);
           },
           child: Text(
             isVi ? 'Tập bằng bước chân' : 'Start with Steps',
@@ -354,7 +357,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: colors.borderSubtle),
         ),
-        title: Text(title, style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: Text(message, style: TextStyle(color: colors.textSecondary)),
         actions: [
           TextButton(
@@ -380,7 +389,10 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -446,7 +458,10 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     }
   }
 
-  void _showProgramCompletedModal(BuildContext context, AppLanguage currentLang) {
+  void _showProgramCompletedModal(
+    BuildContext context,
+    AppLanguage currentLang,
+  ) {
     final isVi = currentLang == AppLanguage.vi;
     final programTitle = widget.guidedProgram != null
         ? AppTranslations.get(widget.guidedProgram!.titleKey, currentLang)
@@ -463,7 +478,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           decoration: const BoxDecoration(
             color: Color(0xFF0D1624),
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-            border: Border(top: BorderSide(color: Color(0xFFA8DCE7), width: 2.0)),
+            border: Border(
+              top: BorderSide(color: Color(0xFFA8DCE7), width: 2.0),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black87,
@@ -530,7 +547,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
               ),
               const SizedBox(height: 12),
               KineticButton(
-                label: isVi ? "🏁 KẾT THÚC & XEM KẾT QUẢ" : "🏁 FINISH & VIEW SUMMARY",
+                label: isVi
+                    ? "🏁 KẾT THÚC & XEM KẾT QUẢ"
+                    : "🏁 FINISH & VIEW SUMMARY",
                 variant: KineticButtonVariant.secondary,
                 onPressed: () {
                   Navigator.of(modalContext).pop();
@@ -553,8 +572,32 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     final effectiveDistanceMeters = finalState.gpsAnalysis.validDistanceKm > 0
         ? finalState.gpsAnalysis.validDistanceKm * 1000.0
         : (finalState.gpsAnalysis.totalDistanceKm > 0
-            ? finalState.gpsAnalysis.totalDistanceKm * 1000.0
-            : finalState.distanceMeters);
+              ? finalState.gpsAnalysis.totalDistanceKm * 1000.0
+              : finalState.distanceMeters);
+
+    final routePointCandidates = <List<LatLng>>[
+      finalState.filteredRoutePoints,
+      finalState.smoothedRoutePoints,
+      finalState.routePoints,
+    ];
+    final summaryRoutePoints = routePointCandidates.firstWhere(
+      (points) => points.length >= 2,
+      orElse: () => const <LatLng>[],
+    );
+    final routeSegmentCandidates = <List<List<LatLng>>>[
+      finalState.smoothedRouteSegments,
+      finalState.routeSegments,
+    ];
+    final summaryRouteSegments = routeSegmentCandidates
+        .map(
+          (segments) => segments
+              .where((segment) => segment.length >= 2)
+              .toList(growable: false),
+        )
+        .firstWhere(
+          (segments) => segments.isNotEmpty,
+          orElse: () => const <List<LatLng>>[],
+        );
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -569,14 +612,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           calories: finalState.caloriesBurned,
           steps: finalState.stepCount,
           gpsAnalysis: finalState.gpsAnalysis,
-          routePoints: finalState.filteredRoutePoints.isNotEmpty
-              ? finalState.filteredRoutePoints
-              : (finalState.smoothedRoutePoints.isNotEmpty
-                    ? finalState.smoothedRoutePoints
-                    : finalState.routePoints),
-          routeSegments: finalState.smoothedRouteSegments.isNotEmpty
-              ? finalState.smoothedRouteSegments
-              : finalState.routeSegments,
+          routePoints: summaryRoutePoints,
+          routeSegments: summaryRouteSegments,
           lapSplits: finalState.lapSplits,
         ),
       ),
@@ -623,13 +660,17 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
         ? user!.email!.substring(0, 1).toUpperCase()
         : 'A';
 
-    final hasGuidedProgram = widget.guidedProgram != null && !_isGuidedProgramCompleted;
-    final hasTargetHud = widget.workoutTarget != null && widget.workoutTarget!.type != WorkoutTargetType.none;
-    final double mapTopControlOffset = (hasGuidedProgram || _activeToastSplit != null)
+    final hasGuidedProgram =
+        widget.guidedProgram != null && !_isGuidedProgramCompleted;
+    final hasTargetHud =
+        widget.workoutTarget != null &&
+        widget.workoutTarget!.type != WorkoutTargetType.none;
+    final double mapTopControlOffset =
+        (hasGuidedProgram || _activeToastSplit != null)
         ? (MediaQuery.of(context).padding.top + 225.0)
         : hasTargetHud
-            ? (MediaQuery.of(context).padding.top + 130.0)
-            : (MediaQuery.of(context).padding.top + 72.0);
+        ? (MediaQuery.of(context).padding.top + 130.0)
+        : (MediaQuery.of(context).padding.top + 72.0);
 
     // Guided Running Program Step Progression
     final program = widget.guidedProgram;
@@ -667,7 +708,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
     final shouldShowGpsRoute =
         state.routePoints.length >= 2 || state.trackingMode != kIndoorMode;
-    final isRecording = state.status == RecordingState.active ||
+    final isRecording =
+        state.status == RecordingState.active ||
         state.status == RecordingState.paused;
     final canToggle = isRecording;
     final isPaused = state.status == RecordingState.paused;
@@ -735,7 +777,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                             16,
                             64, // Space below top bar
                             16,
-                            bottomDockHeight + 16, // Space above fixed bottom dock
+                            bottomDockHeight +
+                                16, // Space above fixed bottom dock
                           ),
                           children: [
                             _CompactRecordingHud(
@@ -745,13 +788,19 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               isLargeMetricsMode: _isLargeMetricsMode,
                               guidedProgram: widget.guidedProgram,
                               guidedStepIndex: _guidedStepIndex,
-                              stepRemainingSeconds: (widget.guidedProgram != null &&
-                                      _guidedStepIndex < widget.guidedProgram!.steps.length)
-                                  ? (widget.guidedProgram!.steps[_guidedStepIndex].durationSeconds -
-                                          _stepElapsedSeconds)
-                                      .clamp(0, 999999)
+                              stepRemainingSeconds:
+                                  (widget.guidedProgram != null &&
+                                      _guidedStepIndex <
+                                          widget.guidedProgram!.steps.length)
+                                  ? (widget
+                                                .guidedProgram!
+                                                .steps[_guidedStepIndex]
+                                                .durationSeconds -
+                                            _stepElapsedSeconds)
+                                        .clamp(0, 999999)
                                   : 0,
-                              isGuidedProgramCompleted: _isGuidedProgramCompleted,
+                              isGuidedProgramCompleted:
+                                  _isGuidedProgramCompleted,
                               workoutTarget: widget.workoutTarget,
                             ),
                           ],
@@ -805,31 +854,47 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                           useMetricUnits: useMetricUnits,
                           currentLang: currentLang,
                           onDismiss: () {
-                            if (mounted) setState(() => _activeToastSplit = null);
+                            if (mounted) {
+                              setState(() => _activeToastSplit = null);
+                            }
                           },
                         );
                       }
 
                       // 2. Guided Program Coach HUD
-                      if (widget.guidedProgram != null && !_isGuidedProgramCompleted) {
+                      if (widget.guidedProgram != null &&
+                          !_isGuidedProgramCompleted) {
                         return GuidedProgramHud(
                           program: widget.guidedProgram!,
                           currentStepIndex: _guidedStepIndex,
-                          stepRemainingSeconds: (_guidedStepIndex < widget.guidedProgram!.steps.length)
-                              ? (widget.guidedProgram!.steps[_guidedStepIndex].durationSeconds - _stepElapsedSeconds).clamp(0, 999999)
+                          stepRemainingSeconds:
+                              (_guidedStepIndex <
+                                  widget.guidedProgram!.steps.length)
+                              ? (widget
+                                            .guidedProgram!
+                                            .steps[_guidedStepIndex]
+                                            .durationSeconds -
+                                        _stepElapsedSeconds)
+                                    .clamp(0, 999999)
                               : 0,
                           stepElapsedSeconds: _stepElapsedSeconds,
-                          currentPaceMinSecKm: state.speedKmh > 0.5 ? (3600.0 / state.speedKmh) : 0.0,
+                          currentPaceMinSecKm: state.speedKmh > 0.5
+                              ? (3600.0 / state.speedKmh)
+                              : 0.0,
                           currentLang: currentLang,
                           onSkipStep: () {
                             HapticFeedback.lightImpact();
                             setState(() {
-                              if (_guidedStepIndex < widget.guidedProgram!.steps.length - 1) {
+                              if (_guidedStepIndex <
+                                  widget.guidedProgram!.steps.length - 1) {
                                 _guidedStepIndex++;
                                 _stepElapsedSeconds = 0;
                               } else {
                                 _isGuidedProgramCompleted = true;
-                                _showProgramCompletedModal(context, currentLang);
+                                _showProgramCompletedModal(
+                                  context,
+                                  currentLang,
+                                );
                               }
                             });
                           },
@@ -838,7 +903,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 
                       // 3. Live Workout Target Progress HUD
                       if (widget.workoutTarget != null &&
-                          widget.workoutTarget!.type != WorkoutTargetType.none) {
+                          widget.workoutTarget!.type !=
+                              WorkoutTargetType.none) {
                         return WorkoutTargetProgressHud(
                           target: widget.workoutTarget!,
                           distanceMeters: state.distanceMeters,
@@ -905,97 +971,99 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                   isVi: currentLang == AppLanguage.vi,
                   onPauseResume: () => _handlePauseResume(state.status),
                   onStop: _confirmStop,
-                  onToggleLock: () => setState(() => _isScreenLocked = !_isScreenLocked),
+                  onToggleLock: () =>
+                      setState(() => _isScreenLocked = !_isScreenLocked),
                 ),
               ),
-          if (_isScreenLocked)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.88),
-                child: SafeArea(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(22),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: context.kinetic.surface1,
-                              border: Border.all(
-                                color: context.kinetic.tertiary,
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: context.kinetic.tertiary
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 24,
-                                  spreadRadius: 2,
+            if (_isScreenLocked)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.88),
+                  child: SafeArea(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(22),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: context.kinetic.surface1,
+                                border: Border.all(
+                                  color: context.kinetic.tertiary,
+                                  width: 2,
                                 ),
-                              ],
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: context.kinetic.tertiary.withValues(
+                                      alpha: 0.35,
+                                    ),
+                                    blurRadius: 24,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.lock_rounded,
+                                size: 48,
+                                color: context.kinetic.tertiary,
+                              ),
                             ),
-                            child: Icon(
-                              Icons.lock_rounded,
-                              size: 48,
-                              color: context.kinetic.tertiary,
+                            const SizedBox(height: 20),
+                            Text(
+                              currentLang == AppLanguage.vi
+                                  ? 'MÀN HÌNH ĐÃ KHÓA'
+                                  : 'SCREEN LOCKED',
+                              style: KineticTypography.headlineSmall.copyWith(
+                                color: Colors.white,
+                                letterSpacing: 2,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            currentLang == AppLanguage.vi
-                                ? 'MÀN HÌNH ĐÃ KHÓA'
-                                : 'SCREEN LOCKED',
-                            style: KineticTypography.headlineSmall.copyWith(
-                              color: Colors.white,
-                              letterSpacing: 2,
-                              fontWeight: FontWeight.bold,
+                            const SizedBox(height: 8),
+                            Text(
+                              currentLang == AppLanguage.vi
+                                  ? 'Chống chạm cảm ứng khi ra mồ hôi hoặc bỏ túi'
+                                  : 'Touch-protected against sweat and accidental taps',
+                              textAlign: TextAlign.center,
+                              style: KineticTypography.bodySmall.copyWith(
+                                color: context.kinetic.textSecondary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            currentLang == AppLanguage.vi
-                                ? 'Chống chạm cảm ứng khi ra mồ hôi hoặc bỏ túi'
-                                : 'Touch-protected against sweat and accidental taps',
-                            textAlign: TextAlign.center,
-                            style: KineticTypography.bodySmall.copyWith(
-                              color: context.kinetic.textSecondary,
+                            const SizedBox(height: 32),
+                            KineticButton(
+                              label: currentLang == AppLanguage.vi
+                                  ? 'Chạm để mở khóa'
+                                  : 'Tap to unlock',
+                              icon: Icons.lock_open_rounded,
+                              variant: KineticButtonVariant.secondary,
+                              onPressed: () {
+                                HapticFeedback.heavyImpact();
+                                setState(() => _isScreenLocked = false);
+                              },
                             ),
-                          ),
-                          const SizedBox(height: 32),
-                          KineticButton(
-                            label: currentLang == AppLanguage.vi
-                                ? 'Chạm để mở khóa'
-                                : 'Tap to unlock',
-                            icon: Icons.lock_open_rounded,
-                            variant: KineticButtonVariant.secondary,
-                            onPressed: () {
-                              HapticFeedback.heavyImpact();
-                              setState(() => _isScreenLocked = false);
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          if (_isPreparingWorkout)
-            Positioned.fill(
-              child: Workout3DCountdownOverlay(
-                countdown: _startupCountdown,
-                isLockingGps: _isLockingStartupGps,
-                activityType: widget.activityType,
-                currentLang: currentLang,
-                onSkip: _skipCountdown,
+            if (_isPreparingWorkout)
+              Positioned.fill(
+                child: Workout3DCountdownOverlay(
+                  countdown: _startupCountdown,
+                  isLockingGps: _isLockingStartupGps,
+                  activityType: widget.activityType,
+                  currentLang: currentLang,
+                  onSkip: _skipCountdown,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -1010,8 +1078,6 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     }
   }
 }
-
-
 
 class _CompactRecordingHud extends ConsumerWidget {
   const _CompactRecordingHud({
@@ -1118,9 +1184,7 @@ class _IntegratedProgramPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: step.phaseColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: step.phaseColor.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: step.phaseColor.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -1191,8 +1255,12 @@ class _IntegratedTargetPill extends StatelessWidget {
             : 'Target: ${target.value.toStringAsFixed(1)} km';
         final remainingKm = (target.value - currentKm).clamp(0.0, target.value);
         remainingLabel = isVi
-            ? (remainingKm <= 0 ? 'Hoàn thành!' : 'Còn ${remainingKm.toStringAsFixed(1)} km')
-            : (remainingKm <= 0 ? 'Done!' : '${remainingKm.toStringAsFixed(1)} km left');
+            ? (remainingKm <= 0
+                  ? 'Hoàn thành!'
+                  : 'Còn ${remainingKm.toStringAsFixed(1)} km')
+            : (remainingKm <= 0
+                  ? 'Done!'
+                  : '${remainingKm.toStringAsFixed(1)} km left');
         break;
       case WorkoutTargetType.duration:
         final targetSec = (target.value * 60).round();
@@ -1209,7 +1277,10 @@ class _IntegratedTargetPill extends StatelessWidget {
         targetLabel = isVi
             ? 'Mục tiêu: ${target.value.toInt()} kcal'
             : 'Target: ${target.value.toInt()} kcal';
-        final remKcal = (target.value - calories).clamp(0, target.value.toInt());
+        final remKcal = (target.value - calories).clamp(
+          0,
+          target.value.toInt(),
+        );
         remainingLabel = isVi
             ? (remKcal <= 0 ? 'Hoàn thành!' : 'Còn $remKcal kcal')
             : (remKcal <= 0 ? 'Done!' : '$remKcal kcal left');
@@ -1223,9 +1294,7 @@ class _IntegratedTargetPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.primary.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
@@ -1256,5 +1325,3 @@ class _IntegratedTargetPill extends StatelessWidget {
     );
   }
 }
-
-

@@ -356,7 +356,6 @@ class _ForcePasswordUpgradeScreenState
     return InputDecoration(
       hintText: hintText,
       hintStyle: TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         color: kinetic.textMuted.withValues(alpha: 0.5),
         fontSize: 14,
       ),

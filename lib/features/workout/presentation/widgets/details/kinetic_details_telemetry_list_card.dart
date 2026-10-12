@@ -252,9 +252,8 @@ class _TelemetryRow extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           label,
-          style: KineticTypography.bodySmall.copyWith(
+          style: KineticTypography.label.copyWith(
             color: isHighlighted ? colors.textPrimary : colors.textMuted,
-            fontSize: 13,
             fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
@@ -263,8 +262,8 @@ class _TelemetryRow extends StatelessWidget {
           value,
           style: KineticTypography.label.copyWith(
             color: isHighlighted ? colors.primary : colors.textPrimary,
-            fontSize: 13.5,
             fontWeight: FontWeight.w800,
+            fontFeatures: KineticTypography.tabularFigures,
           ),
         ),
       ],

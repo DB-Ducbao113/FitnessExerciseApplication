@@ -45,9 +45,6 @@ class KineticAnalyticsHeader extends StatelessWidget {
               child: Text(
                 isVi ? 'Phân tích' : 'Analytics',
                 style: KineticTypography.pageTitle.copyWith(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
                   color: colors.textPrimary,
                 ),
                 maxLines: 1,
@@ -90,7 +87,6 @@ class KineticAnalyticsHeader extends StatelessWidget {
                         ? (isVi ? 'Ngoại tuyến' : 'Offline')
                         : (isVi ? 'Đã đồng bộ' : 'Synced'),
                     style: KineticTypography.unitLabel.copyWith(
-                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: colors.textSecondary,
                     ),
@@ -137,7 +133,7 @@ class KineticAnalyticsHeader extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: KineticTokens.motionTab,
           height: 42,
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -183,7 +179,6 @@ class KineticAnalyticsHeader extends StatelessWidget {
                 style: KineticTypography.label.copyWith(
                   color: textColor,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 12,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

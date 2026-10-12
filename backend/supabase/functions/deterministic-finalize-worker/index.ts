@@ -14,6 +14,9 @@ type WorkoutRow = {
   avg_speed_kmh: number | null;
   calories_kcal: number | null;
   steps: number | null;
+  // jsonb column written by the client's live route snapshot; used as a
+  // fallback route when the worker has no raw GPS points to reprocess.
+  filtered_route_json?: unknown;
 };
 
 type ProcessingJobRow = {
@@ -175,6 +178,7 @@ async function handleRequest(req: Request): Promise<Response> {
       rawGpsPoints,
       rawStepIntervals,
       userProfile,
+      clientFilteredRoute: workout.filtered_route_json,
     });
 
     await persistMetrics(supabase, workout.id, metrics);
@@ -238,7 +242,7 @@ async function fetchWorkout(
   const { data, error } = await supabase
     .from("workout_sessions")
     .select(
-      "id, user_id, activity_type, mode, started_at, ended_at, duration_sec, moving_time_sec, distance_km, avg_speed_kmh, calories_kcal, steps",
+      "id, user_id, activity_type, mode, started_at, ended_at, duration_sec, moving_time_sec, distance_km, avg_speed_kmh, calories_kcal, steps, filtered_route_json",
     )
     .eq("id", workoutId)
     .maybeSingle();
@@ -347,24 +351,29 @@ async function persistMetrics(
   workoutId: string,
   metrics: CanonicalMetrics,
 ) {
+  const update: Record<string, unknown> = {
+    duration_sec: metrics.durationSec,
+    moving_time_sec: metrics.movingTimeSec,
+    distance_km: metrics.distanceKm,
+    avg_speed_kmh: metrics.avgSpeedKmh,
+    calories_kcal: metrics.caloriesKcal,
+    steps: metrics.steps,
+    lap_splits: metrics.lapSplits,
+    processing_status: "client_finalized",
+    data_quality_score: metrics.dataQualityScore,
+    metrics_version: METRICS_VERSION,
+  };
+  // Never clobber a client live-snapshot route with an empty recompute:
+  // route fields are only written when this run actually produced a route.
+  if (metrics.filteredRouteJson.length > 0) {
+    update.filtered_route_json = metrics.filteredRouteJson;
+    update.route_match_status = metrics.routeMatchStatus;
+    update.route_distance_source = metrics.routeDistanceSource;
+    update.route_match_metrics_json = metrics.routeMatchMetricsJson;
+  }
   const { error } = await supabase
     .from("workout_sessions")
-    .update({
-      duration_sec: metrics.durationSec,
-      moving_time_sec: metrics.movingTimeSec,
-      distance_km: metrics.distanceKm,
-      avg_speed_kmh: metrics.avgSpeedKmh,
-      calories_kcal: metrics.caloriesKcal,
-      steps: metrics.steps,
-      lap_splits: metrics.lapSplits,
-      filtered_route_json: metrics.filteredRouteJson,
-      processing_status: "client_finalized",
-      data_quality_score: metrics.dataQualityScore,
-      metrics_version: METRICS_VERSION,
-      route_match_status: metrics.routeMatchStatus,
-      route_distance_source: metrics.routeDistanceSource,
-      route_match_metrics_json: metrics.routeMatchMetricsJson,
-    })
+    .update(update)
     .eq("id", workoutId);
   if (error) throw error;
 }
@@ -424,11 +433,42 @@ async function persistSegmentAudits(
   if (error) throw error;
 }
 
+/// Parses the client's live-snapshot route (jsonb array or JSON string of
+/// segments) into RoutePoint[][]. Returns [] for anything malformed.
+export function parseClientRoute(raw: unknown): RoutePoint[][] {
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(Array.isArray)
+      .map((segment) =>
+        segment
+          .filter(
+            (point: unknown) =>
+              typeof point === "object" && point !== null &&
+              typeof (point as Record<string, unknown>).lat === "number" &&
+              typeof (point as Record<string, unknown>).lng === "number",
+          )
+          .map((point: Record<string, unknown>) => ({
+            lat: point.lat as number,
+            lng: point.lng as number,
+            timestamp: typeof point.timestamp === "string"
+              ? point.timestamp
+              : new Date().toISOString(),
+          }))
+      )
+      .filter((segment) => segment.length > 0);
+  } catch (_) {
+    return [];
+  }
+}
+
 export function computeCanonicalMetrics(input: {
   workout: WorkoutRow;
   rawGpsPoints: RawGpsPoint[];
   rawStepIntervals: RawStepInterval[];
   userProfile: UserProfileRow | null;
+  clientFilteredRoute?: unknown;
 }): CanonicalMetrics {
   const durationSec = resolveDurationSec(input.workout, input.rawGpsPoints);
   const stepCount = resolveSteps(input.rawStepIntervals, input.workout.steps);
@@ -512,6 +552,25 @@ export function computeCanonicalMetrics(input: {
     poorAccuracyPointCount: processedGps.poorAccuracyPointCount,
   });
 
+  // When the worker had no raw GPS to process at all (e.g. web sessions,
+  // where raw points are not buffered locally and never reach
+  // raw_gps_points), keep the client's live-snapshot route instead of
+  // overwriting it with an empty recompute. The fallback must never apply
+  // when raw points exist: an empty worker route then means the points were
+  // filtered out (e.g. suspicious movement) and the server verdict wins.
+  const workerRoute = processedGps.filteredRoute;
+  const hasWorkerRoute = workerRoute.flat().length > 0;
+  const fallbackRoute =
+    !hasWorkerRoute && input.rawGpsPoints.length === 0
+      ? parseClientRoute(input.clientFilteredRoute)
+      : [];
+  const effectiveRoute = hasWorkerRoute ? workerRoute : fallbackRoute;
+  const routeSource = hasWorkerRoute
+    ? "raw_gps"
+    : fallbackRoute.length > 0
+    ? "client_fallback"
+    : "none";
+
   return {
     durationSec,
     movingTimeSec,
@@ -520,14 +579,15 @@ export function computeCanonicalMetrics(input: {
     caloriesKcal,
     steps: stepCount,
     lapSplits,
-    filteredRouteJson: processedGps.filteredRoute,
+    filteredRouteJson: effectiveRoute,
     dataQualityScore,
-    routeMatchStatus: processedGps.filteredRoute.flat().length >= 10
+    routeMatchStatus: effectiveRoute.flat().length >= 10
       ? "pending"
       : "not_requested",
     routeDistanceSource: "filtered",
     segmentAudits: processedGps.segmentAudits,
     routeMatchMetricsJson: {
+      route_source: routeSource,
       gps_gap_count: processedGps.gpsGapCount,
       gps_gap_duration_sec: processedGps.gpsGapDurationSec,
       accepted_point_count: processedGps.acceptedPointCount,

@@ -75,7 +75,6 @@ class KineticDetailsSplitsCard extends StatelessWidget {
                 '${lapSplits.length} $unitLabel',
                 style: KineticTypography.unitLabel.copyWith(
                   color: colors.textMuted,
-                  fontSize: 11,
                 ),
               ),
             ],
@@ -162,7 +161,6 @@ class _SplitRow extends StatelessWidget {
             '$unitLabel ${split.index}',
             style: KineticTypography.unitLabel.copyWith(
               color: isFastest ? colors.primary : colors.textMuted,
-              fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
             textAlign: TextAlign.center,
@@ -204,7 +202,6 @@ class _SplitRow extends StatelessWidget {
           WorkoutFormatters.formatDurationFromSeconds(split.durationSeconds),
           style: KineticTypography.bodySmall.copyWith(
             color: colors.textMuted,
-            fontSize: 12,
           ),
         ),
         const SizedBox(width: 10),
@@ -215,10 +212,10 @@ class _SplitRow extends StatelessWidget {
           child: Text(
             paceStr,
             textAlign: TextAlign.right,
-            style: KineticTypography.label.copyWith(
+            style: KineticTypography.bodySmall.copyWith(
               color: isFastest ? colors.primary : colors.textPrimary,
-              fontSize: 12,
               fontWeight: isFastest ? FontWeight.w800 : FontWeight.w600,
+              fontFeatures: KineticTypography.tabularFigures,
             ),
           ),
         ),

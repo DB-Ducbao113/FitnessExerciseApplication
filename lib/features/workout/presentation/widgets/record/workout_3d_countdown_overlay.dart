@@ -203,9 +203,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         const SizedBox(width: 8),
                         Text(
                           widget.activityType.toUpperCase(),
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 13,
+                          style: KineticTypography.unitLabel.copyWith(
                             fontWeight: FontWeight.w900,
                             color: accent,
                             letterSpacing: 1.5,
@@ -304,8 +302,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                                   ? '${widget.countdown}'
                                   : 'GO!',
                               key: ValueKey(widget.countdown),
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
+                              style: KineticTypography.metricHero.copyWith(
                                 fontSize: widget.countdown > 0 ? 88 : 58,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
@@ -338,9 +335,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         Text(
                           statusText,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 18,
+                          style: KineticTypography.headlineSmall.copyWith(
                             fontWeight: FontWeight.w900,
                             color: accent,
                             letterSpacing: 1.0,
@@ -350,9 +345,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         Text(
                           subText,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 13,
+                          style: KineticTypography.bodySmall.copyWith(
                             color: colors.textSecondary,
                             height: 1.4,
                           ),
@@ -387,9 +380,7 @@ class _Workout3DCountdownOverlayState extends State<Workout3DCountdownOverlay>
                         const SizedBox(width: 8),
                         Text(
                           isVi ? 'CHẠM ĐỂ BẮT ĐẦU NGAY' : 'TAP TO START IMMEDIATELY',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 11,
+                          style: KineticTypography.unitLabel.copyWith(
                             fontWeight: FontWeight.w800,
                             color: accent.withValues(alpha: 0.9),
                             letterSpacing: 0.8,

@@ -68,12 +68,20 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     List<WorkoutSession> sessions,
   ) async {
     if (kIsWeb) return;
-    // 1. Wipe current local cache explicitly for the user
-    await LocalDB.clearAllForUser(userId);
-    // 2. Hydrate from the provided sessions
-    if (sessions.isNotEmpty) {
-      await LocalDB.syncRemoteSessions(sessions, forUserId: userId);
-    }
+    // Do NOT wipe the cache first. `sessions` is the *filtered* server list
+    // (`getSessionsByUser` hides `client_recording` shells and zero-metric
+    // rows), so a blind `clearAllForUser` destroys local rows the server query
+    // simply chose not to return — including a workout whose background save is
+    // still in flight. The Details screen reads the local cache first, which is
+    // how a finished workout ended up showing on Summary but "not found" in
+    // History.
+    //
+    // `syncRemoteSessions` already reconciles correctly: it updates/inserts the
+    // server rows, preserves unsynced local work, and applies remote deletions
+    // to rows that were previously confirmed as synced. Remote fetch failures
+    // throw before this method is called, so an offline request cannot masquerade
+    // as a successful empty result and wipe the cache.
+    await LocalDB.syncRemoteSessions(sessions, forUserId: userId);
   }
 
   @override
@@ -100,10 +108,19 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
 
   @override
   Future<WorkoutSession?> getSessionById(String sessionId) async {
+    // Diagnostics: a "Workout not found" screen is ambiguous unless we know
+    // WHICH stage returned null. Each branch below logs its outcome so a single
+    // run identifies the failing layer.
+    var localHit = false;
     if (!kIsWeb) {
       try {
         final w = await LocalDB.getSessionById(sessionId);
-        if (w != null) return w.toEntity();
+        if (w != null) {
+          localHit = true;
+          debugPrint('[WorkoutRepository][getSessionById] local HIT $sessionId');
+          return w.toEntity();
+        }
+        debugPrint('[WorkoutRepository][getSessionById] local MISS $sessionId');
       } catch (e) {
         debugPrint('[WorkoutRepository] LocalDB.getSessionById error: $e');
       }
@@ -112,11 +129,19 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     try {
       final remote = await _remoteDataSource.getSessionById(sessionId);
       if (remote != null) {
+        debugPrint(
+          '[WorkoutRepository][getSessionById] remote HIT $sessionId '
+          '(localHit=$localHit)',
+        );
         if (!kIsWeb) {
           await cacheSessionLocal(remote, isSynced: true);
         }
         return remote;
       }
+      debugPrint(
+        '[WorkoutRepository][getSessionById] remote MISS $sessionId — '
+        'the row is absent from workout_sessions or RLS blocked the SELECT',
+      );
     } catch (e) {
       debugPrint('[WorkoutRepository] Failed to fetch remote session: $e');
     }

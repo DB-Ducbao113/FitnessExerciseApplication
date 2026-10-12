@@ -123,19 +123,16 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
                         _selectedCategory == BadgeCategory.all
                             ? (currentLang == AppLanguage.vi ? 'TẤT CẢ HUY HIỆU' : 'ALL BADGES')
                             : _selectedCategory.label(currentLang).toUpperCase(),
-                        style: KineticTypography.unitLabel.copyWith(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                        style: KineticTypography.pageEyebrow.copyWith(
                           color: colors.primary,
-                          letterSpacing: 1.2,
                         ),
                       ),
                       Text(
                         '${filteredBadges.where((b) => b.isUnlocked).length} / ${filteredBadges.length}',
-                        style: KineticTypography.label.copyWith(
-                          fontSize: 11,
+                        style: KineticTypography.caption.copyWith(
                           fontWeight: FontWeight.w800,
                           color: colors.textSecondary,
+                          fontFeatures: KineticTypography.tabularFigures,
                         ),
                       ),
                     ],

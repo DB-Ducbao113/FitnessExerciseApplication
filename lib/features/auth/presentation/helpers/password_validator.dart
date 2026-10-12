@@ -136,7 +136,6 @@ class PasswordSecurityMeter extends StatelessWidget {
               Text(
                 strengthLabel,
                 style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   color: strengthColor,
@@ -195,7 +194,7 @@ class _RuleChip extends StatelessWidget {
     final color = isMet ? const Color(0xFF2AF598) : colors.textSecondary.withValues(alpha: 0.5);
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: KineticTokens.motionTab,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isMet ? const Color(0xFF2AF598).withValues(alpha: 0.12) : Colors.transparent,
@@ -214,7 +213,6 @@ class _RuleChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               fontSize: 11,
               fontWeight: isMet ? FontWeight.w800 : FontWeight.w500,
               color: isMet ? colors.textPrimary : colors.textSecondary,

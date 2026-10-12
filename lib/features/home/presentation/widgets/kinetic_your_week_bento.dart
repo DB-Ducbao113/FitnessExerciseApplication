@@ -34,9 +34,12 @@ class KineticYourWeekBento extends StatelessWidget {
     final unit = useMetricUnits ? 'km' : 'mi';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: KineticTokens.page,
+        vertical: 8,
+      ),
       child: KineticCard(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(KineticTokens.spaceMD),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -95,7 +98,6 @@ class KineticYourWeekBento extends StatelessWidget {
                             style: KineticTypography.unitLabel.copyWith(
                               color: colors.primary,
                               fontWeight: FontWeight.w700,
-                              fontSize: 11,
                             ),
                           ),
                           const SizedBox(width: 3),
@@ -130,9 +132,8 @@ class KineticYourWeekBento extends StatelessWidget {
                       children: [
                         Text(
                           isVi ? 'Tổng quãng đường' : 'Total Distance',
-                          style: KineticTypography.bodySmall.copyWith(
+                          style: KineticTypography.caption.copyWith(
                             color: colors.textMuted,
-                            fontSize: 11,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -171,7 +172,6 @@ class KineticYourWeekBento extends StatelessWidget {
                                     : '+12% vs last week',
                                 style: KineticTypography.unitLabel.copyWith(
                                   color: colors.secondary,
-                                  fontSize: 11,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -199,9 +199,8 @@ class KineticYourWeekBento extends StatelessWidget {
                       children: [
                         Text(
                           isVi ? 'Số buổi tập' : 'Workouts',
-                          style: KineticTypography.bodySmall.copyWith(
+                          style: KineticTypography.caption.copyWith(
                             color: colors.textMuted,
-                            fontSize: 11,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -240,7 +239,6 @@ class KineticYourWeekBento extends StatelessWidget {
                                     : 'Target: $targetWorkoutCount sessions/wk',
                                 style: KineticTypography.unitLabel.copyWith(
                                   color: colors.textMuted,
-                                  fontSize: 11,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -266,7 +264,6 @@ class KineticYourWeekBento extends StatelessWidget {
                       : 'Accumulated Progress (${weeklyDistanceKm.toStringAsFixed(1)} / ${targetDistanceKm.toStringAsFixed(0)} $unit)',
                   style: KineticTypography.bodySmall.copyWith(
                     color: colors.textMuted,
-                    fontSize: 12,
                   ),
                 ),
                 Text(
@@ -280,7 +277,7 @@ class KineticYourWeekBento extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(KineticTokens.radiusPill),
               child: Container(
                 height: 8,
                 color: colors.surface3,
@@ -291,7 +288,8 @@ class KineticYourWeekBento extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           color: colors.primary,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius:
+                              BorderRadius.circular(KineticTokens.radiusPill),
                           boxShadow: [
                             BoxShadow(
                               color: colors.primary.withValues(alpha: 0.6),
@@ -334,7 +332,6 @@ class KineticYourWeekBento extends StatelessWidget {
                             style: KineticTypography.bodySmall.copyWith(
                               color: colors.textSecondary,
                               fontWeight: FontWeight.w600,
-                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -347,7 +344,6 @@ class KineticYourWeekBento extends StatelessWidget {
                             style: KineticTypography.unitLabel.copyWith(
                               color: colors.primary,
                               fontWeight: FontWeight.w700,
-                              fontSize: 11,
                             ),
                           ),
                           const SizedBox(width: 2),

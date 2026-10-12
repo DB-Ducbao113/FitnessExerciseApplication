@@ -61,17 +61,14 @@ class KineticNextMilestoneSpotlight extends StatelessWidget {
                   children: [
                     Text(
                       currentLang == AppLanguage.vi ? 'CỘT MỐC TIẾP THEO' : 'NEXT MILESTONE',
-                      style: KineticTypography.unitLabel.copyWith(
-                        fontSize: 11,
+                      style: KineticTypography.pageEyebrow.copyWith(
                         color: colors.primary,
-                        letterSpacing: 1.2,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       badge.title(currentLang),
                       style: KineticTypography.headlineSmall.copyWith(
-                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: colors.textPrimary,
                       ),
@@ -79,8 +76,7 @@ class KineticNextMilestoneSpotlight extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${badge.formattedProgress(currentLang)} • ${badge.remainingText(currentLang)}',
-                      style: KineticTypography.bodySmall.copyWith(
-                        fontSize: 11,
+                      style: KineticTypography.caption.copyWith(
                         color: colors.textSecondary,
                       ),
                     ),
@@ -92,7 +88,6 @@ class KineticNextMilestoneSpotlight extends StatelessWidget {
               Text(
                 '${badge.progressPercent}%',
                 style: KineticTypography.headlineSmall.copyWith(
-                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: colors.primary,
                 ),

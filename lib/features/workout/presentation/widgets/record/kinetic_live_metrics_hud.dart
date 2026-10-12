@@ -106,12 +106,11 @@ class KineticLiveMetricsHud extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   distanceUnit,
-                  style: TextStyle(
-                    fontFamily: KineticTypography.fontFamily,
-                    fontSize: isLargeMetricsMode ? 20 : 16,
+                  style: KineticTypography.metricUnit.copyWith(
                     fontWeight: FontWeight.w800,
                     color: colors.primary,
                     letterSpacing: 0.8,
+                    fontSize: isLargeMetricsMode ? 20 : 16,
                   ),
                 ),
               ],
@@ -247,9 +246,7 @@ class _MetricTile extends StatelessWidget {
             children: [
               Text(
                 label.toUpperCase(),
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 11,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight: FontWeight.w800,
                   color: colors.textSecondary,
                   letterSpacing: 0.6,
@@ -271,22 +268,16 @@ class _MetricTile extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
+                style: KineticTypography.metricCard.copyWith(
                   color: colors.textPrimary,
                   letterSpacing: -0.5,
-                  fontFeatures: KineticTypography.tabularFigures,
                 ),
               ),
               if (unit.isNotEmpty) ...[
                 const SizedBox(width: 4),
                 Text(
                   unit,
-                  style: TextStyle(
-                    fontFamily: KineticTypography.fontFamily,
-                    fontSize: 11,
+                  style: KineticTypography.unitLabel.copyWith(
                     fontWeight: FontWeight.w700,
                     color: colors.textSecondary,
                   ),
@@ -313,9 +304,7 @@ class _MetricTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     note!,
-                    style: TextStyle(
-                      fontFamily: KineticTypography.fontFamily,
-                      fontSize: 11,
+                    style: KineticTypography.unitLabel.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isNotePositive != null
                           ? (isNotePositive! ? colors.primary : colors.tertiary)
@@ -532,12 +521,11 @@ class _MiniMetricColumn extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: KineticTypography.fontFamily,
-            fontSize: 9.5,
+          style: KineticTypography.caption.copyWith(
             fontWeight: FontWeight.w700,
             color: colors.textSecondary.withValues(alpha: 0.85),
             letterSpacing: 0.4,
+            fontSize: 9.5,
           ),
         ),
         const SizedBox(height: 2),
@@ -551,13 +539,9 @@ class _MiniMetricColumn extends StatelessWidget {
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
+                style: KineticTypography.metricSmall.copyWith(
                   color: valueColor,
                   letterSpacing: -0.3,
-                  fontFeatures: KineticTypography.tabularFigures,
                 ),
               ),
             ),
@@ -565,9 +549,7 @@ class _MiniMetricColumn extends StatelessWidget {
               const SizedBox(width: 2),
               Text(
                 unit,
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 10,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight: FontWeight.w800,
                   color: highlightUnit ? colors.primary : colors.textSecondary,
                 ),

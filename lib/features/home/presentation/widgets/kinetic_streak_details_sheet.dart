@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/utils/date_time_helper.dart';
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_button.dart';
@@ -25,10 +25,7 @@ int calculateNextStreakTarget(int days) {
 /// Dynamic Streak Tier metadata
 (Color, String) getStreakTierInfo(int days, bool isVi, KineticColors colors) {
   if (days == 0) {
-    return (
-      colors.textMuted,
-      isVi ? 'Khởi động chuỗi' : 'Dormant Spark',
-    );
+    return (colors.textMuted, isVi ? 'Khởi động chuỗi' : 'Dormant Spark');
   }
   if (days < 3) {
     return (
@@ -37,10 +34,7 @@ int calculateNextStreakTarget(int days) {
     );
   }
   if (days < 7) {
-    return (
-      colors.primary,
-      isVi ? 'Ngọn lửa rực cháy' : 'Blaze Runner',
-    );
+    return (colors.primary, isVi ? 'Ngọn lửa rực cháy' : 'Blaze Runner');
   }
   if (days < 14) {
     return (
@@ -49,10 +43,7 @@ int calculateNextStreakTarget(int days) {
     );
   }
   if (days < 30) {
-    return (
-      const Color(0xFFFF3366),
-      isVi ? 'Chiến binh Titan' : 'Titan Flame',
-    );
+    return (const Color(0xFFFF3366), isVi ? 'Chiến binh Titan' : 'Titan Flame');
   }
   return (
     const Color(0xFFA855F7),
@@ -64,17 +55,15 @@ int calculateNextStreakTarget(int days) {
 class KineticStreakDetailsSheet extends ConsumerWidget {
   final StreakData streak;
 
-  const KineticStreakDetailsSheet({
-    super.key,
-    required this.streak,
-  });
+  const KineticStreakDetailsSheet({super.key, required this.streak});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
-    final workouts = ref.watch(workoutListProvider).valueOrNull ?? const <WorkoutSession>[];
+    final workouts =
+        ref.watch(workoutListProvider).valueOrNull ?? const <WorkoutSession>[];
 
     final days = streak.currentStreak;
     final longestDays = math.max(streak.longestStreak, days);
@@ -162,7 +151,10 @@ class KineticStreakDetailsSheet extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                AppTranslations.get('aetron_streak', currentLang),
+                                AppTranslations.get(
+                                  'aetron_streak',
+                                  currentLang,
+                                ),
                                 style: KineticTypography.headlineSmall.copyWith(
                                   color: colors.textPrimary,
                                   fontSize: 16,
@@ -234,11 +226,7 @@ class KineticStreakDetailsSheet extends ConsumerWidget {
                       // 4. Lời nhắc giữ chuỗi tinh tế
                       Row(
                         children: [
-                          Icon(
-                            Icons.bolt_rounded,
-                            size: 15,
-                            color: tierColor,
-                          ),
+                          Icon(Icons.bolt_rounded, size: 15, color: tierColor),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -259,17 +247,17 @@ class KineticStreakDetailsSheet extends ConsumerWidget {
                       // 5. Nút hành động CTA duy nhất
                       KineticButton(
                         label: isTodayCompleted
-                            ? (isVi ? 'TIẾP TỤC TẬP LUYỆN 🔥' : 'CONTINUE WORKOUT 🔥')
-                            : (isVi ? 'BẮT ĐẦU TẬP ĐỂ GIỮ CHUỖI 🔥' : 'START WORKOUT FOR STREAK 🔥'),
+                            ? (isVi
+                                  ? 'TIẾP TỤC TẬP LUYỆN 🔥'
+                                  : 'CONTINUE WORKOUT 🔥')
+                            : (isVi
+                                  ? 'BẮT ĐẦU TẬP ĐỂ GIỮ CHUỖI 🔥'
+                                  : 'START WORKOUT FOR STREAK 🔥'),
                         icon: Icons.play_arrow_rounded,
                         onPressed: () {
-                          final navigator = Navigator.of(context);
-                          navigator.pop();
-                          navigator.push(
-                            MaterialPageRoute(
-                              builder: (_) => const ActivityScreen(),
-                            ),
-                          );
+                          ref.read(mainTabControllerProvider.notifier).state =
+                              activityTabIndex;
+                          Navigator.of(context).pop();
                         },
                       ),
                     ],
@@ -303,8 +291,12 @@ class _StreakHeroCard extends StatelessWidget {
     final colors = context.kinetic;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final greenColor = isDark ? const Color(0xFF10B981) : const Color(0xFF059669);
-    final warningColor = isDark ? const Color(0xFFFFBA20) : const Color(0xFFD97706);
+    final greenColor = isDark
+        ? const Color(0xFF10B981)
+        : const Color(0xFF059669);
+    final warningColor = isDark
+        ? const Color(0xFFFFBA20)
+        : const Color(0xFFD97706);
     final activeStatusColor = isTodayCompleted ? greenColor : warningColor;
 
     return KineticCard(
@@ -383,7 +375,9 @@ class _StreakHeroCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isTodayCompleted ? Icons.check_circle_rounded : Icons.bolt_rounded,
+                  isTodayCompleted
+                      ? Icons.check_circle_rounded
+                      : Icons.bolt_rounded,
                   size: 14,
                   color: activeStatusColor,
                 ),
@@ -392,10 +386,11 @@ class _StreakHeroCard extends StatelessWidget {
                   child: Text(
                     isTodayCompleted
                         ? (isVi ? 'Hôm nay: Đã hoàn thành' : 'Today secured')
-                        : (isVi ? 'Hôm nay: Cần 1 buổi tập' : '1 workout needed today'),
+                        : (isVi
+                              ? 'Hôm nay: Cần 1 buổi tập'
+                              : '1 workout needed today'),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       color: activeStatusColor,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -448,7 +443,11 @@ class _StreakWeekStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.calendar_month_rounded, color: colors.primary, size: 15),
+              Icon(
+                Icons.calendar_month_rounded,
+                color: colors.primary,
+                size: 15,
+              ),
               const SizedBox(width: 6),
               Text(
                 isVi ? 'TUẦN NÀY' : 'THIS WEEK',
@@ -531,15 +530,15 @@ class _StreakDayCapsule extends StatelessWidget {
         color: isActive
             ? tierColor.withValues(alpha: 0.16)
             : isToday
-                ? colors.surface2
-                : colors.surface1,
+            ? colors.surface2
+            : colors.surface1,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isToday
               ? colors.primary
               : isActive
-                  ? tierColor.withValues(alpha: 0.5)
-                  : colors.borderSubtle,
+              ? tierColor.withValues(alpha: 0.5)
+              : colors.borderSubtle,
           width: isToday ? 1.6 : 1.0,
         ),
       ),
@@ -553,8 +552,8 @@ class _StreakDayCapsule extends StatelessWidget {
               color: isToday
                   ? colors.primary
                   : isActive
-                      ? colors.textPrimary
-                      : colors.textSecondary,
+                  ? colors.textPrimary
+                  : colors.textSecondary,
             ),
           ),
           const SizedBox(height: 2),
@@ -576,8 +575,8 @@ class _StreakDayCapsule extends StatelessWidget {
               color: isActive
                   ? tierColor
                   : isToday
-                      ? colors.primary.withValues(alpha: 0.2)
-                      : Colors.transparent,
+                  ? colors.primary.withValues(alpha: 0.2)
+                  : Colors.transparent,
             ),
             child: isActive
                 ? Icon(
@@ -586,19 +585,19 @@ class _StreakDayCapsule extends StatelessWidget {
                     size: 12,
                   )
                 : isToday
-                    ? Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: colors.primary,
-                        ),
-                      )
-                    : Icon(
-                        isFuture ? Icons.circle_outlined : Icons.remove_rounded,
-                        color: colors.textMuted,
-                        size: 9,
-                      ),
+                ? Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colors.primary,
+                    ),
+                  )
+                : Icon(
+                    isFuture ? Icons.circle_outlined : Icons.remove_rounded,
+                    color: colors.textMuted,
+                    size: 9,
+                  ),
           ),
         ],
       ),
@@ -661,7 +660,8 @@ class _StreakCoreMetricsRow extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        (isVi ? 'Kỷ lục tốt nhất' : 'Best Streak').toUpperCase(),
+                        (isVi ? 'Kỷ lục tốt nhất' : 'Best Streak')
+                            .toUpperCase(),
                         overflow: TextOverflow.ellipsis,
                         style: KineticTypography.unitLabel.copyWith(
                           color: colors.textSecondary,
@@ -686,7 +686,6 @@ class _StreakCoreMetricsRow extends StatelessWidget {
                 Text(
                   isVi ? 'Kỷ lục cá nhân' : 'Personal record',
                   style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     color: const Color(0xFFFFBA20).withValues(alpha: 0.85),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -755,7 +754,6 @@ class _StreakCoreMetricsRow extends StatelessWidget {
                 Text(
                   isVi ? 'Còn $remainingDays ngày' : '$remainingDays days left',
                   style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     color: colors.primary.withValues(alpha: 0.85),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,

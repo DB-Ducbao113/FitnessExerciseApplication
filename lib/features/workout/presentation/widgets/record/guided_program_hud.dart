@@ -89,9 +89,7 @@ class GuidedProgramHud extends StatelessWidget {
                     const SizedBox(width: 5),
                     Text(
                       '${isVi ? "HIỆP" : "STEP"} ${currentStepIndex + 1}/$totalSteps',
-                      style: TextStyle(
-                        fontFamily: KineticTypography.fontFamily,
-                        fontSize: 11,
+                      style: KineticTypography.unitLabel.copyWith(
                         fontWeight: FontWeight.w900,
                         color: step.phaseColor,
                         letterSpacing: 0.8,
@@ -104,9 +102,7 @@ class GuidedProgramHud extends StatelessWidget {
               Expanded(
                 child: Text(
                   stepTitle,
-                  style: TextStyle(
-                    fontFamily: KineticTypography.fontFamily,
-                    fontSize: 14,
+                  style: KineticTypography.bodyMedium.copyWith(
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
                   ),
@@ -128,9 +124,7 @@ class GuidedProgramHud extends StatelessWidget {
                         children: [
                           Text(
                             isVi ? 'BỎ QUA' : 'SKIP',
-                            style: TextStyle(
-                              fontFamily: KineticTypography.fontFamily,
-                              fontSize: 11,
+                            style: KineticTypography.unitLabel.copyWith(
                               fontWeight: FontWeight.w800,
                               color: colors.primary,
                             ),
@@ -157,8 +151,7 @@ class GuidedProgramHud extends StatelessWidget {
               // Countdown
               Text(
                 '$minutes:$seconds',
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
+                style: KineticTypography.metricMedium.copyWith(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                   color: stepRemainingSeconds <= 5
@@ -178,9 +171,7 @@ class GuidedProgramHud extends StatelessWidget {
                   children: [
                     Text(
                       '${isVi ? "Mục tiêu" : "Target"}: ${step.targetPaceDisplay}',
-                      style: TextStyle(
-                        fontFamily: KineticTypography.fontFamily,
-                        fontSize: 11,
+                      style: KineticTypography.unitLabel.copyWith(
                         fontWeight: FontWeight.w700,
                         color: colors.textSecondary,
                       ),
@@ -199,9 +190,7 @@ class GuidedProgramHud extends StatelessWidget {
                           ),
                           child: Text(
                             paceFeedback.label,
-                            style: TextStyle(
-                              fontFamily: KineticTypography.fontFamily,
-                              fontSize: 11,
+                            style: KineticTypography.unitLabel.copyWith(
                               fontWeight: FontWeight.w900,
                               color: paceFeedback.color,
                             ),
@@ -231,9 +220,7 @@ class GuidedProgramHud extends StatelessWidget {
           // Coaching Tip text
           Text(
             '💡 $stepTip',
-            style: TextStyle(
-              fontFamily: KineticTypography.fontFamily,
-              fontSize: 11,
+            style: KineticTypography.caption.copyWith(
               fontStyle: FontStyle.italic,
               color: Colors.white.withValues(alpha: 0.75),
             ),

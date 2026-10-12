@@ -1,5 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,7 +49,7 @@ class KineticHistorySportFilter extends StatelessWidget {
             },
             borderRadius: BorderRadius.circular(6),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: KineticTokens.motionTab,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? colors.primary.withValues(alpha: 0.15) : colors.surface1,

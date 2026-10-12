@@ -1,6 +1,11 @@
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
+
+export 'kinetic_tokens.dart';
+export 'kinetic_skeleton.dart';
+export 'kinetic_entrance.dart';
 
 class KineticTheme {
   const KineticTheme._();
@@ -16,7 +21,7 @@ class KineticTheme {
       useMaterial3: true,
       brightness: brightness,
       scaffoldBackgroundColor: colors.background,
-      fontFamily: KineticTypography.fontFamily,
+      fontFamily: KineticTypography.bodyFontFamily,
       extensions: [colors],
       colorScheme: ColorScheme(
         brightness: brightness,
@@ -45,7 +50,7 @@ class KineticTheme {
         color: colors.surface1,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           side: BorderSide(color: colors.borderSubtle, width: 1),
         ),
       ),
@@ -56,7 +61,7 @@ class KineticTheme {
           minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           ),
           textStyle: KineticTypography.label.copyWith(
             fontWeight: FontWeight.w700,
@@ -72,7 +77,7 @@ class KineticTheme {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           side: BorderSide(color: colors.borderAccent, width: 1),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           ),
           textStyle: KineticTypography.label.copyWith(
             fontWeight: FontWeight.w600,
@@ -93,19 +98,19 @@ class KineticTheme {
         hintStyle: KineticTypography.bodyMedium.copyWith(color: colors.textMuted),
         labelStyle: KineticTypography.bodyMedium.copyWith(color: colors.textSecondary),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           borderSide: BorderSide(color: colors.borderSubtle, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           borderSide: BorderSide(color: colors.borderSubtle, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           borderSide: BorderSide(color: colors.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
           borderSide: BorderSide(color: colors.error, width: 1),
         ),
       ),
@@ -136,6 +141,28 @@ class KineticTheme {
         thickness: 1,
         space: 1,
       ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _KineticPageTransition(),
+          TargetPlatform.iOS: _KineticPageTransition(),
+          TargetPlatform.macOS: _KineticPageTransition(),
+          TargetPlatform.linux: _KineticPageTransition(),
+          TargetPlatform.windows: _KineticPageTransition(),
+          TargetPlatform.fuchsia: _KineticPageTransition(),
+        },
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colors.surface3,
+        contentTextStyle: KineticTypography.bodyMedium.copyWith(
+          color: colors.textPrimary,
+        ),
+        actionTextColor: colors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KineticTokens.radiusSM),
+        ),
+        elevation: 8,
+      ),
       textTheme: TextTheme(
         displayLarge: KineticTypography.displayLarge.copyWith(color: colors.textPrimary),
         headlineLarge: KineticTypography.headlineLarge.copyWith(color: colors.textPrimary),
@@ -147,6 +174,32 @@ class KineticTheme {
         labelLarge: KineticTypography.label.copyWith(color: colors.textPrimary),
         labelMedium: KineticTypography.unitLabel.copyWith(color: colors.textMuted),
       ),
+    );
+  }
+}
+
+/// Kinetic page transition — 300ms easeInOutCubic fade
+/// (motion spec window 250–320ms). Instant when OS Reduce Motion is on.
+class _KineticPageTransition extends PageTransitionsBuilder {
+  const _KineticPageTransition();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (KineticTokens.reduceMotionOf(context)) {
+      return child;
+    }
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: KineticTokens.motionPageCurve,
+      ),
+      child: child,
     );
   }
 }

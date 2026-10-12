@@ -1,5 +1,6 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
+import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/history/presentation/screens/calendar_screen.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_empty_state.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_range_tabs.dart';
@@ -8,6 +9,7 @@ import 'package:fitness_exercise_application/features/history/presentation/widge
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_history_top_bar.dart';
 import 'package:fitness_exercise_application/features/history/presentation/widgets/kinetic_workout_history_card.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
@@ -33,9 +35,7 @@ void main() {
   Widget buildTestable(Widget child) {
     return MaterialApp(
       theme: KineticTheme.darkTheme,
-      home: Scaffold(
-        body: SingleChildScrollView(child: child),
-      ),
+      home: Scaffold(body: SingleChildScrollView(child: child)),
     );
   }
 
@@ -74,7 +74,9 @@ void main() {
       expect(find.text('15 BUỔI'), findsOneWidget);
     });
 
-    testWidgets('shows offline indicator when isOffline is true', (tester) async {
+    testWidgets('shows offline indicator when isOffline is true', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestable(
           const KineticHistoryTopBar(
@@ -90,7 +92,9 @@ void main() {
   });
 
   group('KineticHistorySportFilter Widget Tests', () {
-    testWidgets('renders 4 endurance categories and handles selection', (tester) async {
+    testWidgets('renders 4 endurance categories and handles selection', (
+      tester,
+    ) async {
       String selected = 'all';
 
       await tester.pumpWidget(
@@ -115,7 +119,9 @@ void main() {
   });
 
   group('KineticHistoryRangeTabs Widget Tests', () {
-    testWidgets('renders all periods and triggers change callback', (tester) async {
+    testWidgets('renders all periods and triggers change callback', (
+      tester,
+    ) async {
       HistoryRange selectedRange = HistoryRange.all;
 
       await tester.pumpWidget(
@@ -140,7 +146,9 @@ void main() {
   });
 
   group('KineticHistoryTelemetryBento Widget Tests', () {
-    testWidgets('renders period matrix distance, duration and calories', (tester) async {
+    testWidgets('renders period matrix distance, duration and calories', (
+      tester,
+    ) async {
       const summary = HistorySummaryData(
         workouts: 8,
         distanceKm: 64.2,
@@ -168,7 +176,9 @@ void main() {
   });
 
   group('KineticWorkoutHistoryCard Widget Tests', () {
-    testWidgets('renders running workout card with formatted metrics', (tester) async {
+    testWidgets('renders running workout card with formatted metrics', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestable(
           KineticWorkoutHistoryCard(
@@ -201,17 +211,52 @@ void main() {
       expect(find.text('BẮT ĐẦU BUỔI TẬP'), findsOneWidget);
       expect(find.byIcon(Icons.history_rounded), findsOneWidget);
     });
+
+    testWidgets(
+      'start workout CTA selects Activity inside the five-tab shell',
+      (tester) async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: KineticTheme.darkTheme,
+              home: const Scaffold(
+                body: KineticHistoryEmptyState(
+                  currentLang: AppLanguage.vi,
+                  isFiltered: false,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('BẮT ĐẦU BUỔI TẬP'));
+        await tester.pump();
+
+        expect(container.read(mainTabControllerProvider), 1);
+        expect(find.byType(ActivityScreen), findsNothing);
+      },
+    );
   });
 
   group('Full CalendarScreen Integration Test', () {
-    testWidgets('renders full CalendarScreen with mock workouts list', (tester) async {
+    testWidgets('renders full CalendarScreen with mock workouts list', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            appLanguageProvider.overrideWith((ref) => _MockLanguageNotifier(AppLanguage.vi)),
+            appLanguageProvider.overrideWith(
+              (ref) => _MockLanguageNotifier(AppLanguage.vi),
+            ),
             metricUnitsPreferenceProvider.overrideWith((ref) async => true),
             appConnectionProvider.overrideWith((ref) => Stream.value(true)),
-            workoutListProvider.overrideWith(() => _MockWorkoutList([mockWorkoutSession])),
+            workoutListProvider.overrideWith(
+              () => _MockWorkoutList([mockWorkoutSession]),
+            ),
           ],
           child: MaterialApp(
             theme: KineticTheme.darkTheme,

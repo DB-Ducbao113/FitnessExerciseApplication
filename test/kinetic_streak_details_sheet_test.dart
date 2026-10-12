@@ -1,6 +1,6 @@
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/home/presentation/providers/streak_providers.dart';
 import 'package:fitness_exercise_application/features/home/presentation/widgets/kinetic_streak_details_sheet.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_button.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_card.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_theme.dart';
@@ -10,15 +10,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('KineticStreakDetailsSheet Tests', () {
-    testWidgets('renders cleanly in dark mode with core metrics and CTA', (tester) async {
+    testWidgets('renders cleanly in dark mode with core metrics and CTA', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      const streakData = StreakData(
-        currentStreak: 5,
-        longestStreak: 12,
-      );
+      const streakData = StreakData(currentStreak: 5, longestStreak: 12);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -31,7 +30,8 @@ void main() {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
-                      builder: (_) => const KineticStreakDetailsSheet(streak: streakData),
+                      builder: (_) =>
+                          const KineticStreakDetailsSheet(streak: streakData),
                     );
                   },
                   child: const Text('Open Sheet'),
@@ -65,22 +65,24 @@ void main() {
       expect(find.text('KỶ LỤC TỐT NHẤT'), findsOneWidget);
       expect(find.text('12 Ngày'), findsOneWidget);
       expect(find.text('MỐC TIẾP THEO'), findsOneWidget);
-      expect(find.text('7 Ngày'), findsOneWidget); // calculateNextStreakTarget(5) is 7
+      expect(
+        find.text('7 Ngày'),
+        findsOneWidget,
+      ); // calculateNextStreakTarget(5) is 7
 
       // Verify single primary CTA exists
       expect(find.byType(KineticButton), findsOneWidget);
       expect(find.text('BẮT ĐẦU TẬP ĐỂ GIỮ CHUỖI 🔥'), findsOneWidget);
     });
 
-    testWidgets('renders seamlessly in light mode with adaptive tokens', (tester) async {
+    testWidgets('renders seamlessly in light mode with adaptive tokens', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      const streakData = StreakData(
-        currentStreak: 15,
-        longestStreak: 15,
-      );
+      const streakData = StreakData(currentStreak: 15, longestStreak: 15);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -93,7 +95,8 @@ void main() {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
-                      builder: (_) => const KineticStreakDetailsSheet(streak: streakData),
+                      builder: (_) =>
+                          const KineticStreakDetailsSheet(streak: streakData),
                     );
                   },
                   child: const Text('Open Sheet'),
@@ -108,8 +111,19 @@ void main() {
       await tester.tap(find.text('Open Sheet'));
       await tester.pumpAndSettle();
 
-      // Verify 15 days streak
-      expect(find.text('15'), findsOneWidget);
+      // Verify 15 days streak. `find.text('15')` alone is ambiguous: the week
+      // strip renders a cell for each calendar day, and its number collides
+      // with the streak count depending on the date the test runs on. Match
+      // the hero counter's own typography (fontSize 48) instead.
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.data == '15' &&
+              widget.style?.fontSize == 48,
+        ),
+        findsOneWidget,
+      );
       expect(find.text('NGÀY LIÊN TIẾP'), findsOneWidget);
 
       // Verify tier title rendered
@@ -120,18 +134,20 @@ void main() {
       expect(find.text('Còn 15 ngày'), findsOneWidget);
     });
 
-    testWidgets('CTA button tap closes sheet and navigates to ActivityScreen', (tester) async {
+    testWidgets('CTA closes the sheet and selects Activity in the shell', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      const streakData = StreakData(
-        currentStreak: 3,
-        longestStreak: 5,
-      );
+      const streakData = StreakData(currentStreak: 3, longestStreak: 5);
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
 
       await tester.pumpWidget(
-        ProviderScope(
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             theme: KineticTheme.darkTheme,
             home: Scaffold(
@@ -141,7 +157,8 @@ void main() {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
-                      builder: (_) => const KineticStreakDetailsSheet(streak: streakData),
+                      builder: (_) =>
+                          const KineticStreakDetailsSheet(streak: streakData),
                     );
                   },
                   child: const Text('Open Sheet'),
@@ -160,8 +177,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      // Verify ActivityScreen is pushed
-      expect(find.byType(ActivityScreen), findsOneWidget);
+      expect(container.read(mainTabControllerProvider), activityTabIndex);
+      expect(find.text('Open Sheet'), findsOneWidget);
     });
   });
 }

@@ -18,6 +18,11 @@ part 'workout_providers.g.dart';
 /// Workout List Provider
 @riverpod
 class WorkoutList extends _$WorkoutList {
+  /// Sessions finished on this device whose background remote save is still
+  /// in flight, partitioned by owner so an account switch can never expose a
+  /// previous user's optimistic data.
+  final Map<String, List<WorkoutSession>> _pendingLocalSessionsByUser = {};
+
   @override
   Future<List<WorkoutSession>> build() async {
     final user = ref.watch(currentUserIdProvider);
@@ -39,13 +44,88 @@ class WorkoutList extends _$WorkoutList {
       if (!kIsWeb) {
         await repository.replaceLocalCache(user, remoteSessions);
       }
-      return remoteSessions;
+      return _mergePendingLocalSessions(remoteSessions, userId: user);
     } catch (e) {
       debugPrint('[WorkoutList] Remote fetch fallback to local: $e');
     }
 
     // 3. Fallback to local cache if offline or remote fetch failed
-    return await repository.getSessionsLocal(user);
+    return _mergePendingLocalSessions(
+      await repository.getSessionsLocal(user),
+      userId: user,
+    );
+  }
+
+  /// Shows a just-finished session in the list immediately, without waiting
+  /// for its background remote save (which can take tens of seconds; a plain
+  /// refetch would race the save and leave the list stale on web).
+  void insertLocalSession(WorkoutSession session) {
+    final activeUserId = ref.read(currentUserIdProvider);
+    if (activeUserId == null || session.userId != activeUserId) {
+      debugPrint(
+        '[WorkoutList] Ignored optimistic session ${session.id}: '
+        'owner ${session.userId} does not match active user $activeUserId',
+      );
+      return;
+    }
+
+    final pending = _pendingLocalSessionsByUser.putIfAbsent(
+      activeUserId,
+      () => [],
+    );
+    if (pending.any((s) => s.id == session.id)) return;
+    pending.insert(0, session);
+    state = AsyncData<List<WorkoutSession>>(
+      _mergePendingLocalSessions(
+        state.valueOrNull ?? const [],
+        userId: activeUserId,
+      ),
+    );
+  }
+
+  List<WorkoutSession> _mergePendingLocalSessions(
+    List<WorkoutSession> serverSessions, {
+    required String userId,
+  }) {
+    // Enforce tenant isolation at the presentation boundary as defense in
+    // depth, even if a repository implementation returns an unexpected row.
+    final ownedServerSessions = serverSessions
+        .where((session) => session.userId == userId)
+        .toList(growable: false);
+    final pending = _pendingLocalSessionsByUser.putIfAbsent(userId, () => []);
+
+    // A server result only proves a pending session was saved when it carries
+    // real metrics. Two different rows can share the session id:
+    //   1. the `client_recording` shell inserted when the workout STARTED, and
+    //   2. the finalized row written by the background `saveSession`.
+    // `getSessionsByUser` hides (1), and also hides any zero-metric row, so the
+    // refetch legitimately returns nothing for this id while the save is in
+    // flight. Treating "the id is present" as confirmation (the previous
+    // behaviour) both deleted the optimistic entry AND let an empty shell
+    // shadow the real workout, making a persisted workout invisible in
+    // History/Analytics.
+    bool serverHasPersistedMetrics(String id) => ownedServerSessions.any(
+      (s) =>
+          s.id == id && (s.durationSec > 0 || s.distanceKm > 0 || s.steps > 0),
+    );
+
+    pending.removeWhere((pending) => serverHasPersistedMetrics(pending.id));
+
+    // Server rows win, but never let a zero-metric shell (or a stale filtered
+    // response) hide a pending session that still has real metrics locally.
+    final merged = ownedServerSessions
+        .where(
+          (s) =>
+              !pending.any((p) => p.id == s.id) ||
+              s.durationSec > 0 ||
+              s.distanceKm > 0 ||
+              s.steps > 0,
+        )
+        .toList(growable: true);
+
+    merged.insertAll(0, pending);
+    merged.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return merged;
   }
 
   /// Refresh workout list
@@ -70,13 +150,16 @@ class WorkoutList extends _$WorkoutList {
         if (!kIsWeb) {
           await repository.replaceLocalCache(user, remoteSessions);
         }
-        return remoteSessions;
+        return _mergePendingLocalSessions(remoteSessions, userId: user);
       } catch (e) {
         debugPrint('[WorkoutList.refresh] Remote fetch error, using local: $e');
       }
 
       // 3. Fallback to local cache
-      return await repository.getSessionsLocal(user);
+      return _mergePendingLocalSessions(
+        await repository.getSessionsLocal(user),
+        userId: user,
+      );
     });
   }
 
@@ -84,6 +167,9 @@ class WorkoutList extends _$WorkoutList {
   Future<void> deleteWorkout(String workoutId) async {
     final repository = ref.read(workoutRepositoryProvider);
     await repository.deleteSession(workoutId);
+    for (final pending in _pendingLocalSessionsByUser.values) {
+      pending.removeWhere((session) => session.id == workoutId);
+    }
     ref.invalidateSelf();
   }
 
@@ -94,6 +180,7 @@ class WorkoutList extends _$WorkoutList {
 
     final repository = ref.read(workoutRepositoryProvider);
     await repository.deleteAllSessions(user);
+    _pendingLocalSessionsByUser.remove(user);
     ref.invalidateSelf();
   }
 
@@ -369,7 +456,11 @@ final todayStatsProvider = Provider<TodayStats>((ref) {
   return TodayStats(
     distanceKm: todayWorkouts.fold(
       0.0,
-      (s, w) => s + (w.gpsAnalysis.validDistanceKm > 0 ? w.gpsAnalysis.validDistanceKm : w.distanceKm),
+      (s, w) =>
+          s +
+          (w.gpsAnalysis.validDistanceKm > 0
+              ? w.gpsAnalysis.validDistanceKm
+              : w.distanceKm),
     ),
     durationSec: todayWorkouts.fold(0, (s, w) => s + w.durationSec),
     caloriesKcal: todayWorkouts.fold(0, (s, w) => s + w.caloriesKcal.round()),
@@ -384,29 +475,30 @@ final todayStatsProvider = Provider<TodayStats>((ref) {
 /// - Currently marked unsynced
 final recoverableInterruptedSessionProvider =
     FutureProvider.autoDispose<WorkoutSession?>((ref) async {
-  final user = ref.watch(currentUserIdProvider);
-  if (user == null) return null;
+      final user = ref.watch(currentUserIdProvider);
+      if (user == null) return null;
 
-  try {
-    final unsynced = await LocalDB.getUnsyncedWorkoutsForUser(user);
-    if (unsynced.isEmpty) return null;
+      try {
+        final unsynced = await LocalDB.getUnsyncedWorkoutsForUser(user);
+        if (unsynced.isEmpty) return null;
 
-    final now = DateTime.now();
-    for (final workout in unsynced) {
-      if (workout.userId != user) continue;
+        final now = DateTime.now();
+        for (final workout in unsynced) {
+          if (workout.userId != user) continue;
 
-      final age = now.difference(workout.endedAt);
-      if (age.inHours >= 24) continue;
+          final age = now.difference(workout.endedAt);
+          if (age.inHours >= 24) continue;
 
-      final isMeaningful =
-          workout.durationSec >= 180 || workout.distanceKm >= 0.5;
-      if (isMeaningful) {
-        return workout.toEntity();
+          final isMeaningful =
+              workout.durationSec >= 180 || workout.distanceKm >= 0.5;
+          if (isMeaningful) {
+            return workout.toEntity();
+          }
+        }
+      } catch (e) {
+        debugPrint(
+          '[Recovery] recoverableInterruptedSessionProvider error: $e',
+        );
       }
-    }
-  } catch (e) {
-    debugPrint('[Recovery] recoverableInterruptedSessionProvider error: $e');
-  }
-  return null;
-});
-
+      return null;
+    });

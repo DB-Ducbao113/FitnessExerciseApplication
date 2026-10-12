@@ -1,4 +1,4 @@
-import { computeCanonicalMetrics } from "./index.ts";
+import { computeCanonicalMetrics, parseClientRoute } from "./index.ts";
 
 function assert(condition: unknown, message = "Assertion failed") {
   if (!condition) throw new Error(message);
@@ -107,4 +107,71 @@ Deno.test("fast cycling followed by idle time remains flagged", () => {
     Number(metrics.routeMatchMetricsJson.rest_after_fast_duration_sec ?? 0) >=
       60,
   );
+});
+
+// --- Route preservation: never wipe the client's live-snapshot route ---
+
+const clientRoute = [
+  Array.from({ length: 12 }, (_, index) => ({ lat: index * 0.0001, lng: 0 })),
+];
+
+Deno.test("outdoor with no raw GPS keeps the client live-snapshot route", () => {
+  const metrics = computeCanonicalMetrics({
+    workout,
+    clientFilteredRoute: clientRoute,
+    rawGpsPoints: [],
+    rawStepIntervals: [],
+    userProfile: null,
+  });
+
+  assertEquals(metrics.filteredRouteJson.length, 1);
+  assertEquals(metrics.filteredRouteJson[0].length, 12);
+  assertEquals(metrics.filteredRouteJson[0][0].lat, 0);
+  assertEquals(metrics.routeMatchStatus, "pending");
+  assertEquals(metrics.routeMatchMetricsJson.route_source, "client_fallback");
+});
+
+Deno.test("outdoor with no raw GPS and no client route stays empty", () => {
+  const metrics = computeCanonicalMetrics({
+    workout,
+    rawGpsPoints: [],
+    rawStepIntervals: [],
+    userProfile: null,
+  });
+
+  assertEquals(metrics.filteredRouteJson.length, 0);
+  assertEquals(metrics.routeMatchStatus, "not_requested");
+  assertEquals(metrics.routeMatchMetricsJson.route_source, "none");
+});
+
+Deno.test(
+  "suspicious raw points are NOT overridden by the client route fallback",
+  () => {
+    const metrics = computeCanonicalMetrics({
+      workout,
+      clientFilteredRoute: clientRoute,
+      rawGpsPoints: [
+        gpsPoint(0, 0),
+        gpsPoint(5, 41.67),
+        gpsPoint(10, 83.34),
+        gpsPoint(15, 125.01),
+        gpsPoint(20, 166.68),
+      ],
+      rawStepIntervals: [],
+      userProfile: null,
+    });
+
+    assertEquals(metrics.filteredRouteJson.length, 0);
+    assertEquals(metrics.routeMatchMetricsJson.route_source, "none");
+  },
+);
+
+Deno.test("parseClientRoute accepts jsonb arrays, JSON strings, and garbage", () => {
+  assertEquals(parseClientRoute(clientRoute).length, 1);
+  assertEquals(parseClientRoute(clientRoute)[0].length, 12);
+  assertEquals(parseClientRoute(JSON.stringify(clientRoute))[0].length, 12);
+  assertEquals(parseClientRoute("[]").length, 0);
+  assertEquals(parseClientRoute(null).length, 0);
+  assertEquals(parseClientRoute({ not: "a route" }).length, 0);
+  assertEquals(parseClientRoute("not json at all").length, 0);
 });

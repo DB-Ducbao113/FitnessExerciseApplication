@@ -60,9 +60,8 @@ class KineticDetailsDeleteDialog extends StatelessWidget {
                 Expanded(
                   child: Text(
                     AppTranslations.get('delete_workout', currentLang),
-                    style: KineticTypography.headlineMedium.copyWith(
+                    style: KineticTypography.pageTitleCompact.copyWith(
                       color: colors.textPrimary,
-                      fontSize: 17,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -74,7 +73,6 @@ class KineticDetailsDeleteDialog extends StatelessWidget {
               AppTranslations.get('confirm_delete_workout', currentLang),
               style: KineticTypography.bodySmall.copyWith(
                 color: colors.textMuted,
-                fontSize: 13,
                 height: 1.4,
               ),
             ),
@@ -96,7 +94,6 @@ class KineticDetailsDeleteDialog extends StatelessWidget {
                       AppTranslations.get('cancel', currentLang),
                       style: KineticTypography.label.copyWith(
                         color: colors.textMuted,
-                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -121,7 +118,6 @@ class KineticDetailsDeleteDialog extends StatelessWidget {
                           : 'Confirm Delete',
                       style: KineticTypography.label.copyWith(
                         color: Colors.white,
-                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),

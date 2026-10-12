@@ -263,7 +263,9 @@ class _WorkoutShareCardSheetState extends State<WorkoutShareCardSheet>
                 isVi
                     ? 'Vui lòng cấp quyền truy cập ảnh để lưu'
                     : 'Please allow photo access to save',
-                style: TextStyle(color: colors.textPrimary),
+                style: KineticTypography.bodyMedium.copyWith(
+                  color: colors.textPrimary,
+                ),
               ),
             ),
           );
@@ -608,7 +610,7 @@ class _ThemePill extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: KineticTokens.motionTab,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? color.withValues(alpha: 0.18) : colors.surface2,
@@ -683,10 +685,8 @@ class _SocialAppButton extends StatelessWidget {
               child: customText != null
                   ? Text(
                       customText!,
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
+                      style: KineticTypography.bodyMedium.copyWith(
                         fontWeight: FontWeight.w900,
-                        fontSize: 14,
                         color: color,
                       ),
                     )
@@ -913,11 +913,9 @@ class _ShareCardContent extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'AETRON',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 16,
+                            style: KineticTypography.headlineSmall.copyWith(
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
                               letterSpacing: 2.5,
@@ -927,10 +925,7 @@ class _ShareCardContent extends StatelessWidget {
                       ),
                       Text(
                         dateStr,
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                        style: KineticTypography.unitLabel.copyWith(
                           color: Colors.white.withValues(alpha: 0.7),
                         ),
                       ),
@@ -950,9 +945,7 @@ class _ShareCardContent extends StatelessWidget {
                     ),
                     child: Text(
                       '⚡ $actLabel',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 11,
+                      style: KineticTypography.unitLabel.copyWith(
                         fontWeight: FontWeight.w900,
                         color: accentColor,
                         letterSpacing: 1.0,
@@ -967,13 +960,11 @@ class _ShareCardContent extends StatelessWidget {
                     children: [
                       Text(
                         distStr,
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
+                        style: KineticTypography.metricHero.copyWith(
                           fontSize: 42,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                           height: 1.0,
-                          fontFeatures: KineticTypography.tabularFigures,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -981,9 +972,7 @@ class _ShareCardContent extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Text(
                           isVi ? 'KHOẢNG CÁCH' : 'DISTANCE',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 11,
+                          style: KineticTypography.unitLabel.copyWith(
                             fontWeight: FontWeight.w800,
                             color: Colors.white.withValues(alpha: 0.7),
                             letterSpacing: 1.0,
@@ -1064,9 +1053,7 @@ class _ShareCardContent extends StatelessWidget {
                           ? 'Đồng hành cùng mỗi bước chạy của bạn — Aetron'
                           : 'Your personal fitness telemetry companion — Aetron',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 11,
+                      style: KineticTypography.caption.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.white.withValues(alpha: 0.5),
                         letterSpacing: 0.4,
@@ -1109,20 +1096,15 @@ class _ShareStat extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 11,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight: FontWeight.w800,
                   color: Colors.white.withValues(alpha: 0.7),
-                  letterSpacing: 0.8,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 14,
+                style: KineticTypography.bodyMedium.copyWith(
                   fontWeight: FontWeight.w900,
                   color: color,
                   fontFeatures: KineticTypography.tabularFigures,

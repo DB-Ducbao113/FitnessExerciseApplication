@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/utils/activity_consistency_feedback.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/utils/route_display_sanitizer.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -41,9 +42,8 @@ class WorkoutValidityBadge extends StatelessWidget {
       ),
       child: Text(
         workoutValidityLabel(flag),
-        style: TextStyle(
+        style: KineticTypography.unitLabel.copyWith(
           color: color,
-          fontSize: 11,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -81,9 +81,8 @@ class WorkoutHeroMetricChip extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: TextStyle(
+            style: KineticTypography.unitLabel.copyWith(
               color: Colors.white.withValues(alpha: 0.62),
-              fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,
             ),
@@ -91,10 +90,10 @@ class WorkoutHeroMetricChip extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: KineticTypography.bodySmall.copyWith(
               color: Colors.white,
-              fontSize: 12,
               fontWeight: FontWeight.w800,
+              fontFeatures: KineticTypography.tabularFigures,
             ),
           ),
         ],
@@ -145,8 +144,11 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
     required this.highlightColor,
     required this.startColor,
     required this.endColor,
-    required this.badgeText,
+    this.badgeText,
     this.footerText,
+    this.interactive = false,
+    this.mapPadding = const EdgeInsets.fromLTRB(6, 10, 6, 16),
+    this.showMapTiles = true,
   });
 
   final List<LatLng> routePoints;
@@ -158,8 +160,11 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
   final Color highlightColor;
   final Color startColor;
   final Color endColor;
-  final String badgeText;
+  final String? badgeText;
   final String? footerText;
+  final bool interactive;
+  final EdgeInsets mapPadding;
+  final bool showMapTiles;
 
   LatLngBounds _computeBounds(List<LatLng> points) {
     double minLat = points.first.latitude;
@@ -207,14 +212,16 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
           options: MapOptions(
             initialCameraFit: CameraFit.bounds(
               bounds: bounds,
-              padding: const EdgeInsets.fromLTRB(6, 10, 6, 16),
+              padding: mapPadding,
             ),
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.none,
+            interactionOptions: InteractionOptions(
+              flags: interactive
+                  ? InteractiveFlag.all & ~InteractiveFlag.rotate
+                  : InteractiveFlag.none,
             ),
           ),
           children: [
-            const _RecapMapTileLayers(),
+            if (showMapTiles) const _RecapMapTileLayers(),
             PolygonLayer(
               polygons: [
                 for (final segment in displaySegments)
@@ -304,28 +311,29 @@ class WorkoutRoutePreviewMap extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          left: 14,
-          top: 14,
-          child: _MapGlassBadge(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: accentColor, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  badgeText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
+        if (badgeText != null && badgeText!.trim().isNotEmpty)
+          Positioned(
+            left: 14,
+            top: 14,
+            child: _MapGlassBadge(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: accentColor, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    badgeText!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
         if (footerText != null)
           Positioned(
             right: 14,

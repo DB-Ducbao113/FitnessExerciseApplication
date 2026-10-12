@@ -4,6 +4,7 @@ export 'kinetic_theme.dart';
 export 'kinetic_theme_provider.dart';
 export 'kinetic_card.dart';
 export 'kinetic_button.dart';
+export 'kinetic_entrance.dart';
 export 'kinetic_metric_tile.dart';
 export 'kinetic_chip.dart';
 export 'kinetic_offline_banner.dart';

@@ -136,7 +136,6 @@ class _SheetActionTile extends StatelessWidget {
               label,
               style: KineticTypography.label.copyWith(
                 color: color,
-                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),

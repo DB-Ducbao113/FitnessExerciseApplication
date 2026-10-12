@@ -151,9 +151,7 @@ class KineticWorkoutStopSheet extends StatelessWidget {
             Text(
               isVi ? 'BẠN CÓ CHẮC CHẮN MUỐN DỪNG?' : 'FINISH THIS WORKOUT?',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: KineticTypography.fontFamily,
-                fontSize: 18,
+              style: KineticTypography.headlineSmall.copyWith(
                 fontWeight: FontWeight.w900,
                 color: colors.textPrimary,
                 letterSpacing: -0.2,
@@ -167,9 +165,7 @@ class KineticWorkoutStopSheet extends StatelessWidget {
                   ? 'Quãng đường và thông số bài tập sẽ được lưu vào lịch sử hoạt động.'
                   : 'Your workout metrics and route will be saved to your history.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: KineticTypography.fontFamily,
-                fontSize: 13,
+              style: KineticTypography.bodySmall.copyWith(
                 color: colors.textSecondary,
                 height: 1.4,
               ),
@@ -257,9 +253,7 @@ class KineticWorkoutStopSheet extends StatelessWidget {
                 ),
                 label: Text(
                   isVi ? 'KẾT THÚC & LƯU BÀI TẬP' : 'FINISH & SAVE SESSION',
-                  style: TextStyle(
-                    fontFamily: KineticTypography.fontFamily,
-                    fontSize: 14.5,
+                  style: KineticTypography.unitLabel.copyWith(
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
                     letterSpacing: 0.8,
@@ -291,9 +285,7 @@ class KineticWorkoutStopSheet extends StatelessWidget {
                 ),
                 label: Text(
                   isVi ? 'TIẾP TỤC TẬP LUYỆN' : 'CONTINUE WORKOUT',
-                  style: TextStyle(
-                    fontFamily: KineticTypography.fontFamily,
-                    fontSize: 14,
+                  style: KineticTypography.bodyMedium.copyWith(
                     fontWeight: FontWeight.w800,
                     color: colors.primary,
                     letterSpacing: 0.5,
@@ -339,9 +331,7 @@ class _MiniMetricItem extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontFamily: KineticTypography.fontFamily,
-            fontSize: 10,
+          style: KineticTypography.caption.copyWith(
             fontWeight: FontWeight.w700,
             color: colors.textSecondary,
             letterSpacing: 0.6,
@@ -358,10 +348,7 @@ class _MiniMetricItem extends StatelessWidget {
                 value,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                style: KineticTypography.metricSmall.copyWith(
                   color: colors.textPrimary,
                   letterSpacing: -0.3,
                 ),
@@ -371,9 +358,7 @@ class _MiniMetricItem extends StatelessWidget {
               const SizedBox(width: 2),
               Text(
                 unit,
-                style: TextStyle(
-                  fontFamily: KineticTypography.fontFamily,
-                  fontSize: 10,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colors.primary,
                 ),

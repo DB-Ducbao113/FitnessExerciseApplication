@@ -1,4 +1,6 @@
 class RouteMatchResult {
+  static const _notProvided = Object();
+
   final String sessionId;
   final String matchedRouteJson;
   final String routeMatchStatus;
@@ -21,18 +23,22 @@ class RouteMatchResult {
     String? sessionId,
     String? matchedRouteJson,
     String? routeMatchStatus,
-    double? routeMatchConfidence,
+    Object? routeMatchConfidence = _notProvided,
     String? routeDistanceSource,
-    double? matchedDistanceKm,
+    Object? matchedDistanceKm = _notProvided,
     String? routeMatchMetricsJson,
   }) {
     return RouteMatchResult(
       sessionId: sessionId ?? this.sessionId,
       matchedRouteJson: matchedRouteJson ?? this.matchedRouteJson,
       routeMatchStatus: routeMatchStatus ?? this.routeMatchStatus,
-      routeMatchConfidence: routeMatchConfidence ?? this.routeMatchConfidence,
+      routeMatchConfidence: identical(routeMatchConfidence, _notProvided)
+          ? this.routeMatchConfidence
+          : routeMatchConfidence as double?,
       routeDistanceSource: routeDistanceSource ?? this.routeDistanceSource,
-      matchedDistanceKm: matchedDistanceKm ?? this.matchedDistanceKm,
+      matchedDistanceKm: identical(matchedDistanceKm, _notProvided)
+          ? this.matchedDistanceKm
+          : matchedDistanceKm as double?,
       routeMatchMetricsJson:
           routeMatchMetricsJson ?? this.routeMatchMetricsJson,
     );

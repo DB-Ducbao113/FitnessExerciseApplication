@@ -126,9 +126,7 @@ class KineticLiveControlDock extends StatelessWidget {
                         isPaused
                             ? (isVi ? 'TIẾP TỤC' : 'RESUME')
                             : (isVi ? 'TẠM DỪNG' : 'PAUSE'),
-                        style: TextStyle(
-                          fontFamily: KineticTypography.fontFamily,
-                          fontSize: 14,
+                        style: KineticTypography.unitLabel.copyWith(
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.0,
                         ),
@@ -168,7 +166,7 @@ class KineticLiveControlDock extends StatelessWidget {
                               },
                         borderRadius: BorderRadius.circular(16),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                          duration: KineticTokens.motionTab,
                           decoration: BoxDecoration(
                             color: isPaused
                                 ? colors.tertiary
@@ -215,9 +213,7 @@ class KineticLiveControlDock extends StatelessWidget {
                                     : (isPaused
                                         ? (isVi ? 'KẾT THÚC' : 'FINISH')
                                         : (isVi ? 'DỪNG' : 'STOP')),
-                                style: TextStyle(
-                                  fontFamily: KineticTypography.fontFamily,
-                                  fontSize: 13.5,
+                                style: KineticTypography.unitLabel.copyWith(
                                   fontWeight: FontWeight.w900,
                                   color: isPaused ? Colors.white : colors.tertiary,
                                   letterSpacing: 0.8,

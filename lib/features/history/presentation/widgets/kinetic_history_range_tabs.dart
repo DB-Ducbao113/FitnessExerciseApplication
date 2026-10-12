@@ -1,6 +1,7 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/history/presentation/screens/calendar_screen.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,7 +42,7 @@ class KineticHistoryRangeTabs extends StatelessWidget {
               },
               borderRadius: BorderRadius.circular(4),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
+                duration: KineticTokens.motionTab,
                 padding: const EdgeInsets.symmetric(vertical: 7),
                 decoration: BoxDecoration(
                   color: isSelected ? colors.surface3 : Colors.transparent,

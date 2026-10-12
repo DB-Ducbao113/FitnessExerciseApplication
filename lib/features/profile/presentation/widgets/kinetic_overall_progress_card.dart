@@ -43,17 +43,14 @@ class KineticOverallProgressCard extends StatelessWidget {
             children: [
               Text(
                 currentLang == AppLanguage.vi ? 'TIẾN TRÌNH DANH HIỆU' : 'ACHIEVEMENT PROGRESS',
-                style: KineticTypography.unitLabel.copyWith(
+                style: KineticTypography.pageEyebrow.copyWith(
                   color: colors.primary,
-                  fontSize: 11,
-                  letterSpacing: 1.2,
                 ),
               ),
               Text(
                 '$progressPercent%',
                 style: KineticTypography.headlineSmall.copyWith(
                   color: colors.primary,
-                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -138,17 +135,16 @@ class KineticOverallProgressCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: KineticTypography.label.copyWith(
-              fontSize: 13,
               fontWeight: FontWeight.w800,
               color: colors.textPrimary,
+              fontFeatures: KineticTypography.tabularFigures,
             ),
           ),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: KineticTypography.bodySmall.copyWith(
-              fontSize: 11,
+            style: KineticTypography.caption.copyWith(
               color: colors.textMuted,
             ),
           ),

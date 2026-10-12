@@ -1,6 +1,15 @@
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:flutter/material.dart';
 
+/// Unified Kinetic Card — the single card component for the app.
+///
+/// Features:
+/// - Consistent border radius from KineticTokens
+/// - Optional top accent bar
+/// - Optional glow shadow
+/// - Built-in semantics for accessibility
+/// - Material ink ripple feedback
 class KineticCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -9,19 +18,23 @@ class KineticCard extends StatelessWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final Color? topAccentColor;
+  final Color? glowColor;
+  final bool hasGlow;
   final double borderRadius;
   final String? semanticLabel;
 
   const KineticCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(KineticTokens.spaceMD),
     this.margin,
     this.onTap,
     this.backgroundColor,
     this.borderColor,
     this.topAccentColor,
-    this.borderRadius = 8,
+    this.glowColor,
+    this.hasGlow = false,
+    this.borderRadius = KineticTokens.radiusSM,
     this.semanticLabel,
   });
 
@@ -37,6 +50,15 @@ class KineticCard extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(color: border, width: 1),
+        boxShadow: hasGlow
+            ? [
+                BoxShadow(
+                  color: (glowColor ?? colors.primary).withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  spreadRadius: -2,
+                ),
+              ]
+            : null,
       ),
       child: child,
     );

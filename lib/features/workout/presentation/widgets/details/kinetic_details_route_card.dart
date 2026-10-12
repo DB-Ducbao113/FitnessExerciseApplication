@@ -8,14 +8,20 @@ import 'package:latlong2/latlong.dart';
 
 class KineticDetailsRouteCard extends StatelessWidget {
   final List<LatLng> routePoints;
+  final List<List<LatLng>> routeSegments;
   final String activityType;
   final AppLanguage currentLang;
+  final VoidCallback? onViewFullMap;
+  final bool showMapTiles;
 
   const KineticDetailsRouteCard({
     super.key,
     required this.routePoints,
+    this.routeSegments = const [],
     required this.activityType,
     required this.currentLang,
+    this.onViewFullMap,
+    this.showMapTiles = true,
   });
 
   IconData _activityIcon(String type) {
@@ -61,9 +67,8 @@ class KineticDetailsRouteCard extends StatelessWidget {
               currentLang == AppLanguage.vi
                   ? 'Không có dữ liệu bản đồ'
                   : 'Route unavailable',
-              style: KineticTypography.headlineMedium.copyWith(
+              style: KineticTypography.headlineSmall.copyWith(
                 color: colors.textPrimary,
-                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
               textAlign: TextAlign.center,
@@ -75,7 +80,6 @@ class KineticDetailsRouteCard extends StatelessWidget {
                   : 'Full telemetry stats are preserved for this workout session.',
               style: KineticTypography.bodySmall.copyWith(
                 color: colors.textMuted,
-                fontSize: 12,
               ),
               textAlign: TextAlign.center,
             ),
@@ -90,32 +94,48 @@ class KineticDetailsRouteCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 6),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.map_outlined, size: 14, color: colors.primary),
-                    const SizedBox(width: 6),
-                    Text(
-                      currentLang == AppLanguage.vi
-                          ? 'BẢN ĐỒ CUNG ĐƯỜNG'
-                          : 'ROUTE MAP',
-                      style: KineticTypography.unitLabel.copyWith(
-                        color: colors.textPrimary,
-                        letterSpacing: 1.1,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.map_outlined, size: 14, color: colors.primary),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          currentLang == AppLanguage.vi
+                              ? 'BẢN ĐỒ CUNG ĐƯỜNG'
+                              : 'ROUTE MAP',
+                          overflow: TextOverflow.ellipsis,
+                          style: KineticTypography.unitLabel.copyWith(
+                            color: colors.textPrimary,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  '${routePoints.length} ${currentLang == AppLanguage.vi ? 'điểm GPS' : 'GPS points'}',
-                  style: KineticTypography.unitLabel.copyWith(
-                    color: colors.textMuted,
-                    fontSize: 11,
+                    ],
                   ),
                 ),
+                if (onViewFullMap != null)
+                  TextButton.icon(
+                    onPressed: onViewFullMap,
+                    icon: const Icon(Icons.open_in_full_rounded, size: 16),
+                    label: Text(
+                      currentLang == AppLanguage.vi
+                          ? 'Xem toàn bản đồ'
+                          : 'View full map',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.primary,
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      textStyle: KineticTypography.label.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -124,17 +144,27 @@ class KineticDetailsRouteCard extends StatelessWidget {
             child: SizedBox(
               height: 260,
               width: double.infinity,
-              child: WorkoutRoutePreviewMap(
-                routePoints: routePoints,
-                activityType: activityType,
-                icon: _activityIcon(activityType),
-                accentColor: colors.primary,
-                glowColor: colors.primary.withValues(alpha: 0.20),
-                highlightColor: colors.textPrimary.withValues(alpha: 0.75),
-                startColor: colors.primary,
-                endColor: colors.error,
-                badgeText: 'AETRON GPS',
-                footerText: '${routePoints.length} points',
+              child: Semantics(
+                button: onViewFullMap != null,
+                label: currentLang == AppLanguage.vi
+                    ? 'Mở bản đồ toàn màn hình'
+                    : 'Open full-screen map',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onViewFullMap,
+                  child: WorkoutRoutePreviewMap(
+                    routePoints: routePoints,
+                    routeSegments: routeSegments,
+                    activityType: activityType,
+                    icon: _activityIcon(activityType),
+                    accentColor: colors.primary,
+                    glowColor: colors.primary.withValues(alpha: 0.20),
+                    highlightColor: colors.textPrimary.withValues(alpha: 0.75),
+                    startColor: colors.primary,
+                    endColor: colors.error,
+                    showMapTiles: showMapTiles,
+                  ),
+                ),
               ),
             ),
           ),

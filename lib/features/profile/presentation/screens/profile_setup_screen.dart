@@ -293,7 +293,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                   : 'Initial biometric calibration'),
                           style: KineticTypography.bodySmall.copyWith(
                             color: colors.textSecondary,
-                            fontSize: 12.5,
                           ),
                         ),
                       ],
@@ -651,7 +650,7 @@ class _UnitOption extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: KineticTokens.motionTab,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
@@ -670,16 +669,14 @@ class _UnitOption extends StatelessWidget {
               label,
               style: KineticTypography.unitLabel.copyWith(
                 color: selected ? colors.primary : colors.textMuted,
-                fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
             Text(
               detail,
-              style: KineticTypography.bodySmall.copyWith(
+              style: KineticTypography.caption.copyWith(
                 color: selected ? colors.textPrimary : colors.textMuted,
-                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -774,7 +771,7 @@ class _GenderOption extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: KineticTokens.motionTab,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: selected
