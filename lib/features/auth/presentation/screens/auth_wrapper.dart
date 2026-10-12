@@ -7,6 +7,7 @@ import 'package:fitness_exercise_application/features/auth/presentation/screens/
 import 'package:fitness_exercise_application/features/profile/presentation/providers/avatar_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/login_screen.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/screens/startup_globe_gate.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/athlete_setup_flow.dart';
 import 'package:fitness_exercise_application/features/onboarding/presentation/screens/welcome_screen.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
@@ -38,6 +39,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   String? _activeUserId;
   bool _showingWelcomeGlobe = false;
   bool? _welcomeSeen;
+  final _startupGlobeGate = StartupGlobeGate();
 
   @override
   void initState() {
@@ -75,6 +77,17 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
     return StreamBuilder<AuthState>(
       stream: _authStream,
       builder: (context, snapshot) {
+        if (_startupGlobeGate.shouldShow) {
+          return AetronGlobeOrbitScreen(
+            duration: const Duration(milliseconds: 1200),
+            customTitle: 'Aetron',
+            onComplete: () {
+              if (!mounted) return;
+              setState(_startupGlobeGate.complete);
+            },
+          );
+        }
+
         final session =
             snapshot.data?.session ?? Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
