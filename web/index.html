@@ -139,7 +139,10 @@
       position: fixed;
       inset: 0;
       background: #0A0D1C;
-      display: flex;
+      /* The first Flutter frame owns the loading UI. It renders the actual
+         AetronGlobeOrbitScreen, including its rotating continents, orbit and
+         GPS beacon, instead of a static HTML approximation. */
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
