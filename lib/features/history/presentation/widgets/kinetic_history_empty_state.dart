@@ -1,11 +1,12 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_button.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class KineticHistoryEmptyState extends StatelessWidget {
+class KineticHistoryEmptyState extends ConsumerWidget {
   final AppLanguage currentLang;
   final bool isFiltered;
 
@@ -16,7 +17,7 @@ class KineticHistoryEmptyState extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.kinetic;
 
     return Center(
@@ -31,10 +32,14 @@ class KineticHistoryEmptyState extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
-                border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: colors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Icon(
-                isFiltered ? Icons.filter_list_off_rounded : Icons.history_rounded,
+                isFiltered
+                    ? Icons.filter_list_off_rounded
+                    : Icons.history_rounded,
                 size: 34,
                 color: colors.primary,
               ),
@@ -43,8 +48,8 @@ class KineticHistoryEmptyState extends StatelessWidget {
             Text(
               isFiltered
                   ? (currentLang == AppLanguage.vi
-                      ? 'Không có buổi tập phù hợp bộ lọc'
-                      : 'No workouts match your filter')
+                        ? 'Không có buổi tập phù hợp bộ lọc'
+                        : 'No workouts match your filter')
                   : AppTranslations.get('no_workouts_yet', currentLang),
               style: KineticTypography.headlineMedium.copyWith(
                 color: colors.textPrimary,
@@ -56,8 +61,8 @@ class KineticHistoryEmptyState extends StatelessWidget {
             Text(
               isFiltered
                   ? (currentLang == AppLanguage.vi
-                      ? 'Thử đổi khoảng thời gian hoặc môn tập khác để xem lại lịch sử.'
-                      : 'Try selecting a different time range or sport filter.')
+                        ? 'Thử đổi khoảng thời gian hoặc môn tập khác để xem lại lịch sử.'
+                        : 'Try selecting a different time range or sport filter.')
                   : AppTranslations.get('empty_history_desc', currentLang),
               style: KineticTypography.bodyMedium.copyWith(
                 color: colors.textMuted,
@@ -73,11 +78,8 @@ class KineticHistoryEmptyState extends StatelessWidget {
                 icon: Icons.directions_run_rounded,
                 isFullWidth: false,
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ActivityScreen(),
-                    ),
-                  );
+                  ref.read(mainTabControllerProvider.notifier).state =
+                      activityTabIndex;
                 },
               ),
             ],

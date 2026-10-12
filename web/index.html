@@ -123,7 +123,186 @@
     }
   </script>
 </head>
-<body style="background-color: #0A0D1C; margin: 0; padding: 0;">
+
+<body style="background-color: #0A0D1C; margin: 0; padding: 0; overflow: hidden;">
+
+  <!-- ═══════════════════════════════════════════════
+       AETRON — Custom Splash / Loading Screen
+       Replaces Flutter's default globe loading screen
+  ════════════════════════════════════════════════ -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+    * { box-sizing: border-box; }
+
+    #aetron-splash {
+      position: fixed;
+      inset: 0;
+      background: #0A0D1C;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: 'Inter', sans-serif;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    #aetron-splash.fade-out {
+      opacity: 0;
+      transform: scale(1.04);
+      pointer-events: none;
+    }
+
+    /* ── Logo area ── */
+    .splash-logo-wrap {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      margin-bottom: 40px;
+    }
+
+    /* Outer pulse ring */
+    .splash-ring {
+      position: absolute;
+      inset: -16px;
+      border-radius: 50%;
+      border: 2px solid rgba(32, 178, 255, 0.25);
+      animation: ringPulse 2s ease-in-out infinite;
+    }
+    .splash-ring:nth-child(2) {
+      inset: -32px;
+      border-color: rgba(32, 178, 255, 0.10);
+      animation-delay: 0.4s;
+    }
+
+    @keyframes ringPulse {
+      0%, 100% { transform: scale(1);   opacity: 1; }
+      50%       { transform: scale(1.08); opacity: 0.5; }
+    }
+
+    /* Icon container */
+    .splash-icon {
+      position: relative;
+      z-index: 2;
+      width: 120px;
+      height: 120px;
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(32, 178, 255, 0.2),
+        0 0 30px rgba(32, 178, 255, 0.15),
+        0 8px 32px rgba(0, 0, 0, 0.6);
+      animation: iconFloat 3s ease-in-out infinite;
+    }
+
+    .splash-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    @keyframes iconFloat {
+      0%, 100% { transform: translateY(0px);  }
+      50%       { transform: translateY(-6px); }
+    }
+
+    /* ── App name ── */
+    .splash-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: #FFFFFF;
+      margin: 0 0 6px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #20B2FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .splash-tagline {
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin: 0 0 48px;
+    }
+
+    /* ── Progress bar ── */
+    .splash-progress-track {
+      width: 180px;
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .splash-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #1565C0 0%, #20B2FF 60%, #80D8FF 100%);
+      border-radius: 999px;
+      box-shadow: 0 0 8px rgba(32, 178, 255, 0.6);
+      animation: loadBar 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes loadBar {
+      0%   { width: 0%;   }
+      30%  { width: 40%;  }
+      60%  { width: 70%;  }
+      85%  { width: 88%;  }
+      100% { width: 100%; }
+    }
+
+    /* ── Bottom label ── */
+    .splash-status {
+      margin-top: 20px;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+      animation: statusBlink 1.6s ease-in-out infinite;
+    }
+
+    @keyframes statusBlink {
+      0%, 100% { opacity: 0.3; }
+      50%       { opacity: 0.8; }
+    }
+  </style>
+
+  <div id="aetron-splash">
+    <div class="splash-logo-wrap">
+      <div class="splash-ring"></div>
+      <div class="splash-ring"></div>
+      <div class="splash-icon">
+        <img src="icons/Icon-512.png" alt="Aetron" />
+      </div>
+    </div>
+
+    <p class="splash-title">Aetron</p>
+    <p class="splash-tagline">Train. Track. Dominate.</p>
+
+    <div class="splash-progress-track">
+      <div class="splash-progress-bar"></div>
+    </div>
+    <p class="splash-status">Loading&hellip;</p>
+  </div>
+
+  <script>
+    // Remove splash screen once Flutter is fully initialised
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('aetron-splash');
+      if (splash) {
+        splash.classList.add('fade-out');
+        setTimeout(function () { splash.remove(); }, 650);
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

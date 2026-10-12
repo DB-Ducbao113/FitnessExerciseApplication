@@ -90,10 +90,10 @@ class KineticAchievementsTopBar extends StatelessWidget {
               const SizedBox(width: 5),
               Text(
                 '$unlockedCount / $totalCount',
-                style: KineticTypography.label.copyWith(
-                  fontSize: 12,
+                style: KineticTypography.bodySmall.copyWith(
                   fontWeight: FontWeight.w800,
                   color: colors.primary,
+                  fontFeatures: KineticTypography.tabularFigures,
                 ),
               ),
             ],

@@ -727,10 +727,26 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
           );
         } catch (_) {}
       } catch (e) {
-        debugPrint('[Workout] Remote session save failed or timed out: $e');
+        // Common real causes worth grepping for in the log:
+        //  - 'invalid input syntax for type uuid'  -> bad session id
+        //  - 'row-level security policy'           -> user_id != auth.uid()
+        //  - TimeoutException                      -> slow network (retried by
+        //                                             syncPendingData later)
+        debugPrint(
+          '[Workout] Remote session save failed or timed out for '
+          '${finalization.sessionId}: $e',
+        );
       }
     } else {
-      debugPrint('[Workout] Unauthenticated session saved locally only');
+      // No authenticated user (or a session id that the server would reject):
+      // the row stays in the local cache and will be pushed by syncPendingData()
+      // once a real user signs in. Without a real auth uid Postgres RLS would
+      // reject the insert anyway (auth.uid() must equal user_id).
+      debugPrint(
+        '[Workout] Session kept local only — no authenticated user '
+        '(userId=$resolvedUserId, session=${finalization.sessionId}). '
+        'It is NOT in Supabase yet and will sync on next sign-in.',
+      );
     }
 
     // Raw tracking flush runs independently (may throw on web due to no Isar);
@@ -776,6 +792,24 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       debugPrint(
         '[Workout] Skipping job enqueue — session not saved to Supabase yet',
       );
+      // The row is safely in the local cache but not in the cloud. Kick off a
+      // sync pass so a transient failure (network blip, 10s timeout) is
+      // retried now instead of only on the next app start / sign-in.
+      unawaited(_retryRemoteSync());
+    }
+  }
+
+  /// Best-effort retry of every session still waiting in the local cache.
+  /// [WorkoutRepositoryImpl.syncPendingData] skips unauthorised users, so this
+  /// is a no-op when nobody is signed in.
+  Future<void> _retryRemoteSync() async {
+    final repo = _ref.read(workoutRepositoryProvider);
+    try {
+      await repo.syncPendingData();
+      debugPrint('[Workout] Pending-session retry sync finished');
+      if (mounted) _ref.invalidate(workoutListProvider);
+    } catch (e) {
+      debugPrint('[Workout] Pending-session retry sync failed: $e');
     }
   }
 

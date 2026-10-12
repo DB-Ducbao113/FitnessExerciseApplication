@@ -11,6 +11,7 @@ import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
 class _MockLanguageNotifier extends AppLanguageNotifier {
   _MockLanguageNotifier(AppLanguage lang) : super() {
@@ -22,44 +23,45 @@ void main() {
   Widget buildTestable(Widget child) {
     return MaterialApp(
       theme: KineticTheme.darkTheme,
-      home: Scaffold(
-        body: SingleChildScrollView(child: child),
-      ),
+      home: Scaffold(body: SingleChildScrollView(child: child)),
     );
   }
 
   group('KineticSummaryHeader Widget Tests', () {
-    testWidgets('renders running activity name and triggers back/share callbacks', (tester) async {
-      bool backTapped = false;
-      bool shareTapped = false;
+    testWidgets(
+      'renders running activity name and triggers back/share callbacks',
+      (tester) async {
+        bool backTapped = false;
+        bool shareTapped = false;
 
-      await tester.pumpWidget(
-        buildTestable(
-          KineticSummaryHeader(
-            activityType: 'running',
-            trackingMode: 'outdoor',
-            currentLang: AppLanguage.vi,
-            onBackToHome: () => backTapped = true,
-            onShare: () => shareTapped = true,
+        await tester.pumpWidget(
+          buildTestable(
+            KineticSummaryHeader(
+              activityType: 'running',
+              trackingMode: 'outdoor',
+              currentLang: AppLanguage.vi,
+              onBackToHome: () => backTapped = true,
+              onShare: () => shareTapped = true,
+            ),
           ),
-        ),
-      );
+        );
 
-      // AETRON TELEMETRY is removed for cleaner title
-      expect(find.text('AETRON TELEMETRY'), findsNothing);
-      expect(find.text('Tóm tắt buổi tập'), findsOneWidget);
-      expect(find.text('Chạy bộ'), findsOneWidget);
-      // GPS Ngoài trời is now removed
-      expect(find.text('GPS Ngoài trời'), findsNothing);
+        // AETRON TELEMETRY is removed for cleaner title
+        expect(find.text('AETRON TELEMETRY'), findsNothing);
+        expect(find.text('Tóm tắt buổi tập'), findsOneWidget);
+        expect(find.text('Chạy bộ'), findsOneWidget);
+        // GPS Ngoài trời is now removed
+        expect(find.text('GPS Ngoài trời'), findsNothing);
 
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-      await tester.pump();
-      expect(backTapped, isTrue);
+        await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+        await tester.pump();
+        expect(backTapped, isTrue);
 
-      await tester.tap(find.byIcon(Icons.ios_share_rounded));
-      await tester.pump();
-      expect(shareTapped, isTrue);
-    });
+        await tester.tap(find.byIcon(Icons.ios_share_rounded));
+        await tester.pump();
+        expect(shareTapped, isTrue);
+      },
+    );
 
     testWidgets('renders cycling and omits mode badge', (tester) async {
       await tester.pumpWidget(
@@ -95,27 +97,35 @@ void main() {
   });
 
   group('KineticSummaryHeroDistance Widget Tests', () {
-    testWidgets('renders distance value and verified status without headlines', (tester) async {
-      await tester.pumpWidget(
-        buildTestable(
-          const KineticSummaryHeroDistance(
-            distanceKm: 12.45,
-            activityType: 'running',
-            useMetricUnits: true,
-            validityFlag: WorkoutValidityFlag.verified,
-            currentLang: AppLanguage.vi,
+    testWidgets(
+      'renders distance value and verified status without headlines',
+      (tester) async {
+        await tester.pumpWidget(
+          buildTestable(
+            const KineticSummaryHeroDistance(
+              distanceKm: 12.45,
+              activityType: 'running',
+              useMetricUnits: true,
+              validityFlag: WorkoutValidityFlag.verified,
+              currentLang: AppLanguage.vi,
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('12.45'), findsOneWidget);
-      expect(find.text('KM'), findsOneWidget);
-      expect(find.text('HOÀN THÀNH XUẤT SẮC'), findsOneWidget);
-      expect(find.text('GPS ĐÃ XÁC MINH'), findsOneWidget);
-      expect(find.text('Bước đi vững chãi và đều đặn!'), findsNothing);
-    });
+        // Count-up animation runs 450ms — pump through it to the final value.
+        await tester.pump(const Duration(milliseconds: 450));
 
-    testWidgets('converts to miles when useMetricUnits is false', (tester) async {
+        expect(find.text('12.45'), findsOneWidget);
+        expect(find.text('KM'), findsOneWidget);
+        expect(find.text('HOÀN THÀNH XUẤT SẮC'), findsOneWidget);
+        expect(find.text('GPS ĐÃ XÁC MINH'), findsOneWidget);
+        expect(find.text('Bước đi vững chãi và đều đặn!'), findsNothing);
+      },
+    );
+
+    testWidgets('converts to miles when useMetricUnits is false', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestable(
           const KineticSummaryHeroDistance(
@@ -128,6 +138,9 @@ void main() {
         ),
       );
 
+      // Count-up animation runs 450ms — pump through it to the final value.
+      await tester.pump(const Duration(milliseconds: 450));
+
       // 10 km * 0.621371 = 6.21 mi
       expect(find.text('6.21'), findsOneWidget);
       expect(find.text('MI'), findsOneWidget);
@@ -137,29 +150,32 @@ void main() {
   });
 
   group('KineticSummaryTelemetryGrid Widget Tests', () {
-    testWidgets('renders moving time, pace, calories, and cadence for running', (tester) async {
-      await tester.pumpWidget(
-        buildTestable(
-          const KineticSummaryTelemetryGrid(
-            activityType: 'running',
-            durationSeconds: 1800,
-            movingTimeSeconds: 1750,
-            avgSpeedKmh: 10.0,
-            calories: 320,
-            steps: 4200,
-            useMetricUnits: true,
-            currentLang: AppLanguage.vi,
+    testWidgets(
+      'renders moving time, pace, calories, and cadence for running',
+      (tester) async {
+        await tester.pumpWidget(
+          buildTestable(
+            const KineticSummaryTelemetryGrid(
+              activityType: 'running',
+              durationSeconds: 1800,
+              movingTimeSeconds: 1750,
+              avgSpeedKmh: 10.0,
+              calories: 320,
+              steps: 4200,
+              useMetricUnits: true,
+              currentLang: AppLanguage.vi,
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('THỜI GIAN DI CHUYỂN'), findsOneWidget);
-      expect(find.text('PACE TRUNG BÌNH'), findsOneWidget);
-      expect(find.text('NĂNG LƯỢNG'), findsOneWidget);
-      expect(find.text('320'), findsOneWidget);
-      expect(find.text('TỔNG SỐ BƯỚC'), findsOneWidget);
-      expect(find.text('4200'), findsOneWidget);
-    });
+        expect(find.text('THỜI GIAN DI CHUYỂN'), findsOneWidget);
+        expect(find.text('PACE TRUNG BÌNH'), findsOneWidget);
+        expect(find.text('NĂNG LƯỢNG'), findsOneWidget);
+        expect(find.text('320'), findsOneWidget);
+        expect(find.text('TỔNG SỐ BƯỚC'), findsOneWidget);
+        expect(find.text('4200'), findsOneWidget);
+      },
+    );
 
     testWidgets('shows max speed and hides steps for cycling', (tester) async {
       await tester.pumpWidget(
@@ -259,11 +275,35 @@ void main() {
   });
 
   group('Full WorkoutSummaryScreen Widget Test', () {
+    test(
+      'uses the complete route when a stale one-point segment is supplied',
+      () {
+        const start = LatLng(10.7769, 106.7009);
+        const middle = LatLng(10.7775, 106.7016);
+        const finish = LatLng(10.7782, 106.7024);
+        const completeRoute = [start, middle, finish];
+
+        final preview = resolveWorkoutSummaryRoutePreview(
+          routePoints: completeRoute,
+          // A just-started smoothed segment must not hide the complete route
+          // that was flushed when recording stopped.
+          routeSegments: const [
+            [start],
+          ],
+        );
+
+        expect(preview.points, completeRoute);
+        expect(preview.segments, [completeRoute]);
+      },
+    );
+
     testWidgets('renders all summary sections in dark mode', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            appLanguageProvider.overrideWith((ref) => _MockLanguageNotifier(AppLanguage.vi)),
+            appLanguageProvider.overrideWith(
+              (ref) => _MockLanguageNotifier(AppLanguage.vi),
+            ),
             metricUnitsPreferenceProvider.overrideWith((ref) async => true),
           ],
           child: MaterialApp(

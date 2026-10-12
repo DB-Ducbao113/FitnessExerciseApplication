@@ -77,20 +77,14 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                     children: [
                       Text(
                         currentLang == AppLanguage.vi ? 'ĐỀN THỜ KỶ LỤC' : 'PR HALL OF FAME',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                        style: KineticTypography.unitLabel.copyWith(
                           color: _trophyGold.withValues(alpha: 0.9),
                           letterSpacing: 1.2,
                         ),
                       ),
                       Text(
                         currentLang == AppLanguage.vi ? 'Kỷ Lục Cá Nhân (PRs)' : 'Personal Bests',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
+                        style: KineticTypography.headlineSmall.copyWith(
                           color: colors.textPrimary,
                         ),
                       ),
@@ -109,9 +103,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                 ),
                 child: Text(
                   '$unlockedCount / ${all.length} ${currentLang == AppLanguage.vi ? 'KỶ LỤC' : 'RECORDS'}',
-                  style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
-                    fontSize: 11,
+                  style: KineticTypography.unitLabel.copyWith(
                     fontWeight: FontWeight.w900,
                     color: _trophyGold,
                     letterSpacing: 0.8,
@@ -218,10 +210,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
 
               Text(
                 isVi ? record.titleVi : record.titleEn,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                style: KineticTypography.cardTitle.copyWith(
                   color: colors.textPrimary,
                 ),
               ),
@@ -231,9 +220,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                 isUnlocked
                     ? (isVi ? 'KỶ LỤC CÁ NHÂN ĐÃ XÁC LẬP' : 'PERSONAL BEST ESTABLISHED')
                     : (isVi ? 'CHƯA MỞ KHÓA' : 'NOT YET UNLOCKED'),
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 11,
+                style: KineticTypography.unitLabel.copyWith(
                   fontWeight: FontWeight.w900,
                   color: isUnlocked ? _trophyGold : colors.textMuted,
                   letterSpacing: 1.2,
@@ -258,18 +245,13 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                         children: [
                           Text(
                             isVi ? 'THÀNH TÍCH ĐỈNH CAO' : 'PEAK RECORD',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 11,
+                            style: KineticTypography.unitLabel.copyWith(
                               color: colors.textSecondary,
-                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           Text(
                             _formatRecordValue(record, useMetricUnits),
-                            style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 16,
+                            style: KineticTypography.headlineSmall.copyWith(
                               fontWeight: FontWeight.w900,
                               color: _trophyGold,
                             ),
@@ -283,18 +265,13 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                           children: [
                             Text(
                               isVi ? 'NGÀY XÁC LẬP' : 'DATE ACHIEVED',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 11,
+                              style: KineticTypography.unitLabel.copyWith(
                                 color: colors.textSecondary,
-                                fontWeight: FontWeight.w700,
                               ),
                             ),
                             Text(
                               '${record.achievedAt!.toLocal().day.toString().padLeft(2, '0')}/${record.achievedAt!.toLocal().month.toString().padLeft(2, '0')}/${record.achievedAt!.toLocal().year}',
-                              style: TextStyle(
-                                fontFamily: 'Plus Jakarta Sans',
-                                fontSize: 12,
+                              style: KineticTypography.bodySmall.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: colors.textPrimary,
                               ),
@@ -306,10 +283,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                       Text(
                         isVi ? record.unlockHintVi : record.unlockHintEn,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                        style: KineticTypography.label.copyWith(
                           color: colors.textSecondary,
                         ),
                       ),
@@ -340,9 +314,7 @@ class PersonalRecordsTrophyWall extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         isVi ? 'ĐÓNG' : 'CLOSE',
-                        style: const TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 14,
+                        style: KineticTypography.label.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -452,9 +424,7 @@ class _TrophyCardItem extends StatelessWidget {
                   if (isUnlocked && record.achievedAt != null)
                     Text(
                       '${record.achievedAt!.toLocal().day.toString().padLeft(2, '0')}/${record.achievedAt!.toLocal().month.toString().padLeft(2, '0')}',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 11,
+                      style: KineticTypography.caption.copyWith(
                         fontWeight: FontWeight.w700,
                         color: colors.textSecondary.withValues(alpha: 0.8),
                       ),
@@ -467,9 +437,7 @@ class _TrophyCardItem extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 11,
+                style: KineticTypography.caption.copyWith(
                   fontWeight: FontWeight.w800,
                   color: isUnlocked ? colors.textPrimary : colors.textSecondary,
                 ),
@@ -482,12 +450,14 @@ class _TrophyCardItem extends StatelessWidget {
                     : (isVi ? 'Chưa mở khóa' : 'Locked'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: isUnlocked ? 15 : 10,
-                  fontWeight: FontWeight.w900,
-                  color: isUnlocked ? accentColor : colors.textMuted,
-                ),
+                style: isUnlocked
+                    ? KineticTypography.label.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: accentColor,
+                      )
+                    : KineticTypography.caption.copyWith(
+                        color: colors.textMuted,
+                      ),
               ),
             ],
           ),

@@ -174,9 +174,8 @@ class _Row extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           label,
-          style: KineticTypography.bodySmall.copyWith(
+          style: KineticTypography.label.copyWith(
             color: colors.textMuted,
-            fontSize: 13,
           ),
         ),
         const Spacer(),
@@ -184,8 +183,8 @@ class _Row extends StatelessWidget {
           value,
           style: KineticTypography.label.copyWith(
             color: colors.textPrimary,
-            fontSize: 13,
             fontWeight: FontWeight.w700,
+            fontFeatures: KineticTypography.tabularFigures,
           ),
         ),
       ],

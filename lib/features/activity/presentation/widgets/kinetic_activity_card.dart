@@ -100,11 +100,11 @@ class KineticActivityCard extends StatelessWidget {
           onSelect();
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: KineticTokens.motionTab,
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: colors.surface1,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(KineticTokens.radiusXL),
             border: Border.all(
               color: isSelected
                   ? colors.primary
@@ -128,7 +128,8 @@ class KineticActivityCard extends StatelessWidget {
                   ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(19),
+            // 1px less than card radius to sit inside the 1px border
+            borderRadius: BorderRadius.circular(KineticTokens.radiusXL - 1),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -182,7 +183,7 @@ class KineticActivityCard extends StatelessWidget {
                         top: 10,
                         right: 12,
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                          duration: KineticTokens.motionTab,
                           width: 26,
                           height: 26,
                           decoration: BoxDecoration(
@@ -214,11 +215,8 @@ class KineticActivityCard extends StatelessWidget {
                         right: 14,
                         child: Text(
                           name,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
+                          style: KineticTypography.cardTitle.copyWith(
                             color: Colors.white,
-                            letterSpacing: -0.2,
                             shadows: [
                               Shadow(
                                 color: Colors.black.withValues(alpha: 0.8),
@@ -262,8 +260,7 @@ class KineticActivityCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           statLeft,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: KineticTypography.bodySmall.copyWith(
                             fontWeight: FontWeight.w700,
                             color: colors.textPrimary,
                             fontFeatures: KineticTypography.tabularFigures,
@@ -281,8 +278,7 @@ class KineticActivityCard extends StatelessWidget {
                         ),
                         Text(
                           statRight,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: KineticTypography.bodySmall.copyWith(
                             fontWeight: FontWeight.w500,
                             color: colors.textSecondary,
                             fontFeatures: KineticTypography.tabularFigures,

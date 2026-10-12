@@ -59,9 +59,8 @@ class KineticProfileActionTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: KineticTypography.label.copyWith(
+                  style: KineticTypography.bodyMedium.copyWith(
                     color: isDestructive ? colors.error : colors.textPrimary,
-                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -69,9 +68,8 @@ class KineticProfileActionTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: KineticTypography.bodySmall.copyWith(
+                    style: KineticTypography.caption.copyWith(
                       color: colors.textMuted,
-                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -90,7 +88,6 @@ class KineticProfileActionTile extends StatelessWidget {
                 badgeText!,
                 style: KineticTypography.unitLabel.copyWith(
                   color: colors.textSecondary,
-                  fontSize: 11,
                 ),
               ),
             ),

@@ -531,7 +531,6 @@ class _WelcomeTopBar extends ConsumerWidget {
               child: const Text(
                 'AETRON',
                 style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 4.0,
@@ -566,7 +565,6 @@ class _WelcomeTopBar extends ConsumerWidget {
                 child: Text(
                   currentLang == AppLanguage.vi ? '🇻🇳 VI' : '🇬🇧 EN',
                   style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFFA8DCE7),
@@ -586,7 +584,6 @@ class _WelcomeTopBar extends ConsumerWidget {
               child: Text(
                 currentLang == AppLanguage.vi ? 'BỎ QUA' : 'SKIP',
                 style: const TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.0,
@@ -723,7 +720,6 @@ class _WelcomeCopyCard extends StatelessWidget {
                 child: Text(
                   data.eyebrow,
                   style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     color: Color(0xFFA8DCE7),
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -734,7 +730,6 @@ class _WelcomeCopyCard extends StatelessWidget {
               Text(
                 data.step,
                 style: const TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
                   color: Color(0xFF7D8DA6),
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -750,7 +745,6 @@ class _WelcomeCopyCard extends StatelessWidget {
             textScaler: MediaQuery.textScalerOf(context),
             text: TextSpan(
               style: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: Colors.white,
                 fontSize: 26,
                 height: 1.15,
@@ -781,7 +775,6 @@ class _WelcomeCopyCard extends StatelessWidget {
           Text(
             data.description,
             style: const TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               color: Color(0xFF94A3B8),
               fontSize: 14,
               height: 1.45,
@@ -850,7 +843,6 @@ class _TelemetryPill extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: Color(0xFFC3F5FF),
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -916,7 +908,6 @@ class _ModernActionButton extends StatelessWidget {
                       Text(
                         label,
                         style: const TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.8,

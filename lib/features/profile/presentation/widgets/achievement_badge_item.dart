@@ -99,7 +99,6 @@ class AchievementBadgeItem extends StatelessWidget {
                     child: Text(
                       tier.label(currentLang),
                       style: KineticTypography.unitLabel.copyWith(
-                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: primaryColor,
                         letterSpacing: 0.8,
@@ -115,8 +114,7 @@ class AchievementBadgeItem extends StatelessWidget {
                 badge.title(currentLang),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: KineticTypography.headlineSmall.copyWith(
-                  fontSize: 14,
+                style: KineticTypography.bodyMedium.copyWith(
                   fontWeight: FontWeight.w800,
                   color: isUnlocked ? colors.textPrimary : colors.textSecondary,
                 ),
@@ -131,7 +129,6 @@ class AchievementBadgeItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: KineticTypography.unitLabel.copyWith(
-                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: isUnlocked ? colors.secondary : colors.textMuted,
                   letterSpacing: isUnlocked ? 0.6 : 0.0,

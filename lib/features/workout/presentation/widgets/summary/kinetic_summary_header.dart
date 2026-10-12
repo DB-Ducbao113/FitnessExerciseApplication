@@ -85,7 +85,6 @@ class KineticSummaryHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: KineticTypography.pageTitleCompact.copyWith(
-                  fontSize: 17,
                   fontWeight: FontWeight.w800,
                   color: colors.textPrimary,
                 ),
@@ -139,7 +138,6 @@ class KineticSummaryHeader extends StatelessWidget {
                     activityName,
                     style: KineticTypography.label.copyWith(
                       color: colors.primary,
-                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

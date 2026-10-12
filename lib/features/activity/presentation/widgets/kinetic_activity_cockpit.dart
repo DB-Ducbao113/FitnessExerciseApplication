@@ -40,7 +40,10 @@ class KineticActivityCockpit extends StatelessWidget {
     final isGpsReady = gpsEnabled && hasLocationPermission;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(
+        horizontal: KineticTokens.page,
+        vertical: 8,
+      ),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface1,
@@ -72,7 +75,8 @@ class KineticActivityCockpit extends StatelessWidget {
                       height: 34,
                       decoration: BoxDecoration(
                         color: colors.surface2,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius:
+                            BorderRadius.circular(KineticTokens.radiusSM),
                         border: Border.all(
                           color: colors.borderSubtle.withValues(alpha: 0.5),
                         ),
@@ -94,8 +98,7 @@ class KineticActivityCockpit extends StatelessWidget {
                                   : (isVi
                                       ? 'Chờ tín hiệu GPS'
                                       : 'Waiting for GPS'),
-                              style: TextStyle(
-                                fontSize: 13,
+                              style: KineticTypography.label.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: colors.textPrimary,
                               ),
@@ -163,7 +166,7 @@ class KineticActivityCockpit extends StatelessWidget {
                 ? 'BẮT ĐẦU ${activityName.toUpperCase()}'
                 : 'START ${activityName.toUpperCase()}',
             icon: Icons.play_arrow_rounded,
-            height: 52,
+            height: KineticTokens.buttonHeightPrimary,
             onPressed: onStartTap,
           ),
         ],

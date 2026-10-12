@@ -198,10 +198,7 @@ class KineticPerformanceStoryBento extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 distanceUnit,
-                style: TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                style: KineticTypography.headlineSmall.copyWith(
                   color: colors.textSecondary,
                 ),
               ),
@@ -240,10 +237,7 @@ class KineticPerformanceStoryBento extends StatelessWidget {
                         isNewBenchmark
                             ? (isVi ? 'MỐC MỚI' : 'NEW BENCHMARK')
                             : '${isPositive ? '+' : ''}${percentChange!.clamp(-100.0, 999.0).toStringAsFixed(0)}% ${isVi ? 'so với trước' : 'vs prev'}',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                        style: KineticTypography.unitLabel.copyWith(
                           color: isNewBenchmark || isPositive
                               ? colors.primary
                               : colors.tertiary,
@@ -316,13 +310,9 @@ class KineticPerformanceStoryBento extends StatelessWidget {
                                   ),
                                   child: Text(
                                     '${dayDist.toStringAsFixed(1)} $distanceUnit',
-                                    style: TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      fontSize: 11,
+                                    style: KineticTypography.unitLabel.copyWith(
                                       fontWeight: FontWeight.w900,
                                       color: colors.onPrimary,
-                                      fontFeatures:
-                                          KineticTypography.tabularFigures,
                                     ),
                                   ),
                                 )
@@ -361,9 +351,7 @@ class KineticPerformanceStoryBento extends StatelessWidget {
                               // Day label
                               Text(
                                 dayNames[i],
-                                style: TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
-                                  fontSize: 11,
+                                style: KineticTypography.caption.copyWith(
                                   fontWeight: isPeak
                                       ? FontWeight.w800
                                       : FontWeight.w500,
@@ -401,9 +389,7 @@ class KineticPerformanceStoryBento extends StatelessWidget {
                             isVi
                                 ? 'Ngày bùng nổ: ${dayNames[peakDayIdx]} (${((peakVal / currentDistanceKm) * 100).round()}% khối lượng)'
                                 : 'Peak Day: ${dayNames[peakDayIdx]} (${((peakVal / currentDistanceKm) * 100).round()}% volume)',
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 11,
+                            style: KineticTypography.caption.copyWith(
                               fontWeight: FontWeight.w600,
                               color: colors.textSecondary,
                             ),
@@ -412,10 +398,7 @@ class KineticPerformanceStoryBento extends StatelessWidget {
                       ),
                       Text(
                         isVi ? 'Tổng 7 ngày' : '7-Day Total',
-                        style: TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                        style: KineticTypography.caption.copyWith(
                           color: colors.textSecondary,
                         ),
                       ),

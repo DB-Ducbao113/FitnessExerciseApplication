@@ -11,9 +11,37 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/summary/kinetic_summary_telemetry_grid.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_share_card.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_entrance.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+
+typedef WorkoutSummaryRoutePreview = ({
+  List<LatLng> points,
+  List<List<LatLng>> segments,
+});
+
+WorkoutSummaryRoutePreview resolveWorkoutSummaryRoutePreview({
+  required List<LatLng> routePoints,
+  required List<List<LatLng>> routeSegments,
+}) {
+  final validRouteSegments = routeSegments
+      .where((segment) => segment.length >= 2)
+      .toList(growable: false);
+  final effectiveRouteSegments = validRouteSegments.isNotEmpty
+      ? validRouteSegments
+      : (routePoints.length >= 2
+            ? <List<LatLng>>[routePoints]
+            : const <List<LatLng>>[]);
+
+  return (
+    points: effectiveRouteSegments.isNotEmpty
+        ? effectiveRouteSegments.expand((segment) => segment).toList()
+        : routePoints,
+    segments: effectiveRouteSegments,
+  );
+}
 
 class WorkoutSummaryScreen extends ConsumerWidget {
   final String sessionId;
@@ -92,14 +120,12 @@ class WorkoutSummaryScreen extends ConsumerWidget {
     final useMetricUnits =
         ref.watch(metricUnitsPreferenceProvider).value ?? true;
 
-    final List<List<LatLng>> effectiveRouteSegments = routeSegments.isNotEmpty
-        ? routeSegments
-        : (routePoints.isNotEmpty
-              ? <List<LatLng>>[routePoints]
-              : const <List<LatLng>>[]);
-    final List<LatLng> effectiveRoutePoints = effectiveRouteSegments.isNotEmpty
-        ? effectiveRouteSegments.expand((s) => s).toList()
-        : routePoints;
+    final routePreview = resolveWorkoutSummaryRoutePreview(
+      routePoints: routePoints,
+      routeSegments: routeSegments,
+    );
+    final effectiveRouteSegments = routePreview.segments;
+    final effectiveRoutePoints = routePreview.points;
 
     final distanceKm = distanceMeters / 1000;
     final effectiveDistanceKm = gpsAnalysis.validDistanceKm > 0
@@ -120,7 +146,12 @@ class WorkoutSummaryScreen extends ConsumerWidget {
             children: [
               // Top Sticky Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  KineticTokens.page,
+                  12,
+                  KineticTokens.page,
+                  8,
+                ),
                 child: KineticSummaryHeader(
                   activityType: activityType,
                   trackingMode: trackingMode,
@@ -133,66 +164,87 @@ class WorkoutSummaryScreen extends ConsumerWidget {
               Expanded(
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(
+                    KineticTokens.page,
+                    8,
+                    KineticTokens.page,
+                    32,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // 1. Hero Distance & Celebration Bento
-                      KineticSummaryHeroDistance(
-                        distanceKm: effectiveDistanceKm,
-                        activityType: activityType,
-                        useMetricUnits: useMetricUnits,
-                        validityFlag: gpsAnalysis.validityFlag,
-                        currentLang: currentLang,
+                      KineticEntrance(
+                        index: 0,
+                        child: KineticSummaryHeroDistance(
+                          distanceKm: effectiveDistanceKm,
+                          activityType: activityType,
+                          useMetricUnits: useMetricUnits,
+                          validityFlag: gpsAnalysis.validityFlag,
+                          currentLang: currentLang,
+                        ),
                       ),
                       const SizedBox(height: 12),
 
                       // 2. Telemetry Grid (4 Bento Cards)
-                      KineticSummaryTelemetryGrid(
-                        activityType: activityType,
-                        durationSeconds: durationSeconds,
-                        movingTimeSeconds: movingTimeSeconds,
-                        avgSpeedKmh: avgSpeedKmh,
-                        effectivePaceSecPerKm: gpsAnalysis.effectivePaceSecPerKm,
-                        calories: calories,
-                        steps: steps,
-                        useMetricUnits: useMetricUnits,
-                        currentLang: currentLang,
+                      KineticEntrance(
+                        index: 1,
+                        child: KineticSummaryTelemetryGrid(
+                          activityType: activityType,
+                          durationSeconds: durationSeconds,
+                          movingTimeSeconds: movingTimeSeconds,
+                          avgSpeedKmh: avgSpeedKmh,
+                          effectivePaceSecPerKm:
+                              gpsAnalysis.effectivePaceSecPerKm,
+                          calories: calories,
+                          steps: steps,
+                          useMetricUnits: useMetricUnits,
+                          currentLang: currentLang,
+                        ),
                       ),
                       const SizedBox(height: 12),
 
                       // 3. Route Map Recap (Outdoor GPS routes)
                       if (effectiveRoutePoints.length >= 2) ...[
-                        KineticSummaryRouteRecap(
-                          routePoints: effectiveRoutePoints,
-                          routeSegments: effectiveRouteSegments,
-                          activityType: activityType,
-                          currentLang: currentLang,
+                        KineticEntrance(
+                          index: 2,
+                          child: KineticSummaryRouteRecap(
+                            routePoints: effectiveRoutePoints,
+                            routeSegments: effectiveRouteSegments,
+                            activityType: activityType,
+                            currentLang: currentLang,
+                          ),
                         ),
                         const SizedBox(height: 12),
                       ],
 
                       // 4. Lap Splits Breakdown (If available)
                       if (lapSplits.isNotEmpty) ...[
-                        KineticSummarySplitsCard(
-                          lapSplits: lapSplits,
-                          useMetricUnits: useMetricUnits,
-                          currentLang: currentLang,
+                        KineticEntrance(
+                          index: 3,
+                          child: KineticSummarySplitsCard(
+                            lapSplits: lapSplits,
+                            useMetricUnits: useMetricUnits,
+                            currentLang: currentLang,
+                          ),
                         ),
                         const SizedBox(height: 16),
                       ],
 
                       // 5. Action Dock (Share, Done, Details)
-                      KineticSummaryActionDock(
-                        currentLang: currentLang,
-                        onShare: () => _openShareSheet(
-                          context,
-                          effectiveDistanceKm: effectiveDistanceKm,
-                          useMetricUnits: useMetricUnits,
+                      KineticEntrance(
+                        index: 4,
+                        child: KineticSummaryActionDock(
                           currentLang: currentLang,
+                          onShare: () => _openShareSheet(
+                            context,
+                            effectiveDistanceKm: effectiveDistanceKm,
+                            useMetricUnits: useMetricUnits,
+                            currentLang: currentLang,
+                          ),
+                          onDone: () => _navigateToHome(context),
+                          onViewDetails: () => _navigateToDetails(context),
                         ),
-                        onDone: () => _navigateToHome(context),
-                        onViewDetails: () => _navigateToDetails(context),
                       ),
                     ],
                   ),

@@ -182,7 +182,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Text(
                     isVi ? 'Đăng ký' : 'Sign Up',
                     style: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: _onSurface,
@@ -261,7 +260,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                             ? 'Bắt đầu ngay hôm nay'
                                             : 'Start today',
                                         style: const TextStyle(
-                                          fontFamily: 'Plus Jakarta Sans',
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                           color: _primary,
@@ -273,7 +271,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                             ? 'Theo dõi hành trình fitness'
                                             : 'Track your fitness journey',
                                         style: const TextStyle(
-                                          fontFamily: 'Plus Jakarta Sans',
                                           fontSize: 20,
                                           fontWeight: FontWeight.w700,
                                           color: _onSurface,
@@ -332,7 +329,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 ? 'Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.'
                                 : 'At least 8 characters with uppercase, lowercase, a number, and a special character.',
                             style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
                               color: _onSurfaceVariant,
@@ -422,7 +418,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                             ? 'Tôi đồng ý với '
                                             : 'I agree to the ',
                                         style: const TextStyle(
-                                          fontFamily: 'Plus Jakarta Sans',
                                           fontSize: 12,
                                           color: _onSurfaceVariant,
                                         ),
@@ -439,7 +434,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                         child: Text(
                                           isVi ? 'Điều khoản' : 'Terms',
                                           style: const TextStyle(
-                                            fontFamily: 'Plus Jakarta Sans',
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
                                             color: _primary,
@@ -449,7 +443,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       Text(
                                         isVi ? ' & ' : ' & ',
                                         style: const TextStyle(
-                                          fontFamily: 'Plus Jakarta Sans',
                                           fontSize: 12,
                                           color: _onSurfaceVariant,
                                         ),
@@ -468,7 +461,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                               ? 'Chính sách bảo mật'
                                               : 'Privacy Policy',
                                           style: const TextStyle(
-                                            fontFamily: 'Plus Jakarta Sans',
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
                                             color: _primary,
@@ -506,7 +498,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     ? 'Đã có tài khoản? '
                                     : 'Already have an account? ',
                                 style: const TextStyle(
-                                  fontFamily: 'Plus Jakarta Sans',
                                   fontSize: 13,
                                   color: _onSurfaceVariant,
                                 ),
@@ -516,7 +507,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 child: Text(
                                   isVi ? 'Đăng nhập ngay' : 'Sign in',
                                   style: const TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     color: _primary,
@@ -566,7 +556,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       isVi ? 'ĐĂNG KÝ THÀNH CÔNG' : 'REGISTRATION SUCCESSFUL',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: _onSurface,
@@ -580,7 +569,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           : 'Your account was created with username:',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 14,
                         color: _onSurfaceVariant,
                       ),
@@ -599,7 +587,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       child: Text(
                         _registeredUsername ?? '',
                         style: const TextStyle(
-                          fontFamily: 'Plus Jakarta Sans',
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: _primary,
@@ -613,7 +600,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           : 'You can sign in with the username and password you just created.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 13,
                         color: _onSurfaceVariant,
                         height: 1.5,
@@ -677,7 +663,6 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: _onSurfaceVariant,
@@ -713,7 +698,6 @@ class _StitchTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       style: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: _onSurface,
@@ -722,7 +706,6 @@ class _StitchTextField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: _onSurfaceVariant,
@@ -800,7 +783,6 @@ class _PrimaryButton extends StatelessWidget {
                     Text(
                       label,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: _onPrimary,
@@ -842,7 +824,6 @@ class _ErrorMessage extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 fontSize: 12,
                 color: _error.withValues(alpha: 0.9),
               ),

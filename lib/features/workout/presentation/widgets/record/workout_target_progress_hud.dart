@@ -120,9 +120,7 @@ class WorkoutTargetProgressHud extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     targetLabel,
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 12,
+                    style: KineticTypography.unitLabel.copyWith(
                       fontWeight: FontWeight.w900,
                       color: displayColor,
                       letterSpacing: 0.5,
@@ -134,9 +132,7 @@ class WorkoutTargetProgressHud extends StatelessWidget {
                 children: [
                   Text(
                     remainingLabel,
-                    style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
-                      fontSize: 11,
+                    style: KineticTypography.caption.copyWith(
                       fontWeight: FontWeight.w700,
                       color: isDone ? completedGold : colors.textSecondary,
                     ),
@@ -150,9 +146,7 @@ class WorkoutTargetProgressHud extends StatelessWidget {
                     ),
                     child: Text(
                       '$percentInt%',
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
-                        fontSize: 11,
+                      style: KineticTypography.unitLabel.copyWith(
                         fontWeight: FontWeight.w900,
                         color: displayColor,
                       ),

@@ -135,7 +135,6 @@ class _AetronPermissionSheet extends StatelessWidget {
             Text(
               content.$2,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: colors.primary,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -146,7 +145,6 @@ class _AetronPermissionSheet extends StatelessWidget {
             Text(
               content.$3,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: colors.textPrimary,
                 fontSize: 15,
                 height: 1.35,
@@ -157,7 +155,6 @@ class _AetronPermissionSheet extends StatelessWidget {
             Text(
               content.$4,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: colors.textSecondary,
                 fontSize: 12,
                 height: 1.35,
@@ -177,7 +174,6 @@ class _AetronPermissionSheet extends StatelessWidget {
                     child: Text(
                       notNowLabel.toUpperCase(),
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                       ),
@@ -193,7 +189,6 @@ class _AetronPermissionSheet extends StatelessWidget {
                     label: Text(
                       actionLabel,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
                       ),

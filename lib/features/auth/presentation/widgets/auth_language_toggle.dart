@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -77,7 +78,7 @@ class _LanguageOption extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(9),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: KineticTokens.motionTab,
             curve: Curves.easeOutCubic,
             width: 34,
             height: 26,
@@ -98,7 +99,6 @@ class _LanguageOption extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: selected
                     ? AuthLanguageToggle._primary
                     : AuthLanguageToggle._muted,

@@ -30,7 +30,12 @@ class KineticHomeTopBar extends StatelessWidget {
     final colors = context.kinetic;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      padding: const EdgeInsets.fromLTRB(
+        KineticTokens.page,
+        12,
+        KineticTokens.page,
+        8,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -45,11 +50,8 @@ class KineticHomeTopBar extends StatelessWidget {
                 children: [
                   Text(
                     greeting.endsWith(',') ? greeting : '$greeting,',
-                    style: KineticTypography.unitLabel.copyWith(
+                    style: KineticTypography.greeting.copyWith(
                       color: colors.textMuted,
-                      fontSize: 12,
-                      letterSpacing: 0.2,
-                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -57,12 +59,8 @@ class KineticHomeTopBar extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     displayName,
-                    style: KineticTypography.headlineSmall.copyWith(
+                    style: KineticTypography.displayName.copyWith(
                       color: colors.textPrimary,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 19,
-                      letterSpacing: -0.3,
-                      height: 1.2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

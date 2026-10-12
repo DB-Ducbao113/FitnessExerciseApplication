@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fitness_exercise_application/app/bootstrap.dart';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/google_oauth.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/username_auth.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
@@ -194,7 +195,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   Text(
                     isVi ? 'Đăng nhập' : 'Sign In',
                     style: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: _onSurface,
@@ -271,7 +271,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 Text(
                                   isVi ? 'Hành trình của bạn' : 'Your journey',
                                   style: const TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: _primary,
@@ -283,7 +282,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       ? 'Sẵn sàng tiếp tục?'
                                       : 'Ready to continue?',
                                   style: const TextStyle(
-                                    fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 22,
                                     fontWeight: FontWeight.w700,
                                     color: _onSurface,
@@ -370,7 +368,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         child: Text(
                           isVi ? 'Quên mật khẩu?' : 'Forgot password?',
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _primary,
@@ -404,7 +401,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           child: Text(
                             isVi ? 'Hoặc tiếp tục với' : 'Or continue with',
                             style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: _onSurfaceVariant,
@@ -436,7 +432,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               ? 'Chưa có tài khoản? '
                               : "Don't have an account? ",
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 13,
                             color: _onSurfaceVariant,
                           ),
@@ -452,7 +447,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           child: Text(
                             isVi ? 'Tạo tài khoản' : 'Create account',
                             style: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: _primary,
@@ -485,7 +479,6 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: _onSurfaceVariant,
@@ -518,7 +511,6 @@ class _StitchTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       style: const TextStyle(
-        fontFamily: 'Plus Jakarta Sans',
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: _onSurface,
@@ -527,7 +519,6 @@ class _StitchTextField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: _onSurfaceVariant,
@@ -580,7 +571,7 @@ class _PrimaryButton extends StatelessWidget {
     return GestureDetector(
       onTap: (isLoading || disabled) ? null : onPressed,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: KineticTokens.motionPress,
         height: 52,
         decoration: BoxDecoration(
           color: _primary,
@@ -609,7 +600,6 @@ class _PrimaryButton extends StatelessWidget {
                     Text(
                       label,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: _onPrimary,
@@ -683,7 +673,6 @@ class _GoogleButton extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: _onSurface,
@@ -717,7 +706,6 @@ class _ErrorMessage extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 fontSize: 12,
                 color: _error.withValues(alpha: 0.9),
               ),

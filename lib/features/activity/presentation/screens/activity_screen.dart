@@ -9,7 +9,6 @@ import 'package:fitness_exercise_application/features/workout/domain/entities/wo
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/record_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/record/tracking_map_widget.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_skeleton.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -173,7 +172,9 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
           child: Container(
             decoration: BoxDecoration(
               color: colors.background,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(KineticTokens.radiusXXL),
+              ),
               border: Border(
                 top: BorderSide(
                   color: colors.primary.withValues(alpha: 0.4),
@@ -185,7 +186,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                    horizontal: KineticTokens.page,
                     vertical: 14,
                   ),
                   child: Row(
@@ -203,11 +204,10 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
                             currentLang == AppLanguage.vi
                                 ? 'VỊ TRÍ GPS XUẤT PHÁT'
                                 : 'STARTING GPS PINPOINT',
-                            style: TextStyle(
-                              fontSize: 13,
+                            style: KineticTypography.label.copyWith(
                               fontWeight: FontWeight.w800,
-                              color: colors.textPrimary,
                               letterSpacing: 0.8,
+                              color: colors.textPrimary,
                             ),
                           ),
                         ],
@@ -222,7 +222,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
                 Expanded(
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
+                      top: Radius.circular(KineticTokens.radiusXL),
                     ),
                     child: TrackingMapWidget(
                       routePoints: const [],
@@ -307,10 +307,15 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
                   }
                 },
                 child: _isRefreshing
-                    ? const ActivitySkeletonView()
+                    ? KineticSkeleton.activity()
                     : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(
+                          KineticTokens.page,
+                          8,
+                          KineticTokens.page,
+                          16,
+                        ),
                         itemCount: _kActivities.length,
                         separatorBuilder: (context, index) =>
                             const SizedBox(height: 12),

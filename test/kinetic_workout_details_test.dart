@@ -3,6 +3,7 @@ import 'package:fitness_exercise_application/features/settings/presentation/prov
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_details_screen.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_route_full_map_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_delete_dialog.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_header.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_hero_distance.dart';
@@ -12,10 +13,12 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_telemetry_grid.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_telemetry_list_card.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_top_bar.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/widgets/workout_route_recap_components.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
   Widget buildTestable(Widget child) {
@@ -212,6 +215,71 @@ void main() {
 
       expect(find.text('Không có dữ liệu bản đồ'), findsOneWidget);
       expect(find.textContaining('chỉ số hiệu suất telemetry'), findsOneWidget);
+    });
+
+    testWidgets(
+      'offers a clear full-map action without technical GPS labels',
+      (tester) async {
+        var openedFullMap = false;
+        await tester.pumpWidget(
+          buildTestable(
+            KineticDetailsRouteCard(
+              routePoints: const [
+                LatLng(10.7769, 106.7009),
+                LatLng(10.7780, 106.7020),
+              ],
+              activityType: 'running',
+              currentLang: AppLanguage.vi,
+              onViewFullMap: () => openedFullMap = true,
+              showMapTiles: false,
+            ),
+          ),
+        );
+
+        expect(find.text('Xem toàn bản đồ'), findsOneWidget);
+        expect(find.text('AETRON GPS'), findsNothing);
+        expect(find.textContaining('points'), findsNothing);
+        expect(find.textContaining('điểm GPS'), findsNothing);
+        expect(find.text('LỘ TRÌNH'), findsNothing);
+
+        await tester.tap(find.text('Xem toàn bản đồ'));
+        expect(openedFullMap, isTrue);
+      },
+    );
+  });
+
+  group('WorkoutRouteFullMapScreen Widget Tests', () {
+    testWidgets('shows the whole-route controls with an interactive map', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: KineticTheme.darkTheme,
+          home: const WorkoutRouteFullMapScreen(
+            routePoints: [
+              LatLng(10.7769, 106.7009),
+              LatLng(10.7780, 106.7020),
+            ],
+            activityType: 'running',
+            currentLang: AppLanguage.vi,
+            showMapTiles: false,
+          ),
+        ),
+      );
+
+      expect(find.text('Toàn bộ cung đường'), findsOneWidget);
+      expect(
+        find.text('Kéo để khám phá • Chụm để thu phóng'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Quay lại'), findsOneWidget);
+      expect(find.text('LỘ TRÌNH ĐÃ GHI'), findsNothing);
+
+      final map = tester.widget<WorkoutRoutePreviewMap>(
+        find.byType(WorkoutRoutePreviewMap),
+      );
+      expect(map.interactive, isTrue);
+      expect(map.footerText, isNull);
     });
   });
 

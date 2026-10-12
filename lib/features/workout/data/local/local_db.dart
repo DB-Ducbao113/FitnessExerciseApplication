@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
@@ -9,19 +10,41 @@ import 'package:fitness_exercise_application/features/workout/data/local/schema/
 import 'package:fitness_exercise_application/features/workout/domain/entities/route_match_result.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:isar/isar.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class LocalDB {
   static Isar? _isar;
   static Future<void>? _initFuture;
+  static bool _terminalOpenFailure = false;
+  static bool _recoveryAttempted = false;
+
+  /// Directory that owns [_isar]. A reused instance must live in the exact same
+  /// directory, so it is remembered next to the instance.
+  static String? _dirPath;
+
+  /// The schema every open must use. Kept in one place so the initial open and
+  /// the recovery re-open can never drift apart.
+  static const _schemas = [
+    LocalWorkoutSchema,
+    LocalGPSPointSchema,
+    LocalStepIntervalSchema,
+  ];
+
+  /// True only when [_isar] is a fully initialized database: either opened
+  /// here, or an instance re-used from the Isar registry after it was verified
+  /// against the document directory.
+  ///
+  /// A *placeholder* instance (constructed but never initialized) reports
+  /// `isOpen == true` while its internal `_collections` is still unassigned, so
+  /// every query on it throws `LateInitializationError: Field '_collections@...'
+  /// has not been initialized` — which is exactly how History ended up
+  /// permanently empty.
+  static bool _openedByUs = false;
 
   static Future<void> init() async {
-    if (_isar != null && _isar!.isOpen) return;
-    final existing = Isar.getInstance();
-    if (existing != null && existing.isOpen) {
-      _isar = existing;
-      return;
-    }
+    if (_openedByUs && _isar != null && _isar!.isOpen) return;
+    if (_terminalOpenFailure) return;
     if (_initFuture != null) return _initFuture!;
 
     _initFuture = _open();
@@ -34,58 +57,254 @@ class LocalDB {
 
   static Future<void> _open() async {
     if (kIsWeb) return;
-    final existing = Isar.getInstance();
-    if (existing != null && existing.isOpen) {
-      _isar = existing;
+
+    late final Directory dir;
+    try {
+      dir = await getApplicationDocumentsDirectory();
+    } on MissingPluginException catch (e) {
+      // No platform channel for the path provider (e.g. the Android app process
+      // was restarted in the background, or a headless isolate). Nothing is
+      // broken — `init()` retries once the engine is back.
+      debugPrint('[LocalDB] no document directory yet: $e');
+      return;
+    }
+
+    final registered = Isar.getInstance();
+    if (registered != null &&
+        _openedByUs &&
+        identical(registered, _isar) &&
+        hasAttachedCollections(registered)) {
+      // Re-entrant `_open()` (init raced with itself): trust only our own,
+      // already verified instance.
+      _isar = registered;
+      _dirPath = dir.path;
       return;
     }
 
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      _isar = await Isar.open(
-        [LocalWorkoutSchema, LocalGPSPointSchema, LocalStepIntervalSchema],
-        directory: dir.path,
-        inspector: false,
-      );
+      _isar = await Isar.open(_schemas, directory: dir.path, inspector: false);
+      _openedByUs = true;
+      _dirPath = dir.path;
+      _terminalOpenFailure = false;
+      _recoveryAttempted = false;
+      debugPrint('[LocalDB] opened at ${dir.path}');
     } catch (e) {
       debugPrint('[LocalDB] _open error: $e');
+      _openedByUs = false;
+      _isar = null;
+      _dirPath = null;
       final errStr = e.toString().toLowerCase();
       if (errStr.contains('already been opened')) {
-        _isar = Isar.getInstance();
-      } else if (errStr.contains('collection id') ||
-          errStr.contains('schema') ||
-          errStr.contains('corrupt') ||
-          errStr.contains('illegalarg')) {
-        // Schema mismatch or corrupted cache file: wipe obsolete local cache and recreate
-        try {
-          final dir = await getApplicationDocumentsDirectory();
-          final defaultFile = File('${dir.path}/default.isar');
-          if (await defaultFile.exists()) {
-            await defaultFile.delete();
+        if (await _adoptRegisteredInstance(dir.path)) return;
+        // CLEANUP: A stale instance from an earlier app run (hot restart) is
+        // holding the native handle. Closing it unblocks the open below and,
+        // crucially, hands back a database whose `_collections` is initialized
+        // — unlike `Isar.getInstance()`, which returns the placeholder whose
+        // queries throw LateInitializationError and left History empty.
+        final stale = Isar.getInstance();
+        if (stale != null) {
+          try {
+            await stale.close();
+            debugPrint('[LocalDB] closed stale Isar instance, retrying open');
+          } catch (closeError) {
+            debugPrint('[LocalDB] stale instance close error: $closeError');
           }
-          final lockFile = File('${dir.path}/default.isar.lock');
-          if (await lockFile.exists()) {
-            await lockFile.delete();
+          try {
+            _isar = await Isar.open(
+              _schemas,
+              directory: dir.path,
+              inspector: false,
+            );
+            _openedByUs = true;
+            _dirPath = dir.path;
+            debugPrint('[LocalDB] opened after releasing stale instance');
+            return;
+          } catch (retryError) {
+            debugPrint('[LocalDB] reopen after close error: $retryError');
+            _isar = null;
+            _openedByUs = false;
+            _dirPath = null;
+            if (isRecoverableCacheOpenError(retryError)) {
+              await _recoverDamagedCache(dir, retryError);
+            }
           }
-          _isar = await Isar.open(
-            [LocalWorkoutSchema, LocalGPSPointSchema, LocalStepIntervalSchema],
-            directory: dir.path,
-            inspector: false,
-          );
-        } catch (retryError) {
-          debugPrint('[LocalDB] _open recovery error: $retryError');
-          _isar = Isar.getInstance();
         }
-      } else {
-        _isar = Isar.getInstance();
+        return;
       }
+      if (isRecoverableCacheOpenError(e)) {
+        await _recoverDamagedCache(dir, e);
+      }
+      // Any other failure leaves `_isar` null on purpose. Adopting
+      // `Isar.getInstance()` there returned a placeholder whose queries threw
+      // LateInitializationError on every read.
+    }
+  }
+
+  /// Adopt the instance currently registered with Isar **only** when it provably
+  /// lives in [dirPath] (same database file) or is one we verified earlier.
+  ///
+  /// Adopting a foreign instance used to produce a database that reported
+  /// `isOpen == true` while every query threw `LateInitializationError: Field
+  /// '_collections@...' has not been initialized`, which is why the workout list
+  /// and History came up empty. Returns true when [_isar] is usable.
+  static Future<bool> _adoptRegisteredInstance(String dirPath) async {
+    final existing = Isar.getInstance();
+    if (existing == null) return false;
+    if (_openedByUs &&
+        identical(existing, _isar) &&
+        hasAttachedCollections(existing)) {
+      _dirPath = dirPath;
+      return true;
+    }
+    bool sameFile;
+    try {
+      final existingDir = existing.directory;
+      sameFile =
+          existingDir != null &&
+          existingDir == dirPath &&
+          existing.path == p.join(dirPath, 'default.isar');
+    } catch (e) {
+      debugPrint('[LocalDB] registered instance path is unavailable: $e');
+      sameFile = false;
+    }
+    if (!sameFile || !hasAttachedCollections(existing)) return false;
+    _isar = existing;
+    _openedByUs = true;
+    _dirPath = dirPath;
+    debugPrint('[LocalDB] reusing open instance at $dirPath');
+    return true;
+  }
+
+  /// Isar registers an instance before it attaches generated collections.
+  /// When opening fails between those two steps, `getInstance()` returns an
+  /// object whose `isOpen`, `directory`, and `path` all look valid, but every
+  /// collection access throws a `LateInitializationError`.
+  ///
+  /// Probe the same collections used by this database before adopting a
+  /// registered instance. Kept public only so the half-open regression can be
+  /// reproduced without depending on a real database file.
+  @visibleForTesting
+  static bool hasAttachedCollections(Isar isar) {
+    try {
+      isar.localWorkouts;
+      isar.localGPSPoints;
+      isar.localStepIntervals;
+      return true;
+    } catch (e) {
+      debugPrint('[LocalDB] registered instance has no collections: $e');
+      return false;
+    }
+  }
+
+  @visibleForTesting
+  static bool isRecoverableCacheOpenError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('collection id') ||
+        message.contains('schema') ||
+        message.contains('corrupt') ||
+        message.contains('illegalarg');
+  }
+
+  /// Moves the unreadable database aside so no local bytes are destroyed.
+  /// Supabase can hydrate the newly-created cache; the backup remains available
+  /// for manual recovery if it contained a workout that never reached cloud.
+  @visibleForTesting
+  static Future<String?> backupCacheForRecovery(
+    Directory directory, {
+    DateTime? timestamp,
+  }) async {
+    final database = File(p.join(directory.path, 'default.isar'));
+    final lock = File(p.join(directory.path, 'default.isar.lock'));
+    String? backupPath;
+
+    if (await database.exists()) {
+      final compactTimestamp = (timestamp ?? DateTime.now().toUtc())
+          .toUtc()
+          .toIso8601String()
+          .replaceAll(RegExp(r'[-:.]'), '');
+      backupPath = p.join(
+        directory.path,
+        'default.isar.recovery-$compactTimestamp.bak',
+      );
+      await database.rename(backupPath);
+    }
+    if (await lock.exists()) {
+      await lock.delete();
+    }
+    return backupPath;
+  }
+
+  static Future<void> _recoverDamagedCache(
+    Directory directory,
+    Object cause,
+  ) async {
+    if (_recoveryAttempted) {
+      _terminalOpenFailure = true;
+      debugPrint(
+        '[LocalDB] cache recovery already attempted; using cloud-only mode '
+        'until the app restarts (cause: $cause)',
+      );
+      return;
+    }
+    _recoveryAttempted = true;
+
+    final registered = Isar.getInstance();
+    if (registered != null) {
+      try {
+        await registered.close();
+      } catch (closeError) {
+        debugPrint('[LocalDB] recovery close error: $closeError');
+      }
+    }
+
+    try {
+      final backupPath = await backupCacheForRecovery(directory);
+      if (backupPath != null) {
+        debugPrint('[LocalDB] preserved unreadable cache at $backupPath');
+      }
+
+      final reopened = await Isar.open(
+        _schemas,
+        directory: directory.path,
+        inspector: false,
+      );
+      if (!hasAttachedCollections(reopened)) {
+        throw StateError('Recreated Isar has no attached collections');
+      }
+      _isar = reopened;
+      _openedByUs = true;
+      _dirPath = directory.path;
+      _terminalOpenFailure = false;
+      _recoveryAttempted = false;
+      debugPrint('[LocalDB] recreated cache after open error: $cause');
+    } catch (recoveryError) {
+      _isar = null;
+      _openedByUs = false;
+      _dirPath = null;
+      _terminalOpenFailure = true;
+      final failed = Isar.getInstance();
+      if (failed != null) {
+        try {
+          await failed.close();
+        } catch (_) {
+          // The terminal guard prevents repeated opens until app restart.
+        }
+      }
+      debugPrint(
+        '[LocalDB] cache recovery failed; using cloud-only mode until restart: '
+        '$recoveryError',
+      );
     }
   }
 
   static Isar get instance {
     final isar = _isar;
-    if (isar == null) {
+    if (isar == null || !_openedByUs) {
       if (kIsWeb) throw StateError('LocalDB not supported on web');
+      debugPrint(
+        '[LocalDB] instance requested but the database is not open '
+        '(directory=${_dirPath ?? 'unknown'})',
+      );
       throw StateError('LocalDB has not been initialized');
     }
     return isar;
@@ -211,7 +430,10 @@ class LocalDB {
           .filter()
           .userIdEqualTo(userId)
           .findAll();
-      final sessionIds = workouts.map((w) => w.sessionId).where((s) => s.isNotEmpty).toList();
+      final sessionIds = workouts
+          .map((w) => w.sessionId)
+          .where((s) => s.isNotEmpty)
+          .toList();
 
       await isar.writeTxn(() async {
         for (final sessionId in sessionIds) {
@@ -242,9 +464,14 @@ class LocalDB {
     if (isar == null) return;
     final targetUserId =
         forUserId ?? (remotes.isNotEmpty ? remotes.first.userId : null);
+    final scopedRemotes = targetUserId == null
+        ? remotes
+        : remotes
+              .where((session) => session.userId == targetUserId)
+              .toList(growable: false);
 
     await isar.writeTxn(() async {
-      for (final remote in remotes) {
+      for (final remote in scopedRemotes) {
         // Skip orphaned recording shells with 0 metrics
         if (remote.durationSec <= 0 &&
             remote.distanceKm <= 0 &&
@@ -305,13 +532,11 @@ class LocalDB {
           existing.routeMatchStatus = remote.routeMatchStatus.isNotEmpty
               ? remote.routeMatchStatus
               : existing.routeMatchStatus;
-          existing.routeMatchConfidence =
-              remote.routeMatchConfidence ?? existing.routeMatchConfidence;
+          existing.routeMatchConfidence = remote.routeMatchConfidence;
           existing.routeDistanceSource = remote.routeDistanceSource.isNotEmpty
               ? remote.routeDistanceSource
               : existing.routeDistanceSource;
-          existing.matchedDistanceKm =
-              remote.matchedDistanceKm ?? existing.matchedDistanceKm;
+          existing.matchedDistanceKm = remote.matchedDistanceKm;
           existing.routeMatchMetricsJson =
               (remote.routeMatchMetricsJson.isNotEmpty &&
                   remote.routeMatchMetricsJson != '{}')
@@ -324,19 +549,43 @@ class LocalDB {
       }
 
       if (targetUserId != null && targetUserId.isNotEmpty) {
-        final remoteIds = remotes.map((r) => r.id).toSet();
+        final remoteIds = scopedRemotes.map((r) => r.id).toSet();
         final localForUser = await isar.localWorkouts
             .filter()
             .userIdEqualTo(targetUserId)
             .findAll();
         for (final local in localForUser) {
-          if (local.isSynced && !remoteIds.contains(local.sessionId)) {
-            await isar.localWorkouts.delete(local.id);
+          if (!shouldDeleteLocalSessionMissingFromRemote(
+            isSynced: local.isSynced,
+            isPresentRemotely: remoteIds.contains(local.sessionId),
+          )) {
+            continue;
           }
+
+          // A successful cloud response is authoritative. Synced rows that
+          // disappeared remotely were deleted elsewhere and must be removed
+          // locally too; turning them back into pending rows resurrected them
+          // on the next upload. Unsynced rows remain queued and are never
+          // deleted by reconciliation.
+          await isar.localGPSPoints
+              .filter()
+              .sessionIdEqualTo(local.sessionId)
+              .deleteAll();
+          await isar.localStepIntervals
+              .filter()
+              .sessionIdEqualTo(local.sessionId)
+              .deleteAll();
+          await isar.localWorkouts.delete(local.id);
         }
       }
     });
   }
+
+  @visibleForTesting
+  static bool shouldDeleteLocalSessionMissingFromRemote({
+    required bool isSynced,
+    required bool isPresentRemotely,
+  }) => isSynced && !isPresentRemotely;
 
   // GPS Point Methods
   static Future<void> savePoints(List<LocalGPSPoint> points) async {

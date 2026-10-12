@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'aetron_ui.dart';
 
 /// Decorative 3D Radial Glow Container
@@ -160,9 +161,9 @@ class AetronSegmentedControl extends StatelessWidget {
                 child: Text(
                   tabs[index],
                   style: TextStyle(
-                    fontFamily: 'Outfit',
+                    fontFamily: KineticTypography.displayFontFamily,
                     fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected ? AetronColors.space : AetronColors.textSecondary,
                   ),
                 ),
@@ -237,9 +238,9 @@ class Aetron3DPrimaryButton extends StatelessWidget {
                       Text(
                         label,
                         style: const TextStyle(
-                          fontFamily: 'Outfit',
+                          fontFamily: KineticTypography.displayFontFamily,
                           fontSize: 16,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           color: AetronColors.space,
                           letterSpacing: 0.5,
                         ),
@@ -335,10 +336,10 @@ class Aetron3DOrbButton extends StatelessWidget {
               child: Text(
                 '$badgeCount',
                 style: const TextStyle(
-                  fontFamily: 'Outfit',
+                  fontFamily: KineticTypography.displayFontFamily,
                   color: Colors.white,
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -402,9 +403,9 @@ class AetronCategoryChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Outfit',
+                fontFamily: KineticTypography.displayFontFamily,
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                 color: isSelected ? AetronColors.space : AetronColors.textPrimary,
               ),
             ),

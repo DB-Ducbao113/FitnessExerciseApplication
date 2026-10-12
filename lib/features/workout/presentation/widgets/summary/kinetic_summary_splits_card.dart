@@ -73,7 +73,6 @@ class KineticSummarySplitsCard extends StatelessWidget {
                 '${lapSplits.length} ${currentLang == AppLanguage.vi ? 'chặng' : 'splits'}',
                 style: KineticTypography.bodySmall.copyWith(
                   color: colors.textMuted,
-                  fontSize: 12,
                 ),
               ),
             ],
@@ -106,9 +105,8 @@ class KineticSummarySplitsCard extends StatelessWidget {
                     width: 44,
                     child: Text(
                       'Km ${split.index}',
-                      style: KineticTypography.label.copyWith(
+                      style: KineticTypography.bodySmall.copyWith(
                         color: isFastest ? colors.primary : colors.textSecondary,
-                        fontSize: 12,
                         fontWeight: isFastest ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
@@ -158,7 +156,6 @@ class KineticSummarySplitsCard extends StatelessWidget {
                         currentLang == AppLanguage.vi ? 'Nhanh nhất' : 'Fastest',
                         style: KineticTypography.unitLabel.copyWith(
                           color: colors.primary,
-                          fontSize: 11,
                         ),
                       ),
                     ),
@@ -170,17 +167,16 @@ class KineticSummarySplitsCard extends StatelessWidget {
                     children: [
                       Text(
                         formattedPace,
-                        style: KineticTypography.label.copyWith(
+                        style: KineticTypography.bodySmall.copyWith(
                           color: isFastest ? colors.primary : colors.textPrimary,
-                          fontSize: 12,
                           fontWeight: FontWeight.w700,
+                          fontFeatures: KineticTypography.tabularFigures,
                         ),
                       ),
                       Text(
                         splitDuration,
-                        style: KineticTypography.bodySmall.copyWith(
+                        style: KineticTypography.caption.copyWith(
                           color: colors.textMuted,
-                          fontSize: 11,
                         ),
                       ),
                     ],

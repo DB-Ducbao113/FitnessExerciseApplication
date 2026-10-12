@@ -1,4 +1,5 @@
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -39,7 +40,7 @@ class KineticChip extends StatelessWidget {
               onTap: onTap,
               borderRadius: BorderRadius.circular(4),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
+                duration: KineticTokens.motionTab,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: bg,

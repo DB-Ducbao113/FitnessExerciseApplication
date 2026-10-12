@@ -105,7 +105,6 @@ class KineticDetailsHeader extends StatelessWidget {
                     ).toUpperCase(),
                     style: KineticTypography.headlineMedium.copyWith(
                       color: colors.textPrimary,
-                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -115,7 +114,6 @@ class KineticDetailsHeader extends StatelessWidget {
                       dateLabel!,
                       style: KineticTypography.bodySmall.copyWith(
                         color: colors.textMuted,
-                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -149,7 +147,6 @@ class KineticDetailsHeader extends StatelessWidget {
                     badgeText,
                     style: KineticTypography.unitLabel.copyWith(
                       color: badgeColor,
-                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -178,9 +175,8 @@ class KineticDetailsHeader extends StatelessWidget {
                 Expanded(
                   child: Text(
                     flagReason,
-                    style: KineticTypography.bodySmall.copyWith(
+                    style: KineticTypography.caption.copyWith(
                       color: badgeColor,
-                      fontSize: 11,
                     ),
                   ),
                 ),

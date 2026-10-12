@@ -12,7 +12,7 @@ import 'package:fitness_exercise_application/features/profile/presentation/provi
 import 'package:fitness_exercise_application/features/profile/presentation/providers/goal_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/screens/goal_screen.dart';
-import 'package:fitness_exercise_application/features/shell/presentation/screens/main_shell.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
@@ -59,8 +59,6 @@ class _WeeklyHomeStats {
     required this.activeDayCount,
   });
 }
-
-
 
 class _WeeklyHeroData {
   final int weekNumber;
@@ -118,8 +116,6 @@ final _weeklyHomeStatsProvider = Provider<_WeeklyHomeStats>((ref) {
   );
 });
 
-
-
 final _weeklyHeroProvider = Provider<_WeeklyHeroData>((ref) {
   final currentLang = ref.watch(appLanguageProvider);
   final weekly = ref.watch(_weeklyHomeStatsProvider);
@@ -156,16 +152,18 @@ final _weeklyHeroProvider = Provider<_WeeklyHeroData>((ref) {
         ? WorkoutFormatters.kmToMi(rawTarget)
         : rawTarget;
     target = target <= 0 ? 1 : target;
-    final displayUnit = (unit == 'kcal' && currentLang == AppLanguage.vi) ? 'CALO' : unit.toUpperCase();
+    final displayUnit = (unit == 'kcal' && currentLang == AppLanguage.vi)
+        ? 'CALO'
+        : unit.toUpperCase();
     badgeLabel =
         '${_formatMetric(current, unit)} / ${_formatMetric(target, unit)} $displayUnit';
     helperLabel = goal.period == GoalPeriod.weekly
         ? (currentLang == AppLanguage.vi
-            ? 'Liên kết với mục tiêu tuần của bạn'
-            : 'Linked to your weekly goal')
+              ? 'Liên kết với mục tiêu tuần của bạn'
+              : 'Linked to your weekly goal')
         : (currentLang == AppLanguage.vi
-            ? 'Dựa trên mục tiêu tháng của bạn'
-            : 'Based on your monthly goal');
+              ? 'Dựa trên mục tiêu tháng của bạn'
+              : 'Based on your monthly goal');
   } else {
     current = weekly.weeklyCalories;
     target = math.max(4200.0, current <= 0 ? 4200.0 : current * 1.35);
@@ -187,7 +185,6 @@ final _weeklyHeroProvider = Provider<_WeeklyHeroData>((ref) {
     helperLabel: helperLabel,
   );
 });
-
 
 // --- KINETIC TELEMETRY HOME SCREEN ---
 class HomeScreen extends ConsumerStatefulWidget {
@@ -234,8 +231,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final initials = _initialsFromEmail(user?.email);
     final hour = DateTime.now().hour;
     final greeting = _greetingForHour(hour, isVi);
-    final recoverableSession =
-        ref.watch(recoverableInterruptedSessionProvider).valueOrNull;
+    final recoverableSession = ref
+        .watch(recoverableInterruptedSessionProvider)
+        .valueOrNull;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -266,185 +264,206 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     // 1. Top Bar
                     SliverToBoxAdapter(
                       child: KineticHomeTopBar(
-                  avatarImage: avatar.imageProvider,
-                  initials: initials,
-                  displayName: displayName,
-                  greeting: greeting,
-                  streakCount: streak.currentStreak,
-                  isVi: isVi,
-                  onAvatarTap: () {
-                    HapticFeedback.selectionClick();
-                    ref.read(mainTabControllerProvider.notifier).state = 4;
-                  },
-                  onStreakTap: () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => KineticStreakDetailsSheet(streak: streak),
-                  ),
-                  onNotificationTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationSettingsScreen(),
+                        avatarImage: avatar.imageProvider,
+                        initials: initials,
+                        displayName: displayName,
+                        greeting: greeting,
+                        streakCount: streak.currentStreak,
+                        isVi: isVi,
+                        onAvatarTap: () {
+                          HapticFeedback.selectionClick();
+                          ref.read(mainTabControllerProvider.notifier).state =
+                              4;
+                        },
+                        onStreakTap: () => showModalBottomSheet<void>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) =>
+                              KineticStreakDetailsSheet(streak: streak),
+                        ),
+                        onNotificationTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationSettingsScreen(),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
 
-              // Recoverable Unsaved Session Banner (H4)
-              if (recoverableSession != null)
-                SliverToBoxAdapter(
-                  child: _RecoverableWorkoutBanner(
-                    session: recoverableSession,
-                    isVi: isVi,
-                  ),
-                ),
+                    // Recoverable Unsaved Session Banner (H4)
+                    if (recoverableSession != null)
+                      SliverToBoxAdapter(
+                        child: _RecoverableWorkoutBanner(
+                          session: recoverableSession,
+                          isVi: isVi,
+                        ),
+                      ),
 
-              // Offline Banner if disconnected
-              if (isOffline)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                    child: KineticOfflineBanner(),
-                  ),
-                ),
+                    // Offline Banner if disconnected
+                    if (isOffline)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: KineticTokens.page,
+                            vertical: 6,
+                          ),
+                          child: KineticOfflineBanner(),
+                        ),
+                      ),
 
-              // 2. Quick Activity Selector (Đưa lên trên thay cho thanh trạng thái môi trường)
-              SliverToBoxAdapter(
-                child: KineticActivityQuickSwitch(
-                  selectedActivity: _selectedActivity,
-                  isVi: isVi,
-                  onSelected: (act) {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _selectedActivity = act;
-                    });
-                    ref.read(selectedActivityTypeProvider.notifier).state = act;
-                  },
-                ),
-              ),
+                    // 2. Quick Activity Selector (Đưa lên trên thay cho thanh trạng thái môi trường)
+                    SliverToBoxAdapter(
+                      child: KineticActivityQuickSwitch(
+                        selectedActivity: _selectedActivity,
+                        isVi: isVi,
+                        onSelected: (act) {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _selectedActivity = act;
+                          });
+                          ref
+                                  .read(selectedActivityTypeProvider.notifier)
+                                  .state =
+                              act;
+                        },
+                      ),
+                    ),
 
-              // 3. Hero Card
-              SliverToBoxAdapter(
-                child: KineticHeroCard(
-                  title: _heroTitleForActivity(_selectedActivity, isVi),
-                  categoryName: _activityName(_selectedActivity, isVi),
-                  imageAsset: _heroImageForActivity(_selectedActivity),
-                  weeklyProgressText:
-                      'Tuần này: ${weekly.weeklyDistanceKm.toStringAsFixed(1)} km',
-                  targetGoalText:
-                      'Mục tiêu: ${hero.target.toStringAsFixed(0)} ${hero.unit}',
-                  ctaLabel: _ctaForActivity(_selectedActivity, isVi),
-                  onStartTap: () {
-                    HapticFeedback.selectionClick();
-                    ref.read(selectedActivityTypeProvider.notifier).state = _selectedActivity;
-                    ref.read(mainTabControllerProvider.notifier).state = 1;
-                  },
-                  onGoalTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const GoalScreen()),
-                  ),
-                ),
-              ),
+                    // 3. Hero Card
+                    SliverToBoxAdapter(
+                      child: KineticHeroCard(
+                        title: _heroTitleForActivity(_selectedActivity, isVi),
+                        categoryName: _activityName(_selectedActivity, isVi),
+                        imageAsset: _heroImageForActivity(_selectedActivity),
+                        weeklyProgressText:
+                            'Tuần này: ${weekly.weeklyDistanceKm.toStringAsFixed(1)} km',
+                        targetGoalText:
+                            'Mục tiêu: ${hero.target.toStringAsFixed(0)} ${hero.unit}',
+                        ctaLabel: _ctaForActivity(_selectedActivity, isVi),
+                        onStartTap: () {
+                          HapticFeedback.selectionClick();
+                          ref
+                                  .read(selectedActivityTypeProvider.notifier)
+                                  .state =
+                              _selectedActivity;
+                          ref.read(mainTabControllerProvider.notifier).state =
+                              1;
+                        },
+                        onGoalTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const GoalScreen()),
+                        ),
+                      ),
+                    ),
 
-              // 5. Your Week Bento Grid
-              SliverToBoxAdapter(
-                child: KineticYourWeekBento(
-                  weeklyDistanceKm: weekly.weeklyDistanceKm,
-                  workoutCount: weekly.workoutCount,
-                  targetDistanceKm: hero.target > 0 ? hero.target : 50.0,
-                  targetWorkoutCount: 5,
-                  dateRangeText: _formatWeekDateRange(weekly.startOfWeek, isVi),
-                  isVi: isVi,
-                  useMetricUnits: useMetricUnits,
-                  onSetGoalTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const GoalScreen()),
-                  ),
-                ),
-              ),
+                    // 5. Your Week Bento Grid
+                    SliverToBoxAdapter(
+                      child: KineticYourWeekBento(
+                        weeklyDistanceKm: weekly.weeklyDistanceKm,
+                        workoutCount: weekly.workoutCount,
+                        targetDistanceKm: hero.target > 0 ? hero.target : 50.0,
+                        targetWorkoutCount: 5,
+                        dateRangeText: _formatWeekDateRange(
+                          weekly.startOfWeek,
+                          isVi,
+                        ),
+                        isVi: isVi,
+                        useMetricUnits: useMetricUnits,
+                        onSetGoalTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const GoalScreen()),
+                        ),
+                      ),
+                    ),
 
-              // 6. Recent Activity Section (With Empty State CTA)
-              SliverToBoxAdapter(
-                child: workoutsAsync.when(
-                  loading: () => const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: AetronShimmer(
-                      child: AetronSkeletonCard(
-                        padding: EdgeInsets.zero,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AetronSkeletonBox(
-                              height: 170,
-                              borderRadius: 20,
-                            ),
-                            Padding(
-                              padding: EdgeInsets.all(16),
+                    // 6. Recent Activity Section (With Empty State CTA)
+                    SliverToBoxAdapter(
+                      child: workoutsAsync.when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: KineticTokens.page,
+                            vertical: 8,
+                          ),
+                          child: AetronShimmer(
+                            child: AetronSkeletonCard(
+                              padding: EdgeInsets.zero,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   AetronSkeletonBox(
-                                    width: 140,
-                                    height: 20,
-                                    borderRadius: 6,
+                                    height: 170,
+                                    borderRadius: 20,
                                   ),
-                                  SizedBox(height: 14),
-                                  AetronSkeletonBox(
-                                    height: 36,
-                                    borderRadius: 10,
+                                  Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        AetronSkeletonBox(
+                                          width: 140,
+                                          height: 20,
+                                          borderRadius: 6,
+                                        ),
+                                        SizedBox(height: 14),
+                                        AetronSkeletonBox(
+                                          height: 36,
+                                          borderRadius: 10,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
+                        ),
+                        error: (err, _) => Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: KineticTokens.page,
+                            vertical: 8,
+                          ),
+                          child: ErrorState(
+                            title: isVi
+                                ? 'Không thể tải dữ liệu'
+                                : 'Unable to load data',
+                            message: isVi
+                                ? 'Đã xảy ra lỗi khi đồng bộ buổi tập gần đây.'
+                                : 'An error occurred while syncing recent workouts.',
+                            onRetry: () => ref
+                                .read(workoutListProvider.notifier)
+                                .refresh(),
+                          ),
+                        ),
+                        data: (workouts) => KineticRecentActivityCard(
+                          workouts: workouts,
+                          useMetricUnits: useMetricUnits,
+                          isVi: isVi,
+                          onSeeAllTap: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(mainTabControllerProvider.notifier).state =
+                                2;
+                          },
+                          onWorkoutTap: (id) => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  WorkoutDetailsScreen(workoutId: id),
+                            ),
+                          ),
+                          onStartFirstWorkoutTap: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(mainTabControllerProvider.notifier).state =
+                                1;
+                          },
                         ),
                       ),
                     ),
-                  ),
-                  error: (err, _) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    child: ErrorState(
-                      title: isVi ? 'Không thể tải dữ liệu' : 'Unable to load data',
-                      message: isVi
-                          ? 'Đã xảy ra lỗi khi đồng bộ buổi tập gần đây.'
-                          : 'An error occurred while syncing recent workouts.',
-                      onRetry: () =>
-                          ref.read(workoutListProvider.notifier).refresh(),
-                    ),
-                  ),
-                  data: (workouts) => KineticRecentActivityCard(
-                    workouts: workouts,
-                    useMetricUnits: useMetricUnits,
-                    isVi: isVi,
-                    onSeeAllTap: () {
-                      HapticFeedback.selectionClick();
-                      ref.read(mainTabControllerProvider.notifier).state = 2;
-                    },
-                    onWorkoutTap: (id) => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => WorkoutDetailsScreen(workoutId: id),
-                      ),
-                    ),
-                    onStartFirstWorkoutTap: () {
-                      HapticFeedback.selectionClick();
-                      ref.read(mainTabControllerProvider.notifier).state = 1;
-                    },
-                  ),
+
+                    // 6. Explore Routes & Programs
+                    SliverToBoxAdapter(child: KineticExploreRoutes(isVi: isVi)),
+
+                    // Bottom Padding for Dock
+                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                  ],
                 ),
-              ),
-
-              // 6. Explore Routes & Programs
-              SliverToBoxAdapter(
-                child: KineticExploreRoutes(isVi: isVi),
-              ),
-
-              // Bottom Padding for Dock
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 100),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -580,7 +599,8 @@ String _initialsFromEmail(String? email) {
 
 String _homeDisplayName(User? user) {
   final meta = user?.userMetadata;
-  final displayName = (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name']) as String?;
+  final displayName =
+      (meta?['display_name'] ?? meta?['full_name'] ?? meta?['name']) as String?;
   if (displayName != null && displayName.trim().isNotEmpty) {
     return displayName.trim();
   }
@@ -593,10 +613,7 @@ class _RecoverableWorkoutBanner extends ConsumerStatefulWidget {
   final WorkoutSession session;
   final bool isVi;
 
-  const _RecoverableWorkoutBanner({
-    required this.session,
-    required this.isVi,
-  });
+  const _RecoverableWorkoutBanner({required this.session, required this.isVi});
 
   @override
   ConsumerState<_RecoverableWorkoutBanner> createState() =>
@@ -616,12 +633,18 @@ class _RecoverableWorkoutBannerState
     final km = widget.session.distanceKm.toStringAsFixed(2);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(
+        horizontal: KineticTokens.page,
+        vertical: 8,
+      ),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface2,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.primary.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(
+          color: colors.primary.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: colors.primary.withValues(alpha: 0.08),
@@ -641,8 +664,11 @@ class _RecoverableWorkoutBannerState
                   color: colors.primary.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.history_toggle_off_rounded,
-                    color: colors.primary, size: 20),
+                child: Icon(
+                  Icons.history_toggle_off_rounded,
+                  color: colors.primary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -685,7 +711,9 @@ class _RecoverableWorkoutBannerState
                             builder: (ctx) => AlertDialog(
                               backgroundColor: colors.surface2,
                               title: Text(
-                                widget.isVi ? 'Bỏ buổi tập?' : 'Discard Workout?',
+                                widget.isVi
+                                    ? 'Bỏ buổi tập?'
+                                    : 'Discard Workout?',
                                 style: KineticTypography.headlineSmall.copyWith(
                                   color: colors.textPrimary,
                                 ),
@@ -720,7 +748,9 @@ class _RecoverableWorkoutBannerState
                             await ref
                                 .read(workoutRepositoryProvider)
                                 .deleteSession(widget.session.id);
-                            ref.invalidate(recoverableInterruptedSessionProvider);
+                            ref.invalidate(
+                              recoverableInterruptedSessionProvider,
+                            );
                             ref.invalidate(workoutListProvider);
                             setState(() => _isDismissed = true);
                           }
@@ -763,7 +793,9 @@ class _RecoverableWorkoutBannerState
                               isSynced: saved,
                             );
                             ref.invalidate(workoutListProvider);
-                            ref.invalidate(recoverableInterruptedSessionProvider);
+                            ref.invalidate(
+                              recoverableInterruptedSessionProvider,
+                            );
                             if (mounted) {
                               setState(() {
                                 _isSaving = false;
@@ -820,6 +852,3 @@ class _RecoverableWorkoutBannerState
     );
   }
 }
-
-
-

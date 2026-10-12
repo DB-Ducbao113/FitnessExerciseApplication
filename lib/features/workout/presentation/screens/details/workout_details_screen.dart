@@ -1,15 +1,14 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/details/workout_route_full_map_screen.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_delete_dialog.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_header.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_route_card.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_splits_card.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_telemetry_list_card.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_top_bar.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_skeleton.dart';
-import 'package:fitness_exercise_application/shared/kinetic/kinetic_colors.dart';
-import 'package:fitness_exercise_application/shared/kinetic/kinetic_typography.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -82,13 +81,15 @@ class WorkoutDetailsScreen extends ConsumerWidget {
             // Content
             Expanded(
               child: workoutAsync.when(
-                loading: () => const WorkoutDetailsSkeletonView(),
+                loading: () => KineticSkeleton.workoutDetails(),
                 error: (error, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       'Error: $error',
-                      style: TextStyle(color: colors.error),
+                      style: KineticTypography.bodyMedium.copyWith(
+                        color: colors.error,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -100,16 +101,21 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                         currentLang == AppLanguage.vi
                             ? 'Không tìm thấy buổi tập'
                             : 'Workout not found',
-                        style: TextStyle(color: colors.textPrimary),
+                        style: KineticTypography.bodyMedium.copyWith(
+                          color: colors.textPrimary,
+                        ),
                       ),
                     );
                   }
 
-                  final routePoints = routeAsync.valueOrNull?.routePoints ?? const [];
+                  final routePresentation = routeAsync.valueOrNull;
+                  final routePoints = routePresentation?.routePoints ?? const [];
+                  final routeSegments =
+                      routePresentation?.routeSegments ?? const [];
 
                   return ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+                    padding: const EdgeInsets.fromLTRB(KineticTokens.page, 8, KineticTokens.page, 40),
                     children: [
                       // 1. Activity Header (Chỉ hiển thị Đi bộ / Chạy bộ / Đạp xe, không có thứ ở dưới)
                       KineticDetailsHeader(
@@ -121,8 +127,23 @@ class WorkoutDetailsScreen extends ConsumerWidget {
                       // 2. Route Map Card (Màn hình route)
                       KineticDetailsRouteCard(
                         routePoints: routePoints,
+                        routeSegments: routeSegments,
                         activityType: workout.activityType,
                         currentLang: currentLang,
+                        onViewFullMap: routePoints.length < 2
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => WorkoutRouteFullMapScreen(
+                                      routePoints: routePoints,
+                                      routeSegments: routeSegments,
+                                      activityType: workout.activityType,
+                                      currentLang: currentLang,
+                                    ),
+                                  ),
+                                );
+                              },
                       ),
                       const SizedBox(height: 14),
 

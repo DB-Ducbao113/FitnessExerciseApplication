@@ -19,7 +19,6 @@ import 'package:fitness_exercise_application/features/settings/presentation/prov
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_logout_dialog.dart';
-import 'package:fitness_exercise_application/shared/aetron/aetron_skeleton.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -84,9 +83,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           backgroundColor: colors.surface2,
           onRefresh: () => _handleRefresh(userId),
           child: _isRefreshing
-              ? const ProfileSkeletonView()
+              ? KineticSkeleton.profile()
               : profileAsync.when(
-                  loading: () => const ProfileSkeletonView(),
+                  loading: () => KineticSkeleton.profile(),
                   error: (error, _) => ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
@@ -95,14 +94,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         child: Text(
                           'Your profile could not be loaded.\n$error',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: colors.textPrimary),
+                          style: KineticTypography.bodyMedium.copyWith(
+                            color: colors.textPrimary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   data: (profile) => ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                    padding: const EdgeInsets.fromLTRB(
+                      KineticTokens.page,
+                      12,
+                      KineticTokens.page,
+                      100,
+                    ),
                     children: [
               // 1. Top Bar
               KineticProfileTopBar(currentLang: currentLang),
@@ -964,7 +970,10 @@ class _RecoveryMessageBox extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
-      child: Text(message, style: TextStyle(color: textColor, fontSize: 14)),
+      child: Text(
+        message,
+        style: KineticTypography.bodyMedium.copyWith(color: textColor),
+      ),
     );
   }
 }
@@ -1199,7 +1208,6 @@ class _UpdatePasswordSheetState extends State<_UpdatePasswordSheet> {
                   decoration: InputDecoration(
                     hintText: '••••••••',
                     hintStyle: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       color: colors.textMuted.withValues(alpha: 0.5),
                     ),
                     filled: true,
@@ -1255,7 +1263,6 @@ class _UpdatePasswordSheetState extends State<_UpdatePasswordSheet> {
                   decoration: InputDecoration(
                     hintText: '••••••••',
                     hintStyle: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       color: colors.textMuted.withValues(alpha: 0.5),
                     ),
                     filled: true,
@@ -1284,7 +1291,9 @@ class _UpdatePasswordSheetState extends State<_UpdatePasswordSheet> {
                 if (_errorMessage != null) ...[
                   Text(
                     _errorMessage!,
-                    style: TextStyle(color: colors.error, fontSize: 12),
+                    style: KineticTypography.bodySmall.copyWith(
+                      color: colors.error,
+                    ),
                   ),
                   const SizedBox(height: 12),
                 ],

@@ -4,17 +4,19 @@ import 'package:fitness_exercise_application/features/analytics/presentation/wid
 import 'package:fitness_exercise_application/features/analytics/presentation/widgets/kinetic_key_telemetry_bento.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/widgets/kinetic_performance_story_bento.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/widgets/kinetic_recovery_guidance_card.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Widget buildTestable(Widget child) {
-    return MaterialApp(
-      theme: KineticTheme.darkTheme,
-      home: Scaffold(
-        body: SingleChildScrollView(child: child),
+    return ProviderScope(
+      child: MaterialApp(
+        theme: KineticTheme.darkTheme,
+        home: Scaffold(body: SingleChildScrollView(child: child)),
       ),
     );
   }
@@ -94,33 +96,38 @@ void main() {
   });
 
   group('Kinetic Performance Story Bento Tests', () {
-    testWidgets('renders dynamic narrative and 7-day slender bars with peak day', (tester) async {
-      await tester.pumpWidget(
-        buildTestable(
-          KineticPerformanceStoryBento(
-            workouts: mockWorkouts,
-            period: TimePeriod.week,
-            currentDistanceKm: 33.8,
-            previousDistanceKm: 26.0,
-            useMetricUnits: true,
-            isVi: true,
+    testWidgets(
+      'renders dynamic narrative and 7-day slender bars with peak day',
+      (tester) async {
+        await tester.pumpWidget(
+          buildTestable(
+            KineticPerformanceStoryBento(
+              workouts: mockWorkouts,
+              period: TimePeriod.week,
+              currentDistanceKm: 33.8,
+              previousDistanceKm: 26.0,
+              useMetricUnits: true,
+              isVi: true,
+            ),
           ),
-        ),
-      );
+        );
 
-      // Hero distance: 33.8 km
-      expect(find.text('33.8'), findsOneWidget);
-      expect(find.text('km'), findsOneWidget);
-      // Percentage comparison: (33.8 - 26) / 26 = +30%
-      expect(find.text('+30% so với trước'), findsOneWidget);
-      // Week day indicators
-      expect(find.text('T2'), findsOneWidget);
-      expect(find.text('CN'), findsOneWidget);
-    });
+        // Hero distance: 33.8 km
+        expect(find.text('33.8'), findsOneWidget);
+        expect(find.text('km'), findsOneWidget);
+        // Percentage comparison: (33.8 - 26) / 26 = +30%
+        expect(find.text('+30% so với trước'), findsOneWidget);
+        // Week day indicators
+        expect(find.text('T2'), findsOneWidget);
+        expect(find.text('CN'), findsOneWidget);
+      },
+    );
   });
 
   group('Kinetic Key Telemetry Bento Tests', () {
-    testWidgets('renders 4 endurance telemetry cards correctly', (tester) async {
+    testWidgets('renders 4 endurance telemetry cards correctly', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestable(
           KineticKeyTelemetryBento(
@@ -143,41 +150,71 @@ void main() {
   });
 
   group('Kinetic Activity Mix Bento Tests', () {
-    testWidgets('renders 3 core disciplines (Cycling, Running, Walking) without gym', (tester) async {
-      await tester.pumpWidget(
-        buildTestable(
-          KineticActivityMixBento(
-            workouts: mockWorkouts,
-            useMetricUnits: true,
-            isVi: true,
+    testWidgets(
+      'renders 3 core disciplines (Cycling, Running, Walking) without gym',
+      (tester) async {
+        await tester.pumpWidget(
+          buildTestable(
+            KineticActivityMixBento(
+              workouts: mockWorkouts,
+              useMetricUnits: true,
+              isVi: true,
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.text('CƠ CẤU MÔN TẬP'), findsOneWidget);
-      expect(find.text('Đạp xe'), findsOneWidget);
-      expect(find.text('Chạy bộ'), findsOneWidget);
-      expect(find.text('Đi bộ'), findsOneWidget);
+        expect(find.text('CƠ CẤU MÔN TẬP'), findsOneWidget);
+        expect(find.text('Đạp xe'), findsOneWidget);
+        expect(find.text('Chạy bộ'), findsOneWidget);
+        expect(find.text('Đi bộ'), findsOneWidget);
 
-      // Verify Gym / Bodybuilding is absent
-      expect(find.text('Gym'), findsNothing);
-      expect(find.text('Thể hình'), findsNothing);
-    });
+        // Verify Gym / Bodybuilding is absent
+        expect(find.text('Gym'), findsNothing);
+        expect(find.text('Thể hình'), findsNothing);
+      },
+    );
   });
 
   group('Kinetic Recovery Guidance Card Tests', () {
-    testWidgets('renders adaptive strain evaluation and CTA button', (tester) async {
+    testWidgets('renders adaptive strain evaluation and CTA button', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestable(
-          KineticRecoveryGuidanceCard(
-            workouts: mockWorkouts,
-            isVi: true,
-          ),
+          KineticRecoveryGuidanceCard(workouts: mockWorkouts, isVi: true),
         ),
       );
 
       expect(find.text('CHỈ DẪN HỒI PHỤC'), findsOneWidget);
       expect(find.text('Lên lịch đi bộ nhẹ'), findsOneWidget);
+    });
+
+    testWidgets('CTA selects Activity without pushing a standalone screen', (
+      tester,
+    ) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: KineticTheme.darkTheme,
+            home: Scaffold(
+              body: KineticRecoveryGuidanceCard(
+                workouts: mockWorkouts,
+                isVi: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Lên lịch đi bộ nhẹ'));
+      await tester.pump();
+
+      expect(container.read(mainTabControllerProvider), activityTabIndex);
+      expect(find.byType(KineticRecoveryGuidanceCard), findsOneWidget);
     });
   });
 }

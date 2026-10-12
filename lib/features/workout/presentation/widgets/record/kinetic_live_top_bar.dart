@@ -187,9 +187,7 @@ class _KineticLiveTopBarState extends State<KineticLiveTopBar>
                       statusText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: KineticTypography.fontFamily,
-                        fontSize: 12,
+                      style: KineticTypography.bodySmall.copyWith(
                         fontWeight: isAlertState ? FontWeight.w800 : FontWeight.w700,
                         color: isAlertState ? colors.tertiary : colors.textPrimary,
                         letterSpacing: isAlertState ? 0.3 : 0.0,
@@ -200,7 +198,7 @@ class _KineticLiveTopBarState extends State<KineticLiveTopBar>
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text(
                       '•',
-                      style: TextStyle(
+                      style: KineticTypography.bodySmall.copyWith(
                         color: colors.textSecondary.withValues(alpha: 0.5),
                       ),
                     ),
@@ -269,9 +267,7 @@ class _KineticLiveTopBarState extends State<KineticLiveTopBar>
                       widget.isLargeMetricsMode
                           ? (widget.isVi ? 'Xem bản đồ' : 'Map View')
                           : (widget.isVi ? 'Số liệu lớn' : 'Big Metrics'),
-                      style: TextStyle(
-                        fontFamily: KineticTypography.fontFamily,
-                        fontSize: 12,
+                      style: KineticTypography.unitLabel.copyWith(
                         fontWeight: FontWeight.w800,
                         color: widget.isLargeMetricsMode
                             ? colors.primary

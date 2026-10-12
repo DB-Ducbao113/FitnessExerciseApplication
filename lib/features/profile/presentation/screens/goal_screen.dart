@@ -365,7 +365,6 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
               child: Text(
                 isVi ? 'Hủy bỏ mục tiêu này?' : 'Remove This Goal?',
                 style: KineticTypography.headlineSmall.copyWith(
-                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: colors.textPrimary,
                 ),
@@ -481,8 +480,6 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 style: KineticTypography.displayLarge.copyWith(
                   color: colors.textPrimary,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
                 ),
                 decoration: InputDecoration(
                   filled: true,
@@ -643,9 +640,6 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
             child: Text(
               isVi ? 'Mục tiêu rèn luyện' : 'Fitness Goals',
               style: KineticTypography.pageTitle.copyWith(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
                 color: colors.textPrimary,
               ),
               maxLines: 1,
@@ -748,7 +742,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
         },
         borderRadius: BorderRadius.circular(16),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: KineticTokens.motionTab,
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
           decoration: BoxDecoration(
             color: isSelected ? accent.withValues(alpha: 0.14) : colors.surface1,
@@ -784,8 +778,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
               const SizedBox(height: 8),
               Text(
                 title,
-                style: KineticTypography.headlineSmall.copyWith(
-                  fontSize: 13,
+                style: KineticTypography.label.copyWith(
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   color: isSelected ? colors.textPrimary : colors.textSecondary,
                 ),
@@ -795,8 +788,8 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
               const SizedBox(height: 2),
               Text(
                 badge,
-                style: KineticTypography.unitLabel.copyWith(
-                  fontSize: 10,
+                style: KineticTypography.caption.copyWith(
+                  fontWeight: FontWeight.w600,
                   color: isSelected ? accent : colors.textMuted,
                   letterSpacing: 0.8,
                 ),
@@ -873,7 +866,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: KineticTokens.motionTab,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -898,16 +891,14 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                 children: [
                   Text(
                     title,
-                    style: KineticTypography.label.copyWith(
-                      fontSize: 12,
+                    style: KineticTypography.bodySmall.copyWith(
                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                       color: isSelected ? colors.textPrimary : colors.textMuted,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: KineticTypography.bodySmall.copyWith(
-                      fontSize: 10,
+                    style: KineticTypography.caption.copyWith(
                       color: isSelected ? colors.primary : colors.textMuted,
                     ),
                   ),
@@ -985,7 +976,6 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                         ? (isVi ? 'MỤC TIÊU TUẦN' : 'WEEKLY TARGET')
                         : (isVi ? 'MỤC TIÊU THÁNG' : 'MONTHLY TARGET'),
                     style: KineticTypography.unitLabel.copyWith(
-                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: accent,
                       letterSpacing: 0.8,
@@ -1010,8 +1000,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                         const SizedBox(width: 4),
                         Text(
                           isVi ? 'Nhập số' : 'Enter value',
-                          style: KineticTypography.bodySmall.copyWith(
-                            fontSize: 11,
+                          style: KineticTypography.caption.copyWith(
                             fontWeight: FontWeight.w700,
                             color: colors.textSecondary,
                           ),
@@ -1062,21 +1051,15 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                               Text(
                                 displayValue,
                                 style: KineticTypography.metricHero.copyWith(
-                                  fontSize: 52,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -1.5,
                                   color: colors.textPrimary,
-                                  height: 1.0,
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 unit.toUpperCase(),
-                                style: KineticTypography.unitLabel.copyWith(
-                                  fontSize: 15,
+                                style: KineticTypography.metricUnit.copyWith(
                                   fontWeight: FontWeight.w800,
                                   color: accent,
-                                  letterSpacing: 1.0,
                                 ),
                               ),
                             ],
@@ -1084,8 +1067,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                           const SizedBox(height: 6),
                           Text(
                             isVi ? 'Chạm để gõ số' : 'Tap to edit',
-                            style: KineticTypography.bodySmall.copyWith(
-                              fontSize: 11,
+                            style: KineticTypography.caption.copyWith(
                               color: colors.textMuted,
                             ),
                           ),
@@ -1123,8 +1105,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                 const SizedBox(width: 8),
                 Text(
                   isVi ? intensity.titleVi : intensity.titleEn,
-                  style: KineticTypography.label.copyWith(
-                    fontSize: 11.5,
+                  style: KineticTypography.unitLabel.copyWith(
                     fontWeight: FontWeight.w700,
                     color: intensity.color,
                   ),
@@ -1150,7 +1131,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(26),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: KineticTokens.motionPress,
           width: 52,
           height: 52,
           decoration: BoxDecoration(
@@ -1213,7 +1194,6 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
               Text(
                 isVi ? 'Ý NGHĨA & HIỆU QUẢ THỰC TẾ' : 'REAL-WORLD PERFORMANCE IMPACT',
                 style: KineticTypography.unitLabel.copyWith(
-                  fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: accent,
                   letterSpacing: 1.0,
@@ -1277,8 +1257,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
             children: [
               Text(
                 title,
-                style: KineticTypography.bodySmall.copyWith(
-                  fontSize: 10.5,
+                style: KineticTypography.caption.copyWith(
                   color: colors.textMuted,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1286,8 +1265,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
               const SizedBox(height: 1),
               Text(
                 description,
-                style: KineticTypography.bodyMedium.copyWith(
-                  fontSize: 12,
+                style: KineticTypography.bodySmall.copyWith(
                   fontWeight: FontWeight.w700,
                   color: colors.textPrimary,
                   height: 1.35,
@@ -1429,7 +1407,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: KineticTokens.motionTab,
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
             color: isSelected ? presetColor.withValues(alpha: 0.16) : colors.surface1,
@@ -1455,8 +1433,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: KineticTypography.unitLabel.copyWith(
-                  fontSize: 10.5,
+                style: KineticTypography.caption.copyWith(
                   fontWeight: FontWeight.w800,
                   color: presetColor,
                 ),
@@ -1466,17 +1443,16 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                 '$displayVal $unitLabel',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: KineticTypography.bodySmall.copyWith(
-                  fontSize: 11,
+                style: KineticTypography.caption.copyWith(
                   fontWeight: FontWeight.w700,
                   color: isSelected ? colors.textPrimary : colors.textMuted,
+                  fontFeatures: KineticTypography.tabularFigures,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 tag,
-                style: KineticTypography.bodySmall.copyWith(
-                  fontSize: 9.5,
+                style: KineticTypography.caption.copyWith(
                   color: isSelected ? presetColor : colors.textMuted,
                 ),
               ),
@@ -1560,16 +1536,14 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
               children: [
                 Text(
                   badgeName,
-                  style: KineticTypography.headlineSmall.copyWith(
-                    fontSize: 13,
+                  style: KineticTypography.label.copyWith(
                     fontWeight: FontWeight.w800,
                     color: colors.textPrimary,
                   ),
                 ),
                 Text(
                   badgeDesc,
-                  style: KineticTypography.bodySmall.copyWith(
-                    fontSize: 11,
+                  style: KineticTypography.caption.copyWith(
                     color: colors.textMuted,
                   ),
                 ),
@@ -1631,8 +1605,7 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                 children: [
                   Text(
                     '$typeLabel • $periodLabel',
-                    style: KineticTypography.bodySmall.copyWith(
-                      fontSize: 11,
+                    style: KineticTypography.caption.copyWith(
                       color: colors.textMuted,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1643,19 +1616,17 @@ class _GoalScreenState extends ConsumerState<GoalScreen>
                     children: [
                       Text(
                         displayValue,
-                        style: KineticTypography.headlineLarge.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
+                        style: KineticTypography.metricCard.copyWith(
                           color: colors.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         unit,
-                        style: KineticTypography.unitLabel.copyWith(
-                          fontSize: 12,
+                        style: KineticTypography.bodySmall.copyWith(
                           fontWeight: FontWeight.w800,
                           color: accent,
+                          fontFeatures: KineticTypography.tabularFigures,
                         ),
                       ),
                     ],

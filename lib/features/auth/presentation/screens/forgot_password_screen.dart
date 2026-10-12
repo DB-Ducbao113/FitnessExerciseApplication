@@ -366,7 +366,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             isVi ? 'KHÔI PHỤC MẬT KHẨU' : 'FORGOT PASSWORD',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               fontSize: 22,
               fontWeight: FontWeight.w900,
               letterSpacing: 0.8,
@@ -380,7 +379,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 : 'Enter your registered email address to receive a secure password reset link.',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               fontSize: 14,
               fontWeight: FontWeight.w400,
               color: Color(0xFF8FA0B8),
@@ -393,7 +391,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           Text(
             isVi ? 'ĐỊA CHỈ EMAIL' : 'EMAIL ADDRESS',
             style: const TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               color: Color(0xFFA8DCE7),
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -405,7 +402,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             style: const TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               color: Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -413,7 +409,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             decoration: InputDecoration(
               hintText: isVi ? 'name@example.com' : 'name@example.com',
               hintStyle: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: Color(0xFF4A5B73),
                 fontSize: 14,
               ),
@@ -493,7 +488,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Text(
                       _errorMessage!,
                       style: const TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
                         color: Color(0xFFFFB3C3),
                         fontSize: 12,
                       ),
@@ -553,7 +547,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                               ? 'GỬI LIÊN KẾT XÁC THỰC'
                               : 'SEND RESET LINK',
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.2,
@@ -596,7 +589,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   child: const Text(
                     'G',
                     style: TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       color: Color(0xFF1A73E8),
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
@@ -610,7 +602,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                         ? 'Đăng nhập bằng Google? Bạn không cần mật khẩu Aetron. Chỉ cần chọn "Đăng nhập với Google" ở màn hình chính.'
                         : 'Using Google Sign-In? You do not need an Aetron password. Simply choose "Continue with Google" on the login screen.',
                     style: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       color: Color(0xFF8FA0B8),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -635,7 +626,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               label: Text(
                 isVi ? 'Quay lại Đăng nhập' : 'Back to Login',
                 style: const TextStyle(
-                  fontFamily: 'Plus Jakarta Sans',
                   color: Color(0xFFA8DCE7),
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -708,7 +698,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           isVi ? 'ĐÃ GỬI LIÊN KẾT XÁC THỰC!' : 'CHECK YOUR INBOX!',
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
             fontSize: 22,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.8,
@@ -740,7 +729,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 Text(
                   email,
                   style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     color: Color(0xFFA8DCE7),
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -759,7 +747,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               : 'We sent a secure password reset link to your email. Click the link in the message to set a new password (please also check your Spam folder).',
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontFamily: 'Plus Jakarta Sans',
             fontSize: 14,
             fontWeight: FontWeight.w400,
             color: Color(0xFF8FA0B8),
@@ -802,7 +789,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 Text(
                   isVi ? 'MỞ HỘP THƯ EMAIL' : 'OPEN EMAIL APP',
                   style: const TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.2,
@@ -844,7 +830,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     : 'Resend in (${_resendCountdown}s)')
                 : (isVi ? 'GỬI LẠI EMAIL' : 'RESEND EMAIL'),
             style: TextStyle(
-              fontFamily: 'Plus Jakarta Sans',
               fontSize: 13,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.0,
@@ -875,7 +860,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   child: Text(
                     _errorMessage!,
                     style: const TextStyle(
-                      fontFamily: 'Plus Jakarta Sans',
                       color: Color(0xFFFF4B6E),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -900,7 +884,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             label: Text(
               isVi ? 'Quay lại Đăng nhập' : 'Back to Login',
               style: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
                 color: Color(0xFF8FA0B8),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1132,7 +1115,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               : 'SET NEW PASSWORD',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
@@ -1146,7 +1128,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               : 'Create a strong password to secure your athlete profile & telemetry.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                             color: Color(0xFF8FA0B8),
@@ -1159,7 +1140,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         Text(
                           isVi ? 'MẬT KHẨU MỚI' : 'NEW PASSWORD',
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             color: Color(0xFFA8DCE7),
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -1172,7 +1152,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           obscureText: _obscurePassword,
                           onChanged: (_) => setState(() {}),
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -1182,7 +1161,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                 ? 'Tối thiểu 8 ký tự'
                                 : 'At least 8 characters',
                             hintStyle: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               color: Color(0xFF4A5B73),
                               fontSize: 14,
                             ),
@@ -1253,7 +1231,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         Text(
                           isVi ? 'XÁC NHẬN MẬT KHẨU' : 'CONFIRM PASSWORD',
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             color: Color(0xFFA8DCE7),
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -1266,7 +1243,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           obscureText: _obscureConfirmPassword,
                           onChanged: (_) => setState(() {}),
                           style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -1276,7 +1252,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                 ? 'Nhập lại mật khẩu mới'
                                 : 'Repeat new password',
                             hintStyle: const TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
                               color: Color(0xFF4A5B73),
                               fontSize: 14,
                             ),
@@ -1375,7 +1350,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   child: Text(
                                     _errorMessage!,
                                     style: const TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
                                       color: Color(0xFFFFB3C3),
                                       fontSize: 12,
                                     ),
@@ -1413,7 +1387,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   child: Text(
                                     _successMessage!,
                                     style: const TextStyle(
-                                      fontFamily: 'Plus Jakarta Sans',
                                       color: Color(0xFFB3FFDE),
                                       fontSize: 12,
                                     ),
@@ -1473,7 +1446,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                             ? 'CẬP NHẬT MẬT KHẨU'
                                             : 'UPDATE PASSWORD',
                                         style: const TextStyle(
-                                          fontFamily: 'Plus Jakarta Sans',
                                           fontSize: 14,
                                           fontWeight: FontWeight.w900,
                                           letterSpacing: 1.2,

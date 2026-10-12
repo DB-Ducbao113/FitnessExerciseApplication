@@ -1,10 +1,11 @@
-import 'package:fitness_exercise_application/features/activity/presentation/screens/activity_screen.dart';
 import 'package:fitness_exercise_application/features/analytics/presentation/models/time_period.dart';
+import 'package:fitness_exercise_application/features/shell/presentation/providers/main_tab_controller_provider.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class KineticRecoveryGuidanceCard extends StatelessWidget {
+class KineticRecoveryGuidanceCard extends ConsumerWidget {
   final List<WorkoutSession> workouts;
   final bool isVi;
   final TimePeriod period;
@@ -17,18 +18,25 @@ class KineticRecoveryGuidanceCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.kinetic;
 
     // Estimate training load based on workout volume
     final int sessionCount = workouts.length;
     final double totalKm = workouts.fold(
       0.0,
-      (sum, item) => sum + (item.gpsAnalysis.validDistanceKm > 0 ? item.gpsAnalysis.validDistanceKm : item.distanceKm),
+      (sum, item) =>
+          sum +
+          (item.gpsAnalysis.validDistanceKm > 0
+              ? item.gpsAnalysis.validDistanceKm
+              : item.distanceKm),
     );
 
     // Scale strain thresholds according to the viewing period
-    final (double highKmThreshold, int highSessionsThreshold) = switch (period) {
+    final (
+      double highKmThreshold,
+      int highSessionsThreshold,
+    ) = switch (period) {
       TimePeriod.week => (30.0, 5),
       TimePeriod.month => (120.0, 18),
       TimePeriod.year => (1200.0, 180),
@@ -50,7 +58,8 @@ class KineticRecoveryGuidanceCard extends StatelessWidget {
       adviceText = isVi
           ? 'Bạn đã hoàn thành cường độ vận động cao trong giai đoạn này. Hãy chú trọng các bài phục hồi chủ động và duy trì giấc ngủ chất lượng để tránh quá tải.'
           : 'High training volume reached for this period. Prioritize active recovery sessions and quality sleep to avoid overtraining.';
-    } else if (totalKm >= modKmThreshold || sessionCount >= modSessionsThreshold) {
+    } else if (totalKm >= modKmThreshold ||
+        sessionCount >= modSessionsThreshold) {
       strainPercent = '65%';
       isHighStrain = false;
       adviceText = isVi
@@ -98,11 +107,7 @@ class KineticRecoveryGuidanceCard extends StatelessWidget {
                     color: colors.primary.withValues(alpha: 0.25),
                   ),
                 ),
-                child: Icon(
-                  Icons.spa_rounded,
-                  color: colors.primary,
-                  size: 20,
-                ),
+                child: Icon(Icons.spa_rounded, color: colors.primary, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -121,12 +126,13 @@ class KineticRecoveryGuidanceCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          isVi ? 'Tải vận động: $strainPercent' : 'Strain: $strainPercent',
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: isHighStrain ? colors.tertiary : colors.primary,
+                          isVi
+                              ? 'Tải vận động: $strainPercent'
+                              : 'Strain: $strainPercent',
+                          style: KineticTypography.unitLabel.copyWith(
+                            color: isHighStrain
+                                ? colors.tertiary
+                                : colors.primary,
                           ),
                         ),
                       ],
@@ -153,11 +159,8 @@ class KineticRecoveryGuidanceCard extends StatelessWidget {
                 variant: KineticButtonVariant.secondary,
                 isFullWidth: false,
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ActivityScreen(),
-                    ),
-                  );
+                  ref.read(mainTabControllerProvider.notifier).state =
+                      activityTabIndex;
                 },
               ),
             ],

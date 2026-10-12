@@ -85,7 +85,6 @@ class KineticSummaryRouteRecap extends StatelessWidget {
                         currentLang == AppLanguage.vi ? 'ĐÃ LÀM MỊN' : 'SMOOTHED',
                         style: KineticTypography.unitLabel.copyWith(
                           color: colors.primary,
-                          fontSize: 11,
                         ),
                       ),
                     ],

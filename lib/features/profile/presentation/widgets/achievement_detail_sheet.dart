@@ -131,7 +131,6 @@ class AchievementDetailSheet extends StatelessWidget {
                         Text(
                           tier.label(currentLang),
                           style: KineticTypography.unitLabel.copyWith(
-                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: primaryColor,
                             letterSpacing: 1.0,
@@ -160,7 +159,6 @@ class AchievementDetailSheet extends StatelessWidget {
                         Text(
                           badge.category.label(currentLang).toUpperCase(),
                           style: KineticTypography.unitLabel.copyWith(
-                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: colors.secondary,
                             letterSpacing: 0.8,
@@ -177,8 +175,7 @@ class AchievementDetailSheet extends StatelessWidget {
               Text(
                 badge.title(currentLang),
                 textAlign: TextAlign.center,
-                style: KineticTypography.headlineMedium.copyWith(
-                  fontSize: 22,
+                style: KineticTypography.cardTitle.copyWith(
                   fontWeight: FontWeight.w800,
                   color: colors.textPrimary,
                 ),
@@ -190,7 +187,6 @@ class AchievementDetailSheet extends StatelessWidget {
                 badge.description(currentLang),
                 textAlign: TextAlign.center,
                 style: KineticTypography.bodyMedium.copyWith(
-                  fontSize: 13,
                   color: colors.textSecondary,
                   height: 1.4,
                 ),
@@ -218,7 +214,6 @@ class AchievementDetailSheet extends StatelessWidget {
                       child: Text(
                         badge.quote(currentLang),
                         style: KineticTypography.bodySmall.copyWith(
-                          fontSize: 12,
                           fontStyle: FontStyle.italic,
                           color: isUnlocked ? colors.textPrimary : colors.textSecondary,
                         ),
@@ -249,7 +244,6 @@ class AchievementDetailSheet extends StatelessWidget {
                               ? (currentLang == AppLanguage.vi ? 'TRẠNG THÁI' : 'STATUS')
                               : (currentLang == AppLanguage.vi ? 'TIẾN ĐỘ THỰC HIỆN' : 'PROGRESS'),
                           style: KineticTypography.unitLabel.copyWith(
-                            fontSize: 11,
                             color: isUnlocked ? colors.secondary : colors.primary,
                             letterSpacing: 1.0,
                           ),
@@ -258,10 +252,10 @@ class AchievementDetailSheet extends StatelessWidget {
                           isUnlocked
                               ? (currentLang == AppLanguage.vi ? '100% HOÀN THÀNH' : '100% CONQUERED')
                               : '${badge.progressPercent}%',
-                          style: KineticTypography.label.copyWith(
-                            fontSize: 12,
+                          style: KineticTypography.bodySmall.copyWith(
                             fontWeight: FontWeight.w800,
                             color: isUnlocked ? colors.secondary : colors.primary,
+                            fontFeatures: KineticTypography.tabularFigures,
                           ),
                         ),
                       ],
@@ -287,16 +281,15 @@ class AchievementDetailSheet extends StatelessWidget {
                       children: [
                         Text(
                           badge.formattedProgress(currentLang),
-                          style: KineticTypography.label.copyWith(
-                            fontSize: 12,
+                          style: KineticTypography.bodySmall.copyWith(
                             fontWeight: FontWeight.w600,
                             color: colors.textPrimary,
+                            fontFeatures: KineticTypography.tabularFigures,
                           ),
                         ),
                         Text(
                           badge.remainingText(currentLang),
-                          style: KineticTypography.bodySmall.copyWith(
-                            fontSize: 11,
+                          style: KineticTypography.caption.copyWith(
                             fontWeight: FontWeight.w700,
                             color: isUnlocked ? colors.secondary : colors.textSecondary,
                           ),

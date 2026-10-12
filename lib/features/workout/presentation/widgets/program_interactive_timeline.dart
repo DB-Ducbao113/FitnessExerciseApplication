@@ -144,11 +144,9 @@ class _TimelineStepNode extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
+                          style: KineticTypography.label.copyWith(
                             color: Colors.white,
+                            fontWeight: FontWeight.w900,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -165,9 +163,7 @@ class _TimelineStepNode extends StatelessWidget {
                         ),
                         child: Text(
                           durStr,
-                          style: TextStyle(
-                            fontFamily: 'Plus Jakarta Sans',
-                            fontSize: 11,
+                          style: KineticTypography.unitLabel.copyWith(
                             fontWeight: FontWeight.w900,
                             color: color,
                           ),
@@ -210,9 +206,7 @@ class _TimelineStepNode extends StatelessWidget {
                         Expanded(
                           child: Text(
                             tip,
-                            style: TextStyle(
-                              fontFamily: 'Plus Jakarta Sans',
-                              fontSize: 11,
+                            style: KineticTypography.caption.copyWith(
                               color: colors.textSecondary,
                               height: 1.3,
                             ),
@@ -264,10 +258,7 @@ class _StepPill extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
+              style: KineticTypography.unitLabel.copyWith(
                 color: color,
               ),
             ),

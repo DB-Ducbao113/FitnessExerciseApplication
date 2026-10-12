@@ -192,10 +192,8 @@ class KineticAthleteCard extends ConsumerWidget {
                             Flexible(
                               child: Text(
                                 displayName,
-                                style: KineticTypography.headlineMedium.copyWith(
+                                style: KineticTypography.displayName.copyWith(
                                   color: colors.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -212,9 +210,8 @@ class KineticAthleteCard extends ConsumerWidget {
                     // Member Since
                     Text(
                       '${AppTranslations.get('member_since', currentLang)}: $memberSince',
-                      style: KineticTypography.bodySmall.copyWith(
+                      style: KineticTypography.caption.copyWith(
                         color: colors.textMuted,
-                        fontSize: 11,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -236,7 +233,6 @@ class KineticAthleteCard extends ConsumerWidget {
                             '$currentStreak ${currentLang == AppLanguage.vi ? 'NGÀY LIÊN TIẾP' : 'DAY STREAK'}',
                             style: KineticTypography.unitLabel.copyWith(
                               color: colors.tertiary,
-                              fontSize: 10,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -253,9 +249,8 @@ class KineticAthleteCard extends ConsumerWidget {
             const SizedBox(height: 10),
             Text(
               avatarState.errorMessage!,
-              style: KineticTypography.bodySmall.copyWith(
+              style: KineticTypography.caption.copyWith(
                 color: colors.error,
-                fontSize: 11,
               ),
             ),
           ],

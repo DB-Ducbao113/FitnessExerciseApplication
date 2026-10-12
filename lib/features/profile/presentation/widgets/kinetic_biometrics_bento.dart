@@ -64,9 +64,8 @@ class KineticBiometricsBento extends StatelessWidget {
               currentLang == AppLanguage.vi
                   ? 'Chưa thiết lập chỉ số cơ thể'
                   : 'Biometrics not set up',
-              style: KineticTypography.headlineMedium.copyWith(
+              style: KineticTypography.headlineSmall.copyWith(
                 color: colors.textPrimary,
-                fontSize: 16,
               ),
             ),
             const SizedBox(height: 4),
@@ -146,9 +145,9 @@ class KineticBiometricsBento extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           currentLang == AppLanguage.vi ? 'Chỉnh sửa' : 'Edit',
-                          style: KineticTypography.label.copyWith(
+                          style: KineticTypography.caption.copyWith(
                             color: colors.primary,
-                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -244,7 +243,6 @@ class _BiometricTile extends StatelessWidget {
                   label.toUpperCase(),
                   style: KineticTypography.unitLabel.copyWith(
                     color: colors.textMuted,
-                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -255,10 +253,10 @@ class _BiometricTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             value,
-            style: KineticTypography.label.copyWith(
+            style: KineticTypography.bodyMedium.copyWith(
               color: colors.textPrimary,
-              fontSize: 14,
               fontWeight: FontWeight.w700,
+              fontFeatures: KineticTypography.tabularFigures,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

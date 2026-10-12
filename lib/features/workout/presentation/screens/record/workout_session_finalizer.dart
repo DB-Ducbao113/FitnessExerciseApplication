@@ -7,6 +7,7 @@ import 'package:fitness_exercise_application/features/workout/domain/services/wo
 import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_session_state.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:uuid/uuid.dart';
 
 class WorkoutSessionFinalization {
   final String sessionId;
@@ -65,8 +66,12 @@ class WorkoutSessionFinalizer {
       finalSteps = math.max(0, (state.distanceMeters / strideToUse).round());
     }
 
-    final sessionId =
-        state.sessionId ?? finishedAt.microsecondsSinceEpoch.toString();
+    // The DB column is `uuid`, so the fallback must also be a valid UUID.
+    // (A raw epoch string here would make the Supabase insert fail with
+    // "invalid input syntax for type uuid", losing the workout silently.)
+    final sessionId = _isUuid(state.sessionId)
+        ? state.sessionId!
+        : const Uuid().v4();
     final session = WorkoutSession(
       id: sessionId,
       userId: userId,
@@ -101,6 +106,13 @@ class WorkoutSessionFinalizer {
     );
   }
 }
+
+final RegExp _uuidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+bool _isUuid(String? value) =>
+    value != null && _uuidPattern.hasMatch(value);
 
 String _encodeRouteSegments(List<List<LatLng>> segments) {
   final jsonSegments = segments
