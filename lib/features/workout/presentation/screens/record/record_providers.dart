@@ -411,6 +411,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         state = _sensorBootstrapper.applyGpsStartupFailure(
           state,
           e.toString().replaceAll('Exception: ', ''),
+          supportsStepFallback: _trackingEngine.supportsStepFallback(
+            state.activityType,
+          ),
         );
         _refreshIndoorWatchdog();
         _startCalorieTimer();
@@ -981,6 +984,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       final shouldActivateFallback =
           event.environment == TrackingEnvironment.indoor &&
           event.fallbackSuggested &&
+          _trackingEngine.supportsStepFallback(state.activityType) &&
           !state.gpsFallbackActive &&
           state.status == RecordingState.active;
 
@@ -1234,6 +1238,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     final stepDecision = _trackingEngine.evaluateStepUpdate(
       sessionSteps: effectiveSteps,
       currentStepCount: state.stepCount,
+      activityType: state.activityType,
       requiresGpsTracking: _requiresGpsTracking(state.activityType),
       gpsFallbackActive: state.gpsFallbackActive,
       recordingSource: state.recordingSource,
@@ -1723,8 +1728,12 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
           _lastAcceptedPositionTime != null &&
           DateTime.now().difference(_lastAcceptedPositionTime!).inSeconds >=
               5) {
-        liveSpeedKmh = 0;
-        isAutoPaused = true;
+        state = _sessionLifecycle.markGpsSignalWeak(current: state);
+        // A stale accepted fix is a GPS-quality issue, not proof that the
+        // athlete stopped. Preserve the last confirmed motion state; route
+        // recovery still starts a separate segment and never bridges distance.
+        liveSpeedKmh = state.speedKmh;
+        isAutoPaused = false;
       }
 
       if (_isMoving(liveSpeedKmh, state.activityType)) {

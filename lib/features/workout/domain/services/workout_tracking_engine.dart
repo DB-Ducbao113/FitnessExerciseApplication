@@ -398,6 +398,7 @@ class WorkoutTrackingEngine {
   StepTrackingDecision evaluateStepUpdate({
     required int sessionSteps,
     required int currentStepCount,
+    required String activityType,
     required bool requiresGpsTracking,
     required bool gpsFallbackActive,
     required String recordingSource,
@@ -417,6 +418,7 @@ class WorkoutTrackingEngine {
         : now.difference(lastAcceptedPositionTime).inSeconds;
     final shouldActivateGpsFallback =
         requiresGpsTracking &&
+        supportsStepFallback(activityType) &&
         !gpsFallbackActive &&
         recordingSource == 'gps' &&
         sessionSteps >= 8 &&
@@ -426,6 +428,20 @@ class WorkoutTrackingEngine {
       delta: delta,
       shouldActivateGpsFallback: shouldActivateGpsFallback,
     );
+  }
+
+  /// Step counts are a valid distance fallback only for activities whose
+  /// distance model is based on strides. Cycling must remain GPS-based: a
+  /// noisy pedalling/phone-motion step count must never switch it to indoor
+  /// fallback and falsely auto-pause the session.
+  bool supportsStepFallback(String activityType) {
+    switch (activityType.toLowerCase()) {
+      case 'running':
+      case 'walking':
+        return true;
+      default:
+        return false;
+    }
   }
 
   IndoorStepContribution computeIndoorStepContribution({
@@ -765,11 +781,22 @@ class WorkoutTrackingEngine {
     final suspiciousRatio = normalizedTotalDistanceM <= 0
         ? 0.0
         : suspiciousDistanceM / normalizedTotalDistanceM;
-    final validityFlag = suspiciousRatio > 0.30
+    final segmentValidityFlag = suspiciousRatio > 0.30
         ? WorkoutValidityFlag.unverified
         : suspiciousRatio > 0.10
         ? WorkoutValidityFlag.partial
         : WorkoutValidityFlag.verified;
+    final gpsGapRatio = input.totalDurationSec <= 0
+        ? 0.0
+        : gpsGapDurationSec / input.totalDurationSec;
+    final gpsGapValidityFlag = _validityForGpsGaps(
+      gapDurationSec: gpsGapDurationSec,
+      gapRatio: gpsGapRatio,
+    );
+    final validityFlag = _leastReliableValidity(
+      segmentValidityFlag,
+      gpsGapValidityFlag,
+    );
     final effectivePaceSecPerKm = validDistanceM > 0
         ? input.totalDurationSec / (validDistanceM / 1000.0)
         : null;
@@ -787,6 +814,37 @@ class WorkoutTrackingEngine {
       validityFlag: validityFlag,
       flaggedSegments: flaggedSegments,
     );
+  }
+
+  WorkoutValidityFlag _validityForGpsGaps({
+    required double gapDurationSec,
+    required double gapRatio,
+  }) {
+    // Short, isolated losses are normal outdoors. A session with more than a
+    // third of its duration missing GPS, or a sustained three-minute outage,
+    // cannot truthfully be reported as a verified route.
+    if (gapRatio >= 0.35 || gapDurationSec >= 180.0) {
+      return WorkoutValidityFlag.unverified;
+    }
+    if (gapRatio >= 0.12 || gapDurationSec >= 45.0) {
+      return WorkoutValidityFlag.partial;
+    }
+    return WorkoutValidityFlag.verified;
+  }
+
+  WorkoutValidityFlag _leastReliableValidity(
+    WorkoutValidityFlag left,
+    WorkoutValidityFlag right,
+  ) {
+    if (left == WorkoutValidityFlag.unverified ||
+        right == WorkoutValidityFlag.unverified) {
+      return WorkoutValidityFlag.unverified;
+    }
+    if (left == WorkoutValidityFlag.partial ||
+        right == WorkoutValidityFlag.partial) {
+      return WorkoutValidityFlag.partial;
+    }
+    return WorkoutValidityFlag.verified;
   }
 
   SegmentThreshold _segmentThresholdFor(String activityType) {

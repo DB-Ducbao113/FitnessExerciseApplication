@@ -15,8 +15,17 @@ class WorkoutSensorBootstrapper {
 
   WorkoutSessionState applyGpsStartupFailure(
     WorkoutSessionState current,
-    String errorMessage,
-  ) {
+    String errorMessage, {
+    required bool supportsStepFallback,
+  }) {
+    if (!supportsStepFallback) {
+      return current.copyWith(
+        errorMessage: errorMessage,
+        isGpsSignalWeak: true,
+        gpsFallbackActive: false,
+      );
+    }
+
     return current.copyWith(
       trackingMode: 'indoor',
       environmentHint: 'indoor',

@@ -161,6 +161,63 @@ void main() {
       expect(assessment.shouldInvalidateResult, isTrue);
       expect(assessment.reason, 'avg_speed_too_high_for_walking');
     });
+
+    test(
+      'marks a cycling workout unverified when GPS gaps consume most of it',
+      () {
+        final startedAt = DateTime.utc(2026, 10, 12, 20, 30);
+        final analysis = engine.analyzeGpsWorkout(
+          GpsWorkoutAnalysisInput(
+            activityType: 'cycling',
+            totalDurationSec: 21 * 60 + 14,
+            fallbackDistanceMeters: 4110,
+            rawPositions: [
+              buildPosition(
+                latitude: 10.0,
+                longitude: 106.0,
+                timestamp: startedAt,
+                speed: 3.8,
+              ),
+              buildPosition(
+                latitude: 10.00015,
+                longitude: 106.0,
+                timestamp: startedAt.add(const Duration(seconds: 5)),
+                speed: 3.8,
+              ),
+              buildPosition(
+                latitude: 10.00030,
+                longitude: 106.0,
+                timestamp: startedAt.add(
+                  const Duration(minutes: 21, seconds: 14),
+                ),
+                speed: 3.8,
+              ),
+            ],
+          ),
+        );
+
+        expect(analysis.gpsGapCount, 1);
+        expect(analysis.gpsGapDurationSec, greaterThan(1200));
+        expect(analysis.validityFlag, WorkoutValidityFlag.unverified);
+      },
+    );
+
+    test('does not switch cycling to step fallback after a GPS gap', () {
+      final startedAt = DateTime.utc(2026, 10, 12, 20, 30);
+
+      final decision = engine.evaluateStepUpdate(
+        sessionSteps: 12,
+        currentStepCount: 0,
+        activityType: 'cycling',
+        requiresGpsTracking: true,
+        gpsFallbackActive: false,
+        recordingSource: 'gps',
+        lastAcceptedPositionTime: startedAt,
+        now: startedAt.add(const Duration(seconds: 13)),
+      );
+
+      expect(decision.shouldActivateGpsFallback, isFalse);
+    });
   });
 
   group('WorkoutSessionStarter', () {
@@ -399,6 +456,24 @@ void main() {
       expect(finished.avgSpeedKmh, closeTo(10.2, 0.0001));
       expect(finished.sessionId, 'session-9');
     });
+
+    test('marks a GPS gap as weak signal without auto-pausing cycling', () {
+      final cycling = WorkoutSessionState(
+        status: RecordingState.active,
+        activityType: 'Cycling',
+        trackingMode: 'outdoor',
+        recordingSource: 'gps',
+        speedKmh: 14,
+        isAutoPaused: true,
+      );
+
+      final updated = lifecycle.markGpsSignalWeak(current: cycling);
+
+      expect(updated.status, RecordingState.active);
+      expect(updated.isGpsSignalWeak, isTrue);
+      expect(updated.isAutoPaused, isFalse);
+      expect(updated.speedKmh, 14);
+    });
   });
 
   group('WorkoutSensorBootstrapper', () {
@@ -434,12 +509,33 @@ void main() {
       final updated = bootstrapper.applyGpsStartupFailure(
         base,
         'location_disabled',
+        supportsStepFallback: true,
       );
 
       expect(updated.trackingMode, 'indoor');
       expect(updated.recordingSource, 'step_fallback');
       expect(updated.gpsFallbackActive, isTrue);
       expect(updated.errorMessage, 'location_disabled');
+    });
+
+    test('keeps cycling GPS-based when GPS cannot start', () {
+      final base = WorkoutSessionState(
+        status: RecordingState.initializing,
+        activityType: 'Cycling',
+        trackingMode: 'outdoor',
+        recordingSource: 'gps',
+      );
+
+      final updated = bootstrapper.applyGpsStartupFailure(
+        base,
+        'location_disabled',
+        supportsStepFallback: false,
+      );
+
+      expect(updated.trackingMode, 'outdoor');
+      expect(updated.recordingSource, 'gps');
+      expect(updated.gpsFallbackActive, isFalse);
+      expect(updated.isGpsSignalWeak, isTrue);
     });
   });
 

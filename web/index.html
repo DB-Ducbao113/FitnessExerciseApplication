@@ -128,7 +128,7 @@
 
   <!-- ═══════════════════════════════════════════════
        AETRON — Custom Splash / Loading Screen
-       Replaces Flutter's default globe loading screen
+       GPS globe loading screen
   ════════════════════════════════════════════════ -->
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -154,56 +154,87 @@
       pointer-events: none;
     }
 
-    /* ── Logo area ── */
-    .splash-logo-wrap {
+    /* ── GPS globe ── */
+    .splash-globe-wrap {
       position: relative;
-      width: 120px;
-      height: 120px;
+      width: 132px;
+      height: 132px;
       margin-bottom: 40px;
     }
 
-    /* Outer pulse ring */
-    .splash-ring {
+    .splash-orbit {
       position: absolute;
-      inset: -16px;
+      inset: 8px -18px;
       border-radius: 50%;
-      border: 2px solid rgba(32, 178, 255, 0.25);
-      animation: ringPulse 2s ease-in-out infinite;
-    }
-    .splash-ring:nth-child(2) {
-      inset: -32px;
-      border-color: rgba(32, 178, 255, 0.10);
-      animation-delay: 0.4s;
+      border: 1px solid rgba(128, 216, 255, 0.36);
+      transform: rotate(-27deg);
+      animation: orbitPulse 2.4s ease-in-out infinite;
     }
 
-    @keyframes ringPulse {
-      0%, 100% { transform: scale(1);   opacity: 1; }
-      50%       { transform: scale(1.08); opacity: 0.5; }
+    .splash-orbit::after {
+      content: '';
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      top: -4px;
+      left: 50%;
+      border-radius: 50%;
+      background: #B8EEFF;
+      box-shadow: 0 0 12px #20B2FF;
     }
 
-    /* Icon container */
-    .splash-icon {
+    @keyframes orbitPulse {
+      0%, 100% { opacity: 0.42; transform: rotate(-27deg) scale(0.98); }
+      50% { opacity: 0.9; transform: rotate(-27deg) scale(1.04); }
+    }
+
+    .splash-globe {
       position: relative;
       z-index: 2;
-      width: 120px;
-      height: 120px;
-      border-radius: 26px;
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
       overflow: hidden;
+      border: 1px solid rgba(128, 216, 255, 0.72);
+      background:
+        radial-gradient(circle at 35% 28%, rgba(128, 216, 255, 0.4), transparent 28%),
+        radial-gradient(circle at 70% 78%, rgba(21, 101, 192, 0.7), transparent 46%),
+        #0B1A2A;
       box-shadow:
-        0 0 0 1px rgba(32, 178, 255, 0.2),
-        0 0 30px rgba(32, 178, 255, 0.15),
+        inset -14px -12px 24px rgba(0, 0, 0, 0.46),
+        0 0 30px rgba(32, 178, 255, 0.22),
         0 8px 32px rgba(0, 0, 0, 0.6);
-      animation: iconFloat 3s ease-in-out infinite;
+      animation: globeFloat 3s ease-in-out infinite;
     }
 
-    .splash-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
+    .splash-globe::before,
+    .splash-globe::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 19px,
+        rgba(128, 216, 255, 0.24) 20px,
+        transparent 21px
+      );
+      transform: scaleX(0.92);
     }
 
-    @keyframes iconFloat {
+    .splash-globe::after {
+      background: repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent 20px,
+        rgba(128, 216, 255, 0.22) 21px,
+        transparent 22px
+      );
+      transform: scaleX(0.66);
+    }
+
+    @keyframes globeFloat {
       0%, 100% { transform: translateY(0px);  }
       50%       { transform: translateY(-6px); }
     }
@@ -275,12 +306,9 @@
   </style>
 
   <div id="aetron-splash">
-    <div class="splash-logo-wrap">
-      <div class="splash-ring"></div>
-      <div class="splash-ring"></div>
-      <div class="splash-icon">
-        <img src="icons/Icon-512.png" alt="Aetron" />
-      </div>
+    <div class="splash-globe-wrap" role="img" aria-label="GPS globe loading">
+      <div class="splash-orbit"></div>
+      <div class="splash-globe"></div>
     </div>
 
     <p class="splash-title">Aetron</p>

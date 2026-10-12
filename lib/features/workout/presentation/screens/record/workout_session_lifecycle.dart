@@ -69,6 +69,15 @@ class WorkoutSessionLifecycle {
     );
   }
 
+  /// A missing or rejected GPS fix means signal quality is unknown, not that
+  /// the athlete stopped moving. Keep the workout active and preserve the last
+  /// confirmed speed until a later GPS update can revise it.
+  WorkoutSessionState markGpsSignalWeak({
+    required WorkoutSessionState current,
+  }) {
+    return current.copyWith(isGpsSignalWeak: true, isAutoPaused: false);
+  }
+
   WorkoutSessionState stopping(WorkoutSessionState current) {
     return current.copyWith(
       status: RecordingState.stopping,
