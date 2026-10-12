@@ -28,6 +28,10 @@
       "handle": "filesystem"
     },
     {
+      "src": "/app/(.*)",
+      "dest": "/app/index.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }

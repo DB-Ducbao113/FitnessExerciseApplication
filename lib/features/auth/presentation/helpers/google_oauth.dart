@@ -110,7 +110,7 @@ Future<bool> startGoogleOAuthSignIn({
     // If popup was blocked or GIS failed, fallback to standard OAuth
     return await Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: Uri.base.origin,
+      redirectTo: '${Uri.base.origin}/app/',
       authScreenLaunchMode: LaunchMode.platformDefault,
       scopes: 'email profile',
       queryParams: const {'prompt': 'select_account'},
