@@ -70,7 +70,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
           GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
         run: |
-          flutter build web --release --base-href /app/ \
+          flutter build web --release --base-href /app/ --no-web-resources-cdn \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
@@ -80,6 +80,7 @@ jobs:
         run: |
           mkdir -p .vercel/output/static/app
           cp -R build/web/. .vercel/output/static/app/
+          cp web/root-redirect.html .vercel/output/static/index.html
           cp web/terms.html .vercel/output/static/terms.html
           cp web/google374a2a550d094d6f.html .vercel/output/static/google374a2a550d094d6f.html
           cp tooling/vercel-output-config.json .vercel/output/config.json
