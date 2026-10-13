@@ -47,6 +47,31 @@ jobs:
             | xargs -0 -n1 deno check
       - run: deno test --allow-env supabase/functions
 
+  database:
+    name: Database migrations, lint and RLS tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Start clean local database and replay migrations
+        run: npx --yes supabase@2.120.0 db start
+      - name: Lint database functions and schema
+        run: npx --yes supabase@2.120.0 db lint --local --fail-on error
+      - name: Run database integration tests
+        run: |
+          set -e
+          for test_file in supabase/tests/*.sql; do
+            echo "Running $test_file"
+            docker exec -i supabase_db_backend \
+              psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$test_file"
+          done
+      - name: Stop local database
+        if: always()
+        run: npx --yes supabase@2.120.0 stop --no-backup
+
   dependency-security:
     name: Dependency, secret and config scan
     runs-on: ubuntu-latest
