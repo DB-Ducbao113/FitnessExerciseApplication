@@ -81,6 +81,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           return AetronGlobeOrbitScreen(
             duration: const Duration(milliseconds: 1200),
             customTitle: 'Aetron',
+            forceDarkPalette: true,
             onComplete: () {
               if (!mounted) return;
               setState(_startupGlobeGate.complete);

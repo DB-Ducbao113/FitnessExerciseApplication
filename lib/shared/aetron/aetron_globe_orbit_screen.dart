@@ -13,6 +13,7 @@ class AetronGlobeOrbitScreen extends ConsumerStatefulWidget {
   final String? customSubtitle;
   final bool showCloseButton;
   final String? statusPillText;
+  final bool forceDarkPalette;
 
   const AetronGlobeOrbitScreen({
     super.key,
@@ -22,6 +23,7 @@ class AetronGlobeOrbitScreen extends ConsumerStatefulWidget {
     this.customSubtitle,
     this.showCloseButton = false,
     this.statusPillText,
+    this.forceDarkPalette = false,
   });
 
   @override
@@ -77,7 +79,9 @@ class _AetronGlobeOrbitScreenState extends ConsumerState<AetronGlobeOrbitScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.kinetic;
+    final colors = widget.forceDarkPalette
+        ? KineticColors.dark
+        : context.kinetic;
     final currentLang = ref.watch(appLanguageProvider);
     final isVi = currentLang == AppLanguage.vi;
     final canPop = Navigator.of(context).canPop();
@@ -512,20 +516,14 @@ class _CyberGlobePainter extends CustomPainter {
 
     // Clip to Globe Sphere for all surface rendering
     canvas.save();
-    canvas.clipPath(
-      Path()..addOval(globeRect),
-    );
+    canvas.clipPath(Path()..addOval(globeRect));
 
     // 3a. Deep Ocean 3D Gradient matching Kinetic Dark tones
     final oceanPaint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.35, -0.35),
         radius: 0.95,
-        colors: [
-          colors.surface2,
-          colors.surface1,
-          colors.background,
-        ],
+        colors: [colors.surface2, colors.surface1, colors.background],
         stops: const [0.0, 0.55, 1.0],
       ).createShader(globeRect);
     canvas.drawRect(globeRect, oceanPaint);
@@ -652,43 +650,112 @@ class _CyberGlobePainter extends CustomPainter {
     final continents = <List<List<double>>>[
       // North America
       [
-        [70, -165], [72, -120], [70, -75], [58, -55], [45, -60],
-        [30, -80], [25, -80], [18, -96], [12, -85], [16, -93],
-        [28, -112], [38, -123], [50, -126], [60, -140], [65, -168]
+        [70, -165],
+        [72, -120],
+        [70, -75],
+        [58, -55],
+        [45, -60],
+        [30, -80],
+        [25, -80],
+        [18, -96],
+        [12, -85],
+        [16, -93],
+        [28, -112],
+        [38, -123],
+        [50, -126],
+        [60, -140],
+        [65, -168],
       ],
       // South America
       [
-        [12, -75], [8, -52], [-5, -35], [-22, -40], [-40, -62],
-        [-54, -68], [-52, -75], [-35, -73], [-18, -71], [-4, -80], [8, -78]
+        [12, -75],
+        [8, -52],
+        [-5, -35],
+        [-22, -40],
+        [-40, -62],
+        [-54, -68],
+        [-52, -75],
+        [-35, -73],
+        [-18, -71],
+        [-4, -80],
+        [8, -78],
       ],
       // Eurasia (Europe + Asia)
       [
-        [70, 25], [75, 60], [75, 110], [70, 168], [60, 160],
-        [45, 140], [35, 120], [22, 115], [10, 105], [15, 100],
-        [22, 88], [10, 78], [25, 65], [25, 55], [15, 45],
-        [30, 32], [36, 28], [38, -8], [55, -5], [60, 5], [70, 25]
+        [70, 25],
+        [75, 60],
+        [75, 110],
+        [70, 168],
+        [60, 160],
+        [45, 140],
+        [35, 120],
+        [22, 115],
+        [10, 105],
+        [15, 100],
+        [22, 88],
+        [10, 78],
+        [25, 65],
+        [25, 55],
+        [15, 45],
+        [30, 32],
+        [36, 28],
+        [38, -8],
+        [55, -5],
+        [60, 5],
+        [70, 25],
       ],
       // Africa
       [
-        [35, -5], [37, 10], [32, 32], [12, 44], [12, 51],
-        [0, 42], [-15, 40], [-28, 32], [-34, 18], [-34, 26],
-        [-18, 12], [5, 9], [5, -5], [15, -17], [25, -15], [35, -5]
+        [35, -5],
+        [37, 10],
+        [32, 32],
+        [12, 44],
+        [12, 51],
+        [0, 42],
+        [-15, 40],
+        [-28, 32],
+        [-34, 18],
+        [-34, 26],
+        [-18, 12],
+        [5, 9],
+        [5, -5],
+        [15, -17],
+        [25, -15],
+        [35, -5],
       ],
       // Australia
       [
-        [-12, 130], [-12, 136], [-18, 146], [-28, 153], [-38, 148],
-        [-38, 140], [-35, 115], [-22, 114], [-15, 124]
+        [-12, 130],
+        [-12, 136],
+        [-18, 146],
+        [-28, 153],
+        [-38, 148],
+        [-38, 140],
+        [-35, 115],
+        [-22, 114],
+        [-15, 124],
       ],
       // Greenland
       [
-        [80, -40], [70, -20], [60, -45], [70, -55], [80, -40]
+        [80, -40],
+        [70, -20],
+        [60, -45],
+        [70, -55],
+        [80, -40],
       ],
       // Southeast Asia Islands & Japan archipelago
       [
-        [45, 142], [36, 140], [33, 130], [38, 138]
+        [45, 142],
+        [36, 140],
+        [33, 130],
+        [38, 138],
       ],
       [
-        [5, 115], [0, 102], [-8, 115], [-2, 120], [5, 115]
+        [5, 115],
+        [0, 102],
+        [-8, 115],
+        [-2, 120],
+        [5, 115],
       ],
     ];
 
@@ -780,7 +847,13 @@ class _CyberGlobePainter extends CustomPainter {
     final startAngle = isFrontHalf ? 0.0 : math.pi;
     final sweepAngle = isFrontHalf ? math.pi : math.pi;
 
-    canvas.drawArc(outerOrbitRect, startAngle, sweepAngle, false, outerGuidePaint);
+    canvas.drawArc(
+      outerOrbitRect,
+      startAngle,
+      sweepAngle,
+      false,
+      outerGuidePaint,
+    );
 
     // Dashed GPS Orbital Route
     const segments = 24;
@@ -888,7 +961,12 @@ class _CyberGlobePainter extends CustomPainter {
   }
 
   /// Ambient background starfield & data twinkles
-  void _drawStarfield(Canvas canvas, Offset center, Size size, double progress) {
+  void _drawStarfield(
+    Canvas canvas,
+    Offset center,
+    Size size,
+    double progress,
+  ) {
     final stars = [
       [-110.0, -100.0, 1.4, 0.4],
       [120.0, -90.0, 1.2, 0.5],
