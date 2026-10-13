@@ -89,19 +89,13 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         }
 
         final session =
-            snapshot.data?.session ?? Supabase.instance.client.auth.currentSession;
+            snapshot.data?.session ??
+            Supabase.instance.client.auth.currentSession;
         final event = snapshot.data?.event;
 
         if (event == AuthChangeEvent.passwordRecovery &&
             !_passwordRecoveryCompleted) {
           _isPasswordRecovery = true;
-        }
-
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            session == null) {
-          return const AetronGlobeOrbitScreen(
-            customTitle: 'Aetron',
-          );
         }
 
         if (session == null) {
@@ -117,7 +111,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           String? loginError;
           if (error != null) {
             final errStr = error.toString().toLowerCase();
-            if (errStr.contains('expired') || errStr.contains('invalid token') || errStr.contains('otp')) {
+            if (errStr.contains('expired') ||
+                errStr.contains('invalid token') ||
+                errStr.contains('otp')) {
               loginError = isVi
                   ? 'Đường dẫn khôi phục mật khẩu đã hết hạn hoặc không hợp lệ. Vui lòng yêu cầu lại.'
                   : 'Password reset link has expired or is invalid. Please request a new one.';
@@ -159,12 +155,12 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
           _welcomeSeen = null;
           _resetAccountScopedState(previousUserId: previousUserId);
           unawaited(() async {
-        try {
-          await ref.read(appBootstrapServiceProvider).hydrateUser(userId);
-        } catch (e) {
-          debugPrint('[AuthWrapper] hydrateUser error: $e');
-        }
-      }());
+            try {
+              await ref.read(appBootstrapServiceProvider).hydrateUser(userId);
+            } catch (e) {
+              debugPrint('[AuthWrapper] hydrateUser error: $e');
+            }
+          }());
         }
         final hasProfileAsync = ref.watch(hasUserProfileProvider(userId));
 
@@ -208,23 +204,23 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                     return const AthleteSetupFlow();
                   }
                 }
-                return WelcomeScreen(onNext: () async {
-                  try {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool(kWelcomeSeenPrefKey, true);
-                  } catch (_) {}
-                  if (mounted) {
-                    setState(() {
-                      _showingWelcomeGlobe = true;
-                    });
-                  }
-                });
+                return WelcomeScreen(
+                  onNext: () async {
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool(kWelcomeSeenPrefKey, true);
+                    } catch (_) {}
+                    if (mounted) {
+                      setState(() {
+                        _showingWelcomeGlobe = true;
+                      });
+                    }
+                  },
+                );
               },
             );
           },
-          loading: () => const AetronGlobeOrbitScreen(
-            customTitle: 'Aetron',
-          ),
+          loading: () => const AetronGlobeOrbitScreen(customTitle: 'Aetron'),
           error: (error, stackTrace) {
             debugPrint('[AuthWrapper] hasProfile error: $error');
             return Scaffold(
@@ -236,8 +232,11 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_off_rounded,
-                            size: 48, color: colors.tertiary),
+                        Icon(
+                          Icons.cloud_off_rounded,
+                          size: 48,
+                          color: colors.tertiary,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           isVi ? 'LỖI ĐỒNG BỘ HỒ SƠ' : 'PROFILE SYNC ERROR',
@@ -275,7 +274,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                               ref.invalidate(hasUserProfileProvider(userId));
                               // Wait for the provider to complete (max 5 s) then hide spinner
                               await Future.any([
-                                ref.watch(hasUserProfileProvider(userId).future),
+                                ref.watch(
+                                  hasUserProfileProvider(userId).future,
+                                ),
                                 Future.delayed(const Duration(seconds: 5)),
                               ]);
                               if (mounted) setState(() => _isRetrying = false);
@@ -298,7 +299,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
                               await Supabase.instance.client.auth.signOut();
                               if (!mounted) return;
                               navigator.pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginScreen(),
+                                ),
                                 (route) => false,
                               );
                             },
@@ -315,13 +318,16 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       },
     );
   }
+
   // Helper method to determine if the user signed in via an OAuth provider.
   bool _isOAuthUser(Session session) {
     final appMetadata = session.user.appMetadata;
     final provider = (appMetadata['provider'] ?? '').toString().toLowerCase();
-    final providers = (appMetadata['providers'] as List?)
-        ?.map((e) => e.toString().toLowerCase())
-        .toList() ?? [];
+    final providers =
+        (appMetadata['providers'] as List?)
+            ?.map((e) => e.toString().toLowerCase())
+            .toList() ??
+        [];
     final identities = session.user.identities ?? [];
     return provider == 'google' ||
         provider == 'facebook' ||
@@ -332,5 +338,4 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         providers.contains('apple') ||
         identities.any((i) => i.provider.toLowerCase() != 'email');
   }
-
 }
