@@ -207,14 +207,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           ),
                         ),
                       ),
-                      const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AuthThemeToggle(),
-                          SizedBox(width: 8),
-                          AuthLanguageToggle(),
-                        ],
-                      ),
+                      const AuthLanguageToggle(),
                     ],
                   ),
                 ),

@@ -80,7 +80,6 @@ jobs:
         run: |
           mkdir -p .vercel/output/static/app
           cp -R build/web/. .vercel/output/static/app/
-          cp web/landing.html .vercel/output/static/index.html
           cp web/terms.html .vercel/output/static/terms.html
           cp web/google374a2a550d094d6f.html .vercel/output/static/google374a2a550d094d6f.html
           cp tooling/vercel-output-config.json .vercel/output/config.json
