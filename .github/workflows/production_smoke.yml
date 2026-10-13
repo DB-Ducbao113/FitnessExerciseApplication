@@ -12,15 +12,24 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - name: Check frontend and Supabase health
         run: |
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error title=Missing GitHub Actions secret::SUPABASE_ANON_KEY is not configured"
+            exit 1
+          fi
+
           check_endpoint() {
             name="$1"
             url="$2"
             expected="$3"
+            shift 3
             result=$(curl --silent --show-error --output /dev/null \
-              --write-out '%{http_code} %{time_total}' --max-time 10 "$url")
+              --write-out '%{http_code} %{time_total}' --max-time 10 \
+              "$@" "$url")
             status=${result%% *}
             duration=${result##* }
             echo "$name status=$status duration_seconds=$duration"
@@ -36,7 +45,8 @@ jobs:
 
           check_endpoint frontend https://aetrongps.vercel.app/app/ 200
           check_endpoint supabase-auth \
-            https://xsqptdzselqyefpmdozz.supabase.co/auth/v1/health 200
+            https://xsqptdzselqyefpmdozz.supabase.co/auth/v1/health 200 \
+            --header "apikey: $SUPABASE_ANON_KEY"
 
       - name: Check Edge Function CORS preflight
         run: |
