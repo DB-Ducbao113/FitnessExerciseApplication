@@ -130,6 +130,16 @@ begin
     raise exception 'RLS failure: user A updated user B workout';
   end if;
 
+  -- Exercise the production updated_at trigger on an owned active session.
+  -- This catches legacy schemas where the trigger exists but its column does not.
+  update public.workout_sessions
+  set mode = 'indoor'
+  where id = '10000000-0000-4000-8000-000000000011';
+  get diagnostics affected_count = row_count;
+  if affected_count <> 1 then
+    raise exception 'Expected user A to update own workout';
+  end if;
+
   delete from public.raw_gps_points
   where workout_id = '20000000-0000-4000-8000-000000000022';
   get diagnostics affected_count = row_count;
