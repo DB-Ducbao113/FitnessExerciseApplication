@@ -19,12 +19,13 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Preflight required secrets
         run: |
           missing=0
-          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD SUPABASE_ANON_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error title=Missing GitHub Actions secret::$name is not configured"
               missing=1
@@ -46,6 +47,7 @@ jobs:
       - name: Verify public preflight and auth health
         run: |
           curl --fail --silent --show-error --max-time 20 \
+            --header "apikey: $SUPABASE_ANON_KEY" \
             "https://$SUPABASE_PROJECT_REF.supabase.co/auth/v1/health" >/dev/null
           for function_name in workouts-start workouts-end gps-track generate-workout-insight; do
             status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
