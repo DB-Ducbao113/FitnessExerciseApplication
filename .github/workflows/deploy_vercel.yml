@@ -123,8 +123,8 @@ jobs:
             echo "::error title=Bad artifact::.vercel/output/config.json missing after download"
             fail=1
           fi
-          if [ ! -d .vercel/output/static ] || [ ! -f .vercel/output/static/index.html ]; then
-            echo "::error title=Bad artifact::.vercel/output/static/index.html missing after download"
+          if [ ! -d .vercel/output/static/app ] || [ ! -f .vercel/output/static/app/index.html ]; then
+            echo "::error title=Bad artifact::.vercel/output/static/app/index.html missing after download"
             fail=1
           fi
           exit "$fail"
