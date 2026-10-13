@@ -79,7 +79,19 @@ declare
   visible_count integer;
   affected_count integer;
   unvalidated_constraint_count integer;
+  ended_at_is_nullable boolean;
 begin
+  select is_nullable = 'YES'
+  into ended_at_is_nullable
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'workout_sessions'
+    and column_name = 'ended_at';
+  if ended_at_is_nullable is distinct from true then
+    raise exception
+      'Workout recording shell requires workout_sessions.ended_at to be nullable';
+  end if;
+
   select count(*)
   into unvalidated_constraint_count
   from pg_constraint
