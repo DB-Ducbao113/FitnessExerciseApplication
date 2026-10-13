@@ -4,11 +4,15 @@
   },
   "lint": {
     "rules": {
-      "exclude": ["no-explicit-any", "no-import-prefix", "require-await", "no-unused-vars"]
+      "exclude": [
+        "no-explicit-any",
+        "no-import-prefix",
+        "require-await",
+        "no-unused-vars"
+      ]
     }
   },
   "imports": {
-    "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.105.1"
   }
 }

@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:fitness_exercise_application/app/bootstrap.dart';
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
-import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/google_oauth.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/username_auth.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/auth_wrapper.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/screens/register_screen.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/widgets/auth_language_toggle.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/widgets/auth_theme_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -179,288 +180,304 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final isVi = currentLang == AppLanguage.vi;
     final topPad = MediaQuery.of(context).padding.top;
 
-    return Scaffold(
-      backgroundColor: _bg,
-      body: Column(
-        children: [
-          // ── Top App Bar (matches stitch home/activity header) ─────────────
-          Container(
-            color: _bg.withValues(alpha: 0.97),
-            padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 12),
-            child: SizedBox(
-              height: 36,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Text(
-                    isVi ? 'Đăng nhập' : 'Sign In',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: _onSurface,
-                      letterSpacing: -0.01 * 18,
-                    ),
-                  ),
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: AuthLanguageToggle(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Divider matching stitch border-b border-[#23323a]
-          const Divider(height: 1, thickness: 1, color: _outlineVariant),
-
-          // ── Scrollable Body ───────────────────────────────────────────────
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AuthThemeSurface(
+      child: Scaffold(
+        backgroundColor: _bg,
+        body: Column(
+          children: [
+            // ── Top App Bar (matches stitch home/activity header) ─────────────
+            Container(
+              color: _bg.withValues(alpha: 0.97),
+              padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 12),
+              child: SizedBox(
+                height: 36,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    // ── Hero image area (editorial athletic photo) ──────────
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Stack(
-                        children: [
-                          Image.asset(
-                            'assets/login_header.png',
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.topCenter,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  height: 180,
-                                  color: _surface,
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.fitness_center_rounded,
-                                      color: _primary,
-                                      size: 48,
-                                    ),
-                                  ),
-                                ),
-                          ),
-                          // Gradient scrim — same as stitch home hero
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    _bg.withValues(alpha: 0.2),
-                                    _bg.withValues(alpha: 0.80),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Bottom overlay text
-                          Positioned(
-                            bottom: 16,
-                            left: 16,
-                            right: 16,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  isVi ? 'Hành trình của bạn' : 'Your journey',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _primary,
-                                    letterSpacing: 0.05 * 10,
-                                  ),
-                                ),
-                                Text(
-                                  isVi
-                                      ? 'Sẵn sàng tiếp tục?'
-                                      : 'Ready to continue?',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                    color: _onSurface,
-                                    letterSpacing: -0.015 * 22,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                    Text(
+                      isVi ? 'Đăng nhập' : 'Sign In',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _onSurface,
+                        letterSpacing: -0.01 * 18,
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // ── Username field ──────────────────────────────────────
-                    _SectionLabel(isVi ? 'TÊN ĐĂNG NHẬP' : 'USERNAME'),
-                    const SizedBox(height: 6),
-                    _StitchTextField(
-                      controller: _usernameController,
-                      hintText: isVi
-                          ? 'Nhập tên đăng nhập'
-                          : 'Enter your username',
-                      prefixIcon: Icons.person_outline_rounded,
-                      validator: (value) => validateUsername(value, isVi: isVi),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Password field ──────────────────────────────────────
-                    _SectionLabel(isVi ? 'MẬT KHẨU' : 'PASSWORD'),
-                    const SizedBox(height: 6),
-                    _StitchTextField(
-                      controller: _passwordController,
-                      hintText: isVi
-                          ? 'Nhập mật khẩu của bạn'
-                          : 'Enter your password',
-                      prefixIcon: Icons.lock_outline_rounded,
-                      obscureText: _obscurePassword,
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: _primary.withValues(alpha: 0.7),
-                          size: 20,
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return isVi
-                              ? 'Vui lòng nhập mật khẩu'
-                              : 'Enter your password';
-                        }
-                        if (value.length < 6) {
-                          return isVi
-                              ? 'Tối thiểu 6 ký tự'
-                              : 'Minimum 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    // ── Forgot password ─────────────────────────────────────
                     Align(
                       alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ForgotPasswordScreen(),
-                            ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 8,
-                          ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          isVi ? 'Quên mật khẩu?' : 'Forgot password?',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: _primary,
-                          ),
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          AuthThemeToggle(),
+                          SizedBox(width: 8),
+                          AuthLanguageToggle(),
+                        ],
                       ),
-                    ),
-
-                    // ── Error message ───────────────────────────────────────
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 8),
-                      _ErrorMessage(_errorMessage!),
-                    ],
-                    const SizedBox(height: 20),
-
-                    // ── Primary CTA (stitch: bg-[#A8DCE7] text-[#09181c] pill) ─
-                    _PrimaryButton(
-                      label: isVi ? 'Đăng Nhập' : 'Sign In',
-                      isLoading: _isLoading,
-                      disabled: _isGoogleLoading,
-                      onPressed: _login,
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Divider ─────────────────────────────────────────────
-                    Row(
-                      children: [
-                        const Expanded(child: Divider(color: _outlineVariant)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text(
-                            isVi ? 'Hoặc tiếp tục với' : 'Or continue with',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: _onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        const Expanded(child: Divider(color: _outlineVariant)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Google button ───────────────────────────────────────
-                    _GoogleButton(
-                      label: isVi
-                          ? 'Tiếp tục với Google'
-                          : 'Continue with Google',
-                      isLoading: _isGoogleLoading,
-                      disabled: _isLoading,
-                      onPressed: _loginWithGoogle,
-                    ),
-                    const SizedBox(height: 28),
-
-                    // ── Sign up link ────────────────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          isVi
-                              ? 'Chưa có tài khoản? '
-                              : "Don't have an account? ",
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _onSurfaceVariant,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const RegisterScreen(),
-                              ),
-                            );
-                          },
-                          child: Text(
-                            isVi ? 'Tạo tài khoản' : 'Create account',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: _primary,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+            // Divider matching stitch border-b border-[#23323a]
+            const Divider(height: 1, thickness: 1, color: _outlineVariant),
+
+            // ── Scrollable Body ───────────────────────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Hero image area (editorial athletic photo) ──────────
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          children: [
+                            Image.asset(
+                              'assets/login_header.png',
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    height: 180,
+                                    color: _surface,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.fitness_center_rounded,
+                                        color: _primary,
+                                        size: 48,
+                                      ),
+                                    ),
+                                  ),
+                            ),
+                            // Gradient scrim — same as stitch home hero
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      _bg.withValues(alpha: 0.2),
+                                      _bg.withValues(alpha: 0.80),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Bottom overlay text
+                            Positioned(
+                              bottom: 16,
+                              left: 16,
+                              right: 16,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isVi
+                                        ? 'Hành trình của bạn'
+                                        : 'Your journey',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _primary,
+                                      letterSpacing: 0.05 * 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    isVi
+                                        ? 'Sẵn sàng tiếp tục?'
+                                        : 'Ready to continue?',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: _onSurface,
+                                      letterSpacing: -0.015 * 22,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Username field ──────────────────────────────────────
+                      _SectionLabel(isVi ? 'TÊN ĐĂNG NHẬP' : 'USERNAME'),
+                      const SizedBox(height: 6),
+                      _StitchTextField(
+                        controller: _usernameController,
+                        hintText: isVi
+                            ? 'Nhập tên đăng nhập'
+                            : 'Enter your username',
+                        prefixIcon: Icons.person_outline_rounded,
+                        validator: (value) =>
+                            validateUsername(value, isVi: isVi),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Password field ──────────────────────────────────────
+                      _SectionLabel(isVi ? 'MẬT KHẨU' : 'PASSWORD'),
+                      const SizedBox(height: 6),
+                      _StitchTextField(
+                        controller: _passwordController,
+                        hintText: isVi
+                            ? 'Nhập mật khẩu của bạn'
+                            : 'Enter your password',
+                        prefixIcon: Icons.lock_outline_rounded,
+                        obscureText: _obscurePassword,
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: _primary.withValues(alpha: 0.7),
+                            size: 20,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return isVi
+                                ? 'Vui lòng nhập mật khẩu'
+                                : 'Enter your password';
+                          }
+                          if (value.length < 6) {
+                            return isVi
+                                ? 'Tối thiểu 6 ký tự'
+                                : 'Minimum 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      // ── Forgot password ─────────────────────────────────────
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 8,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            isVi ? 'Quên mật khẩu?' : 'Forgot password?',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _primary,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // ── Error message ───────────────────────────────────────
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 8),
+                        _ErrorMessage(_errorMessage!),
+                      ],
+                      const SizedBox(height: 20),
+
+                      // ── Primary CTA (stitch: bg-[#A8DCE7] text-[#09181c] pill) ─
+                      _PrimaryButton(
+                        label: isVi ? 'Đăng Nhập' : 'Sign In',
+                        isLoading: _isLoading,
+                        disabled: _isGoogleLoading,
+                        onPressed: _login,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // ── Divider ─────────────────────────────────────────────
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Divider(color: _outlineVariant),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Text(
+                              isVi ? 'Hoặc tiếp tục với' : 'Or continue with',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const Expanded(
+                            child: Divider(color: _outlineVariant),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Google button ───────────────────────────────────────
+                      _GoogleButton(
+                        label: isVi
+                            ? 'Tiếp tục với Google'
+                            : 'Continue with Google',
+                        isLoading: _isGoogleLoading,
+                        disabled: _isLoading,
+                        onPressed: _loginWithGoogle,
+                      ),
+                      const SizedBox(height: 28),
+
+                      // ── Sign up link ────────────────────────────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            isVi
+                                ? 'Chưa có tài khoản? '
+                                : "Don't have an account? ",
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _onSurfaceVariant,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const RegisterScreen(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              isVi ? 'Tạo tài khoản' : 'Create account',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

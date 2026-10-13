@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/core/providers/connectivity_providers.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/profile/presentation/providers/user_profile_providers.dart';
@@ -22,11 +23,21 @@ class WorkoutList extends _$WorkoutList {
   /// in flight, partitioned by owner so an account switch can never expose a
   /// previous user's optimistic data.
   final Map<String, List<WorkoutSession>> _pendingLocalSessionsByUser = {};
+  bool _reconnectSyncInFlight = false;
+  bool _disposed = false;
 
   @override
   Future<List<WorkoutSession>> build() async {
     final user = ref.watch(currentUserIdProvider);
     if (user == null) return const [];
+
+    _disposed = false;
+    ref.onDispose(() => _disposed = true);
+    ref.listen(appConnectionProvider, (previous, next) {
+      if (previous?.valueOrNull == false && next.valueOrNull == true) {
+        unawaited(_syncAfterReconnect());
+      }
+    });
 
     final repository = ref.read(workoutRepositoryProvider);
 
@@ -54,6 +65,19 @@ class WorkoutList extends _$WorkoutList {
       await repository.getSessionsLocal(user),
       userId: user,
     );
+  }
+
+  Future<void> _syncAfterReconnect() async {
+    if (_reconnectSyncInFlight) return;
+    _reconnectSyncInFlight = true;
+    try {
+      await ref.read(workoutRepositoryProvider).syncPendingData();
+      if (!_disposed) ref.invalidateSelf();
+    } catch (error) {
+      debugPrint('[WorkoutList] reconnect sync failed: $error');
+    } finally {
+      _reconnectSyncInFlight = false;
+    }
   }
 
   /// Shows a just-finished session in the list immediately, without waiting

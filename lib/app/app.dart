@@ -10,6 +10,7 @@ import 'package:fitness_exercise_application/features/workout/presentation/provi
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 
@@ -72,7 +73,10 @@ class AetronTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AetronColors.panelHigh,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AetronRadius.medium),
           borderSide: const BorderSide(color: AetronColors.borderSubtle),
@@ -89,14 +93,20 @@ class AetronTheme {
           borderRadius: BorderRadius.circular(AetronRadius.medium),
           borderSide: const BorderSide(color: AetronColors.error),
         ),
-        hintStyle: AetronTypography.body.copyWith(color: AetronColors.textSecondary),
-        labelStyle: AetronTypography.bodySmall.copyWith(color: AetronColors.textSecondary),
+        hintStyle: AetronTypography.body.copyWith(
+          color: AetronColors.textSecondary,
+        ),
+        labelStyle: AetronTypography.bodySmall.copyWith(
+          color: AetronColors.textSecondary,
+        ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AetronColors.surface,
         modalBackgroundColor: AetronColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AetronRadius.extraLarge)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AetronRadius.extraLarge),
+          ),
         ),
       ),
       dialogTheme: DialogThemeData(
@@ -142,9 +152,20 @@ class MyApp extends ConsumerWidget {
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       scrollBehavior: const KineticScrollBehavior(),
-      home: const NotificationLifecycleObserver(
-        child: AuthWrapper(),
-      ),
+      builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark
+                ? Brightness.light
+                : Brightness.dark,
+            statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: const NotificationLifecycleObserver(child: AuthWrapper()),
     );
   }
 }
@@ -166,7 +187,9 @@ class _NotificationLifecycleObserverState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshNotificationSchedules());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _refreshNotificationSchedules(),
+    );
   }
 
   @override

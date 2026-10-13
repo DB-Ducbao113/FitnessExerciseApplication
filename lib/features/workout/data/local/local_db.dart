@@ -370,12 +370,12 @@ class LocalDB {
         .findFirst();
   }
 
-  static Future<void> deleteWorkout(int id) async {
-    if (kIsWeb) return;
+  static Future<bool> deleteWorkout(int id) async {
+    if (kIsWeb) return true;
     try {
       await init();
       final isar = _isar;
-      if (isar == null) return;
+      if (isar == null) return false;
       final workout = await isar.localWorkouts.get(id);
       final sessionId = workout?.sessionId;
       await isar.writeTxn(() async {
@@ -391,8 +391,10 @@ class LocalDB {
         }
         await isar.localWorkouts.delete(id);
       });
+      return true;
     } catch (e) {
       debugPrint('[LocalDB] deleteWorkout error: $e');
+      return false;
     }
   }
 
@@ -419,13 +421,35 @@ class LocalDB {
         .findAll();
   }
 
+  /// Assign workouts recorded before sign-in to the user who explicitly signs
+  /// in on this device. Raw GPS and step rows are linked by session id and do
+  /// not need to be rewritten.
+  static Future<int> claimGuestWorkouts(String userId) async {
+    if (kIsWeb || userId.isEmpty || userId == 'local_user') return 0;
+    await init();
+    final isar = _isar;
+    if (isar == null) return 0;
+    return isar.writeTxn(() async {
+      final guestWorkouts = await isar.localWorkouts
+          .filter()
+          .userIdEqualTo('local_user')
+          .findAll();
+      for (final workout in guestWorkouts) {
+        workout.userId = userId;
+        workout.isSynced = false;
+      }
+      await isar.localWorkouts.putAll(guestWorkouts);
+      return guestWorkouts.length;
+    });
+  }
+
   /// Wipe all local cache for a specific user (used on logout).
-  static Future<void> clearAllForUser(String userId) async {
-    if (kIsWeb) return;
+  static Future<bool> clearAllForUser(String userId) async {
+    if (kIsWeb) return true;
     try {
       await init();
       final isar = _isar;
-      if (isar == null) return;
+      if (isar == null) return false;
       final workouts = await isar.localWorkouts
           .filter()
           .userIdEqualTo(userId)
@@ -448,8 +472,10 @@ class LocalDB {
         }
         await isar.localWorkouts.filter().userIdEqualTo(userId).deleteAll();
       });
+      return true;
     } catch (e) {
       debugPrint('[LocalDB] clearAllForUser error: $e');
+      return false;
     }
   }
 

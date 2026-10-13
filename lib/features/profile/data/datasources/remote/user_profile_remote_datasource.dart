@@ -25,6 +25,18 @@ class UserProfileRemoteDataSource {
         : ((rawHeightM as num?)?.toDouble() ?? 0) * 100.0;
     final dateOfBirth = _parseDate(response['date_of_birth']);
     final legacyAge = (response['age'] as num?)?.toInt() ?? 0;
+    final storedAvatar = response['avatar_url'] as String?;
+    final avatarPath = avatarStoragePathFromValue(storedAvatar);
+    String? signedAvatarUrl;
+    if (avatarPath != null) {
+      try {
+        signedAvatarUrl = await _supabase.storage
+            .from('avatars')
+            .createSignedUrl(avatarPath, 7 * 24 * 60 * 60);
+      } catch (_) {
+        signedAvatarUrl = null;
+      }
+    }
 
     return UserProfileModel(
       id: response['id'] as String,
@@ -36,7 +48,7 @@ class UserProfileRemoteDataSource {
       gender: (response['gender'] as String?) ?? '',
       createdAt: DateTime.parse(response['created_at'] as String),
       updatedAt: DateTime.parse(response['updated_at'] as String),
-      avatarUrl: response['avatar_url'] as String?,
+      avatarUrl: signedAvatarUrl,
     );
   }
 
@@ -50,7 +62,7 @@ class UserProfileRemoteDataSource {
       'date_of_birth': _serializeDate(profile.dateOfBirth),
       'age': _resolveAge(profile),
       'gender': profile.gender,
-      'avatar_url': profile.avatarUrl,
+      'avatar_url': avatarStoragePathFromValue(profile.avatarUrl),
       'created_at': profile.createdAt.toIso8601String(),
       'updated_at': profile.updatedAt.toIso8601String(),
     }, onConflict: 'user_id');
@@ -66,22 +78,31 @@ class UserProfileRemoteDataSource {
           'date_of_birth': _serializeDate(profile.dateOfBirth),
           'age': _resolveAge(profile),
           'gender': profile.gender,
-          'avatar_url': profile.avatarUrl,
+          'avatar_url': avatarStoragePathFromValue(profile.avatarUrl),
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('user_id', profile.userId);
   }
 
   /// Upload [imageBytes] or [imageFile] to a fresh Supabase Storage object.
-  /// Returns the public URL of the uploaded image.
+  /// Returns a short-lived signed URL for the uploaded private image.
   Future<String> uploadAvatarBytes(String userId, Uint8List imageBytes) async {
+    if (!isValidAvatarJpeg(imageBytes)) {
+      throw const FormatException(
+        'Avatar must be a valid JPEG no larger than 5 MiB.',
+      );
+    }
     final version = DateTime.now().millisecondsSinceEpoch;
     final storagePath = '$userId/avatar-$version.jpg';
     final bucket = _supabase.storage.from('avatars');
     const fileOptions = FileOptions(contentType: 'image/jpeg', upsert: true);
 
-    await bucket.uploadBinary(storagePath, imageBytes, fileOptions: fileOptions);
-    return bucket.getPublicUrl(storagePath);
+    await bucket.uploadBinary(
+      storagePath,
+      imageBytes,
+      fileOptions: fileOptions,
+    );
+    return bucket.createSignedUrl(storagePath, 7 * 24 * 60 * 60);
   }
 
   Future<String> uploadAvatar(String userId, File imageFile) async {
@@ -94,7 +115,7 @@ class UserProfileRemoteDataSource {
     await _supabase
         .from(DbTables.userProfiles)
         .update({
-          'avatar_url': avatarUrl,
+          'avatar_url': avatarStoragePathFromValue(avatarUrl),
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('user_id', userId);
@@ -102,10 +123,27 @@ class UserProfileRemoteDataSource {
 
   /// Remove the current stored avatar object when storage allows it.
   Future<void> deleteAvatarObject(String userId, {String? avatarUrl}) async {
-    final storagePath =
-        _avatarStoragePathFromUrl(avatarUrl) ?? '$userId/avatar.jpg';
     try {
-      await _supabase.storage.from('avatars').remove([storagePath]);
+      final bucket = _supabase.storage.from('avatars');
+      final storagePath = avatarStoragePathFromValue(avatarUrl);
+      if (storagePath != null) {
+        await bucket.remove([storagePath]);
+        return;
+      }
+
+      // A null URL is used by account/avatar deletion. Remove the complete
+      // tenant folder so old versioned uploads cannot survive the deletion.
+      for (var page = 0; page < 100; page++) {
+        final objects = await bucket.list(
+          path: userId,
+          searchOptions: const SearchOptions(limit: 100),
+        );
+        if (objects.isEmpty) break;
+        await bucket.remove(
+          objects.map((object) => '$userId/${object.name}').toList(),
+        );
+        if (objects.length < 100) break;
+      }
     } catch (_) {
       // The profile should still fall back to the default avatar even if the
       // stored object was already missing or storage deletion is blocked.
@@ -134,49 +172,81 @@ class UserProfileRemoteDataSource {
     } catch (e) {
       debugPrint('[RemoteDataSource] RPC delete_user_account fallback: $e');
       // If error is network or auth issue, rethrow immediately
-      if (e is PostgrestException && e.code != 'PGRST202' && e.code != '42883') {
+      if (e is PostgrestException &&
+          e.code != 'PGRST202' &&
+          e.code != '42883') {
         rethrow;
       }
     }
 
     // 3. Fallback table-by-table deletion
     try {
-      await _supabase.from('workout_segment_audits').delete().filter(
+      await _supabase
+          .from('workout_segment_audits')
+          .delete()
+          .filter(
             'workout_id',
             'in',
-            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+            _supabase
+                .from(DbTables.workoutSessions)
+                .select('id')
+                .eq('user_id', userId),
           );
     } catch (_) {}
 
     try {
-      await _supabase.from(DbTables.workoutProcessingLogs).delete().filter(
+      await _supabase
+          .from(DbTables.workoutProcessingLogs)
+          .delete()
+          .filter(
             'workout_id',
             'in',
-            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+            _supabase
+                .from(DbTables.workoutSessions)
+                .select('id')
+                .eq('user_id', userId),
           );
     } catch (_) {}
 
     try {
-      await _supabase.from(DbTables.workoutProcessingJobs).delete().filter(
+      await _supabase
+          .from(DbTables.workoutProcessingJobs)
+          .delete()
+          .filter(
             'workout_id',
             'in',
-            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+            _supabase
+                .from(DbTables.workoutSessions)
+                .select('id')
+                .eq('user_id', userId),
           );
     } catch (_) {}
 
     try {
-      await _supabase.from(DbTables.rawGpsPoints).delete().filter(
+      await _supabase
+          .from(DbTables.rawGpsPoints)
+          .delete()
+          .filter(
             'workout_id',
             'in',
-            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+            _supabase
+                .from(DbTables.workoutSessions)
+                .select('id')
+                .eq('user_id', userId),
           );
     } catch (_) {}
 
     try {
-      await _supabase.from(DbTables.rawStepIntervals).delete().filter(
+      await _supabase
+          .from(DbTables.rawStepIntervals)
+          .delete()
+          .filter(
             'workout_id',
             'in',
-            _supabase.from(DbTables.workoutSessions).select('id').eq('user_id', userId),
+            _supabase
+                .from(DbTables.workoutSessions)
+                .select('id')
+                .eq('user_id', userId),
           );
     } catch (_) {}
 
@@ -187,30 +257,48 @@ class UserProfileRemoteDataSource {
         .eq('user_id', userId);
 
     try {
-      await _supabase.from('user_recovery_emails').delete().eq('user_id', userId);
+      await _supabase
+          .from('user_recovery_emails')
+          .delete()
+          .eq('user_id', userId);
     } catch (_) {}
 
-    await _supabase
-        .from(DbTables.userGoals)
-        .delete()
-        .eq('user_id', userId);
+    await _supabase.from(DbTables.userGoals).delete().eq('user_id', userId);
 
-    await _supabase
-        .from(DbTables.userProfiles)
-        .delete()
-        .eq('user_id', userId);
+    await _supabase.from(DbTables.userProfiles).delete().eq('user_id', userId);
   }
 }
 
+bool isValidAvatarJpeg(Uint8List bytes) {
+  return bytes.length >= 4 &&
+      bytes.length <= 5 * 1024 * 1024 &&
+      bytes[0] == 0xff &&
+      bytes[1] == 0xd8 &&
+      bytes[2] == 0xff;
+}
 
-String? _avatarStoragePathFromUrl(String? avatarUrl) {
-  if (avatarUrl == null || avatarUrl.isEmpty) return null;
-  final uri = Uri.tryParse(avatarUrl);
+String? avatarStoragePathFromValue(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  final trimmed = value.trim();
+  final uri = Uri.tryParse(trimmed);
   if (uri == null) return null;
 
-  final index = uri.pathSegments.indexOf('avatars');
-  if (index < 0 || index + 1 >= uri.pathSegments.length) return null;
-  return uri.pathSegments.skip(index + 1).map(Uri.decodeComponent).join('/');
+  String candidate;
+  if (uri.hasScheme) {
+    if (uri.scheme != 'https') return null;
+    final index = uri.pathSegments.indexOf('avatars');
+    if (index < 0 || index + 1 >= uri.pathSegments.length) return null;
+    candidate = uri.pathSegments
+        .skip(index + 1)
+        .map(Uri.decodeComponent)
+        .join('/');
+  } else {
+    candidate = trimmed;
+  }
+  if (!RegExp(r'^[A-Za-z0-9_-]+/[A-Za-z0-9._-]+$').hasMatch(candidate)) {
+    return null;
+  }
+  return candidate;
 }
 
 DateTime? _parseDate(dynamic value) {
@@ -229,7 +317,8 @@ int _resolveAge(UserProfileModel profile) {
     final now = DateTime.now();
     int calculated = now.year - profile.dateOfBirth!.year;
     if (now.month < profile.dateOfBirth!.month ||
-        (now.month == profile.dateOfBirth!.month && now.day < profile.dateOfBirth!.day)) {
+        (now.month == profile.dateOfBirth!.month &&
+            now.day < profile.dateOfBirth!.day)) {
       calculated--;
     }
     return calculated > 0 ? calculated : 20;

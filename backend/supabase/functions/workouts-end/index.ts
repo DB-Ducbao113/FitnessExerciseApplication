@@ -1,13 +1,29 @@
-// @deno-types="https://esm.sh/@supabase/supabase-js@2.105.1"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
+import {
+  corsPreflightResponse,
+  logSecurityEvent,
+  readJsonBody,
+  requestIdFor,
+  secureJsonResponse,
+  validateWorkoutEndPayload,
+} from "../_shared/security.ts";
 
 Deno.serve(async (req: Request) => {
+  const requestId = requestIdFor(req);
+  const requestStarted = performance.now();
+  if (req.method === "OPTIONS") return corsPreflightResponse(req);
+  if (req.method !== "POST") {
+    return secureJsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
+      "X-Request-Id": requestId,
+    });
+  }
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
     const supabase = createClient(
@@ -20,112 +36,148 @@ Deno.serve(async (req: Request) => {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
-    const payload = await req.json();
-    if (!payload.workout_id) {
-      return new Response(JSON.stringify({ error: "Missing workout_id" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
+
+    let payload: unknown;
+    try {
+      payload = await readJsonBody(req, 32 * 1024);
+    } catch (error) {
+      const tooLarge = error instanceof Error &&
+        error.message === "Payload too large";
+      return secureJsonResponse(
+        req,
+        { error: tooLarge ? "Payload too large" : "Invalid JSON" },
+        tooLarge ? 413 : 400,
+        { "X-Request-Id": requestId },
+      );
+    }
+    const validation = validateWorkoutEndPayload(payload);
+    if (!validation.ok) {
+      return secureJsonResponse(req, { error: validation.error }, 400, {
+        "X-Request-Id": requestId,
       });
     }
+
     const endedAt = new Date().toISOString();
     const { data: existing, error: fetchError } = await supabase
       .from("workout_sessions")
-      .select("id, user_id, started_at")
-      .eq("id", payload.workout_id)
+      .select("id, started_at")
+      .eq("id", validation.workoutId)
       .eq("user_id", user.id)
       .maybeSingle();
     if (fetchError || !existing) {
-      return new Response(
-        JSON.stringify({ error: "Workout session not found or access denied" }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        },
+      return secureJsonResponse(
+        req,
+        { error: "Workout session not found or access denied" },
+        404,
+        { "X-Request-Id": requestId },
       );
     }
-    let durationSec = payload.duration_sec ?? null;
-    if (!durationSec && existing.started_at) {
-      const startMs = new Date(existing.started_at).getTime();
-      const endMs = new Date(endedAt).getTime();
-      durationSec = Math.round((endMs - startMs) / 1000);
+
+    const elapsedSeconds = Math.max(
+      0,
+      Math.min(
+        7 * 24 * 60 * 60,
+        Math.round(
+          (Date.parse(endedAt) - Date.parse(existing.started_at)) / 1000,
+        ),
+      ),
+    );
+    const durationSec = validation.durationSec ?? elapsedSeconds;
+    const movingTimeSec = validation.movingTimeSec ?? durationSec;
+    if (movingTimeSec > durationSec) {
+      return secureJsonResponse(
+        req,
+        { error: "moving_time_sec exceeds duration_sec" },
+        400,
+        { "X-Request-Id": requestId },
+      );
     }
-    const movingTimeSec = payload.moving_time_sec ?? durationSec ?? 0;
+
     const { error: updateError } = await supabase
       .from("workout_sessions")
       .update({
         ended_at: endedAt,
         duration_sec: durationSec,
         moving_time_sec: movingTimeSec,
-        distance_km: payload.distance_km ?? null,
-        avg_speed_kmh: payload.avg_speed_kmh ?? null,
-        calories_kcal: payload.calories_kcal ?? null,
-        steps: payload.steps ?? null,
+        distance_km: validation.distanceKm,
+        avg_speed_kmh: validation.avgSpeedKmh,
+        calories_kcal: validation.caloriesKcal,
+        steps: validation.steps,
         processing_status: "client_finished_pending_processing",
       })
-      .eq("id", payload.workout_id)
+      .eq("id", validation.workoutId)
       .eq("user_id", user.id);
     if (updateError) {
-      console.error("Update error:", updateError);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+      logSecurityEvent("error", "workout_end_update_failed", requestId);
+      return secureJsonResponse(
+        req,
+        { error: "Could not finish workout" },
+        500,
+        { "X-Request-Id": requestId },
+      );
     }
 
     const { error: jobError } = await supabase
       .from("workout_processing_jobs")
       .insert({
-        workout_id: payload.workout_id,
+        workout_id: validation.workoutId,
         job_type: "deterministic_finalize",
         status: "queued",
         attempt_count: 0,
       });
-    if (jobError) {
-      console.error("Job enqueue error:", jobError);
-      return new Response(JSON.stringify({ error: jobError.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (jobError && jobError.code !== "23505") {
+      logSecurityEvent("error", "workout_job_enqueue_failed", requestId);
+      return secureJsonResponse(
+        req,
+        { error: "Workout saved but processing could not be queued" },
+        503,
+        { "X-Request-Id": requestId },
+      );
     }
 
-    await supabase
-      .from("workout_processing_logs")
-      .insert({
-        workout_id: payload.workout_id,
-        log_level: "info",
-        event_type: "edge_finish_enqueued",
-        message: "Edge function queued deterministic finalize processing.",
-        payload: {
-          duration_sec: durationSec,
-          moving_time_sec: movingTimeSec,
-          distance_km: payload.distance_km ?? null,
-          avg_speed_kmh: payload.avg_speed_kmh ?? null,
-          calories_kcal: payload.calories_kcal ?? null,
-          steps: payload.steps ?? null,
-        },
-      });
+    await supabase.from("workout_processing_logs").insert({
+      workout_id: validation.workoutId,
+      log_level: "info",
+      event_type: "edge_finish_enqueued",
+      message: "Edge function queued deterministic finalize processing.",
+      payload: {
+        duration_sec: durationSec,
+        moving_time_sec: movingTimeSec,
+        distance_km: validation.distanceKm,
+        avg_speed_kmh: validation.avgSpeedKmh,
+        calories_kcal: validation.caloriesKcal,
+        steps: validation.steps,
+        request_id: requestId,
+      },
+    });
 
-    return new Response(
-      JSON.stringify({
+    logSecurityEvent("info", "workout_finished", requestId, {
+      duration_ms: Math.round(performance.now() - requestStarted),
+      processing_job_duplicate: jobError?.code === "23505",
+    });
+    return secureJsonResponse(
+      req,
+      {
         status: "ok",
-        workout_id: payload.workout_id,
+        workout_id: validation.workoutId,
         ended_at: endedAt,
         duration_sec: durationSec,
         moving_time_sec: movingTimeSec,
         processing_status: "client_finished_pending_processing",
-      }),
-      { headers: { "Content-Type": "application/json" } },
+      },
+      200,
+      { "X-Request-Id": requestId },
     );
-  } catch (err) {
-    console.error("Server error:", err);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+  } catch {
+    logSecurityEvent("error", "workout_end_failed", requestId, {
+      duration_ms: Math.round(performance.now() - requestStarted),
+    });
+    return secureJsonResponse(req, { error: "Internal Server Error" }, 500, {
+      "X-Request-Id": requestId,
     });
   }
 });

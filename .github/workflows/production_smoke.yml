@@ -1,0 +1,57 @@
+name: Production availability monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check frontend and Supabase health
+        run: |
+          check_endpoint() {
+            name="$1"
+            url="$2"
+            expected="$3"
+            result=$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code} %{time_total}' --max-time 10 "$url")
+            status=${result%% *}
+            duration=${result##* }
+            echo "$name status=$status duration_seconds=$duration"
+            if [ "$status" != "$expected" ]; then
+              echo "::error title=$name unavailable::Expected $expected, received $status"
+              return 1
+            fi
+            awk -v duration="$duration" 'BEGIN { exit !(duration < 2.0) }' || {
+              echo "::error title=$name latency SLO exceeded::${duration}s >= 2.0s"
+              return 1
+            }
+          }
+
+          check_endpoint frontend https://aetrongps.vercel.app/app/ 200
+          check_endpoint supabase-auth \
+            https://xsqptdzselqyefpmdozz.supabase.co/auth/v1/health 200
+
+      - name: Check Edge Function CORS preflight
+        run: |
+          for function_name in workouts-start workouts-end gps-track generate-workout-insight; do
+            result=$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code} %{time_total}' --max-time 10 \
+              --request OPTIONS \
+              --header 'Origin: https://aetrongps.vercel.app' \
+              --header 'Access-Control-Request-Method: POST' \
+              "https://xsqptdzselqyefpmdozz.supabase.co/functions/v1/$function_name")
+            status=${result%% *}
+            duration=${result##* }
+            echo "$function_name status=$status duration_seconds=$duration"
+            if [ "$status" != "204" ]; then
+              echo "::error title=Edge Function unavailable::$function_name returned $status"
+              exit 1
+            fi
+          done

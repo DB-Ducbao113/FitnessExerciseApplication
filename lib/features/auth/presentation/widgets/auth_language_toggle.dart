@@ -1,5 +1,5 @@
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
-import 'package:fitness_exercise_application/shared/kinetic/kinetic_tokens.dart';
+import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,6 +52,42 @@ class AuthLanguageToggle extends ConsumerWidget {
     if (ref.read(appLanguageProvider) == language) return;
     HapticFeedback.selectionClick();
     await ref.read(appLanguageProvider.notifier).setLanguage(language);
+  }
+}
+
+/// Lets signed-out users choose the same persisted appearance preference that
+/// is available in Settings after sign-in.
+class AuthThemeToggle extends ConsumerWidget {
+  const AuthThemeToggle({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final colors = context.kinetic;
+
+    return Semantics(
+      button: true,
+      label: isLight ? 'Switch to dark theme' : 'Switch to light theme',
+      child: Material(
+        color: colors.surface1,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => ref
+              .read(themeModeProvider.notifier)
+              .setThemeMode(isLight ? ThemeMode.dark : ThemeMode.light),
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: Icon(
+              isLight ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+              size: 18,
+              color: colors.primary,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

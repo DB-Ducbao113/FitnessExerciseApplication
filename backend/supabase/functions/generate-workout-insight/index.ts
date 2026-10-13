@@ -1,10 +1,15 @@
 // @deno-types="https://esm.sh/@supabase/supabase-js@2.105.1"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createServiceClient } from "../_shared/recovery_email.ts";
+import {
+  consumeRateLimit,
+  corsPreflightResponse,
+  logSecurityEvent,
+  readJsonBody,
+  requestIdFor,
+  secureJsonResponse,
+  validateInsightRequest,
+} from "../_shared/security.ts";
 
 interface NextSessionSuggestion {
   recommended_activity: string;
@@ -63,7 +68,7 @@ async function computeHash(text: string): Promise<string> {
 function generateFallbackInsight(
   activityType: string,
   signals: WorkoutSignals,
-  language: string = "en"
+  language: string = "en",
 ): InsightJson {
   const isVi = language.toLowerCase() === "vi";
   const isRunning = activityType.toLowerCase() === "running";
@@ -101,19 +106,27 @@ function generateFallbackInsight(
   } else {
     // English Fallback
     if (signals.pace_consistency_cv < 0.10 && signals.pace_consistency_cv > 0) {
-      strengths.push("Maintained a highly consistent pace throughout the workout.");
+      strengths.push(
+        "Maintained a highly consistent pace throughout the workout.",
+      );
     } else {
       watchouts.push("Pace showed minor fluctuations across lap splits.");
     }
 
     if (signals.pace_fatigue_slope > 0.08) {
-      watchouts.push("Pace slowed down in the final split (sign of muscular fatigue).");
+      watchouts.push(
+        "Pace slowed down in the final split (sign of muscular fatigue).",
+      );
     } else if (signals.pace_fatigue_slope < -0.02) {
-      strengths.push("Strong finishing kick with positive acceleration (negative split).");
+      strengths.push(
+        "Strong finishing kick with positive acceleration (negative split).",
+      );
     }
 
     if (signals.rest_ratio > 0.15) {
-      watchouts.push("Rest duration accounted for over 15% of the total session.");
+      watchouts.push(
+        "Rest duration accounted for over 15% of the total session.",
+      );
     }
 
     if (signals.gps_reliability_score < 0.8) {
@@ -121,7 +134,9 @@ function generateFallbackInsight(
     }
 
     if (strengths.length === 0) {
-      strengths.push("Successfully completed the workout within targeted duration.");
+      strengths.push(
+        "Successfully completed the workout within targeted duration.",
+      );
     }
     if (watchouts.length === 0) {
       watchouts.push("Ensure proper hydration and post-workout stretching.");
@@ -158,18 +173,19 @@ function generateFallbackInsight(
       : "Try a short run session to challenge your cardiovascular endurance.";
   }
 
-  const actCapitalized = activityType.charAt(0).toUpperCase() + activityType.slice(1);
+  const actCapitalized = activityType.charAt(0).toUpperCase() +
+    activityType.slice(1);
   const headline = isVi
     ? `Đánh giá buổi ${activityType}`
     : `${actCapitalized} Workout Performance Recap`;
 
   const mainInsight = isVi
     ? (isRunning
-        ? "Buổi chạy thể hiện nhịp độ ổn định. Tốc độ di chuyển và lượng calo tiêu thụ đạt mức tối ưu cho sức bền."
-        : "Hoàn thành buổi tập thành công. Khả năng duy trì nhịp vận động phù hợp với mục tiêu thể lực.")
+      ? "Buổi chạy thể hiện nhịp độ ổn định. Tốc độ di chuyển và lượng calo tiêu thụ đạt mức tối ưu cho sức bền."
+      : "Hoàn thành buổi tập thành công. Khả năng duy trì nhịp vận động phù hợp với mục tiêu thể lực.")
     : (isRunning
-        ? "Solid running session with well-balanced pacing. Your moving velocity and energy expenditure matched your endurance baseline."
-        : "Workout successfully completed. Moving rhythm and physiological exertion were well-aligned with your fitness level.");
+      ? "Solid running session with well-balanced pacing. Your moving velocity and energy expenditure matched your endurance baseline."
+      : "Workout successfully completed. Moving rhythm and physiological exertion were well-aligned with your fitness level.");
 
   return {
     headline,
@@ -196,7 +212,7 @@ function validateAndSanitizeInsight(
   parsed: any,
   activityType: string,
   signals: WorkoutSignals,
-  language: string = "en"
+  language: string = "en",
 ): { valid: boolean; data?: InsightJson; reason?: string } {
   if (!parsed || typeof parsed !== "object") {
     return { valid: false, reason: "invalid_json" };
@@ -205,13 +221,17 @@ function validateAndSanitizeInsight(
   const isVi = language.toLowerCase() === "vi";
   const defaultHeadline = isVi
     ? `Đánh giá buổi ${activityType}`
-    : `${activityType.charAt(0).toUpperCase() + activityType.slice(1)} Session Recap`;
+    : `${
+      activityType.charAt(0).toUpperCase() + activityType.slice(1)
+    } Session Recap`;
 
-  const headline = typeof parsed.headline === "string" && parsed.headline.trim().length > 0
-    ? parsed.headline.trim()
-    : defaultHeadline;
+  const headline =
+    typeof parsed.headline === "string" && parsed.headline.trim().length > 0
+      ? parsed.headline.trim()
+      : defaultHeadline;
 
-  const mainInsight = typeof parsed.main_insight === "string" && parsed.main_insight.trim().length > 0
+  const mainInsight = typeof parsed.main_insight === "string" &&
+      parsed.main_insight.trim().length > 0
     ? parsed.main_insight.trim()
     : "";
 
@@ -227,22 +247,32 @@ function validateAndSanitizeInsight(
     }
   }
 
-  const defaultStrength = isVi ? "Hoàn thành buổi tập đúng mục tiêu." : "Successfully met the workout target.";
-  const defaultWatchout = isVi ? "Chú ý bổ sung nước đầy đủ." : "Keep hydrated and recover properly.";
+  const defaultStrength = isVi
+    ? "Hoàn thành buổi tập đúng mục tiêu."
+    : "Successfully met the workout target.";
+  const defaultWatchout = isVi
+    ? "Chú ý bổ sung nước đầy đủ."
+    : "Keep hydrated and recover properly.";
 
   const strengths = Array.isArray(parsed.strengths)
-    ? parsed.strengths.filter((s: any) => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim())
+    ? parsed.strengths.filter((s: any) =>
+      typeof s === "string" && s.trim().length > 0
+    ).map((s: string) => s.trim())
     : [defaultStrength];
 
   const watchouts = Array.isArray(parsed.watchouts)
-    ? parsed.watchouts.filter((w: any) => typeof w === "string" && w.trim().length > 0).map((w: string) => w.trim())
+    ? parsed.watchouts.filter((w: any) =>
+      typeof w === "string" && w.trim().length > 0
+    ).map((w: string) => w.trim())
     : [defaultWatchout];
 
   const rawSuggestion = parsed.next_session_suggestion ?? {};
   const validActivities = ["running", "walking", "cycling", "rest"];
   const validIntensities = ["recovery", "aerobic", "tempo", "interval"];
 
-  const recActivity = validActivities.includes((rawSuggestion.recommended_activity ?? "").toLowerCase())
+  const recActivity = validActivities.includes(
+      (rawSuggestion.recommended_activity ?? "").toLowerCase(),
+    )
     ? rawSuggestion.recommended_activity.toLowerCase()
     : (activityType.toLowerCase() === "running" ? "running" : "walking");
 
@@ -252,12 +282,17 @@ function validateAndSanitizeInsight(
   // Safety clamp: 10 min to 120 min
   targetDuration = Math.max(10, Math.min(120, targetDuration));
 
-  const targetIntensity = validIntensities.includes((rawSuggestion.target_intensity ?? "").toLowerCase())
+  const targetIntensity = validIntensities.includes(
+      (rawSuggestion.target_intensity ?? "").toLowerCase(),
+    )
     ? rawSuggestion.target_intensity.toLowerCase()
     : "aerobic";
 
-  const defaultReason = isVi ? "Duy trì thể lực và phục hồi cơ bắp." : "Maintain cardiovascular endurance and muscle recovery.";
-  const reason = typeof rawSuggestion.reason === "string" && rawSuggestion.reason.trim().length > 0
+  const defaultReason = isVi
+    ? "Duy trì thể lực và phục hồi cơ bắp."
+    : "Maintain cardiovascular endurance and muscle recovery.";
+  const reason = typeof rawSuggestion.reason === "string" &&
+      rawSuggestion.reason.trim().length > 0
     ? rawSuggestion.reason.trim()
     : defaultReason;
 
@@ -289,7 +324,7 @@ async function callGeminiLlm(
   activityType: string,
   workout: any,
   signals: WorkoutSignals,
-  language: string = "en"
+  language: string = "en",
 ): Promise<InsightJson> {
   const isVi = language.toLowerCase() === "vi";
 
@@ -346,7 +381,8 @@ STRICT COACHING & SAFETY RULES:
     signals: signals,
   });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s timeout
@@ -354,7 +390,10 @@ STRICT COACHING & SAFETY RULES:
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       signal: controller.signal,
       body: JSON.stringify({
         systemInstruction: {
@@ -386,7 +425,12 @@ STRICT COACHING & SAFETY RULES:
     }
 
     const parsed = JSON.parse(candidateText);
-    const validation = validateAndSanitizeInsight(parsed, activityType, signals, language);
+    const validation = validateAndSanitizeInsight(
+      parsed,
+      activityType,
+      signals,
+      language,
+    );
     if (!validation.valid || !validation.data) {
       throw new Error(validation.reason || "guardrail_reject_signals");
     }
@@ -403,7 +447,7 @@ async function callOpenAiLlm(
   activityType: string,
   workout: any,
   signals: WorkoutSignals,
-  language: string = "en"
+  language: string = "en",
 ): Promise<InsightJson> {
   const isVi = language.toLowerCase() === "vi";
 
@@ -456,7 +500,12 @@ No hallucinations. No medical diagnoses. Return valid JSON with: headline, main_
     }
 
     const parsed = JSON.parse(content);
-    const validation = validateAndSanitizeInsight(parsed, activityType, signals, language);
+    const validation = validateAndSanitizeInsight(
+      parsed,
+      activityType,
+      signals,
+      language,
+    );
     if (!validation.valid || !validation.data) {
       throw new Error(validation.reason || "guardrail_reject_signals");
     }
@@ -468,23 +517,30 @@ No hallucinations. No medical diagnoses. Return valid JSON with: headline, main_
 }
 
 Deno.serve(async (req: Request) => {
+  const requestId = requestIdFor(req);
+  const requestStarted = performance.now();
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return corsPreflightResponse(req);
+  }
+  if (req.method !== "POST") {
+    return secureJsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
+      "X-Request-Id": requestId,
+    });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     );
 
     const {
@@ -493,21 +549,51 @@ Deno.serve(async (req: Request) => {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
 
-    const body = await req.json();
-    const workoutId = body.workout_id;
-    const language = (body.language ?? "en").toString().toLowerCase() === "vi" ? "vi" : "en";
-
-    if (!workoutId) {
-      return new Response(JSON.stringify({ error: "Missing workout_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let body: unknown;
+    try {
+      body = await readJsonBody(req, 64 * 1024);
+    } catch (error) {
+      const tooLarge = error instanceof Error &&
+        error.message === "Payload too large";
+      return secureJsonResponse(
+        req,
+        { error: tooLarge ? "Payload too large" : "Invalid JSON" },
+        tooLarge ? 413 : 400,
+        { "X-Request-Id": requestId },
+      );
+    }
+    const validation = validateInsightRequest(body);
+    if (!validation.ok) {
+      return secureJsonResponse(req, { error: validation.error }, 400, {
+        "X-Request-Id": requestId,
       });
+    }
+    const workoutId = validation.workoutId;
+    const language = validation.language;
+    const signals: WorkoutSignals = validation.signals;
+
+    const rateLimit = await consumeRateLimit(
+      createServiceClient(),
+      "workout_insight_user",
+      user.id,
+      10,
+      60 * 60,
+    );
+    if (!rateLimit.allowed) {
+      return secureJsonResponse(
+        req,
+        { error: "AI insight rate limit exceeded" },
+        429,
+        {
+          "Retry-After": rateLimit.retryAfterSeconds.toString(),
+          "X-Request-Id": requestId,
+        },
+      );
     }
 
     // Fetch workout session
@@ -519,23 +605,10 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (workoutError || !workout) {
-      return new Response(JSON.stringify({ error: "Workout not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Workout not found" }, 404, {
+        "X-Request-Id": requestId,
       });
     }
-
-    // Extract or compute signals
-    const signals: WorkoutSignals = body.signals ?? {
-      pace_fatigue_slope: 0.02,
-      pace_consistency_cv: 0.06,
-      rest_ratio: 0.02,
-      gps_reliability_score: 0.95,
-      baseline_pace_zscore: 0.0,
-      baseline_distance_zscore: 0.0,
-      goal_alignment: "on_track",
-      recent_7d_volume_km: 15.0,
-    };
 
     // Compute deterministic payload hash for caching (includes language)
     const payloadString = JSON.stringify({
@@ -557,9 +630,8 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (cachedInsight) {
-      return new Response(JSON.stringify(cachedInsight), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return secureJsonResponse(req, cachedInsight, 200, {
+        "X-Request-Id": requestId,
       });
     }
 
@@ -573,7 +645,13 @@ Deno.serve(async (req: Request) => {
 
     if (geminiKey) {
       try {
-        insightJson = await callGeminiLlm(geminiKey, workout.activity_type, workout, signals, language);
+        insightJson = await callGeminiLlm(
+          geminiKey,
+          workout.activity_type,
+          workout,
+          signals,
+          language,
+        );
         source = "llm";
         fallbackReason = "none";
       } catch (err: any) {
@@ -582,16 +660,28 @@ Deno.serve(async (req: Request) => {
           fallbackReason = "timeout";
         } else if (err.message === "medical_keyword") {
           fallbackReason = "medical_keyword";
-        } else if (err.message === "schema_fail" || err.message === "invalid_json") {
+        } else if (
+          err.message === "schema_fail" || err.message === "invalid_json"
+        ) {
           fallbackReason = err.message;
         } else {
           fallbackReason = "provider_error";
         }
-        insightJson = generateFallbackInsight(workout.activity_type, signals, language);
+        insightJson = generateFallbackInsight(
+          workout.activity_type,
+          signals,
+          language,
+        );
       }
     } else if (openAiKey) {
       try {
-        insightJson = await callOpenAiLlm(openAiKey, workout.activity_type, workout, signals, language);
+        insightJson = await callOpenAiLlm(
+          openAiKey,
+          workout.activity_type,
+          workout,
+          signals,
+          language,
+        );
         source = "llm";
         fallbackReason = "none";
       } catch (err: any) {
@@ -601,12 +691,20 @@ Deno.serve(async (req: Request) => {
         } else {
           fallbackReason = "provider_error";
         }
-        insightJson = generateFallbackInsight(workout.activity_type, signals, language);
+        insightJson = generateFallbackInsight(
+          workout.activity_type,
+          signals,
+          language,
+        );
       }
     } else {
       source = "fallback_rule";
       fallbackReason = "none";
-      insightJson = generateFallbackInsight(workout.activity_type, signals, language);
+      insightJson = generateFallbackInsight(
+        workout.activity_type,
+        signals,
+        language,
+      );
     }
 
     // Save generated insight to DB
@@ -626,8 +724,10 @@ Deno.serve(async (req: Request) => {
 
     if (insertError) {
       // Return insight even if DB cache insert fails
-      return new Response(
-        JSON.stringify({
+      logSecurityEvent("warn", "workout_insight_cache_failed", requestId);
+      return secureJsonResponse(
+        req,
+        {
           workout_id: workout.id,
           user_id: user.id,
           source,
@@ -635,25 +735,25 @@ Deno.serve(async (req: Request) => {
           insight_json: insightJson,
           payload_hash: payloadHash,
           fallback_reason: fallbackReason,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
+        200,
+        { "X-Request-Id": requestId },
       );
     }
 
-    return new Response(JSON.stringify(inserted), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    logSecurityEvent("info", "workout_insight_generated", requestId, {
+      source,
+      duration_ms: Math.round(performance.now() - requestStarted),
     });
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return secureJsonResponse(req, inserted, 200, {
+      "X-Request-Id": requestId,
+    });
+  } catch {
+    logSecurityEvent("error", "workout_insight_failed", requestId, {
+      duration_ms: Math.round(performance.now() - requestStarted),
+    });
+    return secureJsonResponse(req, { error: "Internal Server Error" }, 500, {
+      "X-Request-Id": requestId,
+    });
   }
 });

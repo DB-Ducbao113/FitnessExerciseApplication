@@ -1,13 +1,29 @@
-// @deno-types="https://esm.sh/@supabase/supabase-js@2.105.1"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
+import {
+  corsPreflightResponse,
+  logSecurityEvent,
+  readJsonBody,
+  requestIdFor,
+  secureJsonResponse,
+  validateWorkoutStartPayload,
+} from "../_shared/security.ts";
 
 Deno.serve(async (req: Request) => {
+  const requestId = requestIdFor(req);
+  const started = performance.now();
+  if (req.method === "OPTIONS") return corsPreflightResponse(req);
+  if (req.method !== "POST") {
+    return secureJsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
+      "X-Request-Id": requestId,
+    });
+  }
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
     const supabase = createClient(
@@ -20,46 +36,38 @@ Deno.serve(async (req: Request) => {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
-    const payload = await req.json();
-    if (!payload.activity_type) {
-      return new Response(JSON.stringify({ error: "Missing activity_type" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    const validActivities = [
-      "running",
-      "walking",
-      "cycling",
-      "hiking",
-      "indoor_workout",
-      "other",
-    ];
-    const activityType = payload.activity_type.toLowerCase();
-    if (!validActivities.includes(activityType)) {
-      return new Response(
-        JSON.stringify({
-          error: `Invalid activity_type. Must be one of: ${validActivities.join(", ")}`,
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
+
+    let payload: unknown;
+    try {
+      payload = await readJsonBody(req, 16 * 1024);
+    } catch (error) {
+      const tooLarge = error instanceof Error &&
+        error.message === "Payload too large";
+      return secureJsonResponse(
+        req,
+        { error: tooLarge ? "Payload too large" : "Invalid JSON" },
+        tooLarge ? 413 : 400,
+        { "X-Request-Id": requestId },
       );
     }
-    const mode = payload.mode === "indoor" ? "indoor" : "outdoor";
+    const validation = validateWorkoutStartPayload(payload);
+    if (!validation.ok) {
+      return secureJsonResponse(req, { error: validation.error }, 400, {
+        "X-Request-Id": requestId,
+      });
+    }
+
     const startedAt = new Date().toISOString();
     const { data, error } = await supabase
       .from("workout_sessions")
       .insert({
         user_id: user.id,
-        activity_type: activityType,
-        mode,
+        activity_type: validation.activityType,
+        mode: validation.mode,
         started_at: startedAt,
         processing_status: "client_recording",
         metrics_version: 1,
@@ -67,25 +75,31 @@ Deno.serve(async (req: Request) => {
       .select("id")
       .single();
     if (error) {
-      console.error("Insert error:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+      logSecurityEvent("error", "workout_start_insert_failed", requestId);
+      return secureJsonResponse(
+        req,
+        { error: "Could not start workout" },
+        500,
+        { "X-Request-Id": requestId },
+      );
     }
-    return new Response(
-      JSON.stringify({
-        status: "ok",
-        workout_id: data.id,
-        started_at: startedAt,
-      }),
-      { headers: { "Content-Type": "application/json" } },
+    logSecurityEvent("info", "workout_started", requestId, {
+      activity_type: validation.activityType,
+      mode: validation.mode,
+      duration_ms: Math.round(performance.now() - started),
+    });
+    return secureJsonResponse(
+      req,
+      { status: "ok", workout_id: data.id, started_at: startedAt },
+      200,
+      { "X-Request-Id": requestId },
     );
-  } catch (err) {
-    console.error("Server error:", err);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+  } catch {
+    logSecurityEvent("error", "workout_start_failed", requestId, {
+      duration_ms: Math.round(performance.now() - started),
+    });
+    return secureJsonResponse(req, { error: "Internal Server Error" }, 500, {
+      "X-Request-Id": requestId,
     });
   }
 });

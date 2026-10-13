@@ -7,7 +7,24 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    protectApplicationDataDirectory()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private func protectApplicationDataDirectory() {
+    guard let documentsUrl = FileManager.default.urls(
+      for: .documentDirectory,
+      in: .userDomainMask
+    ).first else { return }
+
+    do {
+      try FileManager.default.setAttributes(
+        [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+        ofItemAtPath: documentsUrl.path
+      )
+    } catch {
+      NSLog("Aetron could not apply iOS data protection to app storage")
+    }
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {

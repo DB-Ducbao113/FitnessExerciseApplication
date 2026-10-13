@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -41,6 +41,7 @@ class DatabaseHelper {
         updated_at TEXT NOT NULL
       )
     ''');
+    await _createPendingWorkoutSyncOperations(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -84,6 +85,10 @@ class DatabaseHelper {
         WHERE height_cm IS NULL
       ''');
     }
+
+    if (oldVersion < 6) {
+      await _createPendingWorkoutSyncOperations(db);
+    }
   }
 
   Future<void> close() async {
@@ -105,5 +110,26 @@ class DatabaseHelper {
         'ALTER TABLE $tableName ADD COLUMN $columnName $columnType',
       );
     }
+  }
+
+  Future<void> _createPendingWorkoutSyncOperations(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_workout_sync_operations (
+        operation_key TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        session_id TEXT,
+        operation_type TEXT NOT NULL CHECK (
+          operation_type IN ('delete_session', 'delete_all')
+        ),
+        created_at TEXT NOT NULL,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT NOT NULL,
+        last_error_type TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_pending_workout_sync_due
+      ON pending_workout_sync_operations (user_id, next_attempt_at)
+    ''');
   }
 }

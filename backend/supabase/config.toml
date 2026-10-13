@@ -259,6 +259,38 @@ max_frequency = "5s"
 enabled = true
 uri = "pg-functions://postgres/public/hook_allow_username_accounts_only"
 
+# These functions validate the bearer token inside the handler. Disabling the
+# gateway check lets unauthenticated CORS preflight requests reach OPTIONS;
+# protected POST requests still return 401 unless getUser() succeeds.
+[functions.generate-workout-insight]
+enabled = true
+verify_jwt = false
+import_map = "./functions/generate-workout-insight/deno.json"
+entrypoint = "./functions/generate-workout-insight/index.ts"
+
+[functions.delete-account]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/delete-account/index.ts"
+
+[functions.recovery-email-start]
+enabled = true
+verify_jwt = false
+import_map = "./functions/recovery-email-start/deno.json"
+entrypoint = "./functions/recovery-email-start/index.ts"
+
+[functions.recovery-email-verify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/recovery-email-verify/deno.json"
+entrypoint = "./functions/recovery-email-verify/index.ts"
+
+[functions.password-recovery-by-linked-email]
+enabled = true
+verify_jwt = false
+import_map = "./functions/password-recovery-by-linked-email/deno.json"
+entrypoint = "./functions/password-recovery-by-linked-email/index.ts"
+
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]
 # enabled = true
@@ -385,7 +417,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.workouts-start]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/workouts-start/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -396,7 +428,7 @@ entrypoint = "./functions/workouts-start/index.ts"
 
 [functions.gps-track]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/gps-track/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -407,7 +439,7 @@ entrypoint = "./functions/gps-track/index.ts"
 
 [functions.workouts-end]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/workouts-end/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx

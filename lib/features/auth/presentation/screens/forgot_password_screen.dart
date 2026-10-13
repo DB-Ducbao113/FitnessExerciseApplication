@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/features/auth/presentation/helpers/password_validator.dart';
+import 'package:fitness_exercise_application/features/auth/presentation/widgets/auth_language_toggle.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -67,7 +68,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Future<void> _sendResetEmail() async {
     // If we're already on success state, form is no longer mounted in the widget tree.
     // Use the saved email without form validation.
-    final targetEmail = _isSent ? (_sentEmail ?? _emailController.text.trim()) : _emailController.text.trim();
+    final targetEmail = _isSent
+        ? (_sentEmail ?? _emailController.text.trim())
+        : _emailController.text.trim();
     if (!_isSent) {
       if (!(_formKey.currentState?.validate() ?? false)) return;
     } else {
@@ -204,50 +207,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           ),
                         ),
                       ),
-                      Material(
-                        color: kinetic.surface2,
-                        borderRadius: BorderRadius.circular(16),
-                        child: InkWell(
-                          onTap: () {
-                            final next = currentLang == AppLanguage.vi
-                                ? AppLanguage.en
-                                : AppLanguage.vi;
-                            ref
-                                .read(appLanguageProvider.notifier)
-                                .setLanguage(next);
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: kinetic.primary.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  isVi ? '🇻🇳' : '🇬🇧',
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  isVi ? 'VI' : 'EN',
-                                  style: KineticTypography.unitLabel.copyWith(
-                                    color: kinetic.primary,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.0,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AuthThemeToggle(),
+                          SizedBox(width: 8),
+                          AuthLanguageToggle(),
+                        ],
                       ),
                     ],
                   ),
@@ -265,7 +231,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: kinetic.surface1,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: kinetic.primary.withValues(alpha: 0.2),
@@ -280,15 +248,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ),
                 ],
                 border: Border(
-                  top: BorderSide(
-                    color: kinetic.primary,
-                    width: 1.5,
-                  ),
+                  top: BorderSide(color: kinetic.primary, width: 1.5),
                 ),
               ),
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
                   child: AnimatedSwitcher(
@@ -335,10 +301,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const RadialGradient(
-                  colors: [
-                    Color(0xFF13324E),
-                    Color(0xFF0C1929),
-                  ],
+                  colors: [Color(0xFF13324E), Color(0xFF0C1929)],
                 ),
                 border: Border.all(
                   color: const Color(0xFFA8DCE7).withValues(alpha: 0.6),
@@ -425,9 +388,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(
-                  color: Color(0xFF1E2E45),
-                ),
+                borderSide: const BorderSide(color: Color(0xFF1E2E45)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -438,9 +399,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(
-                  color: Color(0xFFFF4B6E),
-                ),
+                borderSide: const BorderSide(color: Color(0xFFFF4B6E)),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -505,10 +464,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             height: 52,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFA8DCE7),
-                  Color(0xFF2AF598),
-                ],
+                colors: [Color(0xFFA8DCE7), Color(0xFF2AF598)],
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: const [
@@ -543,9 +499,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          isVi
-                              ? 'GỬI LIÊN KẾT XÁC THỰC'
-                              : 'SEND RESET LINK',
+                          isVi ? 'GỬI LIÊN KẾT XÁC THỰC' : 'SEND RESET LINK',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
@@ -571,9 +525,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF0F1826),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF1B2C42),
-              ),
+              border: Border.all(color: const Color(0xFF1B2C42)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,15 +619,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const RadialGradient(
-                colors: [
-                  Color(0xFF114232),
-                  Color(0xFF081C15),
-                ],
+                colors: [Color(0xFF114232), Color(0xFF081C15)],
               ),
-              border: Border.all(
-                color: const Color(0xFF2AF598),
-                width: 1.8,
-              ),
+              border: Border.all(color: const Color(0xFF2AF598), width: 1.8),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x552AF598),
@@ -760,10 +706,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           height: 50,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [
-                Color(0xFFA8DCE7),
-                Color(0xFF2AF598),
-              ],
+              colors: [Color(0xFFA8DCE7), Color(0xFF2AF598)],
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: const [
@@ -826,8 +769,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           child: Text(
             _resendCountdown > 0
                 ? (isVi
-                    ? 'Gửi lại sau (${_resendCountdown}s)'
-                    : 'Resend in (${_resendCountdown}s)')
+                      ? 'Gửi lại sau (${_resendCountdown}s)'
+                      : 'Resend in (${_resendCountdown}s)')
                 : (isVi ? 'GỬI LẠI EMAIL' : 'RESEND EMAIL'),
             style: TextStyle(
               fontSize: 13,
@@ -1043,15 +986,13 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   ),
                 ],
                 border: Border(
-                  top: BorderSide(
-                    color: Color(0xFFA8DCE7),
-                    width: 1.5,
-                  ),
+                  top: BorderSide(color: Color(0xFFA8DCE7), width: 1.5),
                 ),
               ),
               child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
                   child: Form(
@@ -1065,8 +1006,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             width: 40,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFA8DCE7)
-                                  .withValues(alpha: 0.4),
+                              color: const Color(
+                                0xFFA8DCE7,
+                              ).withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -1081,14 +1023,12 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: const RadialGradient(
-                                colors: [
-                                  Color(0xFF13324E),
-                                  Color(0xFF0C1929),
-                                ],
+                                colors: [Color(0xFF13324E), Color(0xFF0C1929)],
                               ),
                               border: Border.all(
-                                color: const Color(0xFFA8DCE7)
-                                    .withValues(alpha: 0.6),
+                                color: const Color(
+                                  0xFFA8DCE7,
+                                ).withValues(alpha: 0.6),
                                 width: 1.5,
                               ),
                               boxShadow: const [
@@ -1110,9 +1050,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
                         // Title & Subtitle
                         Text(
-                          isVi
-                              ? 'THIẾT LẬP MẬT KHẨU MỚI'
-                              : 'SET NEW PASSWORD',
+                          isVi ? 'THIẾT LẬP MẬT KHẨU MỚI' : 'SET NEW PASSWORD',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 22,
@@ -1404,10 +1342,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           height: 52,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFFA8DCE7),
-                                Color(0xFF2AF598),
-                              ],
+                              colors: [Color(0xFFA8DCE7), Color(0xFF2AF598)],
                             ),
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: const [

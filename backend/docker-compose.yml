@@ -8,7 +8,6 @@ services:
     environment:
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
       ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
     ports:
       - "54331:8000"
@@ -22,7 +21,6 @@ services:
     environment:
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
       ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
     ports:
       - "54332:8000"
@@ -36,7 +34,6 @@ services:
     environment:
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:54321}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-replace_with_anon_key}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-replace_with_service_role_key}
       ROUTE_MATCH_PROVIDER: ${ROUTE_MATCH_PROVIDER:-stub}
     ports:
       - "54333:8000"

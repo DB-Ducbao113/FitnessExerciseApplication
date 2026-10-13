@@ -1,0 +1,60 @@
+name: Deploy Supabase backend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-supabase-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Preflight required secrets
+        run: |
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing GitHub Actions secret::$name is not configured"
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - name: Link production project
+        working-directory: backend
+        run: >-
+          npx --yes supabase@2.120.0 link
+          --project-ref "$SUPABASE_PROJECT_REF"
+          --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply database migrations
+        working-directory: backend
+        run: npx --yes supabase@2.120.0 db push --linked --include-all
+      - name: Deploy Edge Functions
+        working-directory: backend
+        run: npx --yes supabase@2.120.0 functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Verify public preflight and auth health
+        run: |
+          curl --fail --silent --show-error --max-time 20 \
+            "https://$SUPABASE_PROJECT_REF.supabase.co/auth/v1/health" >/dev/null
+          for function_name in workouts-start workouts-end gps-track generate-workout-insight; do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --max-time 20 --request OPTIONS \
+              --header 'Origin: https://aetrongps.vercel.app' \
+              --header 'Access-Control-Request-Method: POST' \
+              "https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/$function_name")
+            if [ "$status" != "204" ]; then
+              echo "::error title=Edge Function smoke failure::$function_name returned $status"
+              exit 1
+            fi
+          done

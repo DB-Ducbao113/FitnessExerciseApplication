@@ -1,17 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
-
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersForRequest, requestIdFor } from "./security.ts";
 
 export const resetRedirectTo = "io.supabase.flutter://callback";
 
-export function jsonResponse(body: unknown, status = 200): Response {
+export function jsonResponse(
+  req: Request,
+  body: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: {
+      ...corsHeadersForRequest(req),
+      "Content-Type": "application/json",
+      "X-Request-Id": requestIdFor(req),
+      ...extraHeaders,
+    },
   });
 }
 
@@ -104,7 +109,7 @@ export async function sendEmail({
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Resend failed: ${response.status} ${text}`);
+    await response.body?.cancel();
+    throw new Error(`Email provider failed with status ${response.status}`);
   }
 }

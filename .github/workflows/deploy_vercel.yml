@@ -1,20 +1,15 @@
 name: Deploy Flutter Web to Vercel
 
 # Pipeline design:
-#   push (main / feat branch) -> lint + test + build ONLY (no deployment)
+#   pull request / push      -> .github/workflows/ci.yml
 #   workflow_dispatch        -> lint + test + build -> human-triggered production deploy
 # Production deploys therefore never happen automatically: they require an
 # explicit "Run workflow" action (and, once configured, an approval on the
 # `production` environment — see the `environment:` key on the deploy job).
 #
-# NOTE: no `pull_request` trigger on purpose — fork PRs must never gain access
-# to build/deploy secrets.
+# Build/deploy secrets are therefore never exposed to pull requests.
 
 on:
-  push:
-    branches:
-      - main
-      - feat/gps-pipeline-state-refactor
   workflow_dispatch:
 
 # Least privilege: this workflow only reads the repository.
@@ -34,7 +29,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: 🔐 Preflight — required build secrets present?
         env:
@@ -53,9 +48,9 @@ jobs:
           exit "$missing"
 
       - name: 🐦 Setup Flutter SDK
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: 'stable'
+          flutter-version: '3.47.1'
           cache: true
           cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:'
 
@@ -86,13 +81,12 @@ jobs:
           mkdir -p .vercel/output/static/app
           cp -R build/web/. .vercel/output/static/app/
           cp web/landing.html .vercel/output/static/index.html
-          cp web/privacy.html .vercel/output/static/privacy.html
           cp web/terms.html .vercel/output/static/terms.html
           cp web/google374a2a550d094d6f.html .vercel/output/static/google374a2a550d094d6f.html
           cp tooling/vercel-output-config.json .vercel/output/config.json
 
       - name: 📤 Upload prebuilt output (consumed by the deploy job)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: vercel-prebuilt
           path: .vercel/output
@@ -115,10 +109,10 @@ jobs:
 
     steps:
       - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: 📥 Download prebuilt output
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: vercel-prebuilt
           path: .vercel/output
@@ -192,6 +186,11 @@ jobs:
         # GitHub masks secret values in logs; the token is only ever read from
         # this environment variable, never written into the repository.
         run: npx --yes vercel@63.1.2 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+
+      - name: 🩺 Production smoke check
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            --max-time 20 https://aetrongps.vercel.app/app/ >/dev/null
 
       - name: 📝 Deploy job summary
         if: always()

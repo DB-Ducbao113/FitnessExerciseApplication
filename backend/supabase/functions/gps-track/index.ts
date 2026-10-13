@@ -1,12 +1,29 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.1";
+import {
+  corsPreflightResponse,
+  logSecurityEvent,
+  readJsonBody,
+  requestIdFor,
+  secureJsonResponse,
+  validateGpsBatch,
+} from "../_shared/security.ts";
 
 Deno.serve(async (req: Request) => {
+  const requestId = requestIdFor(req);
+  const startedAt = performance.now();
+  if (req.method === "OPTIONS") return corsPreflightResponse(req);
+  if (req.method !== "POST") {
+    return secureJsonResponse(req, { error: "Method not allowed" }, 405, {
+      Allow: "POST, OPTIONS",
+      "X-Request-Id": requestId,
+    });
+  }
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
     const supabase = createClient(
@@ -19,58 +36,48 @@ Deno.serve(async (req: Request) => {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
+      return secureJsonResponse(req, { error: "Unauthorized" }, 401, {
+        "X-Request-Id": requestId,
       });
     }
-    const payload = await req.json();
-    if (!Array.isArray(payload)) {
-      return new Response(
-        JSON.stringify({ error: "Input must be an array of points" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
+
+    let payload: unknown;
+    try {
+      payload = await readJsonBody(req, 512 * 1024);
+    } catch (error) {
+      const tooLarge = error instanceof Error &&
+        error.message === "Payload too large";
+      return secureJsonResponse(
+        req,
+        { error: tooLarge ? "Payload too large" : "Invalid JSON" },
+        tooLarge ? 413 : 400,
+        { "X-Request-Id": requestId },
       );
     }
-    if (payload.length === 0) {
-      return new Response(
-        JSON.stringify({ status: "ok", message: "Empty batch ignored" }),
-        { headers: { "Content-Type": "application/json" } },
-      );
+    const validation = validateGpsBatch(payload);
+    if (!validation.ok) {
+      return secureJsonResponse(req, { error: validation.error }, 400, {
+        "X-Request-Id": requestId,
+      });
     }
-    const first = payload[0];
-    if (!first.workout_id || first.latitude == null || first.longitude == null) {
-      return new Response(
-        JSON.stringify({
-          error:
-              "Invalid point structure. Required: workout_id, latitude, longitude",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-    const workoutId = first.workout_id;
+
     const { data: session, error: sessionError } = await supabase
       .from("workout_sessions")
       .select("id")
-      .eq("id", workoutId)
+      .eq("id", validation.workoutId)
       .eq("user_id", user.id)
       .maybeSingle();
     if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ error: "Workout session not found or access denied" }),
-        {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        },
+      return secureJsonResponse(
+        req,
+        { error: "Workout session not found or access denied" },
+        404,
+        { "X-Request-Id": requestId },
       );
     }
-    const pointsToInsert = payload.map((point: any) => ({
-      workout_id: point.workout_id,
+
+    const pointsToInsert = validation.points.map((point) => ({
+      workout_id: validation.workoutId,
       timestamp: point.timestamp ?? new Date().toISOString(),
       latitude: point.latitude,
       longitude: point.longitude,
@@ -78,25 +85,38 @@ Deno.serve(async (req: Request) => {
       speed: point.speed ?? null,
       accuracy: point.accuracy ?? null,
       heading: point.heading ?? null,
-      device_source: point.device_source ?? 'edge_function',
+      device_source: point.device_source ?? "edge_function",
     }));
-    const { error } = await supabase.from("raw_gps_points").insert(pointsToInsert);
-    if (error) {
-      console.error("Insert error:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    return new Response(
-      JSON.stringify({ status: "ok", count: pointsToInsert.length }),
-      { headers: { "Content-Type": "application/json" } },
+    const { error } = await supabase.from("raw_gps_points").insert(
+      pointsToInsert,
     );
-  } catch (err) {
-    console.error("Server error:", err);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+    if (error) {
+      logSecurityEvent("error", "gps_batch_insert_failed", requestId, {
+        point_count: pointsToInsert.length,
+      });
+      return secureJsonResponse(
+        req,
+        { error: "Could not store GPS data" },
+        500,
+        { "X-Request-Id": requestId },
+      );
+    }
+    logSecurityEvent("info", "gps_batch_stored", requestId, {
+      point_count: pointsToInsert.length,
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return secureJsonResponse(
+      req,
+      { status: "ok", count: pointsToInsert.length },
+      200,
+      { "X-Request-Id": requestId },
+    );
+  } catch {
+    logSecurityEvent("error", "gps_request_failed", requestId, {
+      duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return secureJsonResponse(req, { error: "Internal Server Error" }, 500, {
+      "X-Request-Id": requestId,
     });
   }
 });

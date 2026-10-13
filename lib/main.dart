@@ -41,10 +41,11 @@ void main() async {
       url: supabaseUrl,
       publishableKey: supabaseAnonKey,
       authOptions: FlutterAuthClientOptions(
+        // Browser localStorage is readable by injected JavaScript. Keep the
+        // web session in memory only; native platforms use Keychain/Keystore.
+        // Web users must sign in again after a full page reload.
         localStorage: kIsWeb
-            ? SharedPreferencesLocalStorage(
-                persistSessionKey: 'supabasePersistSessionKey',
-              )
+            ? const EmptyLocalStorage()
             : SecureLocalStorage(
                 persistSessionKey: 'supabasePersistSessionKey',
               ),
