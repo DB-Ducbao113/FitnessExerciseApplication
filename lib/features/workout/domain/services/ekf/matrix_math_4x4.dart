@@ -204,16 +204,19 @@ class Matrix4x4 {
       }
     }
 
-    // 2. 1x1 principal minors (diagonal entries) >= tolerance
+    // 2. 1x1 principal minors (diagonal entries) >= tolerance * scale
     for (var i = 0; i < 4; i++) {
-      if (get(i, i) < tolerance) return false;
+      final diag = get(i, i);
+      final tol = tolerance * math.max(1.0, diag.abs());
+      if (diag < tol) return false;
     }
 
     // 3. 2x2 principal minors
     for (var i = 0; i < 4; i++) {
       for (var j = i + 1; j < 4; j++) {
         final m2 = get(i, i) * get(j, j) - get(i, j) * get(j, i);
-        if (m2 < tolerance) return false;
+        final scale2 = math.max(1.0, get(i, i).abs() * get(j, j).abs());
+        if (m2 < tolerance * scale2) return false;
       }
     }
 
@@ -225,11 +228,19 @@ class Matrix4x4 {
           get(r0, r0) * (get(r1, r1) * get(r2, r2) - get(r1, r2) * get(r2, r1)) -
           get(r0, r1) * (get(r1, r0) * get(r2, r2) - get(r1, r2) * get(r2, r0)) +
           get(r0, r2) * (get(r1, r0) * get(r2, r1) - get(r1, r1) * get(r2, r0));
-      if (m3 < tolerance) return false;
+      final scale3 = math.max(
+        1.0,
+        get(r0, r0).abs() * get(r1, r1).abs() * get(r2, r2).abs(),
+      );
+      if (m3 < tolerance * scale3) return false;
     }
 
     // 5. 4x4 determinant
-    return determinant >= tolerance;
+    final scale4 = math.max(
+      1.0,
+      get(0, 0).abs() * get(1, 1).abs() * get(2, 2).abs() * get(3, 3).abs(),
+    );
+    return determinant >= tolerance * scale4;
   }
 }
 

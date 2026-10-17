@@ -207,4 +207,168 @@ void main() {
       expect(EquirectangularProjection.normalizeAngleDeg(-10.0), 350.0);
     });
   });
+
+  group('Independent Numerical Reference (Jacobi Eigenvalue Decomposition)', () {
+    test('cross-validates Sylvester PSD against Jacobi eigenvalues across diverse matrices', () {
+      final matrices = <(String, Matrix4x4, bool)>[
+        ('Identity', Matrix4x4.identity(), true),
+        ('Diagonal Positive', Matrix4x4.diagonal(10.0, 5.0, 2.0, 0.5), true),
+        ('Diagonal with One Zero (Semidefinite)', Matrix4x4.diagonal(10.0, 5.0, 0.0, 2.0), true),
+        ('Diagonal with Slight Negative (-1e-4)', Matrix4x4.diagonal(10.0, 5.0, 2.0, -1e-4), false),
+        (
+          'Rank-1 Semidefinite (v * v^T)',
+          () {
+            final m = Matrix4x4();
+            final v = [1.0, 2.0, -1.0, 3.0];
+            for (var r = 0; r < 4; r++) {
+              for (var c = 0; c < 4; c++) {
+                m.set(r, c, v[r] * v[c]);
+              }
+            }
+            return m;
+          }(),
+          true,
+        ),
+        (
+          'Cauchy-Schwarz 2x2 Violation',
+          Matrix4x4.fromList([
+            4.0, 6.0001, 0.0, 0.0,
+            6.0001, 9.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+          ]),
+          false,
+        ),
+        (
+          'Adversarial 3x3 Indefinite',
+          Matrix4x4.fromList([
+            1.0, 0.8, 0.8, 0.0,
+            0.8, 1.0, -0.8, 0.0,
+            0.8, -0.8, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+          ]),
+          false,
+        ),
+        (
+          'Adversarial 4x4 Indefinite (Schur Complement)',
+          Matrix4x4.fromList([
+            1.0, 0.0, 0.0, 0.6,
+            0.0, 1.0, 0.0, 0.6,
+            0.0, 0.0, 1.0, 0.6,
+            0.6, 0.6, 0.6, 1.0,
+          ]),
+          false,
+        ),
+        (
+          'Valid Full-Rank GPS Covariance',
+          Matrix4x4.fromList([
+            25.0, 3.0, 0.5, 0.1,
+            3.0, 20.0, 0.4, 0.2,
+            0.5, 0.4, 4.0, 0.05,
+            0.1, 0.2, 0.05, 1.0,
+          ]),
+          true,
+        ),
+      ];
+
+      for (final (label, mat, expectedPsd) in matrices) {
+        final sylvesterResult = mat.isPositiveSemiDefinite();
+        final jacobi = JacobiEigenvalueSolver4x4.solve(mat);
+        expect(jacobi.converged, isTrue, reason: '$label Jacobi solver must converge');
+        final jacobiPsd = jacobi.isPositiveSemiDefinite();
+
+        expect(
+          sylvesterResult,
+          expectedPsd,
+          reason: '$label: Sylvester principal minors expected $expectedPsd but got $sylvesterResult',
+        );
+        expect(
+          jacobiPsd,
+          expectedPsd,
+          reason: '$label: Jacobi eigenvalues (${jacobi.eigenvalues}) expected $expectedPsd but got $jacobiPsd',
+        );
+        expect(
+          sylvesterResult,
+          equals(jacobiPsd),
+          reason: '$label: Sylvester ($sylvesterResult) must agree with independent Jacobi eigenvalues ($jacobiPsd)',
+        );
+      }
+    });
+  });
+}
+
+/// Independent numerical reference solver using classical Jacobi rotations for symmetric 4x4 matrices.
+class JacobiEigenvalueSolver4x4 {
+  final List<double> eigenvalues;
+  final bool converged;
+
+  const JacobiEigenvalueSolver4x4(this.eigenvalues, this.converged);
+
+  static JacobiEigenvalueSolver4x4 solve(Matrix4x4 matrix, {int maxIter = 50}) {
+    final a = List<double>.from(matrix.storage);
+
+    for (var iter = 0; iter < maxIter; iter++) {
+      var p = 0, q = 1;
+      var maxOff = (a[p * 4 + q]).abs();
+      for (var r = 0; r < 4; r++) {
+        for (var c = r + 1; c < 4; c++) {
+          final val = (a[r * 4 + c]).abs();
+          if (val > maxOff) {
+            maxOff = val;
+            p = r;
+            q = c;
+          }
+        }
+      }
+
+      final maxDiag = math.max(
+        math.max(a[0].abs(), a[5].abs()),
+        math.max(a[10].abs(), a[15].abs()),
+      );
+
+      if (maxOff <= 1e-13 * math.max(1.0, maxDiag)) {
+        final ev = [a[0], a[5], a[10], a[15]]..sort();
+        return JacobiEigenvalueSolver4x4(ev, true);
+      }
+
+      final app = a[p * 4 + p];
+      final aqq = a[q * 4 + q];
+      final apq = a[p * 4 + q];
+
+      final theta = 0.5 * math.atan2(2.0 * apq, aqq - app);
+      final c = math.cos(theta);
+      final s = math.sin(theta);
+
+      final appNew = c * c * app - 2.0 * s * c * apq + s * s * aqq;
+      final aqqNew = s * s * app + 2.0 * s * c * apq + c * c * aqq;
+      a[p * 4 + p] = appNew;
+      a[q * 4 + q] = aqqNew;
+      a[p * 4 + q] = 0.0;
+      a[q * 4 + p] = 0.0;
+
+      for (var r = 0; r < 4; r++) {
+        if (r != p && r != q) {
+          final arp = a[r * 4 + p];
+          final arq = a[r * 4 + q];
+          final arpNew = c * arp - s * arq;
+          final arqNew = s * arp + c * arq;
+          a[r * 4 + p] = arpNew;
+          a[p * 4 + r] = arpNew;
+          a[r * 4 + q] = arqNew;
+          a[q * 4 + r] = arqNew;
+        }
+      }
+    }
+
+    final ev = [a[0], a[5], a[10], a[15]]..sort();
+    return JacobiEigenvalueSolver4x4(ev, false);
+  }
+
+  bool isPositiveSemiDefinite({double relTol = -1e-9}) {
+    final maxEig = math.max(1.0, eigenvalues.map((e) => e.abs()).reduce(math.max));
+    for (final lambda in eigenvalues) {
+      if (lambda < relTol * maxEig) return false;
+    }
+    return true;
+  }
 }
