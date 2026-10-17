@@ -2,7 +2,7 @@
 
 **Trạng thái tài liệu:** ĐỀ XUẤT KIẾN TRÚC & KẾ HOẠCH NGHIỆM THU (DESIGN PROPOSAL & ACCEPTANCE PLAN) — **CHƯA ĐƯỢC ỦY QUYỀN TRIỂN KHAI (NOT AUTHORIZED)**<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
-**Verified HEAD:** `040fcdfa87799c291470030c79f7e33045bff153`<br>
+**Verified HEAD:** `007010cd75a7583282e8350ec3d800f524950058`<br>
 **Tác giả:** Đội ngũ Nghiên cứu Thuật toán Aetron (AI Engineering Assistant & Core Team)<br>
 **Mục tiêu:** Thiết lập kiến trúc máy trạng thái phục hồi (FSM) toàn diện, bảng chuyển trạng thái tường minh (S0–S5), cơ chế tái bắt sóng an toàn đa tầng (chống cụm multipath & spoofing), quy tắc hạch toán quãng đường minh bạch (tách biệt overcount/undercount) và ma trận kiểm thử nghiệm thu tất định cho Phase 5.<br>
 **Ràng buộc tối cao:** 
@@ -55,7 +55,7 @@ Máy trạng thái phục hồi EKF Phase 5 gồm 6 trạng thái độc lập �
 ┌──────────────┐   │                                                  │         │
 │      S5      │ ──┘                                                  │         │
 │  SAFE RESET  │ ──> S0 (Success Reset & Return to Tracking) ─────────┘         │
-└──────────────┘ ──> S2 (Post-Reset Probe Fails within 3 fixes) ────────────────┘
+└──────────────┘ ──> S2 (Rollback on Probation Failure within 3 fixes) ─────────┘
 ```
 
 ### 2.1. Bảng Chuyển Trạng Thái Chi Tiết (Explicit Transition Matrix)
@@ -68,9 +68,9 @@ Máy trạng thái phục hồi EKF Phase 5 gồm 6 trạng thái độc lập �
 | **S2**<br>(Loss of Lock) | **S3**<br>(Candidate Reacquisition) | `E23` | **Điều kiện:** Xuất hiện mẫu GPS thô $p_i$ có báo cáo sai số $\text{acc}_i \le 20.0\text{ m}$ và $0.4\text{ s} \le \Delta t \le 2.5\text{ s}$. | - Nạp $p_i$ vào Candidate Buffer.<br>- Khởi động đồng hồ sống của ứng viên: $T_{\text{buf\_life}} \le 6.0\text{ s}$.<br>- EKF tiếp tục đóng băng vị trí cuối cùng được chấp nhận. |
 | **S3**<br>(Candidate Reacquisition) | **S2**<br>(Loss of Lock) | `E32` | **Điều kiện vi phạm ứng viên (Candidate Invalidation):**<br>- Mẫu kế tiếp có $v_{k, k-1} > 20.0\text{ m/s}$ ($72\text{ km/h}$).<br>- Hoặc gia tốc $a_k > 4.0\text{ m/s}^2$.<br>- Hoặc $T_{\text{buf\_life}} > 6.0\text{ s}$ mà chưa đủ $K=3$ điểm.<br>- Hoặc phát hiện cụm tĩnh tại nhiễu động. | - Hủy toàn bộ điểm trong Candidate Buffer (`buffer.clear()`).<br>- Trở về chờ đợi trong **S2**.<br>- Tuyệt đối không tái neo theo điểm ngoại lai. |
 | **S3**<br>(Candidate Reacquisition) | **S4**<br>(Validated Re-Anchor) | `E34` | **Điều kiện:** Thu thập đủ **$K = 3$ mẫu liên tiếp** thỏa mãn đồng thời toàn bộ các tiêu chuẩn kiểm định động học (xem Mục 3). | - Đóng băng $3$ điểm ứng viên làm mốc tái neo.<br>- Tính toán vector vận tốc trung bình và góc hướng Course-Over-Ground (COG). |
-| **S4**<br>(Validated Re-Anchor) | **S5**<br>(Safe Reset) | `E45` | **Điều kiện:** Không có mâu thuẫn cảm biến bổ trợ (sensor evidence không phủ định vị trí tái neo). | - Thực thi tái cấu trúc Vector Trạng Thái $x_{\text{new}}$.<br>- Thực thi Tái Khởi Tạo Hiệp Phương Sai $P_{\text{reset}}$ (Mục 2.2).<br>- Xử lý quãng đường gián đoạn (Mục 4). |
-| **S5**<br>(Safe Reset) | **S0**<br>(Normal Tracking) | `E50` | **Điều kiện:** Điểm đo ngay sau Reset ($s = 1$) có $NIS < G_2 = 13.816$ và vận tốc nhất quán. | - Khôi phục hoàn toàn chế độ Normal Tracking.<br>- Đặt hệ số $Q_{\text{heading}} \times 4.0$ trong $5$ mẫu kế tiếp để bám vết nhanh. |
-| **S5**<br>(Safe Reset) | **S2**<br>(Loss of Lock) | `E52` | **Điều kiện (Reset Thất Bại):** Mẫu kế tiếp ngay sau Reset bị loại bỏ ($NIS \ge G_2$), chứng tỏ Re-Anchor rơi vào cụm phản xạ cục bộ. | - Hủy trạng thái Re-Anchor.<br>- Quay trở lại **S2** để tìm kiếm chuỗi ứng viên mới.<br>- Không cho phép lặp lại Re-Anchor tại cùng vị trí trong vòng $10\text{ s}$. |
+| **S4**<br>(Validated Re-Anchor) | **S5**<br>(Safe Reset) | `E45` | **Điều kiện:** Lưu Snapshot trạng thái và hiệp phương sai trước Reset; không có mâu thuẫn cảm biến bổ trợ. | - Lưu Snapshot: $(\hat{x}_{\text{snap}}, P_{\text{snap}}, t_{\text{snap}}, d_{\text{snap}})$.<br>- Thực thi tái cấu trúc Vector Trạng Thái $x_{\text{new}}$.<br>- Thực thi Tái Khởi Tạo Hiệp Phương Sai $P_{\text{reset}}$ (Mục 2.2).<br>- Khởi động Cửa Sổ Thử Thách (Probationary Window $M = 3$). |
+| **S5**<br>(Safe Reset) | **S0**<br>(Normal Tracking) | `E50` | **Điều kiện:** Vượt qua Cửa Sổ Thử Thách: Cả $3$ điểm đo sau Reset đều có $NIS < G_2 = 13.816$ và vận tốc nhất quán. | - Khôi phục hoàn toàn chế độ Normal Tracking.<br>- Đặt hệ số $Q_{\text{heading}} \times 4.0$ trong $5$ mẫu kế tiếp để bám vết nhanh.<br>- Commit quãng đường trong Escrow vào bài tập. |
+| **S5**<br>(Safe Reset) | **S2**<br>(Loss of Lock) | `E52` | **Điều kiện (Probation Failure & Rollback):** Bất kỳ mẫu nào trong $M=3$ điểm thử thách bị loại bỏ ($NIS \ge G_2$) hoặc $v > 20\text{ m/s}$. | - **Thực thi Snapshot Rollback:** Phục hồi $(\hat{x}_{\text{snap}}, P_{\text{snap}})$.<br>- Tăng phương sai vị trí $\sigma_{\text{pos}}^2 \times 2.0$.<br>- Đưa tọa độ ứng viên vào Blacklist ($R = 40\text{ m}, T = 10\text{ s}$).<br>- Quay trở lại **S2**; hủy toàn bộ Escrow distance. |
 
 ---
 
@@ -97,19 +97,17 @@ Khi tiến hành Safe Reset tại **S5**, toàn bộ trạng thái và ma trận
 
 ---
 
-## 3. Task 3 — Tái Bắt Sóng An Toàn Đa Tầng (Safe Reacquisition Under Adversarial Conditions)
+## 3. Task 3 — Tái Bắt Sóng An Toàn Đa Tầng & Cơ Chế Snapshot Rollback
 
 ### 3.1. Phân Tích Rủi Ro: Tại Sao 3 Điểm Nội Bộ Nhất Quán Chưa Đủ Đảm Bảo Tính Xác Thực?
 Một giả định ngây thơ cho rằng: *"Nếu có 3 điểm GPS liên tiếp có khoảng cách hợp lý thì đó là vị trí thật"* là **SAI LẦM VÀ NGUY HIỂM**. Trong thực tế đo đạc di động, các tình huống sau có thể tạo ra chuỗi 3 điểm giả mạo nhưng nhất quán nội bộ:
-1. **Cụm Đa Đường Đô Thị (Sustained Multipath Cluster):** Đi qua tòa nhà kính cao tầng phản xạ tín hiệu, máy thu GPS nhận chùm sóng dội tạo ra chuỗi 3–5 điểm dịch chuyển song song cách đường thật $40 - 60\text{ m}$ với vận tốc nhìn bề ngoài hoàn toàn "hợp lệ".
+1. **Cụm Đa Đường Đô Thị (Sustained Multipath Cluster):** Đi qua tòa nhà kính cao tầng phản xạ tín hiệu, máy thu GPS nhận chùm sóng dội tạo ra chuỗi 3–5 điểm dịch chuyển song song cách đường thật $40 - 60\text{ m}$ với vận tốc nhìn bề ngoài hoàn toàn "hợp lệ" ($v \approx 4\text{ m/s}$).
 2. **Nhiễu Tĩnh Tại Dưới Tán Cây / Đèn Đỏ (Noisy Stationary Fixes):** Xe đạp dừng đèn đỏ ($v = 0$), nhưng GPS nhảy ngẫu nhiên vòng quanh bán kính $15\text{ m}$. Ba điểm liên tiếp có thể tình cờ tạo thành một đoạn thẳng có độ dài $10\text{ m}$ ($v \approx 3\text{ m/s}$) đánh lừa bộ lọc rằng xe đang di chuyển.
 3. **Cửa Hầm Đường Bộ (Tunnel Exit Shock):** Sau 60 giây mất tín hiệu hoàn toàn trong hầm, máy thu bắt lại sóng vệ tinh nhưng hình học vệ tinh (GDOP) chưa hội tụ, sinh ra cụm 3 điểm có sai số hệ thống (systematic bias) trôi dần về vị trí thật.
 4. **Giả Mạo Vị Trí (Position-Offset Spoofing):** Tín hiệu giả mạo dịch chuyển tức thời vị trí của xe sang tọa độ khác nhưng vẫn duy trì chuỗi xung nhịp 1 Hz đều đặn.
 5. **Vận Chuyển Thực Tế Trên Phương Tiện Khác (Genuine Relocation):** Người dùng dừng xe đạp, đưa xe lên tàu điện ngầm hoặc xe bán tải đi qua khoảng mù GPS, sau đó bắt lại tín hiệu ở vị trí cách xa hàng kilomet.
 
 ### 3.2. Hệ Thống Kiểm Chứng Đa Tầng Cho Reacquisition (Multi-Layer Verification Safeguards)
-
-Để ngăn chặn tuyệt đối việc tái neo vào các cụm giả mạo, chuỗi ứng viên tại **S3** phải vượt qua **4 lớp phòng thủ độc lập**:
 
 ```text
 [ Raw GPS Fix Candidate ]
@@ -140,34 +138,37 @@ Một giả định ngây thơ cho rằng: *"Nếu có 3 điểm GPS liên tiế
            ▼
 ┌───────────────────────────────────────────────┐
 │ LỚP 4: THỜI GIAN THỬ THÁCH HẬU RE-ANCHOR      │
-│  - Probationary Tracking (3 mẫu tiếp theo)    │
-│  - Nếu NIS bùng nổ -> Lập tức thu hồi về S2   │
+│  - Probationary Tracking (M = 3 mẫu kế tiếp)  │
+│  - Nếu NIS bùng nổ -> Snapshot Rollback về S2 │
 └───────────────────────────────────────────────┘
            │ Vượt qua
            ▼
 [ Re-Anchor Được Phê Chuẩn & Trở Về S0 ]
 ```
 
-#### Chi Tiết Các Tiêu Chuẩn Phòng Thủ:
+### 3.3. Cơ Chế Snapshot Rollback Khi Thử Thách Hậu Re-Anchor Thất Bại
+1. **Lưu Snapshot tại S4:**
+   Trước khi thực hiện bước cập nhật S5, hệ thống lưu bản sao bất biến của trạng thái:
+   $$S_{\text{snap}} = \left( \hat{x}_{\text{snap}}, P_{\text{snap}}, t_{\text{snap}}, d_{\text{accum\_snap}} \right)$$
+2. **Cửa Sổ Thử Thách $M = 3$ Mẫu:**
+   Sau Safe Reset, hệ thống bước vào chế độ `S0_probation`. Tại mỗi mẫu trong số 3 mẫu kế tiếp:
+   - Nếu $NIS \ge G_2 = 13.816$ HOẶC vận tốc ước lượng $v > 20.0\text{ m/s}$:
+     - **Thực thi Rollback Ngay Lập Tức:**
+       $$\hat{x} \leftarrow \hat{x}_{\text{snap}}, \quad P \leftarrow P_{\text{snap}}, \quad d_{\text{accum}} \leftarrow d_{\text{accum\_snap}}$$
+     - Tăng phương sai vị trí để phản ánh độ bất định gia tăng:
+       $$\sigma_{\text{pos}}^2 \leftarrow \sigma_{\text{pos}}^2 \times 2.0$$
+     - Thêm tọa độ của điểm neo vừa thất bại vào **Danh Sách Đen Không Gian (Spatial Blacklist)** với bán kính loại trừ $R_{\text{blacklist}} = 40.0\text{ m}$ và thời hạn $T_{\text{blacklist}} = 10.0\text{ s}$.
+     - Chuyển trạng thái ngược về **S2 (Loss of Lock)**.
+     - Toàn bộ quãng đường tạm thời trong Escrow Buffer bị xóa bỏ, đảm bảo không có $1\text{ mm}$ quãng đường ma nào lọt vào kết quả.
 
-1. **Phòng Thủ Chống Cụm Tĩnh Tại Nhiễu Động (Stationary Noise Defense):**
-   - Nếu cảm biến tốc độ của thiết bị báo cáo $v_{\text{raw}} < 0.8\text{ m/s}$ (hoặc gia tốc kế tích hợp cho thấy thiết bị đứng yên):
-   - Chuỗi $K=3$ điểm đo KHÔNG ĐƯỢC PHÉP gán góc hướng di chuyển mới.
-   - Trạng thái tốc độ gán $v = 0.0\text{ m/s}$, góc hướng giữ nguyên góc cũ $\hat{\psi}_{\text{prev}}$.
-   - Ngưỡng độ lệch tối thiểu: Khoảng cách giữa điểm đầu và điểm cuối $D_{\text{span}} = \text{Haversine}(p_1, p_3)$ phải đạt $\ge 3.0\text{ m}$ thì mới được công nhận là xe có di chuyển thực tế.
-
-2. **Phòng Thủ Chống Cụm Đa Đường Đô Thị (Multipath Cluster Defense):**
-   - Đánh giá tính đồng nhất góc (Directional Coherence):
-     $$\Delta \theta = |\text{Bearing}(p_1, p_2) - \text{Bearing}(p_2, p_3)|$$
-   - Nếu $v \ge 2.0\text{ m/s}$, góc $\Delta \theta$ không được vượt quá $90^\circ$ trong vòng $1.0\text{ s}$ trừ khi tốc độ thấp. Cụm đa đường thường có xu hướng nhảy zic-zac ngược chiều ($\Delta \theta \approx 140^\circ - 180^\circ$) để cố gắng bù trừ sai số; hiện tượng này lập tức làm vô hiệu hóa Candidate Buffer.
-
-3. **Phòng Thủ Chống Bước Nhảy Di Dời Thực Tế (Relocation / Transit Defense):**
-   - Khoảng cách từ vị trí ước lượng cuối cùng của EKF đến điểm ứng viên $p_1$ là $\Delta R = \text{Haversine}(\hat{x}_{\text{last}}, p_1)$.
-   - Nếu $\Delta R > 150.0\text{ m}$ (khoảng cách dịch chuyển vượt quá phạm vi di chuyển vật lý của xe đạp trong thời gian gián đoạn $\Delta t_{\text{gap}} \cdot V_{\max}$):
-     - Xác định đây là hiện tượng di dời bằng phương tiện khác (teleportation/transit).
-     - Đánh dấu phân đoạn là `DiscontinuousTransit`.
-     - **TUYỆT ĐỐI KHÔNG** cộng khoảng cách $\Delta R$ vào bài tập.
-     - Khởi tạo lại toàn bộ phiên bài tập như một chặng đạp mới (Cold Re-Seed).
+### 3.4. Hành Vi Khi Chỉ Có Dữ Liệu GPS Đơn Lẻ (No Auxiliary Sensors Available)
+Trên điện thoại thông minh phổ thông không có cảm biến tốc độ bánh xe (wheel speed), cảm biến vòng đạp (cadence), hay IMU đồng bộ tần số cao:
+- Khi các điểm đo GPS thỏa mãn ràng buộc vận tốc nhưng độ tin cậy hình học vệ tinh thấp ($\text{acc} \ge 15.0\text{ m}$ hoặc không có góc la bàn):
+- Hệ thống kích hoạt **Chế Độ Bám Vết Tạm Thời Thận Trọng (S0-Provisional)**:
+  1. **Tăng Phương Sai Đo Lường $R$:** Nhân hệ số $4.0\times$ đối với $R_{\text{pos}}$ ($\sigma_{\text{pos}}^2 = 4.0 \cdot \text{acc}^2$) để giảm độ nhạy kéo lệch tâm của Kalman gain.
+  2. **Hãm Cập Nhật Hướng (Heading Innovation Damping):** Giảm $50\%$ mức độ hiệu chỉnh góc hướng từ độ lệch vị trí $K_{4, 1:2} \times 0.5$ để ngăn ngừa xe bị xoay vòng tại chỗ do nhiễu lateral.
+  3. **Quãng Đường Giữ Trong Escrow:** Quãng đường di chuyển trong 5 mẫu đầu tiên được giữ trong bộ đệm tạm; chỉ ghi nhận chính thức khi chuỗi điểm chứng minh được tính ổn định dài hạn.
+  4. **Ưu Tiên Đóng Băng Thay Vì Nhảy Vị Trí:** Nếu phương sai tiếp tục tăng mà không có tín hiệu tốt hơn, bộ lọc duy trì đóng băng vị trí thay vì dịch chuyển theo cụm nhiễu trôi dạt.
 
 ---
 
@@ -176,8 +177,6 @@ Một giả định ngây thơ cho rằng: *"Nếu có 3 điểm GPS liên tiế
 Sai số quãng đường trong các hệ thống tracking GPS thường bị bóp méo bởi hai thái cực:
 - **Overcount (Đếm dư / Quãng đường ma):** Xung nhiễu kéo tọa độ đi xa, hoặc bước nhảy Re-Anchor giữa điểm trôi dạt và điểm thật bị cộng gộp vào tổng quãng đường.
 - **Undercount (Đếm thiếu / Cắt góc):** Mất tín hiệu trong hầm hoặc cua gắt khiến quãng đường thực tế bị bỏ quên hoàn toàn.
-
-Phase 5 thiết lập công thức hạch toán phân đoạn minh bạch:
 
 ```text
 Tổng Quãng Đường Tích Lũy: D_total = D_tracked + D_bridged
@@ -211,14 +210,14 @@ Khi Re-Anchor thành công tại $t_{\text{anchor}}$ sau một khoảng thời g
      $$D_{\text{bridged}} = \min(D_{\text{chord}}, v_{\text{last\_valid}} \cdot \Delta t_{\text{gap}})$$
      Chỉ ghi nhận tối đa theo vận tốc hợp lý trước khi mất tín hiệu.
 
-### 4.3. Định Lượng Riêng Biệt Overcount và Undercount
+### 4.3. Các Cổng Đo Lường Định Lượng Bắt Buộc (Measurable Quantitative Gates)
 
-Trong các bài kiểm tra đo kiểm Phase 5, sai số quãng đường sẽ được đo lường phân tách rõ ràng thành hai metric độc lập:
-$$\text{Overcount Error (\%)} = \frac{\sum \max(0, d_{\text{est}} - d_{\text{truth}})}{D_{\text{truth}}} \times 100\%$$
-$$\text{Undercount Error (\%)} = \frac{\sum \max(0, d_{\text{truth}} - d_{\text{est}})}{D_{\text{truth}}} \times 100\%$$
-- **Chỉ tiêu Phase 5:**
-  - $\text{Overcount Error} \le 1.0\%$ (Triệt tiêu hoàn toàn quãng đường ma từ re-anchor).
-  - $\text{Undercount Error} \le 3.0\%$ trên các đoạn gián đoạn $< 10\text{ s}$.
+Trong mọi bài đo kiểm nghiệm thu Phase 5, các cổng chất lượng sau là **bắt buộc vượt qua 100%**:
+
+$$\text{Overcount Error (\%)} = \frac{\sum \max(0, d_{\text{est}} - d_{\text{truth}})}{D_{\text{truth}}} \times 100\% \quad \le \mathbf{1.0\%}$$
+$$\text{Undercount Error (\%)} = \frac{\sum \max(0, d_{\text{truth}} - d_{\text{est}})}{D_{\text{truth}}} \times 100\% \quad \le \mathbf{3.0\%} \text{ (trên gaps } \le 10\text{s})$$
+$$\text{Operational Availability} = \frac{N_{\text{accepted}} + N_{\text{bridged}}}{N_{\text{scheduled}}} \times 100\% \quad \ge \mathbf{98.0\%}$$
+$$\Delta \text{Corner Shortcutting Mean Error} \le \mathbf{2.0\%} \quad \text{(so với Baseline sản xuất)}$$
 
 ---
 
@@ -228,16 +227,16 @@ Bảng ma trận kiểm thử bắt buộc phải đạt $100\%$ trước khi Ph
 
 | Mã Kiểm Thử | Tên Kịch Bản Đo Kiểm | Dữ Liệu Đầu Vào & Nhiễu Mô Phỏng | Kỳ Vọng Kỹ Thuật Bắt Buộc (Acceptance Criteria) | Cấu Hình Đối Soát |
 |---|---|---|---|---|
-| **TC-01** | **Scenario 61 Recovery** | Lộ trình chuẩn 108 kịch bản, Seed 61: Cua gắt $160^\circ$ tại $t=12\text{s}$, mất hoàn toàn heading (`headingDeg == null`). | - Phát hiện mất khóa tại bước $s \le 9$ ($N_{\text{rej}} \ge 3$).<br>- Tái neo thành công tại bước $s \le 12$ ($K=3$ candidate fixes).<br>- **Max Error giảm từ $4.887\text{ m}$ xuống $< 12.0\text{ m}$**.<br>- Quãng đường tích lũy không phình to. | Config C (Phase 4A) vs Config D (Phase 5) |
+| **TC-01** | **Scenario 61 Lockout Recovery** | Lộ trình chuẩn 108 kịch bản, Seed 61: Cua gắt $160^\circ$ tại $t=12\text{s}$, mất hoàn toàn heading (`headingDeg == null`). | - **Phát Hiện Mất Khóa (Latency):** $s \le 9$ ($6.0\text{ s}$ từ khi rẽ).<br>- **Tái Neo (Re-Anchor):** $s \le 12$ ($6.0\text{ s}$ sau khi có ứng viên).<br>- **Sai Số Đỉnh Quá Độ (Peak Transient):** $\le 22.0\text{ m}$ tại đỉnh cua.<br>- **Độ Chính Xác Xác Lập (Post-Recovery):** Sai số giảm về $< 4.5\text{ m}$ trong vòng 5 mẫu sau khi về S0; sai số cuối tuyến $< 6.5\text{ m}$ (so với $4.887\text{ m}$ của Phase 4A).<br>- Quãng đường tích lũy không phình to. | Config C (Phase 4A) vs Config D (Phase 5) |
 | **TC-02** | **Multi-Angle Turns with Heading Dropout** | Cua $30^\circ$, $60^\circ$, $90^\circ$, và Hairpin ($180^\circ$) ở tốc độ $15 - 25\text{ km/h}$, toàn bộ không có la bàn. | - Bắt vết thành công toàn bộ 4 góc cua.<br>- Không bị rơi vào khóa chết từ chối.<br>- Turn P95 error $\le 8.0\text{ m}$. | So sánh với Phase 3 B1 và Baseline A |
-| **TC-03** | **Isolated Single Spike (55m & 100m)** | Xe đạp đang chạy $5\text{ m/s}$ ổn định tại S0; tiêm 1 mẫu ngoại lai lệch $55\text{ m}$ hoặc $100\text{ m}$. | - Mẫu bị loại bỏ tại S0 bởi NIS Gating.<br>- Bộ lọc KHÔNG chuyển trạng thái sang S1 hay S2.<br>- Quỹ đạo không bị giật; quãng đường tăng đúng $5.0\text{ m}$. | Baseline A vs Phase 5 |
-| **TC-04** | **Multi-Point False Multipath Cluster** | Trong lúc đang mất tín hiệu tại S2; tiêm cụm 3 điểm giả mạo cách vị trí thật $60\text{ m}$ nhưng có $v > 25\text{ m/s}$ hoặc nhảy zic-zac. | - Lớp phòng thủ Động học loại bỏ cụm giả mạo.<br>- FSM giữ nguyên S2, xóa Candidate Buffer.<br>- **TUYỆT ĐỐI KHÔNG TÁI NEO theo cụm giả**. | So sánh với mô hình Re-Anchor ngây thơ |
+| **TC-03** | **Isolated Single Spike (55m & 100m)** | Xe đạp đang chạy $5\text{ m/s}$ ổn định tại S0 ($dt = 1.0\text{ s}$); tiêm 1 mẫu ngoại lai lệch $55\text{ m}$ hoặc $100\text{ m}$. | - Mẫu bị loại bỏ tại S0 bởi NIS Gating ($NIS \ge 13.816$).<br>- FSM giữ nguyên S0.<br>- **Dung sai quãng đường có căn cứ:** $\Delta d = 5.0\text{ m} \pm 0.5\text{ m}$ (khoảng $[4.5\text{ m}, 5.5\text{ m}]$) do xấp xỉ rời rạc.<br>- **Quãng đường đóng góp của spike: $\Delta d_{\text{spike}} \equiv 0.0\text{ m}$** (tuyệt đối không có bước nhảy đột biến). | Baseline A vs Phase 5 |
+| **TC-04** | **Internally Consistent Offset Multipath Cluster** | Trong lúc đang mất tín hiệu tại S2; tiêm cụm 3–5 điểm giả mạo lệch ngang $50\text{ m}$ nhưng có vận tốc nội bộ hợp lệ ($v \approx 4\text{ m/s}$). | - Lớp 3 & Cửa sổ thử thách Lớp 4 phát hiện sai lệch.<br>- Mẫu đo thật tiếp theo gây thất bại thử thách $\to$ **Kích hoạt Snapshot Rollback** (Mục 3.3).<br>- Tọa độ cụm giả bị đưa vào Blacklist ($40\text{ m}, 10\text{ s}$).<br>- **Zero permanent offset bias**; tái neo chính xác vào đường thật. | So sánh với mô hình Re-Anchor ngây thơ |
 | **TC-05** | **GPS Blackout Sweep (1s, 5s, 10s, 30s, 60s)** | Xe đạp chạy thẳng và rẽ cua qua các đường hầm mất sóng hoàn toàn với các độ dài thời gian khác nhau. | - $1\text{ s}$: Giữ S0, predict chính xác.<br>- $5\text{ s}$: Chuyển S1 $\to$ S2; phục hồi ngay khi ra hầm.<br>- $10\text{ s}, 30\text{ s}, 60\text{ s}$: Tái neo trong $\le 3$ mẫu hợp lệ sau hầm.<br>- Quãng đường gián đoạn hạch toán đúng chính sách (Mục 4.2). | Baseline A vs Phase 5 |
 | **TC-06** | **Stationary Noise & Dwell at Traffic Light** | Xe dừng hẳn $v = 0.0\text{ m/s}$ trong $60\text{ s}$; GPS dao động ngẫu nhiên bán kính $15\text{ m}$. | - FSM không sinh ra vận tốc ảo hay góc hướng giả mạo.<br>- Quãng đường tích lũy trong 60 giây đứng yên $\le 1.0\text{ m}$. | T-DBSCAN Post-Process vs Phase 5 |
-| **TC-07** | **Slow Cycling Creep (0.8 – 1.5 m/s)** | Xe di chuyển cực chậm gần ngưỡng đứng yên. | - Không nhầm lẫn giữa bò chậm và đứng yên.<br>- Covariance duy trì PSD $100\%$, không suy biến ma trận. | Phase 4A vs Phase 5 |
-| **TC-08** | **Covariance PSD & Numerical Stability** | Stress test 5.000 chu kỳ bao gồm liên tục chuyển trạng thái S0 $\leftrightarrow$ S2 $\to$ S5. | - $100\%$ các bước kiểm tra trị riêng $\lambda_{\min}(P) > 0$.<br>- Ma trận đối xứng hoàn hảo, $0$ giá trị NaN hoặc Inf. | MatrixMath4x4 Jacobi |
+| **TC-07** | **Slow Cycling Creep (0.8 – 1.5 m/s)** | Xe di chuyển cực chậm gần ngưỡng đứng yên. | - Không nhầm lẫn giữa bò chậm và đứng yên.<br>- Covariance duy trì PSD $100\%$, condition number $< 10^6$. | Phase 4A vs Phase 5 |
+| **TC-08** | **Covariance PSD & Numerical Stability** | Stress test 5.000 chu kỳ bao gồm liên tục chuyển trạng thái S0 $\leftrightarrow$ S2 $\to$ S5 và Snapshot Rollback. | - $100\%$ các bước kiểm tra trị riêng $\lambda_{\min}(P) > 0$.<br>- Ma trận đối xứng hoàn hảo, $0$ giá trị NaN hoặc Inf. | MatrixMath4x4 Jacobi |
 | **TC-09** | **No Phantom Distance Assertions** | Đo kiểm chênh lệch khoảng cách trước và sau bước Re-Anchor tại S5. | - Assert: $\text{dist}_{\text{est}}(t_{\text{anchor}}) - \text{dist}_{\text{est}}(t_{\text{anchor}}^-) \le V_{\max} \cdot \Delta t$.<br>- Không có đột biến quãng đường dạng bậc thang (step jump). | Ground-Truth Polyline |
-| **TC-10** | **All-Scheduled 108-Scenario Benchmark Gate** | Chạy toàn bộ 75.600 điểm lập lịch của bộ kiểm tra chuẩn. | - **Protocol 2 All-Scheduled RMSE giảm từ $593.98\text{ m}$ xuống $< 8.0\text{ m}$**.<br>- **Protocol 2 All-Scheduled P95 giảm từ $1.128\text{ m}$ xuống $< 15.0\text{ m}$**.<br>- Operational Availability $\ge 98.5\%$. | Config A, B1, B2, C, D |
+| **TC-10** | **All-Scheduled 108-Scenario Benchmark Gate** | Chạy toàn bộ 75.600 điểm lập lịch của bộ kiểm tra chuẩn. | - **Protocol 2 All-Scheduled RMSE giảm từ $593.98\text{ m}$ xuống $< 8.0\text{ m}$**.<br>- **Protocol 2 All-Scheduled P95 giảm từ $1.128\text{ m}$ xuống $< 15.0\text{ m}$**.<br>- Operational Availability $\ge 98.0\%$.<br>- Overcount Error $\le 1.0\%$, Undercount Error $\le 3.0\%$. | Config A, B1, B2, C, D |
 
 ---
 
@@ -249,7 +248,7 @@ Bảng ma trận kiểm thử bắt buộc phải đạt $100\%$ trước khi Ph
   - `lib/features/workout/domain/services/gps_smoothing_service.dart`
   - `lib/features/workout/domain/services/gps_signal_monitor.dart`
   - `lib/features/workout/domain/services/dbscan/*`
-- Độ sai biệt so với nhánh `main`: **Chính xác 0 byte**.
+- Độ sai biệt so with nhánh `main`: **Chính xác 0 byte**.
 - Mọi nghiên cứu của Phase 5 khi được phê duyệt chỉ được phép thực hiện trên các file dịch vụ EKF độc lập thuộc `lib/features/workout/domain/services/ekf/`.
 
 ---
@@ -257,7 +256,7 @@ Bảng ma trận kiểm thử bắt buộc phải đạt $100\%$ trước khi Ph
 ## 7. Khuyến Nghị & Dừng Hoạt Động (Recommendation & Stop Protocol)
 
 ### 7.1. Khuyến Nghị Chính Thức (Official Recommendation)
-1. **Phê chuẩn Báo cáo Thiết kế Phase 5 (Approve Phase 5 Design Proposal):** Đề xuất kiến trúc FSM 6 trạng thái, cơ chế tái neo phòng thủ 4 lớp, bảng hạch toán quãng đường và ma trận 10 tiêu chí nghiệm thu đã giải quyết toàn diện các lỗ hổng của Phase 4A.
+1. **Phê chuẩn Báo cáo Thiết kế Phase 5 (Approve Phase 5 Design Proposal):** Đề xuất kiến trúc FSM 6 trạng thái, cơ chế tái neo phòng thủ 4 lớp với Snapshot Rollback, chế độ S0-Provisional cho thiết bị không có IMU, bảng hạch toán quãng đường tách bạch over/undercount, và ma trận 10 tiêu chí nghiệm thu định lượng đã giải quyết trọn vẹn mọi yêu cầu kỹ thuật.
 2. **Duy trì HOLD Cổng Phát Hành Phase 4A (Hold Phase 4A Release):** Giữ nguyên quyết định HOLD đối với mã nguồn Phase 4A hiện tại vì chưa có cơ chế phục hồi FSM.
 3. **Chờ Ủy Quyền Cho Phase 5 (Await Phase 5 Implementation Authorization):** Giữ nguyên lệnh cấm triển khai code; không bắt đầu viết code Phase 5 cho đến khi Chủ dự án chính thức ký lệnh `Duyệt Kế hoạch Phase 5 & Bắt đầu Triển khai`.
 

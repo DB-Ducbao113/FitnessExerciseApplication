@@ -3,7 +3,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/gps_smoothing_service.dart';
@@ -219,14 +218,17 @@ void main() {
     test('Mandatory benchmark artifact validation (no silent skip)', () {
       File reportFile = File('test/fixtures/phase4a_benchmark_report.json');
       if (!reportFile.existsSync()) {
-        reportFile = File('/tmp/aetron_phase4a_benchmark_report.json');
+        final envPath = Platform.environment['AETRON_BENCHMARK_EXPORT_PATH'];
+        if (envPath != null && envPath.isNotEmpty) {
+          reportFile = File(envPath);
+        }
       }
 
       // Mandatory assertion: fixture must exist, no silent fallback
       expect(
         reportFile.existsSync(),
         isTrue,
-        reason: 'Mandatory benchmark artifact must exist at test/fixtures/phase4a_benchmark_report.json or /tmp/aetron_phase4a_benchmark_report.json',
+        reason: 'Mandatory benchmark artifact must exist at test/fixtures/phase4a_benchmark_report.json (or via AETRON_BENCHMARK_EXPORT_PATH)',
       );
 
       final content = reportFile.readAsStringSync();

@@ -522,14 +522,16 @@ void main() {
     };
 
     final jsonStr = const JsonEncoder.withIndent('  ').convert(benchmarkReport);
-    try {
-      File('/tmp/aetron_phase4a_benchmark_report.json').writeAsStringSync(jsonStr);
-      File('test/fixtures/phase4a_benchmark_report.json').writeAsStringSync(jsonStr);
-      File('/Users/baobungbu/.gemini/antigravity-ide/brain/c659a9a4-3ce5-48e0-8cd1-99cde235c597/scratch/aetron_phase4a_benchmark_report.json')
-        .writeAsStringSync(jsonStr);
-      print('Exported machine-readable report to test/fixtures/phase4a_benchmark_report.json, /tmp, and scratch directory.');
-    } catch (e) {
-      print('Warning: could not write json file: $e');
+    final exportPath = Platform.environment['AETRON_BENCHMARK_EXPORT_PATH'];
+    if (exportPath != null && exportPath.isNotEmpty) {
+      try {
+        final targetFile = File(exportPath);
+        targetFile.parent.createSync(recursive: true);
+        targetFile.writeAsStringSync(jsonStr);
+        print('Exported machine-readable benchmark report to $exportPath');
+      } catch (e) {
+        print('Warning: could not export benchmark report to $exportPath: $e');
+      }
     }
 
     _printComprehensiveReport(statA, statB1, statB2, statC);

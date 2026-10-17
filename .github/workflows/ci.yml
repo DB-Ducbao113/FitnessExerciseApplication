@@ -4,7 +4,10 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, 'EKF+DBSCAN']
+    branches:
+      - main
+      - '**'
+  workflow_dispatch:
 
 permissions:
   contents: read
