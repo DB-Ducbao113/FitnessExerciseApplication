@@ -1,0 +1,4 @@
+{"workout_id":"fixture-workout","timestamp":"2026-10-15T10:30:02.000Z","latitude":1.00002,"longitude":2.00002,"altitude":5.0,"speed":4.2,"accuracy":8.0,"heading":90.0,"device_source":"geolocator_position_stream","confidence":"high"}
+{"workout_id":"fixture-workout","timestamp":"2026-10-15T10:30:01.000Z","latitude":1.00001,"longitude":2.00001,"altitude":5.0,"speed":4.1,"accuracy":7.0,"heading":89.0,"device_source":"geolocator_position_stream_recovery","confidence":"high"}
+{"workout_id":"fixture-workout","timestamp":"2026-10-15T10:30:01.000Z","latitude":1.000011,"longitude":2.000011,"altitude":5.0,"speed":4.1,"accuracy":6.0,"heading":89.0,"device_source":"geolocator_position_stream","confidence":"high"}
+{"workout_id":"fixture-workout","timestamp":"2026-10-15T10:30:03.000Z","latitude":1.00003,"longitude":2.00003,"altitude":5.0,"speed":4.3,"accuracy":9.0,"heading":91.0,"device_source":"geolocator_position_stream","confidence":"medium"}

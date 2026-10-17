@@ -1,0 +1,3 @@
+scenario,is_synthetic,sample_count,availability_percent,raw_rmse_m,raw_p50_m,raw_p95_m,current_rmse_m,current_p50_m,current_p95_m
+stationary,true,601,100.00,2.517,3.000,3.000,0.922,1.000,1.000
+urbanCycling,true,351,97.23,5.604,5.000,6.000,3.903,3.000,6.000

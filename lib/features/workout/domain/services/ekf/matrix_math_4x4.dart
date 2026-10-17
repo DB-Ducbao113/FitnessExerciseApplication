@@ -163,6 +163,74 @@ class Matrix4x4 {
 
     return Matrix4x4(b);
   }
+
+  /// Exact determinant of 4x4 matrix via cofactor expansion along row 0.
+  double get determinant {
+    final a00 = storage[0], a01 = storage[1], a02 = storage[2], a03 = storage[3];
+    final a10 = storage[4], a11 = storage[5], a12 = storage[6], a13 = storage[7];
+    final a20 = storage[8], a21 = storage[9], a22 = storage[10], a23 = storage[11];
+    final a30 = storage[12], a31 = storage[13], a32 = storage[14], a33 = storage[15];
+
+    final c00 = a11 * (a22 * a33 - a23 * a32) -
+        a12 * (a21 * a33 - a23 * a31) +
+        a13 * (a21 * a32 - a22 * a31);
+    final c01 = a10 * (a22 * a33 - a23 * a32) -
+        a12 * (a20 * a33 - a23 * a30) +
+        a13 * (a20 * a32 - a22 * a30);
+    final c02 = a10 * (a21 * a33 - a23 * a31) -
+        a11 * (a20 * a33 - a23 * a30) +
+        a13 * (a20 * a31 - a21 * a30);
+    final c03 = a10 * (a21 * a32 - a22 * a31) -
+        a11 * (a20 * a32 - a22 * a30) +
+        a12 * (a20 * a31 - a21 * a30);
+
+    return a00 * c00 - a01 * c01 + a02 * c02 - a03 * c03;
+  }
+
+  /// Verifies whether this matrix is symmetric and positive semi-definite (PSD)
+  /// within numerical [tolerance].
+  ///
+  /// Evaluates Sylvester's criterion: for a symmetric matrix, all principal minors
+  /// must be non-negative.
+  bool isPositiveSemiDefinite([double tolerance = -1e-9]) {
+    // 1. Verify finite elements and symmetry
+    for (var r = 0; r < 4; r++) {
+      for (var c = r; c < 4; c++) {
+        final a = get(r, c);
+        final b = get(c, r);
+        if (!a.isFinite || !b.isFinite) return false;
+        final scale = math.max(1.0, math.max(a.abs(), b.abs()));
+        if ((a - b).abs() > 1e-6 * scale) return false;
+      }
+    }
+
+    // 2. 1x1 principal minors (diagonal entries) >= tolerance
+    for (var i = 0; i < 4; i++) {
+      if (get(i, i) < tolerance) return false;
+    }
+
+    // 3. 2x2 principal minors
+    for (var i = 0; i < 4; i++) {
+      for (var j = i + 1; j < 4; j++) {
+        final m2 = get(i, i) * get(j, j) - get(i, j) * get(j, i);
+        if (m2 < tolerance) return false;
+      }
+    }
+
+    // 4. 3x3 principal minors
+    for (var k = 0; k < 4; k++) {
+      final idx = [0, 1, 2, 3]..removeAt(k);
+      final r0 = idx[0], r1 = idx[1], r2 = idx[2];
+      final m3 =
+          get(r0, r0) * (get(r1, r1) * get(r2, r2) - get(r1, r2) * get(r2, r1)) -
+          get(r0, r1) * (get(r1, r0) * get(r2, r2) - get(r1, r2) * get(r2, r0)) +
+          get(r0, r2) * (get(r1, r0) * get(r2, r1) - get(r1, r1) * get(r2, r0));
+      if (m3 < tolerance) return false;
+    }
+
+    // 5. 4x4 determinant
+    return determinant >= tolerance;
+  }
 }
 
 /// Fast 2x2 matrix operations used for position measurement updates:

@@ -62,6 +62,47 @@ void main() {
 
       expect(() => singular.invert(), throwsStateError);
     });
+
+    test('exact 4x4 determinant', () {
+      expect(Matrix4x4.identity().determinant, closeTo(1.0, 1e-12));
+      expect(Matrix4x4.diagonal(2.0, 3.0, 4.0, 5.0).determinant, closeTo(120.0, 1e-12));
+
+      final singular = Matrix4x4.fromList([
+        1.0, 2.0, 3.0, 4.0,
+        2.0, 4.0, 6.0, 8.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+      ]);
+      expect(singular.determinant, closeTo(0.0, 1e-12));
+    });
+
+    test('verifies positive semi-definiteness via principal minors', () {
+      expect(Matrix4x4.identity().isPositiveSemiDefinite(), isTrue);
+      expect(Matrix4x4.diagonal(5.0, 2.0, 0.5, 0.1).isPositiveSemiDefinite(), isTrue);
+
+      // Negative diagonal -> not PSD
+      expect(Matrix4x4.diagonal(5.0, -0.1, 0.5, 0.1).isPositiveSemiDefinite(), isFalse);
+
+      // Asymmetric matrix -> not PSD
+      final asymmetric = Matrix4x4.identity();
+      asymmetric.set(0, 1, 5.0);
+      expect(asymmetric.isPositiveSemiDefinite(), isFalse);
+
+      // Symmetric but violation of 2x2 minor (P00*P11 - P01^2 = 1*1 - 4 = -3 < 0)
+      final nonPsd = Matrix4x4.identity();
+      nonPsd.set(0, 1, 2.0);
+      nonPsd.set(1, 0, 2.0);
+      expect(nonPsd.isPositiveSemiDefinite(), isFalse);
+
+      // Valid full rank covariance with cross-correlations
+      final validP = Matrix4x4.fromList([
+        4.0, 1.0, 0.2, 0.1,
+        1.0, 3.0, 0.5, 0.2,
+        0.2, 0.5, 2.0, 0.3,
+        0.1, 0.2, 0.3, 1.5,
+      ]);
+      expect(validP.isPositiveSemiDefinite(), isTrue);
+    });
   });
 
   group('Matrix2x2', () {
