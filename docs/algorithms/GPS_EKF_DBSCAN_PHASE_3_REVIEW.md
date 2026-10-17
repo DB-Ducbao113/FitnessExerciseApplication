@@ -5,7 +5,7 @@
 **Algorithm label:** `phase3-nis-adaptive-covariance`<br>
 **Config fingerprint:** `fnv1a32-12b93cef`<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
-**Git HEAD:** `8e225c8` (nhánh `EKF+DBSCAN`)
+**Git HEAD:** `3ede4a3` (nhánh `EKF+DBSCAN`, baseline `9e576c7`)
 
 ---
 
@@ -162,14 +162,27 @@ Các thay đổi được giới hạn nghiêm ngặt trong module EKF và test 
 
 ---
 
-## 6. Kiểm tra Verification Gates
+## 6. Kiểm tra Verification Gates & Nhật ký thực thi (Execution Logs)
 
-- [x] **Targeted Tests:** `test/extended_kalman_filter_test.dart` + `test/ekf_matrix_math_test.dart` + `test/synthetic_gps_benchmark_runner_test.dart` $\to$ **35/35 passed (100%)**.
-- [x] **Static Analysis:** `flutter analyze` $\to$ **0 issues found! (ran in 1.6s)**.
-- [x] **Full Test Suite:** `flutter test` $\to$ **370 passed, 1 skipped, 0 failed (ran in 12s)**.
-- [x] **Synthetic Benchmark:** Hoàn tất, xuất artifact `/tmp/aetron-phase3-synthetic.json`.
-- [x] **Field Replay:** Hoàn tất 7/7 journal, xuất artifact `/tmp/aetron-phase3-field-reports/*.json`.
-- [x] **Git Diff Check:** `git diff --check` $\to$ **Clean (0 errors, no EOF issues)**.
+### 6.1. Thông tin môi trường thực thi (Machine Information)
+- **Hệ điều hành:** macOS 26.6.2 (Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142 arm64)
+- **Kiến trúc phần cứng:** Apple Silicon (macOS arm64)
+- **Flutter SDK:** 3.47.1 • channel stable • Framework revision `6655482ec0` (8 weeks ago, 2026-08-19 10:07:23 -0700)
+- **Dart SDK:** 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on `macos_arm64`
+
+### 6.2. Bảng kết quả thực thi các cổng kiểm chuẩn (Gate Execution Results)
+
+| Verification Gate | Lệnh thực thi (Exact Command) | Timestamp (UTC) | Exit Code | Kết quả đo đạc | Trạng thái |
+|---|---|---|:---:|---|:---:|
+| **Targeted EKF Tests** | `flutter test test/extended_kalman_filter_test.dart test/ekf_matrix_math_test.dart test/synthetic_gps_benchmark_runner_test.dart` | `2026-10-17T08:09:35Z` | `0` | 35/35 test passed (100%) | **PASS** |
+| **Adversarial PSD & Jacobi** | `flutter test test/ekf_matrix_math_test.dart` | `2026-10-17T08:09:41Z` | `0` | 12/12 groups passed, 100% Sylvester-Jacobi consensus | **PASS** |
+| **Static Analysis** | `flutter analyze` | `2026-10-17T08:09:46Z` | `0` | No issues found! (1.9s) | **PASS** |
+| **Full Test Suite** | `flutter test` | `2026-10-17T08:10:08Z` | `0` | 370 passed, 1 skipped, 0 failed (12.0s) | **PASS** |
+| **Synthetic Benchmark** | `dart run tool/gps_synthetic_benchmark.dart --output /tmp/aetron-phase3-synthetic.json` | `2026-10-17T08:10:14Z` | `0` | Xuất report JSON + timestamp trace | **PASS** |
+| **7 Field Replays** | `dart run tool/gps_benchmark.dart --activity cycling --input <file> --output <out>` (7 lần) | `2026-10-17T08:10:20Z` | `0` | 8.135 điểm: 8.129 normal, 6 downWeighted, 0 rejected | **PASS** |
+| **Whitespace / Diff Check** | `git diff --check` | `2026-10-17T08:10:25Z` | `0` | 0 cảnh báo, không có trailing whitespace / EOF thừa | **PASS** |
+| **Secrets & Raw GPS Audit** | `git diff main..HEAD \| grep -iE "(AIza\|secret_key\|private_key)"` | `2026-10-17T08:09:26Z` | `1` | 0 secret, 0 raw GPS coordinates committed | **PASS** |
+| **Pipeline Immutability** | `git diff main..HEAD lib/main.dart lib/features/workout/domain/services/gps_pipeline.dart lib/features/workout/domain/services/gps_smoothing_service.dart` | `2026-10-17T08:09:18Z` | `0` | Empty diff (100% nguyên vẹn) | **PASS** |
 
 ---
 

@@ -85,8 +85,6 @@ GEMINI.md
 # Vercel deployment cache
 .vercel
 
-# Documentation
-docs/
 
 # Node
 node_modules/
