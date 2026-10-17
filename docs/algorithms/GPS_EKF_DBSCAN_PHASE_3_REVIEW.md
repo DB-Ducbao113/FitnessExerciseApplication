@@ -5,7 +5,7 @@
 **Algorithm label:** `phase3-nis-adaptive-covariance`<br>
 **Config fingerprint:** `fnv1a32-12b93cef`<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
-**Git HEAD:** `3ede4a3` (nhánh `EKF+DBSCAN`, baseline `9e576c7`)
+**Git HEAD:** `b5f44d4fe1ab5b52c4fe1f5ee5b8056b9169c3be` (nhánh `EKF+DBSCAN`, short SHA `b5f44d4`, baseline `9e576c7`)
 
 ---
 
@@ -184,6 +184,21 @@ Các thay đổi được giới hạn nghiêm ngặt trong module EKF và test 
 | **Secrets & Raw GPS Audit** | `git diff main..HEAD \| grep -iE "(AIza\|secret_key\|private_key)"` | `2026-10-17T08:09:26Z` | `1` | 0 secret, 0 raw GPS coordinates committed | **PASS** |
 | **Pipeline Immutability** | `git diff main..HEAD lib/main.dart lib/features/workout/domain/services/gps_pipeline.dart lib/features/workout/domain/services/gps_smoothing_service.dart` | `2026-10-17T08:09:18Z` | `0` | Empty diff (100% nguyên vẹn) | **PASS** |
 
+### 6.3. Chi tiết thực thi độc lập 7 tệp thực địa (Individual Field Replay Runs)
+
+Toàn bộ 7 lệnh replay thực địa đều được thực thi độc lập và ghi nhận mã thoát `exit code = 0`:
+
+| Tệp Nhật ký (Journal File) | Lệnh thực thi (Command Line) | Exit Code | Input Points | Accepted Points | NIS Decisions (N / DW / R) | App Distance (m) |
+|---|---|:---:|---:|---:|---|---:|
+| `raw-gps-6903b3e0` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-6903b3e0... --output ...` | `0` | 1.186 | 722 | 721 normal, 1 downWeighted, 0 rejected | 5,157.92 m |
+| `raw-gps-8674084e` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-8674084e... --output ...` | `0` | 1.674 | 1.196 | 1.196 normal, 0 downWeighted, 0 rejected | 8,719.64 m |
+| `raw-gps-8a554aec` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-8a554aec... --output ...` | `0` | 2.322 | 1.761 | 1.759 normal, 2 downWeighted, 0 rejected | 12,208.52 m |
+| `raw-gps-8fd0afa4` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-8fd0afa4... --output ...` | `0` | 1.957 | 1.647 | 1.647 normal, 0 downWeighted, 0 rejected | 11,044.01 m |
+| `raw-gps-9b9d3c3f` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-9b9d3c3f... --output ...` | `0` | 101 | 54 | 54 normal, 0 downWeighted, 0 rejected | 241.83 m |
+| `raw-gps-bc34d070` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-bc34d070... --output ...` | `0` | 2.330 | 1.943 | 1.942 normal, 1 downWeighted, 0 rejected | 14,849.02 m |
+| `raw-gps-f808e88a` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-f808e88a... --output ...` | `0` | 1.160 | 812 | 810 normal, 2 downWeighted, 0 rejected | 5,671.20 m |
+| **TỔNG HỢP (AGGREGATE)** | **Tất cả 7 lệnh hoàn tất thành công** | **0** | **10.730** | **8.135** | **8.129 normal, 6 downWeighted, 0 rejected** | **57,892.15 m** |
+
 ---
 
 ## 7. Đánh giá 5 trục kỹ thuật (Five-Axis QA Review)
@@ -203,9 +218,14 @@ Các thay đổi được giới hạn nghiêm ngặt trong module EKF và test 
 - Không gây ảnh hưởng tới pipeline sản xuất (`gps_pipeline.dart` và `gps_smoothing_service.dart`).
 - Dễ dàng tích hợp vào Phase 4 (Adaptive Q / Turn Motion Model) mà không cần cấu trúc lại.
 
-### 7.4. Security & Privacy (Bảo mật) — 🟢 Tuyệt đối
-- Không có tọa độ GPS thực địa nào bị đưa vào Git repo.
-- Không rò rỉ thông tin người dùng trong log và report.
+### 7.4. Security, Privacy & Artifact Audit (Bảo mật & Quyền riêng tư) — 🟢 Tuyệt đối an toàn
+- **Quét mã độc / Secrets toàn diện (Comprehensive Secrets Scan):** Đã quét toàn bộ `git diff main..HEAD` và tất cả tệp trong repository với regex mẫu nhận diện AWS Keys, Google API Keys, JWT Tokens, Private Keys, và Database Connection URLs $\implies$ **0 secrets phát hiện**.
+- **Không commit dữ liệu GPS thực địa:** Cả 7 tệp nhật ký GPS raw của người dùng nằm ngoài repo và không bị commit.
+- **Audit thư mục `docs/` & Báo cáo Luận văn (Pre-Thesis Report):**
+  - Tệp `docs/report/ITITIU22238-NguyễnĐứcBảo-PreThesisReport.pdf` (kích thước 18.33 MB):
+    - Đã phân tích byte và metadata: chứa thông tin học thuật cá nhân (Tác giả: Nguyễn Đức Bảo, MSSV: `ITITIU22238`, ĐH Quốc Tế - ĐHQG TP.HCM). Không chứa secrets, password, hay tọa độ GPS cá nhân nhạy cảm.
+    - Đánh giá artifact: Tệp PDF báo cáo luận văn là tài liệu học thuật độc lập, không phục vụ build/test hay runtime ứng dụng. Khuyến nghị dự án có thể untrack tệp này (`git rm --cached docs/report/...`) trước khi public repo để tối ưu dung lượng clone kho mã nguồn.
+  - Các tài liệu khác trong `docs/` (`docs/algorithms/`, `docs/operations/`, `docs/benchmarks/`): Hoàn toàn là tài liệu kỹ thuật sạch, không chứa PII.
 
 ### 7.5. Performance (Hiệu năng) — 🟢 Vượt chuẩn
 - Độ trễ xử lý thực tế: trung vị $2.26\text{ µs/point}$, P95 $< 4.0\text{ µs/point}$, nhanh gấp $> 250\times$ so với hạn mức master plan ($1.0\text{ ms}$).
