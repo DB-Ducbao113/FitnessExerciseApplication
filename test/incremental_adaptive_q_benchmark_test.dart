@@ -524,9 +524,10 @@ void main() {
     final jsonStr = const JsonEncoder.withIndent('  ').convert(benchmarkReport);
     try {
       File('/tmp/aetron_phase4a_benchmark_report.json').writeAsStringSync(jsonStr);
+      File('test/fixtures/phase4a_benchmark_report.json').writeAsStringSync(jsonStr);
       File('/Users/baobungbu/.gemini/antigravity-ide/brain/c659a9a4-3ce5-48e0-8cd1-99cde235c597/scratch/aetron_phase4a_benchmark_report.json')
         .writeAsStringSync(jsonStr);
-      print('Exported machine-readable report to /tmp/aetron_phase4a_benchmark_report.json and scratch directory.');
+      print('Exported machine-readable report to test/fixtures/phase4a_benchmark_report.json, /tmp, and scratch directory.');
     } catch (e) {
       print('Warning: could not write json file: $e');
     }
