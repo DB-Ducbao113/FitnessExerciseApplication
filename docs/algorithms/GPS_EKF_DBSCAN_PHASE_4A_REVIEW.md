@@ -11,6 +11,7 @@
 **Config fingerprint:** `fnv1a32-12b93cef`<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
 **Reviewed Commit:** `11b180b813ea66601a21568d5a8566411baa54c2`<br>
+**Remediated Commit:** `4370795180bdb1016739aa77b7efadde2b6d7d35` (short SHA `4370795`)<br>
 **Comparator Phase 3 Approved Commit:** `9e5fa2c4d623ce1b1512db4fc527964b44585141`
 
 ---
