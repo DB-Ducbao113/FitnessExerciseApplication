@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aetron</title>
+  <style>
+    :root { color-scheme: light; --ink:#15221d; --muted:#65756c; --line:#dbe5de; --paper:#f8fbf8; --accent:#087a53; --warn:#8b5600; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.6 Inter, ui-sans-serif, system-ui, sans-serif; }
+    main { width:min(980px, calc(100% - 32px)); margin:56px auto; }
+    header { border-left:6px solid var(--accent); padding:8px 0 8px 24px; margin-bottom:32px; }
+    h1 { font-size:clamp(28px, 5vw, 48px); letter-spacing:-.045em; line-height:1.05; margin:0 0 12px; }
+    h2 { margin:38px 0 10px; font-size:22px; letter-spacing:-.02em; }
+    p { max-width:75ch; }
+    .tag { display:inline-block; padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; letter-spacing:.06em; background:#e2f5eb; color:#07583c; }
+    .notice { background:#fff5dd; border:1px solid #f0d490; color:#5c410c; padding:16px 18px; border-radius:12px; }
+    .takeaway { background:#e7f6ee; border:1px solid #b9e5cc; border-radius:14px; padding:20px; }
+    .takeaway strong { color:#07583c; }
+    .comparison-note { color:var(--muted); font-size:14px; }
+    .good { color:#087a53; font-weight:700; }
+    .grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; }
+    .metric { font-weight:800; font-size:28px; letter-spacing:-.04em; color:var(--accent); }
+    .label { color:var(--muted); font-size:14px; }
+    table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+    th, td { padding:12px 14px; text-align:left; border-bottom:1px solid var(--line); }
+    th { color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:.05em; }
+    tr:last-child td { border-bottom:0; }
+    code { padding:2px 5px; border-radius:5px; background:#eaf0ec; font-size:.9em; }
+    @media (max-width:640px) { main { margin:28px auto; } .grid { grid-template-columns:1fr; } th,td { padding:10px 8px; font-size:14px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="tag">SYNTHETIC</span>
+      <h1>Benchmark GPS của thuật toán hiện tại</h1>
+    </header>
+
+    <h2>Thông điệp trong 30 giây</h2>
+    <section class="takeaway">
+      <p><strong>Nếu người dùng đạp xe trong đúng kịch bản mô phỏng này:</strong> cứ 100 vị trí, khoảng 50 vị trí lệch không quá 3 m; khoảng 95 vị trí lệch không quá 6 m. Bộ làm mượt hiện tại giảm sai số điển hình từ 5.60 m xuống 3.90 m, tương đương giảm khoảng 30% RMSE.</p>
+      <p>Điểm còn yếu là các lỗi hiếm nhưng lớn: P95 vẫn là 6 m. Đây là lý do EKF và bước loại outlier sẽ được kiểm tra ở giai đoạn tiếp theo.</p>
+    </section>
+
+    <h2>Kết quả tóm tắt</h2>
+    <table>
+      <thead><tr><th>Kịch bản</th><th>Raw GPS</th><th>Fixed-alpha hiện tại</th><th>Availability</th></tr></thead>
+      <tbody>
+        <tr><td>Đứng yên · 10 phút</td><td>RMSE 2.52 m · P95 3.00 m</td><td>RMSE 0.92 m · P95 1.00 m</td><td>100.00%</td></tr>
+        <tr><td>Đạp xe đô thị · 6 phút</td><td>RMSE 5.60 m · P50 5.00 m · P95 6.00 m</td><td>RMSE 3.90 m · P50 3.00 m · P95 6.00 m</td><td>97.23%</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Đọc các chỉ số</h2>
+    <div class="grid">
+      <article class="card"><div class="metric">RMSE</div><strong>Sai số điển hình, đơn vị mét</strong><p>Gộp sai số của mọi điểm; điểm nhảy xa bị phạt mạnh. RMSE 3.90 m nghĩa là tuyến đạp xe mô phỏng thường lệch cỡ vài mét.</p></article>
+      <article class="card"><div class="metric">P50</div><strong>Trải nghiệm của 50% điểm</strong><p>P50 là trung vị. P50 3 m nghĩa là một nửa số vị trí có sai số không quá 3 m.</p></article>
+      <article class="card"><div class="metric">P95</div><strong>Độ xấu ở 5% cuối</strong><p>P95 6 m nghĩa là 95 trên 100 điểm sai số không quá 6 m; 5 điểm xấu nhất có thể lệch nhiều hơn.</p></article>
+      <article class="card"><div class="metric">Availability</div><strong>Tỷ lệ có mẫu GPS</strong><p>97.23% xuất hiện vì fixture đạp xe cố ý bỏ 10 giây tín hiệu. Đây không phải “độ chính xác”.</p></article>
+    </div>
+
+    <h2>So sánh với các app fitness: nên đọc thế nào?</h2>
+    <p>Pre-thesis có một phép so sánh khác: sáu app cùng ghi một tuyến <strong>đi bộ</strong> khoảng 510 m. Đây là phép so sánh <em>tổng quãng đường</em>, không phải benchmark vị trí từng giây. Vì vậy không thể đặt trực tiếp số km cạnh RMSE/P95 mét ở trên.</p>
+    <table>
+      <thead><tr><th>Ứng dụng</th><th>Quãng đường ghi nhận</th><th>Ý nghĩa đúng</th></tr></thead>
+      <tbody>
+        <tr><td>FITAPP</td><td>0.51 km</td><td rowspan="5">Các app thương mại dao động 0.51–0.56 km trên cùng thử nghiệm đi bộ.</td></tr>
+        <tr><td>Goals-Fitness</td><td>0.51 km</td></tr>
+        <tr><td>Running by Adidas</td><td>0.56 km</td></tr>
+        <tr><td>Nike Run Club</td><td>0.51 km</td></tr>
+        <tr><td>Strava</td><td>0.52 km</td></tr>
+        <tr><td><strong>Aetron</strong></td><td><strong>0.52 km</strong></td><td class="good">Nằm trong khoảng của các app kia.</td></tr>
+      </tbody>
+    </table>
+    <p class="comparison-note">Nguồn: Table 4.1 trong <a href="../../../report/ITITIU22238-NguyễnĐứcBảo-PreThesisReport.pdf">Pre-Thesis Report</a>, trang 41 (PDF trang 42). Mỗi app chạy trên điện thoại riêng; không có ground-truth khảo sát. Do đó, kết luận hợp lệ là “Aetron cho quãng đường cùng khoảng trong thử nghiệm đó”, không phải “Aetron chính xác hơn Strava/Nike/Adidas”.</p>
+
+    <h2>Vì sao không so sánh trực tiếp các số này?</h2>
+    <table>
+      <thead><tr><th>Chỉ số</th><th>Câu hỏi nó trả lời</th><th>Ví dụ dễ hiểu</th></tr></thead>
+      <tbody>
+        <tr><td>Quãng đường (km)</td><td>Sau cả buổi, app cộng được bao nhiêu km?</td><td>0.52 km có gần với các app khác trong cùng chuyến đi không?</td></tr>
+        <tr><td>RMSE / P50 / P95 (m)</td><td>Tại từng giây, chấm GPS lệch khỏi vị trí thật bao xa?</td><td>Khi đang ở ngã tư, chấm xanh có nằm đúng gần con đường không?</td></tr>
+        <tr><td>MAPE (%)</td><td>Tổng quãng đường lệch bao nhiêu phần trăm so với tuyến tham chiếu?</td><td>Tuyến thật 800 m, app ghi 820 m → lệch 2.5%.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Fixture đã mô phỏng gì?</h2>
+    <p>Đứng yên có nhiễu 1–3 m. Đạp xe chạy theo vòng định tuyến công khai gần Đường số 23, đi qua Đường số 17, Lý Chiêu Hoàng và Trần Văn Kiểu, với nhiễu khoảng 3–6 m, một khoảng mất tín hiệu 10 giây và một outlier cách vị trí thật 55 m. Fixed-alpha giảm RMSE, nhưng P95 đạp xe vẫn 6 m: thuật toán hiện tại không có bộ loại outlier chuyên dụng.</p>
+
+    <h2>CSV kiểm tra lại</h2>
+    <p><code>summary.csv</code> chứa số tổng hợp. <code>stationary.csv</code> và <code>urban_cycling.csv</code> chứa từng điểm: ground-truth, raw GPS, đầu ra fixed-alpha và sai số theo mét. Cột <code>is_synthetic</code> luôn là <code>true</code>.</p>
+
+    <h2>Cách dùng làm baseline</h2>
+    <ol>
+      <li><strong>Hiện tại:</strong> fixed-alpha là baseline mô phỏng: RMSE 3.90 m, P50 3.00 m, P95 6.00 m khi đạp xe.</li>
+      <li><strong>Sau EKF:</strong> chạy lại đúng CSV/fixture này; chỉ nói EKF tốt hơn nếu RMSE giảm mà P95 và availability không xấu đi.</li>
+      <li><strong>Sau xử lý outlier:</strong> kiểm tra P95 có giảm hay không; đây là chỉ số cho những lần GPS “nhảy” khó chịu.</li>
+      <li><strong>Sau record thật:</strong> thay ground-truth mô phỏng bằng RTK hoặc tuyến khảo sát. Chỉ lúc đó mới công bố benchmark GPS thực tế hoặc so sánh công bằng với app khác.</li>
+    </ol>
+  </main>
+</body>
+</html>
