@@ -96,6 +96,42 @@ WorkoutSession _finishedWorkout(String id) => WorkoutSession(
 void main() {
   group('Details screen resolves a just-recorded workout by id', () {
     test(
+      'uses the optimistic finished workout while local and remote saves lag',
+      () async {
+        final finished = _finishedWorkout('session-in-flight');
+        final repo = _DetailLookupRepository(
+          byId: const {},
+          listResult: const [],
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            currentUserIdProvider.overrideWith((ref) => 'user-a'),
+            workoutRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(workoutListProvider.future);
+        container
+            .read(workoutListProvider.notifier)
+            .insertLocalSession(finished);
+
+        final resolved = await container.read(
+          workoutProvider('session-in-flight').future,
+        );
+
+        expect(
+          resolved,
+          same(finished),
+          reason:
+              'Details must reuse the workout already visible in History '
+              'until Isar or Supabase catches up',
+        );
+      },
+    );
+
+    test(
       'workout(id) returns the session even when the list query hides it',
       () async {
         final finished = _finishedWorkout('session-new');
@@ -160,23 +196,25 @@ void main() {
       },
     );
 
-    test('workout(id) returns null only when the id truly does not exist',
-        () async {
-      final repo = _DetailLookupRepository(
-        byId: {'session-new': _finishedWorkout('session-new')},
-        listResult: const [],
-      );
+    test(
+      'workout(id) returns null only when the id truly does not exist',
+      () async {
+        final repo = _DetailLookupRepository(
+          byId: {'session-new': _finishedWorkout('session-new')},
+          listResult: const [],
+        );
 
-      final container = ProviderContainer(
-        overrides: [
-          currentUserIdProvider.overrideWith((ref) => 'user-a'),
-          workoutRepositoryProvider.overrideWithValue(repo),
-        ],
-      );
-      addTearDown(container.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            currentUserIdProvider.overrideWith((ref) => 'user-a'),
+            workoutRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final missing = await container.read(workoutProvider('nope').future);
-      expect(missing, isNull);
-    });
+        final missing = await container.read(workoutProvider('nope').future);
+        expect(missing, isNull);
+      },
+    );
   });
 }

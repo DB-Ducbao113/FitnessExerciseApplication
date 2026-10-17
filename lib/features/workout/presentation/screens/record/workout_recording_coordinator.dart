@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_step_interval.dart';
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
@@ -32,15 +33,31 @@ class WorkoutRecordingCoordinator {
     required WorkoutRemoteDataSource workoutRemote,
     required WorkoutProcessingRemoteDataSource processingRemote,
     required String? Function() currentUserId,
+    Future<void> Function(LocalGPSPoint point)? saveLocalGpsPoint,
+    Future<void> Function(LocalStepInterval interval)? saveLocalStepInterval,
+    Future<void> Function(LocalGPSPoint point)? saveRecoveryGpsPoint,
+    Future<void> Function(String workoutId)? deleteRecoveryGpsJournal,
   }) : _rawTracking = rawTracking,
        _workoutRemote = workoutRemote,
        _processingRemote = processingRemote,
-       _currentUserId = currentUserId;
+       _currentUserId = currentUserId,
+       _saveLocalGpsPoint = saveLocalGpsPoint ?? LocalDB.saveRawGpsPoint,
+       _saveLocalStepInterval =
+           saveLocalStepInterval ?? LocalDB.saveRawStepInterval,
+       _saveRecoveryGpsPoint =
+           saveRecoveryGpsPoint ?? RawGpsRecoveryJournal.instance.append,
+       _deleteRecoveryGpsJournal =
+           deleteRecoveryGpsJournal ?? RawGpsRecoveryJournal.instance.delete;
 
   final RawTrackingRemoteDataSource _rawTracking;
   final WorkoutRemoteDataSource _workoutRemote;
   final WorkoutProcessingRemoteDataSource _processingRemote;
   final String? Function() _currentUserId;
+  final Future<void> Function(LocalGPSPoint point) _saveLocalGpsPoint;
+  final Future<void> Function(LocalStepInterval interval)
+  _saveLocalStepInterval;
+  final Future<void> Function(LocalGPSPoint point) _saveRecoveryGpsPoint;
+  final Future<void> Function(String workoutId) _deleteRecoveryGpsJournal;
   final WorkoutTrackingEngine _trackingEngine = const WorkoutTrackingEngine();
 
   static const int _kRawGpsFlushThreshold = 24;
@@ -60,11 +77,25 @@ class WorkoutRecordingCoordinator {
   bool _isSyncingLiveRouteSnapshot = false;
   Timer? _rawTrackingFlushTimer;
   _PendingLiveRouteSnapshot? _pendingLiveRouteSnapshot;
+  Completer<void>? _rawGpsFlushCompleter;
+  Future<void> _localWriteTail = Future<void>.value();
+  final Set<String> _capturedRawGpsKeys = {};
+  int _trackingGeneration = 0;
+  int _capturedGpsPoints = 0;
+  int _localSavedGpsPoints = 0;
+  int _localFailedGpsPoints = 0;
+  int _isarSavedGpsPoints = 0;
+  int _recoverySavedGpsPoints = 0;
+  int _recoveryFailedGpsPoints = 0;
+  int _uploadedGpsPoints = 0;
+  int _remoteUploadFailures = 0;
+  int? _serverConfirmedGpsPoints;
 
   int get pendingRawGpsPointCount => _pendingRawGpsPoints.length;
   int get pendingRawStepIntervalCount => _pendingRawStepIntervals.length;
 
   void reset() {
+    _trackingGeneration += 1;
     _pendingRawGpsPoints.clear();
     _pendingRawStepIntervals.clear();
     _pendingLiveRouteSnapshot = null;
@@ -77,6 +108,17 @@ class WorkoutRecordingCoordinator {
     _isSyncingLiveRouteSnapshot = false;
     _rawTrackingFlushTimer?.cancel();
     _rawTrackingFlushTimer = null;
+    _rawGpsFlushCompleter = null;
+    _capturedRawGpsKeys.clear();
+    _capturedGpsPoints = 0;
+    _localSavedGpsPoints = 0;
+    _localFailedGpsPoints = 0;
+    _isarSavedGpsPoints = 0;
+    _recoverySavedGpsPoints = 0;
+    _recoveryFailedGpsPoints = 0;
+    _uploadedGpsPoints = 0;
+    _remoteUploadFailures = 0;
+    _serverConfirmedGpsPoints = null;
   }
 
   Future<void> createRemoteWorkoutShell({
@@ -113,6 +155,11 @@ class WorkoutRecordingCoordinator {
     required String? workoutId,
     String deviceSource = 'geolocator_position_stream',
   }) {
+    _capturedGpsPoints += 1;
+    _capturedRawGpsKeys.add(
+      '${position.timestamp.toUtc().microsecondsSinceEpoch}|'
+      '${position.latitude}|${position.longitude}',
+    );
     if (workoutId != null && workoutId.isNotEmpty) {
       final localPoint = LocalGPSPoint()
         ..sessionId = workoutId
@@ -128,7 +175,15 @@ class WorkoutRecordingCoordinator {
         ..confidence = _trackingEngine.confidenceForAccuracy(
           position.accuracy >= 0 ? position.accuracy : null,
         );
-      unawaited(LocalDB.saveRawGpsPoint(localPoint));
+      _queueLocalGpsWrite(localPoint, workoutId);
+    } else {
+      _localFailedGpsPoints += 1;
+      debugPrint(
+        jsonEncode({
+          'event': 'raw_gps_local_persist_failed',
+          'reason': 'missing_workout_id',
+        }),
+      );
     }
 
     _pendingRawGpsPoints.add(
@@ -165,7 +220,7 @@ class WorkoutRecordingCoordinator {
         ..intervalEnd = intervalEnd
         ..stepsCount = stepsCount
         ..deviceSource = 'pedometer_step_count_stream';
-      unawaited(LocalDB.saveRawStepInterval(localInterval));
+      _queueLocalStepWrite(localInterval, workoutId);
     }
 
     _pendingRawStepIntervals.add(
@@ -184,6 +239,76 @@ class WorkoutRecordingCoordinator {
     _remoteWorkoutShellReady = true;
     _ensurePeriodicFlushTimer();
   }
+
+  /// Drains local writes, flushes the last remote batch, and then verifies the
+  /// server-visible row count. This must finish before processing is enqueued;
+  /// otherwise `pending == 0` can be mistaken for a successful upload while a
+  /// detached request is still running (or has already failed).
+  Future<RawTrackingDiagnostics> finalizeRawTracking({
+    required String workoutId,
+  }) async {
+    _activeWorkoutId = workoutId;
+    _remoteWorkoutShellReady = true;
+    _ensurePeriodicFlushTimer();
+
+    await _localWriteTail;
+    await flushPendingRawTracking(workoutId: workoutId, force: true);
+
+    try {
+      _serverConfirmedGpsPoints = await _rawTracking
+          .countRawGpsPointsForWorkout(workoutId);
+    } catch (error) {
+      _serverConfirmedGpsPoints = null;
+      debugPrint(
+        jsonEncode({
+          'event': 'raw_gps_server_count_failed',
+          'workout_id': workoutId,
+          'error_type': error.runtimeType.toString(),
+        }),
+      );
+    }
+
+    final diagnostics = rawTrackingDiagnostics;
+    await logProcessingEvent(
+      workoutId: workoutId,
+      eventType: diagnostics.isComplete
+          ? 'client_raw_gps_complete'
+          : 'client_raw_gps_incomplete',
+      message: diagnostics.isComplete
+          ? 'Client confirmed durable raw GPS capture.'
+          : 'Client detected incomplete raw GPS capture.',
+      payload: diagnostics.toJson(),
+      logLevel: diagnostics.isComplete ? 'info' : 'warning',
+    );
+    if (diagnostics.isComplete) {
+      try {
+        await _deleteRecoveryGpsJournal(workoutId);
+      } catch (error) {
+        debugPrint(
+          jsonEncode({
+            'event': 'raw_gps_recovery_journal_delete_failed',
+            'workout_id': workoutId,
+            'error_type': error.runtimeType.toString(),
+          }),
+        );
+      }
+    }
+    return diagnostics;
+  }
+
+  RawTrackingDiagnostics get rawTrackingDiagnostics => RawTrackingDiagnostics(
+    capturedGpsPoints: _capturedGpsPoints,
+    expectedUniqueGpsPoints: _capturedRawGpsKeys.length,
+    localSavedGpsPoints: _localSavedGpsPoints,
+    localFailedGpsPoints: _localFailedGpsPoints,
+    isarSavedGpsPoints: _isarSavedGpsPoints,
+    recoverySavedGpsPoints: _recoverySavedGpsPoints,
+    recoveryFailedGpsPoints: _recoveryFailedGpsPoints,
+    uploadedGpsPoints: _uploadedGpsPoints,
+    remoteUploadFailures: _remoteUploadFailures,
+    pendingGpsPoints: _pendingRawGpsPoints.length,
+    serverConfirmedGpsPoints: _serverConfirmedGpsPoints,
+  );
 
   void queueLiveRouteSnapshot({
     required String? workoutId,
@@ -219,10 +344,17 @@ class WorkoutRecordingCoordinator {
     required String workoutId,
     required bool force,
   }) async {
-    if (kIsWeb) return; // web has no Isar; raw points uploaded via live snapshot
+    if (kIsWeb) {
+      return; // web has no Isar; raw points uploaded via live snapshot
+    }
     if (!_remoteWorkoutShellReady) return;
     if (_pendingRawGpsPoints.isEmpty && _pendingRawStepIntervals.isEmpty) {
       return;
+    }
+
+    final activeGpsFlush = _rawGpsFlushCompleter;
+    if (force && activeGpsFlush != null) {
+      await activeGpsFlush.future;
     }
 
     if ((force || _pendingRawGpsPoints.length >= _kRawGpsFlushThreshold) &&
@@ -231,6 +363,8 @@ class WorkoutRecordingCoordinator {
       final gpsBatch = List<_BufferedRawGpsPoint>.from(_pendingRawGpsPoints);
       _pendingRawGpsPoints.clear();
       _isFlushingRawGpsPoints = true;
+      final flushCompleter = Completer<void>();
+      _rawGpsFlushCompleter = flushCompleter;
       try {
         await _rawTracking.saveRawGpsPoints(
           gpsBatch
@@ -240,13 +374,19 @@ class WorkoutRecordingCoordinator {
         debugPrint(
           '[Workout][RawTracking] uploaded ${gpsBatch.length} raw GPS points',
         );
+        _uploadedGpsPoints += gpsBatch.length;
       } catch (e) {
         _pendingRawGpsPoints.insertAll(0, gpsBatch);
+        _remoteUploadFailures += 1;
         debugPrint(
           '[Workout][RawTracking] GPS upload failed for $workoutId: $e',
         );
       } finally {
         _isFlushingRawGpsPoints = false;
+        flushCompleter.complete();
+        if (identical(_rawGpsFlushCompleter, flushCompleter)) {
+          _rawGpsFlushCompleter = null;
+        }
       }
     }
 
@@ -342,7 +482,7 @@ class WorkoutRecordingCoordinator {
           'steps': session.steps,
           'avg_speed_kmh': session.avgSpeedKmh,
           'calories_kcal': session.caloriesKcal,
-          'raw_gps_buffered_points': pendingRawGpsPointCount,
+          ...rawTrackingDiagnostics.toJson(),
           'raw_step_buffered_intervals': pendingRawStepIntervalCount,
           'activity_consistency': {
             'should_invalidate_result':
@@ -426,6 +566,71 @@ class WorkoutRecordingCoordinator {
     reset();
   }
 
+  void _queueLocalGpsWrite(LocalGPSPoint point, String workoutId) {
+    final generation = _trackingGeneration;
+    _localWriteTail = _localWriteTail.then((_) async {
+      var hasDurableLocalCopy = false;
+      try {
+        await _saveLocalGpsPoint(point);
+        if (generation == _trackingGeneration) {
+          _isarSavedGpsPoints += 1;
+        }
+        hasDurableLocalCopy = true;
+      } catch (error) {
+        debugPrint(
+          jsonEncode({
+            'event': 'raw_gps_isar_persist_failed',
+            'workout_id': workoutId,
+            'error_type': error.runtimeType.toString(),
+          }),
+        );
+      }
+
+      try {
+        await _saveRecoveryGpsPoint(point);
+        if (generation == _trackingGeneration) {
+          _recoverySavedGpsPoints += 1;
+        }
+        hasDurableLocalCopy = true;
+      } catch (error) {
+        if (generation == _trackingGeneration) {
+          _recoveryFailedGpsPoints += 1;
+        }
+        debugPrint(
+          jsonEncode({
+            'event': 'raw_gps_recovery_journal_write_failed',
+            'workout_id': workoutId,
+            'error_type': error.runtimeType.toString(),
+          }),
+        );
+      }
+
+      if (generation == _trackingGeneration) {
+        if (hasDurableLocalCopy) {
+          _localSavedGpsPoints += 1;
+        } else {
+          _localFailedGpsPoints += 1;
+        }
+      }
+    });
+  }
+
+  void _queueLocalStepWrite(LocalStepInterval interval, String workoutId) {
+    _localWriteTail = _localWriteTail.then((_) async {
+      try {
+        await _saveLocalStepInterval(interval);
+      } catch (error) {
+        debugPrint(
+          jsonEncode({
+            'event': 'raw_step_local_persist_failed',
+            'workout_id': workoutId,
+            'error_type': error.runtimeType.toString(),
+          }),
+        );
+      }
+    });
+  }
+
   void _maybeFlushRawTrackingBuffers(String? workoutId) {
     if (!_remoteWorkoutShellReady || workoutId == null) return;
 
@@ -479,6 +684,58 @@ class WorkoutRecordingCoordinator {
       return const _RouteSegmentSummary(segmentCount: 0, pointCount: 0);
     }
   }
+}
+
+class RawTrackingDiagnostics {
+  const RawTrackingDiagnostics({
+    required this.capturedGpsPoints,
+    required this.expectedUniqueGpsPoints,
+    required this.localSavedGpsPoints,
+    required this.localFailedGpsPoints,
+    required this.isarSavedGpsPoints,
+    required this.recoverySavedGpsPoints,
+    required this.recoveryFailedGpsPoints,
+    required this.uploadedGpsPoints,
+    required this.remoteUploadFailures,
+    required this.pendingGpsPoints,
+    required this.serverConfirmedGpsPoints,
+  });
+
+  final int capturedGpsPoints;
+  final int expectedUniqueGpsPoints;
+  final int localSavedGpsPoints;
+  final int localFailedGpsPoints;
+  final int isarSavedGpsPoints;
+  final int recoverySavedGpsPoints;
+  final int recoveryFailedGpsPoints;
+  final int uploadedGpsPoints;
+  final int remoteUploadFailures;
+  final int pendingGpsPoints;
+  final int? serverConfirmedGpsPoints;
+
+  bool get isComplete =>
+      capturedGpsPoints > 0 &&
+      localSavedGpsPoints == capturedGpsPoints &&
+      localFailedGpsPoints == 0 &&
+      pendingGpsPoints == 0 &&
+      serverConfirmedGpsPoints != null &&
+      serverConfirmedGpsPoints! >= expectedUniqueGpsPoints;
+
+  Map<String, dynamic> toJson() => {
+    'raw_gps_captured_points': capturedGpsPoints,
+    'raw_gps_expected_unique_points': expectedUniqueGpsPoints,
+    'raw_gps_local_saved_points': localSavedGpsPoints,
+    'raw_gps_local_failed_points': localFailedGpsPoints,
+    'raw_gps_isar_saved_points': isarSavedGpsPoints,
+    'raw_gps_recovery_saved_points': recoverySavedGpsPoints,
+    'raw_gps_recovery_failed_points': recoveryFailedGpsPoints,
+    'raw_gps_uploaded_points': uploadedGpsPoints,
+    'raw_gps_remote_upload_failures': remoteUploadFailures,
+    'raw_gps_pending_points': pendingGpsPoints,
+    'raw_gps_server_confirmed_points': serverConfirmedGpsPoints,
+    'raw_gps_complete': isComplete,
+    'raw_gps_recovery_journal_retained': !isComplete,
+  };
 }
 
 class _PendingLiveRouteSnapshot {

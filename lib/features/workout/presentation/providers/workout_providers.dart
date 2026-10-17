@@ -292,6 +292,13 @@ class ActiveWorkout extends _$ActiveWorkout {
 /// Single Workout Provider
 @riverpod
 Future<WorkoutSession?> workout(WorkoutRef ref, String id) async {
+  final visibleSessions = ref.watch(workoutListProvider).valueOrNull;
+  if (visibleSessions != null) {
+    for (final session in visibleSessions) {
+      if (session.id == id) return session;
+    }
+  }
+
   final repository = ref.watch(workoutRepositoryProvider);
   return await repository.getSessionById(id);
 }

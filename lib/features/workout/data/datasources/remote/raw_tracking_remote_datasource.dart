@@ -101,6 +101,19 @@ class RawTrackingRemoteDataSource {
     );
   }
 
+  /// Returns the server-visible number of raw GPS samples for [workoutId].
+  ///
+  /// This is intentionally queried only when a workout finishes. An insert
+  /// completing without throwing proves that PostgREST accepted the request;
+  /// this count proves that RLS and conflict handling left queryable rows for
+  /// the current user.
+  Future<int> countRawGpsPointsForWorkout(String workoutId) {
+    return _supabase
+        .from(DbTables.rawGpsPoints)
+        .count(CountOption.exact)
+        .eq('workout_id', workoutId);
+  }
+
   Future<void> _insertChunked({
     required String table,
     required List<Map<String, dynamic>> rows,
@@ -118,11 +131,7 @@ class RawTrackingRemoteDataSource {
       try {
         await _supabase
             .from(table)
-            .upsert(
-              chunk,
-              onConflict: onConflict,
-              ignoreDuplicates: true,
-            );
+            .upsert(chunk, onConflict: onConflict, ignoreDuplicates: true);
       } on PostgrestException catch (e) {
         debugPrint(
           '[RawTrackingRemoteDataSource] save $debugLabel failed: ${e.message}',

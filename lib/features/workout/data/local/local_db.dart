@@ -82,7 +82,15 @@ class LocalDB {
     }
 
     try {
-      _isar = await Isar.open(_schemas, directory: dir.path, inspector: false);
+      final opened = await Isar.open(
+        _schemas,
+        directory: dir.path,
+        inspector: false,
+      );
+      if (!await _hasReadableCollections(opened)) {
+        throw IsarError('Collection id is invalid or unreadable after open');
+      }
+      _isar = opened;
       _openedByUs = true;
       _dirPath = dir.path;
       _terminalOpenFailure = false;
@@ -110,11 +118,17 @@ class LocalDB {
             debugPrint('[LocalDB] stale instance close error: $closeError');
           }
           try {
-            _isar = await Isar.open(
+            final reopened = await Isar.open(
               _schemas,
               directory: dir.path,
               inspector: false,
             );
+            if (!await _hasReadableCollections(reopened)) {
+              throw IsarError(
+                'Collection id is invalid or unreadable after reopen',
+              );
+            }
+            _isar = reopened;
             _openedByUs = true;
             _dirPath = dir.path;
             debugPrint('[LocalDB] opened after releasing stale instance');
@@ -167,7 +181,11 @@ class LocalDB {
       debugPrint('[LocalDB] registered instance path is unavailable: $e');
       sameFile = false;
     }
-    if (!sameFile || !hasAttachedCollections(existing)) return false;
+    if (!sameFile ||
+        !hasAttachedCollections(existing) ||
+        !await _hasReadableCollections(existing)) {
+      return false;
+    }
     _isar = existing;
     _openedByUs = true;
     _dirPath = dirPath;
@@ -192,6 +210,26 @@ class LocalDB {
       return true;
     } catch (e) {
       debugPrint('[LocalDB] registered instance has no collections: $e');
+      return false;
+    }
+  }
+
+  /// A generated collection getter can exist while its native collection id
+  /// is invalid. Query each collection before declaring an opened instance
+  /// healthy; this is the exact half-initialized state observed on the iPhone.
+  static Future<bool> _hasReadableCollections(Isar isar) async {
+    try {
+      await isar.localWorkouts.count();
+      await isar.localGPSPoints.count();
+      await isar.localStepIntervals.count();
+      return true;
+    } catch (error) {
+      debugPrint(
+        jsonEncode({
+          'event': 'local_db_collection_probe_failed',
+          'error_type': error.runtimeType.toString(),
+        }),
+      );
       return false;
     }
   }
@@ -268,7 +306,8 @@ class LocalDB {
         directory: directory.path,
         inspector: false,
       );
-      if (!hasAttachedCollections(reopened)) {
+      if (!hasAttachedCollections(reopened) ||
+          !await _hasReadableCollections(reopened)) {
         throw StateError('Recreated Isar has no attached collections');
       }
       _isar = reopened;
@@ -310,14 +349,31 @@ class LocalDB {
     return isar;
   }
 
+  static Future<Isar> _requireWritableIsar(String operation) async {
+    if (kIsWeb) {
+      throw StateError('$operation is not supported on web');
+    }
+    await init();
+    final isar = _isar;
+    if (isar == null || !_openedByUs) {
+      debugPrint(
+        jsonEncode({
+          'event': 'local_db_write_unavailable',
+          'operation': operation,
+          'terminal_open_failure': _terminalOpenFailure,
+        }),
+      );
+      throw StateError('$operation failed because LocalDB is unavailable');
+    }
+    return isar;
+  }
+
   // New Workout Methods
 
   /// Insert locally. Used when finishing a session.
   static Future<void> saveSession(LocalWorkout workout) async {
     if (kIsWeb) return;
-    await init();
-    final isar = _isar;
-    if (isar == null) return;
+    final isar = await _requireWritableIsar('saveSession');
     await isar.writeTxn(() async {
       await isar.localWorkouts.put(workout);
     });
@@ -616,9 +672,7 @@ class LocalDB {
   // GPS Point Methods
   static Future<void> savePoints(List<LocalGPSPoint> points) async {
     if (kIsWeb) return;
-    await init();
-    final isar = _isar;
-    if (isar == null) return;
+    final isar = await _requireWritableIsar('savePoints');
     await isar.writeTxn(() async {
       await isar.localGPSPoints.putAll(points);
     });
@@ -626,9 +680,7 @@ class LocalDB {
 
   static Future<void> saveRawGpsPoint(LocalGPSPoint point) async {
     if (kIsWeb) return;
-    await init();
-    final isar = _isar;
-    if (isar == null) return;
+    final isar = await _requireWritableIsar('saveRawGpsPoint');
     await isar.writeTxn(() async {
       await isar.localGPSPoints.put(point);
     });
@@ -731,9 +783,7 @@ class LocalDB {
 
   static Future<void> saveRawStepInterval(LocalStepInterval interval) async {
     if (kIsWeb) return;
-    await init();
-    final isar = _isar;
-    if (isar == null) return;
+    final isar = await _requireWritableIsar('saveRawStepInterval');
     await isar.writeTxn(() async {
       await isar.localStepIntervals.put(interval);
     });

@@ -167,7 +167,11 @@
 
     .splash-orbit {
       position: absolute;
-      inset: 8px -18px;
+      z-index: 1;
+      top: 27px;
+      left: -17px;
+      width: 166px;
+      height: 78px;
       border-radius: 50%;
       border: 1px solid rgba(128, 216, 255, 0.36);
       transform: rotate(-27deg);
@@ -197,49 +201,45 @@
       width: 132px;
       height: 132px;
       border-radius: 50%;
-      overflow: hidden;
-      border: 1px solid rgba(128, 216, 255, 0.72);
-      background:
-        radial-gradient(circle at 35% 28%, rgba(128, 216, 255, 0.4), transparent 28%),
-        radial-gradient(circle at 70% 78%, rgba(21, 101, 192, 0.7), transparent 46%),
-        #0B1A2A;
+      overflow: visible;
       box-shadow:
-        inset -14px -12px 24px rgba(0, 0, 0, 0.46),
         0 0 30px rgba(32, 178, 255, 0.22),
         0 8px 32px rgba(0, 0, 0, 0.6);
       animation: globeFloat 3s ease-in-out infinite;
     }
 
-    .splash-globe::before,
-    .splash-globe::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: repeating-linear-gradient(
-        to bottom,
-        transparent 0,
-        transparent 19px,
-        rgba(128, 216, 255, 0.24) 20px,
-        transparent 21px
-      );
-      transform: scaleX(0.92);
+    .splash-globe svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
-    .splash-globe::after {
-      background: repeating-linear-gradient(
-        to right,
-        transparent 0,
-        transparent 20px,
-        rgba(128, 216, 255, 0.22) 21px,
-        transparent 22px
-      );
-      transform: scaleX(0.66);
+    .globe-meridians {
+      transform-origin: 66px 66px;
+      animation: globeRotate 3.6s linear infinite;
     }
 
     @keyframes globeFloat {
       0%, 100% { transform: translateY(0px);  }
       50%       { transform: translateY(-6px); }
+    }
+
+    @keyframes globeRotate {
+      0% { transform: scaleX(0.35); opacity: 0.46; }
+      25% { transform: scaleX(0.82); opacity: 0.9; }
+      50% { transform: scaleX(1); opacity: 1; }
+      75% { transform: scaleX(0.82); opacity: 0.9; }
+      100% { transform: scaleX(0.35); opacity: 0.46; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .splash-orbit,
+      .splash-globe,
+      .globe-meridians,
+      .splash-progress-bar,
+      .splash-status {
+        animation: none;
+      }
     }
 
     /* ── App name ── */
@@ -311,7 +311,31 @@
   <div id="aetron-splash">
     <div class="splash-globe-wrap" role="img" aria-label="GPS globe loading">
       <div class="splash-orbit"></div>
-      <div class="splash-globe"></div>
+      <div class="splash-globe" aria-hidden="true">
+        <svg viewBox="0 0 132 132" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id="globe-clip"><circle cx="66" cy="66" r="65" /></clipPath>
+            <radialGradient id="globe-fill" cx="32%" cy="26%" r="78%">
+              <stop offset="0" stop-color="#77D5FF" stop-opacity=".5" />
+              <stop offset=".48" stop-color="#12528A" stop-opacity=".9" />
+              <stop offset="1" stop-color="#071522" />
+            </radialGradient>
+          </defs>
+          <circle cx="66" cy="66" r="65" fill="url(#globe-fill)" />
+          <g clip-path="url(#globe-clip)" fill="none" stroke="#9DE8FF" stroke-linecap="round">
+            <g opacity=".36" stroke-width="1">
+              <path d="M5 38H127M1 52H131M1 66H131M1 80H131M5 94H127" />
+            </g>
+            <g class="globe-meridians" opacity=".64" stroke-width="1.15">
+              <ellipse cx="66" cy="66" rx="18" ry="65" />
+              <ellipse cx="66" cy="66" rx="39" ry="65" />
+              <path d="M66 1V131" />
+            </g>
+          </g>
+          <circle cx="66" cy="66" r="65" fill="none" stroke="#9DE8FF" stroke-opacity=".76" stroke-width="1.2" />
+          <circle cx="45" cy="36" r="17" fill="#B8EEFF" fill-opacity=".13" />
+        </svg>
+      </div>
     </div>
 
     <p class="splash-title">Aetron</p>

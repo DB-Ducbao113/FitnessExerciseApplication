@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:fitness_exercise_application/core/services/environment_detector.dart';
@@ -303,7 +304,9 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }
 
   bool requestRecenter() {
-    if (state.currentLatLng == null && state.initialPosition == null) return false;
+    if (state.currentLatLng == null && state.initialPosition == null) {
+      return false;
+    }
     state = state.copyWith(
       followUser: true,
       recenterRequestId: state.recenterRequestId + 1,
@@ -348,9 +351,13 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       }
       unawaited(_startStepCounterBackground());
       _refreshIndoorWatchdog();
-      debugPrint('[Workout] sensors and tracking successfully initiated in background');
+      debugPrint(
+        '[Workout] sensors and tracking successfully initiated in background',
+      );
     } catch (e, stack) {
-      debugPrint('[Workout] Error initializing sensors in background: $e\n$stack');
+      debugPrint(
+        '[Workout] Error initializing sensors in background: $e\n$stack',
+      );
     }
   }
 
@@ -625,7 +632,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         durationSec: state.durationSeconds,
       );
 
-      final resolvedUserId = _ref.read(currentUserIdProvider) ??
+      final resolvedUserId =
+          _ref.read(currentUserIdProvider) ??
           Supabase.instance.client.auth.currentUser?.id ??
           'local_user';
 
@@ -650,10 +658,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       // 1. Immediately cache locally with safe error handling
       final repo = _ref.read(workoutRepositoryProvider);
       try {
-        await repo.cacheSessionLocal(
-          finalization.session,
-          isSynced: false,
-        );
+        await repo.cacheSessionLocal(finalization.session, isSynced: false);
       } catch (e) {
         debugPrint('[Workout] Local session cache error: $e');
       }
@@ -683,19 +688,21 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       }
 
       // 3. Asynchronously synchronize remotely in the background without blocking UI
-      unawaited(_syncSessionRemoteInBackground(
-        finalization: finalization,
-        resolvedUserId: resolvedUserId,
-        routeSegments: List<List<LatLng>>.unmodifiable(state.routeSegments),
-        lastGpsGapDurationSec: state.lastGpsGapDurationSec,
-        isGpsSignalWeak: state.isGpsSignalWeak,
-      ));
+      unawaited(
+        _syncSessionRemoteInBackground(
+          finalization: finalization,
+          resolvedUserId: resolvedUserId,
+          routeSegments: List<List<LatLng>>.unmodifiable(state.routeSegments),
+          lastGpsGapDurationSec: state.lastGpsGapDurationSec,
+          isGpsSignalWeak: state.isGpsSignalWeak,
+        ),
+      );
     } catch (e, stack) {
       debugPrint('[Workout] Error stopping workout: $e\n$stack');
       // Emergency recovery: Transition to finished so user is never trapped in stopping state
       if (mounted && state.status != RecordingState.finished) {
-        final emergencySessionId = state.sessionId ??
-            DateTime.now().millisecondsSinceEpoch.toString();
+        final emergencySessionId =
+            state.sessionId ?? DateTime.now().millisecondsSinceEpoch.toString();
         state = state.copyWith(
           status: RecordingState.finished,
           sessionId: emergencySessionId,
@@ -724,10 +731,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
         debugPrint('[Workout] Remote session save succeeded in background');
         // Update local cache sync status
         try {
-          await repo.cacheSessionLocal(
-            finalization.session,
-            isSynced: true,
-          );
+          await repo.cacheSessionLocal(finalization.session, isSynced: true);
         } catch (_) {}
       } catch (e) {
         // Common real causes worth grepping for in the log:
@@ -752,20 +756,16 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       );
     }
 
-    // Raw tracking flush runs independently (may throw on web due to no Isar);
-    // route snapshot must not be blocked by it.
-    unawaited(
-      _recordingCoordinator
-          .flushPendingRawTracking(
-            workoutId: finalization.sessionId,
-            force: true,
-          )
-          .catchError(
-            (e) =>
-                debugPrint('[Workout] RawTracking flush error: $e'),
-          ),
+    // Do not detach the final raw upload. The old flow cleared the in-memory
+    // buffer before the request completed, so the finish log reported zero
+    // buffered points even when no rows were visible in Supabase. Finalization
+    // now waits for local writes, flushes, and verifies the server row count.
+    final rawTrackingDiagnostics = await _recordingCoordinator
+        .finalizeRawTracking(workoutId: finalization.sessionId);
+    debugPrint(
+      '[Workout][RawTracking] final diagnostics '
+      '${jsonEncode(rawTrackingDiagnostics.toJson())}',
     );
-    _recordingCoordinator.markRemoteWorkoutShellReady();
     _recordingCoordinator.queueLiveRouteSnapshot(
       workoutId: finalization.sessionId,
       routeSegments: routeSegments,
@@ -991,8 +991,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       if (shouldActivateFallback) {
         final now = DateTime.now();
         final lastFlip = _lastModeFlipTime;
-        final cooldownActive = lastFlip != null &&
-            now.difference(lastFlip) < _kModeFlipCooldown;
+        final cooldownActive =
+            lastFlip != null && now.difference(lastFlip) < _kModeFlipCooldown;
         if (cooldownActive && event.confidence < _kModeFlipHighConfidence) {
           debugPrint(
             '[Workout][HYSTERESIS] outdoor→indoor flip blocked '
@@ -1572,7 +1572,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     // Periodic snapshot to state every 5s or on route break
     final now = DateTime.now();
     final lastSnap = _lastRouteSnapshotTime;
-    final shouldSnapshot = shouldBreakRouteForDisplay ||
+    final shouldSnapshot =
+        shouldBreakRouteForDisplay ||
         lastSnap == null ||
         now.difference(lastSnap) >= _kRouteStateSnapshotInterval;
     if (shouldSnapshot) {
@@ -1667,8 +1668,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       if (secondsSinceGps <= _kRecoveredGpsWindow.inSeconds) {
         final now = DateTime.now();
         final lastFlip = _lastModeFlipTime;
-        final cooldownActive = lastFlip != null &&
-            now.difference(lastFlip) < _kModeFlipCooldown;
+        final cooldownActive =
+            lastFlip != null && now.difference(lastFlip) < _kModeFlipCooldown;
         if (cooldownActive) {
           debugPrint(
             '[Workout][HYSTERESIS] indoor→outdoor flip blocked '
@@ -1872,7 +1873,8 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
     // Only checkpoint meaningful progress
     if (state.durationSeconds < 60 && state.distanceMeters < 100) return;
 
-    final userId = _ref.read(currentUserIdProvider) ??
+    final userId =
+        _ref.read(currentUserIdProvider) ??
         Supabase.instance.client.auth.currentUser?.id ??
         'local_user';
 
@@ -1897,12 +1899,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
       );
 
       final repo = _ref.read(workoutRepositoryProvider);
-      unawaited(
-        repo.cacheSessionLocal(
-          finalization.session,
-          isSynced: false,
-        ),
-      );
+      unawaited(repo.cacheSessionLocal(finalization.session, isSynced: false));
     } catch (e) {
       debugPrint('[Workout] Checkpoint persist error: $e');
     }

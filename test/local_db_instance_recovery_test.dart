@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:path/path.dart' as p;
@@ -18,6 +19,8 @@ class _HalfOpenIsar extends Isar {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('remote reconciliation', () {
     test('deletes a synced local workout that was deleted remotely', () {
       expect(
@@ -106,4 +109,24 @@ void main() {
       expect(await File(backupPath).readAsString(), 'local workout bytes');
     },
   );
+
+  test('raw GPS writes fail loudly when Isar is unavailable', () async {
+    final point = LocalGPSPoint()
+      ..sessionId = '11111111-1111-4111-8111-111111111111'
+      ..timestamp = DateTime.utc(2026, 10, 14, 1)
+      ..latitude = 10.738
+      ..longitude = 106.625
+      ..confidence = 'high';
+
+    await expectLater(
+      LocalDB.saveRawGpsPoint(point),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('saveRawGpsPoint'),
+        ),
+      ),
+    );
+  });
 }
