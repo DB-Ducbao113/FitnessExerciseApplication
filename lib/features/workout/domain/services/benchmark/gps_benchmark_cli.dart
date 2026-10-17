@@ -7,7 +7,7 @@ import 'package:fitness_exercise_application/features/workout/domain/services/be
 const _usage = '''Usage:
   dart run tool/gps_benchmark.dart --activity cycling --input <raw.jsonl> --output <report.json>
 ''';
-const _algorithmVersion = 'phase3-nis-adaptive-covariance';
+const _algorithmVersion = 'phase4a-adaptive-q-turn-motion';
 const _measuredLatencyRuns = 5;
 
 Future<int> runGpsBenchmarkCli(

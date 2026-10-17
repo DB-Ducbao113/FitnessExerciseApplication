@@ -96,6 +96,9 @@ class ExtendedKalmanFilter {
 
   double? _lastMeasuredHeadingRad;
   double? _lastMeasuredSpeedMs;
+  double? _lastEffectiveHeadingRad;
+  double? _lastRawZx;
+  double? _lastRawZy;
   bool _covarianceCorrectionAppliedThisUpdate = false;
 
   bool _initialized = false;
@@ -161,6 +164,9 @@ class ExtendedKalmanFilter {
     );
     _lastMeasuredSpeedMs = validInitialSpeed;
     _lastMeasuredHeadingRad = validInitialHeading;
+    _lastEffectiveHeadingRad = validInitialHeading;
+    _lastRawZx = 0.0;
+    _lastRawZy = 0.0;
     _initialized = true;
   }
 
@@ -172,6 +178,9 @@ class ExtendedKalmanFilter {
     _p = Matrix4x4.identity();
     _lastMeasuredHeadingRad = null;
     _lastMeasuredSpeedMs = null;
+    _lastEffectiveHeadingRad = null;
+    _lastRawZx = null;
+    _lastRawZy = null;
     _covarianceCorrectionAppliedThisUpdate = false;
   }
 
@@ -225,10 +234,13 @@ class ExtendedKalmanFilter {
     final measuredHeadingRad = validSpeed != null && validSpeed > 0.6
         ? _validHeadingRad(headingDeg)
         : null;
+    final (zx, zy) = _projection!.project(measurementPoint);
     final adaptation = _motionAdaptation(
       speedMs: validSpeed,
       headingRad: measuredHeadingRad,
       dt: dt,
+      zx: zx,
+      zy: zy,
     );
 
     // 1. PREDICT STEP: x_k|k-1 = f(x_k-1, dt)
@@ -252,12 +264,19 @@ class ExtendedKalmanFilter {
       positionProcessVariance: processNoise.positionVariance,
       effectiveTimeDeltaSec: dt,
       timeDeltaWasSanitized: timeDeltaWasSanitized,
+      zx: zx,
+      zy: zy,
     );
 
     if (validSpeed != null) _lastMeasuredSpeedMs = validSpeed;
     if (measuredHeadingRad != null) {
       _lastMeasuredHeadingRad = measuredHeadingRad;
     }
+    if (adaptation.effectiveHeadingRad != null) {
+      _lastEffectiveHeadingRad = adaptation.effectiveHeadingRad;
+    }
+    _lastRawZx = zx;
+    _lastRawZy = zy;
 
     // Ensure speed non-negative
     if (_x[2] < 0.0) _x[2] = 0.0;
@@ -335,8 +354,12 @@ class ExtendedKalmanFilter {
     required double positionProcessVariance,
     required double effectiveTimeDeltaSec,
     required bool timeDeltaWasSanitized,
+    double? zx,
+    double? zy,
   }) {
-    final (zx, zy) = _projection!.project(measurementPoint);
+    final (projX, projY) = (zx != null && zy != null)
+        ? (zx, zy)
+        : _projection!.project(measurementPoint);
     final accuracy = _validAccuracy(accuracyMeters);
     final rPos = accuracy * accuracy;
 
@@ -346,7 +369,7 @@ class ExtendedKalmanFilter {
         : null;
     final hasValidHeading = validHeadingRad != null;
 
-    final positionDiagnostics = _updatePositionOnly(zx, zy, rPos);
+    final positionDiagnostics = _updatePositionOnly(projX, projY, rPos);
     double? speedInnovation;
     double? speedVariance;
     if (hasValidSpeed) {
@@ -670,29 +693,67 @@ class ExtendedKalmanFilter {
     double headingNoiseScale,
     bool turnDetected,
     double? headingDeltaRad,
+    double? effectiveHeadingRad,
   })
   _motionAdaptation({
     required double? speedMs,
     required double? headingRad,
     required double dt,
+    required double zx,
+    required double zy,
   }) {
-    final headingDelta = headingRad == null || _lastMeasuredHeadingRad == null
-        ? null
-        : EquirectangularProjection.normalizeAngleRad(
-            headingRad - _lastMeasuredHeadingRad!,
-          ).abs();
-    final turnDetected =
-        headingDelta != null && headingDelta >= turnThresholdRad;
-    final turnStrength = !turnDetected
-        ? 0.0
-        : ((headingDelta - turnThresholdRad) / (math.pi / 2 - turnThresholdRad))
-              .clamp(0.0, 1.0);
-    final headingScale = 1.0 + (maxTurnHeadingNoiseScale - 1.0) * turnStrength;
+    double? effectiveHeading = headingRad;
+    double? effectiveSpeed = speedMs;
 
-    final acceleration = speedMs == null || _lastMeasuredSpeedMs == null
+    if (_lastRawZx != null && _lastRawZy != null && dt > 0) {
+      final dx = zx - _lastRawZx!;
+      final dy = zy - _lastRawZy!;
+      final displacementMeters = math.sqrt(dx * dx + dy * dy);
+
+      if (effectiveSpeed == null && displacementMeters > 0) {
+        effectiveSpeed = (displacementMeters / dt).clamp(0.0, 20.0);
+      }
+
+      if (effectiveHeading == null &&
+          displacementMeters >= 1.0 &&
+          (_x[2] >= 1.0 || (effectiveSpeed ?? 0.0) >= 1.0)) {
+        effectiveHeading = EquirectangularProjection.normalizeAngleRad(
+          math.atan2(dx, dy),
+        );
+      }
+    }
+
+    final currentSpeed = effectiveSpeed ?? _x[2];
+    final isStationary = currentSpeed < 0.8;
+
+    double? headingDelta;
+    bool turnDetected = false;
+    double headingScale = 1.0;
+
+    final referenceHeading =
+        _lastEffectiveHeadingRad ?? _lastMeasuredHeadingRad;
+    if (!isStationary &&
+        effectiveHeading != null &&
+        referenceHeading != null) {
+      headingDelta = EquirectangularProjection.normalizeAngleRad(
+        effectiveHeading - referenceHeading,
+      ).abs();
+      turnDetected = headingDelta >= turnThresholdRad;
+      if (turnDetected) {
+        final turnStrength = ((headingDelta - turnThresholdRad) /
+                (math.pi / 2 - turnThresholdRad))
+            .clamp(0.0, 1.0);
+        headingScale =
+            1.0 + (maxTurnHeadingNoiseScale - 1.0) * turnStrength;
+      }
+    }
+
+    final speedReference = _lastMeasuredSpeedMs;
+    final rawAcceleration = (effectiveSpeed == null || speedReference == null)
         ? 0.0
-        : (speedMs - _lastMeasuredSpeedMs!).abs() / dt;
-    final accelerationStrength = (acceleration / 3.0).clamp(0.0, 1.0);
+        : (effectiveSpeed - speedReference).abs() / dt;
+    final plausibleAcceleration = rawAcceleration.clamp(0.0, 5.0);
+    final accelerationStrength = (plausibleAcceleration / 3.0).clamp(0.0, 1.0);
     final speedScale =
         1.0 + (maxAccelerationNoiseScale - 1.0) * accelerationStrength;
     return (
@@ -700,6 +761,7 @@ class ExtendedKalmanFilter {
       headingNoiseScale: headingScale,
       turnDetected: turnDetected,
       headingDeltaRad: headingDelta,
+      effectiveHeadingRad: effectiveHeading,
     );
   }
 

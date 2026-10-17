@@ -40,7 +40,7 @@ Future<void> main(List<String> arguments) async {
     const JsonEncoder.withIndent('  ').convert({
       'schema_version': 3,
       'evidence_kind': 'synthetic_development',
-      'algorithm_version': 'phase3-nis-adaptive-covariance',
+      'algorithm_version': 'phase4a-adaptive-q-turn-motion',
       'config_fingerprint': _configFingerprint(),
       'dataset_id': 'phase1-synthetic-suite-v1',
       'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
