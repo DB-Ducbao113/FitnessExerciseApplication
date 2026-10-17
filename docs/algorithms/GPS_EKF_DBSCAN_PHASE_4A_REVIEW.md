@@ -5,8 +5,8 @@
 **Algorithm label:** `phase4a-adaptive-q-turn-motion`<br>
 **Config fingerprint:** `fnv1a32-12b93cef`<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
-**Reviewed Commit:** `24f95b7` (Hold decision remediation commit)<br>
-**Remediated HEAD:** `e408b544c48b3589f9a485a268f1d9f974973536` (short SHA `e408b54`)
+**Reviewed Commit:** `24f95b7` (Hold decision baseline)<br>
+**Remediated Commit:** `9400986d2f9fadfedb4f324f2cfeffa69269fbf5` (short SHA `9400986`)
 
 ---
 
