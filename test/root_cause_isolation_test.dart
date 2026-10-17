@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/gps_smoothing_service.dart';
 import 'package:latlong2/latlong.dart';
-import 'helpers/historical_phase3_ekf.dart';
 
 const Distance _distance = Distance();
 
@@ -85,124 +84,184 @@ double _routeLengthMeters() {
 }
 
 void main() {
-  test('Detailed Root Cause Analysis & Burst Evolution', () {
+  group('Task A: Root Cause Isolation Regression Assertions', () {
     final totalRouteDist = _routeLengthMeters();
 
-    // 1. Rejection burst evolution in Scenario 61
-    print('### REJECTION BURST EVOLUTION (SCENARIO 61: 30 km/h, dt=2.0s, Heading Dropout)');
-    final rand61 = math.Random(101);
-    final ekfC = ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0);
-    final ekfB1 = HistoricalPhase3Ekf();
-    const smoother = GpsSmoothingService();
-    LatLng? prevAccA, prevSmA, lastRtA, lastOutA;
+    test('Scenario 61: Reproduces sustained NIS rejection lockout and characterizes tracking failure', () {
+      final rand61 = math.Random(101); // seed for Scenario 61
+      final ekfC = ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0);
+      const smoother = GpsSmoothingService();
+      LatLng? prevAccA, prevSmA, lastRtA, lastOutA;
 
-    double dist = 0.0;
-    print('| Step | Time (s) | Event / Motion Context | Truth Bearing | Raw Measurement | Pred Pos (C) | Truth Pos | Innovation (m) | NIS | Decision | P11 (m²) | Error A (m) | Error B1 (m) | Error C (m) |');
-    print('|:---:|:---:|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|');
+      const speedMs = 8.33; // 30 km/h
+      const dt = 2.0; // 0.5 Hz
+      const totalSteps = 300; // 600s
 
-    for (int s = 0; s <= 20; s++) {
-      dist += 8.33 * 2.0;
-      final (truthPos, truthBearing) = _interpolateRoute(dist, totalRouteDist);
-      final u1 = rand61.nextDouble().clamp(1e-7, 1.0);
-      final u2 = rand61.nextDouble();
-      final radiusNoise = 5.0 * math.sqrt(-2.0 * math.log(u1));
-      final angleNoise = 2.0 * math.pi * u2;
-      final eastNoise = radiusNoise * math.sin(angleNoise);
-      final northNoise = radiusNoise * math.cos(angleNoise);
-      final rawPos = _distance.offset(_distance.offset(truthPos, eastNoise, 90.0), northNoise, 0.0);
-      final acc = (7.0 + (rand61.nextDouble() - 0.5) * 3.0).clamp(2.0, 30.0);
+      int? firstRejectionStep;
+      double? firstRejectionNis;
+      int currentConsecutiveRejections = 0;
+      int longestRejectionBurst = 0;
+      int totalRejections = 0;
 
-      // Baseline A
-      if (acc <= 40.0) {
-        final up = smoother.smoothAcceptedPoint(
-          activityType: 'cycling',
-          acceptedPoint: rawPos,
-          previousAcceptedPoint: prevAccA,
-          previousSmoothedPoint: prevSmA,
-          lastSmoothedRoutePoint: lastRtA,
-          accuracyMeters: acc,
-          speedMs: 8.33,
-          timeDeltaSec: 2.0,
-          gpsGapDurationSec: 0.0,
-        );
-        lastOutA = up.smoothedPoint;
-        prevAccA = rawPos;
-        prevSmA = up.smoothedPoint;
-        if (up.shouldAppendRoutePoint) lastRtA = up.smoothedPoint;
+      double maxErrorC = 0.0;
+      double finalErrorC = 0.0;
+      double maxErrorA = 0.0;
+
+      double dist = 0.0;
+      for (int s = 0; s < totalSteps; s++) {
+        dist += speedMs * dt;
+        final (truthPos, truthBearing) = _interpolateRoute(dist, totalRouteDist);
+        final u1 = rand61.nextDouble().clamp(1e-7, 1.0);
+        final u2 = rand61.nextDouble();
+        final radiusNoise = 5.0 * math.sqrt(-2.0 * math.log(u1));
+        final angleNoise = 2.0 * math.pi * u2;
+        final eastNoise = radiusNoise * math.sin(angleNoise);
+        final northNoise = radiusNoise * math.cos(angleNoise);
+        final rawPos = _distance.offset(_distance.offset(truthPos, eastNoise, 90.0), northNoise, 0.0);
+        final acc = (7.0 + (rand61.nextDouble() - 0.5) * 3.0).clamp(2.0, 30.0);
+
+        // Heading dropout: no compass heading available
+        final double? headingVal = null;
+
+        // Baseline A (exponential smoother)
+        if (acc <= 40.0) {
+          final up = smoother.smoothAcceptedPoint(
+            activityType: 'cycling',
+            acceptedPoint: rawPos,
+            previousAcceptedPoint: prevAccA,
+            previousSmoothedPoint: prevSmA,
+            lastSmoothedRoutePoint: lastRtA,
+            accuracyMeters: acc,
+            speedMs: speedMs,
+            timeDeltaSec: dt,
+            gpsGapDurationSec: 0.0,
+          );
+          lastOutA = up.smoothedPoint;
+          prevAccA = rawPos;
+          prevSmA = up.smoothedPoint;
+          if (up.shouldAppendRoutePoint) lastRtA = up.smoothedPoint;
+        }
+        final errA = _distance.distance(lastOutA ?? truthPos, truthPos);
+        if (errA > maxErrorA) maxErrorA = errA;
+
+        // EKF Candidate C
+        EkfEstimate estC;
+        if (s == 0) {
+          ekfC.init(initialPoint: rawPos, initialSpeedMs: speedMs, initialHeadingDeg: headingVal);
+          estC = EkfEstimate(
+            position: rawPos,
+            speedMs: speedMs,
+            headingDeg: headingVal ?? 0,
+            positionVariance: 1.0,
+            diagnostics: const EkfUpdateDiagnostics(),
+          );
+        } else {
+          estC = ekfC.update(
+            measurementPoint: rawPos,
+            accuracyMeters: acc,
+            timeDeltaSec: dt,
+            speedMs: speedMs,
+            headingDeg: headingVal,
+          );
+        }
+
+        final isRejected = s > 0 && estC.diagnostics.positionDecision == EkfMeasurementDecision.rejected;
+        if (isRejected) {
+          totalRejections++;
+          currentConsecutiveRejections++;
+          if (firstRejectionStep == null) {
+            firstRejectionStep = s;
+            firstRejectionNis = estC.diagnostics.positionNis;
+          }
+          if (currentConsecutiveRejections > longestRejectionBurst) {
+            longestRejectionBurst = currentConsecutiveRejections;
+          }
+        } else {
+          currentConsecutiveRejections = 0;
+        }
+
+        final errC = _distance.distance(estC.position, truthPos);
+        if (errC > maxErrorC) maxErrorC = errC;
+        if (s == totalSteps - 1) finalErrorC = errC;
+
+        // Covariance stability assertion at every step
+        expect(ekfC.covariance[0][0].isFinite, isTrue, reason: 'Covariance element [0][0] must remain finite at step $s');
+        expect(ekfC.isCovariancePositiveSemiDefinite, isTrue, reason: 'Covariance must remain positive semi-definite at step $s');
       }
-      final errA = _distance.distance(lastOutA ?? truthPos, truthPos);
 
-      // B1
-      EkfEstimate estB1;
-      if (s == 0) {
-        ekfB1.init(initialPoint: rawPos, initialSpeedMs: 8.33, initialHeadingDeg: null);
-        estB1 = EkfEstimate(position: rawPos, speedMs: 8.33, headingDeg: 0, positionVariance: 1.0, diagnostics: const EkfUpdateDiagnostics());
-      } else {
-        estB1 = ekfB1.update(measurementPoint: rawPos, accuracyMeters: acc, timeDeltaSec: 2.0, speedMs: 8.33, headingDeg: null);
-      }
-      final errB1 = _distance.distance(estB1.position, truthPos);
+      print('Scenario 61 Characterization Results:');
+      print('  First rejection step: $firstRejectionStep (at t = ${(firstRejectionStep! * dt).toStringAsFixed(1)}s, NIS = ${firstRejectionNis?.toStringAsFixed(1)})');
+      print('  Longest rejection burst: $longestRejectionBurst consecutive steps (${(longestRejectionBurst * dt).toStringAsFixed(1)}s)');
+      print('  Total rejections: $totalRejections / $totalSteps (${(totalRejections / totalSteps * 100).toStringAsFixed(1)}%)');
+      print('  Max Positional Error: Config C = ${maxErrorC.toStringAsFixed(1)}m | Baseline A = ${maxErrorA.toStringAsFixed(1)}m');
+      print('  Final Positional Error: Config C = ${finalErrorC.toStringAsFixed(1)}m');
 
-      // C
-      EkfEstimate estC;
-      if (s == 0) {
-        ekfC.init(initialPoint: rawPos, initialSpeedMs: 8.33, initialHeadingDeg: null);
-        estC = EkfEstimate(position: rawPos, speedMs: 8.33, headingDeg: 0, positionVariance: 1.0, diagnostics: const EkfUpdateDiagnostics());
-      } else {
-        estC = ekfC.update(measurementPoint: rawPos, accuracyMeters: acc, timeDeltaSec: 2.0, speedMs: 8.33, headingDeg: null);
-      }
-      final errC = _distance.distance(estC.position, truthPos);
+      // Regression Assertions proving the failure mechanism:
+      // 1. The first rejection occurs at step 6 due to 160° turn exceeding NIS reject threshold (13.816)
+      expect(firstRejectionStep, equals(6));
+      expect(firstRejectionNis, greaterThanOrEqualTo(13.816));
 
-      String event = 'Straight tracking';
-      if (s == 3) event = 'Enter 105° turn';
-      if (s == 4) event = 'Sharp reverse corner (-175°)';
-      if (s == 5) event = 'Turn to +24° (160° turn!)';
-      if (s == 6) event = '💥 First NIS rejection (Gate lock)';
-      if (s == 7) event = 'Diverging dead-reckon (South)';
-      if (s == 10) event = 'Vehicle turning East, EKF goes South';
-      if (s == 20) event = 'Divergence: 259m error';
+      // 2. Sustained rejection lockout engages: once rejected, the filter fails to recover,
+      // rejecting 294 consecutive steps (588 seconds of dead reckoning)
+      expect(longestRejectionBurst, equals(294));
+      expect(totalRejections, equals(294));
 
-      final inov = estC.diagnostics.positionInnovationMeters?.toStringAsFixed(1) ?? '0.0';
-      final nis = estC.diagnostics.positionNis?.toStringAsFixed(1) ?? '0.0';
-      final dec = estC.diagnostics.positionDecision.name;
-      final p11 = ekfC.covariance[0][0].toStringAsFixed(1);
+      // 3. Expected tracking failure is explicitly characterized:
+      // In the absence of Phase 5 re-anchoring, open-loop dead-reckoning across 4 laps diverges to > 4,800m
+      expect(maxErrorC, greaterThan(4800.0));
+      expect(finalErrorC, greaterThan(4800.0));
 
-      print('| $s | ${s * 2.0}s | $event | ${truthBearing.toStringAsFixed(1)}° | ${rawPos.latitude.toStringAsFixed(6)},${rawPos.longitude.toStringAsFixed(6)} | ${estC.position.latitude.toStringAsFixed(6)},${estC.position.longitude.toStringAsFixed(6)} | ${truthPos.latitude.toStringAsFixed(6)},${truthPos.longitude.toStringAsFixed(6)} | ${inov}m | $nis | $dec | ${p11}m² | ${errA.toStringAsFixed(1)}m | ${errB1.toStringAsFixed(1)}m | **${errC.toStringAsFixed(1)}m** |');
-    }
+      // 4. Baseline A (no NIS gate) tracks the vehicle with max error < 25m
+      expect(maxErrorA, lessThan(25.0));
+    });
 
-    // 2. Audit Distance Error Median vs Macro-Mean
-    print('\n### DISTANCE ERROR RECONCILIATION: WHY MEDIAN ABSOLUTE ERROR REGRESSED (+15.8%) WHILE MACRO-MEAN IMPROVED (-3.2%)');
-    // We already have the 108 scenario report, let's analyze how many scenarios had lower vs higher error
-    final reportFile = File('/tmp/aetron_phase4a_benchmark_report.json');
-    if (reportFile.existsSync()) {
-      final jsonMap = jsonDecode(reportFile.readAsStringSync()) as Map<String, dynamic>;
+    test('Mandatory benchmark artifact validation (no silent skip)', () {
+      final reportFile = File('/tmp/aetron_phase4a_benchmark_report.json');
+
+      // Mandatory assertion: file must exist, no silent fallback
+      expect(reportFile.existsSync(), isTrue, reason: 'Mandatory benchmark artifact /tmp/aetron_phase4a_benchmark_report.json must exist');
+
+      final content = reportFile.readAsStringSync();
+      final jsonMap = jsonDecode(content) as Map<String, dynamic>;
+
+      expect(jsonMap['total_scenarios'], equals(108));
+      expect(jsonMap['total_scheduled_points_per_variant'], equals(75600));
+
       final scenarios = jsonMap['scenarios'] as List<dynamic>;
+      expect(scenarios.length, equals(108));
 
-      int cBetter = 0;
-      int b1Better = 0;
-      int ties = 0;
-      final diffs = <double>[];
+      // Assert that Global Output SHA-256 for B1 matches the isolated worktree
+      final globalHashes = jsonMap['global_output_sha256'] as Map<String, dynamic>;
+      expect(globalHashes['config_b1'], equals('e8aaa8d27692ef75276fe3fc8ae8f50a0b58a14438bfeecc0724682a28218261'));
+
+      // Validate that sustained rejection bursts occur exclusively in heading dropout scenarios
+      int dropoutScenariosWithBurst = 0;
+      int nonDropoutScenariosWithBurst = 0;
+      int maxNonDropoutRejections = 0;
 
       for (final sc in scenarios) {
-        final errs = sc['distance_errors_abs_percent'] as Map<String, dynamic>;
-        final eb1 = (errs['config_b1'] as num).toDouble();
-        final ec = (errs['config_c'] as num).toDouble();
-        final diff = ec - eb1;
-        diffs.add(diff);
-        if (diff < -0.01) {
-          cBetter++;
-        } else if (diff > 0.01) {
-          b1Better++;
+        final noise = sc['noise_profile'] as String;
+        final counts = sc['counts']['config_c'] as Map<String, dynamic>;
+        final rejected = counts['rejected'] as int;
+
+        if (noise.contains('Dropout')) {
+          if (rejected > 100) dropoutScenariosWithBurst++;
         } else {
-          ties++;
+          if (rejected > 100) nonDropoutScenariosWithBurst++;
+          if (rejected > maxNonDropoutRejections) {
+            maxNonDropoutRejections = rejected;
+          }
         }
       }
-      diffs.sort();
-      final medianDiff = diffs[diffs.length ~/ 2];
-      print('Scenario-by-scenario distance error comparison (Config C vs Config B1):');
-      print('  Config C has LOWER absolute distance error: $cBetter / 108 scenarios');
-      print('  Config B1 has LOWER absolute distance error: $b1Better / 108 scenarios');
-      print('  Ties (within 0.01%): $ties / 108 scenarios');
-      print('  Median diff (ec - eb1): ${medianDiff.toStringAsFixed(2)}%');
-    }
+
+      print('Artifact Audit: Dropout scenarios with severe rejection burst (>100 rejections): $dropoutScenariosWithBurst / 27');
+      print('Artifact Audit: Non-dropout scenarios with severe rejection burst (>100 rejections): $nonDropoutScenariosWithBurst / 81');
+      print('Artifact Audit: Max rejections across all 81 non-dropout scenarios: $maxNonDropoutRejections');
+
+      // 100% of non-dropout scenarios maintain normal gating (max rejections <= 16 across 600-1200 points)
+      expect(nonDropoutScenariosWithBurst, equals(0));
+      expect(maxNonDropoutRejections, lessThanOrEqualTo(20));
+      expect(dropoutScenariosWithBurst, greaterThan(10));
+    });
   });
 }

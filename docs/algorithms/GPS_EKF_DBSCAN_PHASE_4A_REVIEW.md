@@ -192,3 +192,41 @@ Chứa toàn bộ 108 kịch bản với:
    - **Cải thiện:** Overall RMSE giảm -4.2% so với Ablation B2; Availability tăng +1.05%; All-Scheduled RMSE giảm -19.2%; Turn Event Recall đạt 74.3%.
    - **Thương hiệp (Trade-off):** Median absolute distance error tăng $+2.70\%$ (+15.8% tương đối) do bám sát góc cua trong môi trường có nhiễu GPS, dù Macro-Mean absolute distance error giảm -3.2%.
 3. **Dừng hoạt động:** Agent dừng mọi hoạt động chỉnh sửa mã nguồn và chờ ý kiến đánh giá chính thức từ Chủ dự án.
+
+---
+
+## 8. Thiết Lập Ranh Giới Phạm Vi & Giới Hạn Đã Biết (Scope Boundaries & Known Limitations)
+
+Căn cứ quyết định chấp thuận điều tra nguyên nhân gốc rễ (Root-Cause Investigation Accepted with Limitations) và lệnh duy trì HOLD từ Chủ dự án, các ranh giới phạm vi kỹ thuật được ghi nhận chính thức như sau:
+
+1. **Giai đoạn Phase 4A Đã Hoàn Thành Cài Đặt (Phase 4A Adaptive Q Implementation is Complete):**
+   - Thuật toán Bounded Adaptive Q cho mô hình động học rẽ 4-state `[east, north, speed, heading]` và cơ chế neo COG có nhận thức sai số vị trí (`Accuracy-Aware Course-Over-Ground Anchor`) đã được triển khai hoàn tất, đạt 100% PSD covariance và thỏa mãn toàn bộ các ràng buộc về đơn vị toán học.
+   - Không thực hiện bất kỳ thay đổi nào đối với thuật toán lõi EKF, tham số adaptive Q, hay các ngưỡng kiểm định thống kê NIS ($G_1 = 5.991$, $G_2 = 13.816$) đã được đóng băng.
+
+2. **Cổng Độ Chính Xác Lập Lịch Toàn Phần Chưa Đạt (Current All-Scheduled Accuracy Gate is NOT Passed):**
+   - Mặc dù trên tập mẫu chung (Protocol 1 Paired Common Set), Phase 4A cải thiện RMSE xuống $4.29\text{ m}$ (tốt hơn $31.5\%$ so với Production Baseline $6.27\text{ m}$);
+   - Tuy nhiên, trên tập mẫu lập lịch toàn phần (Protocol 2 All-Scheduled Availability-Aware Set gồm 75.600 điểm), Phase 4A Config C ghi nhận **All-Scheduled RMSE = $593.98\text{ m}$** và **All-Scheduled P95 = $1,128.00\text{ m}$** (so với Production Baseline RMSE = $6.26\text{ m}$ và P95 = $12.00\text{ m}$).
+   - Do đó, **Cổng phát hành Phase 4A (Release Gate) chính thức bị HOLD** và không được phép đưa vào bất kỳ quy trình phát hành nào.
+
+3. **Giới Hạn Kỹ Thuật Đã Biết: Khóa Chết Từ Chối Ngoại Lai Khi Mất Heading (Known Limitation: Latched Rejection During Heading Dropout):**
+   - Nguyên nhân cốt lõi gây ra sai số cực đại trong Protocol 2 đã được chứng minh và đóng băng bằng kiểm thử hồi quy tất định ([test/root_cause_isolation_test.dart](file:///Users/baobungbu/Aetron/test/root_cause_isolation_test.dart)).
+   - Trong mô hình 4-state vận tốc/góc hướng không đổi, khi không có cảm biến la bàn (`headingDeg == null`), EKF dựa hoàn toàn vào innovation vị trí để hiệu chỉnh góc hướng qua Kalman gain.
+   - Khi xe thực hiện khúc cua gắt trong lúc mất heading (như khúc cua $160^\circ$ tại bước 5/6 trong Kịch bản 61), innovation vị trí tức thời vượt ngưỡng chi-square loại bỏ ($NIS = 18.5 \ge 13.816$).
+   - Khi bước cập nhật bị loại bỏ, filter thực thi predict-only quán tính theo hướng cũ. Ở các bước kế tiếp, khoảng cách giữa vị trí thực tế và vị trí dự báo quán tính ngày càng xa hơn, dẫn đến $NIS$ tiếp tục tăng ($33.2, 53.2, \dots$).
+   - Kết quả: Bộ lọc rơi vào trạng thái **khóa chết từ chối ngoại lai (latched rejection lockout)** kéo dài suốt 294 bước (588 giây), trôi dạt tự do ra khoảng không $> 4.800\text{ m}$ trong khi xe đạp chạy vòng lặp trên thực địa.
+   - Hiện tượng này hoàn toàn vắng bóng trong 81 kịch bản có heading (số lần reject tối đa $\le 16$, RMSE $2.85 - 6.01\text{ m}$), chứng minh lỗi thuộc về cơ chế phục hồi khi mất khóa tín hiệu.
+
+4. **Pipeline GPS Đang Vận Hành Trên Production Giữ Nguyên 100% (Current Production GPS Remains Unchanged):**
+   - Khẳng định tính bất biến tuyệt đối của hệ thống đang phục vụ người dùng cuối:
+     - `git diff main..HEAD -- lib/main.dart` = **0 byte**.
+     - `git diff main..HEAD -- lib/features/workout/domain/services/gps_data_stream_service.dart` = **0 byte**.
+     - `git diff main..HEAD -- lib/features/workout/domain/services/gps_smoothing_service.dart` = **0 byte**.
+     - `git diff main..HEAD -- lib/features/workout/domain/services/gps_signal_monitor.dart` = **0 byte**.
+     - `git diff main..HEAD -- lib/features/workout/domain/services/dbscan/` = **0 byte**.
+   - Người dùng Aetron tiếp tục sử dụng `GpsSmoothingService` ổn định, an toàn và không bị ảnh hưởng bởi quá trình nghiên cứu EKF.
+
+5. **Phase 5 Được Đề Xuất Để Giải Quyết Phục Hồi Nhưng Thành Công Chưa Được Chứng Minh (Phase 5 is Proposed to Address Recovery but Its Success is Unproven):**
+   - Giai đoạn Phase 5 (GPS Gap Recovery State Machine) được đề xuất về mặt kiến trúc nhằm giải quyết triệt để hiện tượng khóa chết từ chối ngoại lai sau gap/turn thông qua máy trạng thái phục hồi đa điểm đo (multi-fix validation, re-anchoring, covariance reset).
+   - Tuy nhiên, tính hiệu quả và thành công của Phase 5 **chưa được chứng minh bằng thực nghiệm** và chưa có dữ liệu đo kiểm độc lập.
+   - Theo quyết định của Chủ dự án, **VIỆC TRIỂN KHAI HOẶC TUNE PHASE 5 HIỆN CHƯA ĐƯỢC ỦY QUYỀN (NOT AUTHORIZED)**. Mọi hoạt động trong đợt này chỉ dừng lại ở mức thiết kế kiến trúc thuần túy (design only).
+
