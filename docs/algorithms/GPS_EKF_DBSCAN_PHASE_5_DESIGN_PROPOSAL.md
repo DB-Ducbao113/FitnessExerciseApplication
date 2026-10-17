@@ -146,29 +146,38 @@ Một giả định ngây thơ cho rằng: *"Nếu có 3 điểm GPS liên tiế
 [ Re-Anchor Được Phê Chuẩn & Trở Về S0 ]
 ```
 
-### 3.3. Cơ Chế Snapshot Rollback Khi Thử Thách Hậu Re-Anchor Thất Bại
+### 3.3. Cơ Chế Cold Reinitialization Rollback Khi Thử Thách Hậu Re-Anchor Thất Bại (Task 1 Remediation)
 1. **Lưu Snapshot tại S4:**
-   Trước khi thực hiện bước cập nhật S5, hệ thống lưu bản sao bất biến của trạng thái:
-   $$S_{\text{snap}} = \left( \hat{x}_{\text{snap}}, P_{\text{snap}}, t_{\text{snap}}, d_{\text{accum\_snap}} \right)$$
-2. **Cửa Sổ Thử Thách $M = 3$ Mẫu:**
-   Sau Safe Reset, hệ thống bước vào chế độ `S0_probation`. Tại mỗi mẫu trong số 3 mẫu kế tiếp:
-   - Nếu $NIS \ge G_2 = 13.816$ HOẶC vận tốc ước lượng $v > 20.0\text{ m/s}$:
-     - **Thực thi Rollback Ngay Lập Tức:**
-       $$\hat{x} \leftarrow \hat{x}_{\text{snap}}, \quad P \leftarrow P_{\text{snap}}, \quad d_{\text{accum}} \leftarrow d_{\text{accum\_snap}}$$
-     - Tăng phương sai vị trí để phản ánh độ bất định gia tăng:
-       $$\sigma_{\text{pos}}^2 \leftarrow \sigma_{\text{pos}}^2 \times 2.0$$
-     - Thêm tọa độ của điểm neo vừa thất bại vào **Danh Sách Đen Không Gian (Spatial Blacklist)** với bán kính loại trừ $R_{\text{blacklist}} = 40.0\text{ m}$ và thời hạn $T_{\text{blacklist}} = 10.0\text{ s}$.
-     - Chuyển trạng thái ngược về **S2 (Loss of Lock)**.
-     - Toàn bộ quãng đường tạm thời trong Escrow Buffer bị xóa bỏ, đảm bảo không có $1\text{ mm}$ quãng đường ma nào lọt vào kết quả.
+   Trước khi thực hiện bước cập nhật S5, hệ thống lưu bản sao bất biến của các đại lượng xác thực:
+   $$S_{\text{snap}} = \left( p_{\text{last\_valid}}, v_{\text{last\_valid}}, \theta_{\text{last\_valid}}, t_{\text{snap}}, d_{\text{committed\_snap}}, \sigma_{\text{pos\_baseline}}^2 \right)$$
+   *Lưu ý kiến trúc:* Lõi EKF 4 trạng thái là bất biến (đã được đóng băng, không thêm hàm snapshot/restore vào lõi). Khi một nỗ lực tái neo thất bại, thiết bị về mặt vật lý **vẫn đang ở trạng thái mất khóa (Loss of Lock)**. Việc tái dựng một bộ lọc EKF "hội tụ" tại vị trí cũ đã lạc hậu từ lâu là phi thực tế và nguy hiểm.
 
-### 3.4. Hành Vi Khi Chỉ Có Dữ Liệu GPS Đơn Lẻ (No Auxiliary Sensors Available)
-Trên điện thoại thông minh phổ thông không có cảm biến tốc độ bánh xe (wheel speed), cảm biến vòng đạp (cadence), hay IMU đồng bộ tần số cao:
-- Khi các điểm đo GPS thỏa mãn ràng buộc vận tốc nhưng độ tin cậy hình học vệ tinh thấp ($\text{acc} \ge 15.0\text{ m}$ hoặc không có góc la bàn):
-- Hệ thống kích hoạt **Chế Độ Bám Vết Tạm Thời Thận Trọng (S0-Provisional)**:
-  1. **Tăng Phương Sai Đo Lường $R$:** Nhân hệ số $4.0\times$ đối với $R_{\text{pos}}$ ($\sigma_{\text{pos}}^2 = 4.0 \cdot \text{acc}^2$) để giảm độ nhạy kéo lệch tâm của Kalman gain.
-  2. **Hãm Cập Nhật Hướng (Heading Innovation Damping):** Giảm $50\%$ mức độ hiệu chỉnh góc hướng từ độ lệch vị trí $K_{4, 1:2} \times 0.5$ để ngăn ngừa xe bị xoay vòng tại chỗ do nhiễu lateral.
-  3. **Quãng Đường Giữ Trong Escrow:** Quãng đường di chuyển trong 5 mẫu đầu tiên được giữ trong bộ đệm tạm; chỉ ghi nhận chính thức khi chuỗi điểm chứng minh được tính ổn định dài hạn.
-  4. **Ưu Tiên Đóng Băng Thay Vì Nhảy Vị Trí:** Nếu phương sai tiếp tục tăng mà không có tín hiệu tốt hơn, bộ lọc duy trì đóng băng vị trí thay vì dịch chuyển theo cụm nhiễu trôi dạt.
+2. **Cửa Sổ Thử Thách $M = 3$ Mẫu & Khởi Tạo Lạnh Bảo Thủ (Cold Reinitialization):**
+   Sau Safe Reset, hệ thống bước vào chế độ thử thách tại S5. Tại mỗi mẫu trong số 3 mẫu kế tiếp:
+   - Nếu $NIS \ge G_2 = 13.816$ HOẶC vận tốc ước lượng $v > 20.0\text{ m/s}$:
+     - **Thực thi Cold Reinitialization Rollback:**
+       1. **Reset EKF Về Trạng Thái Lạnh:** Gọi `_ekf.reset()` đưa bộ lọc về trạng thái chưa khởi tạo (uninitialized), không giả định ma trận hiệp phương sai hội tụ.
+       2. **Bảo Toàn Quãng Đường Đã Cam Kết:** Khôi phục quãng đường tập luyện về đúng mức trước khi thử tái neo: $d_{\text{accum}} \leftarrow d_{\text{committed\_snap}}$.
+       3. **Xóa Trắng Escrow:** Toàn bộ quãng đường dây cung bắc cầu và quãng đường tạm tính trong cửa sổ thử thách bị hủy bỏ lập tức: $d_{\text{escrow}} = 0.0\text{ m}$.
+       4. **Gán Độ Bất Định Bảo Thủ (Conservative Uncertainty):** Đặt phương sai vị trí $\sigma_{\text{pos}}^2 = \max(100.0\text{ m}^2, 4.0 \cdot \sigma_{\text{baseline}}^2)$ và tốc độ tức thời $v = 0.0\text{ m/s}$. Tuyệt đối không xem vị trí trôi dạt cũ là vị trí tin cậy.
+       5. **Đưa Điểm Neo Thất Bại Vào Blacklist:** Thêm tọa độ điểm neo vừa thất bại vào **Danh Sách Đen Không Gian (Spatial Blacklist)** ($R = 40.0\text{ m}, T = 10.0\text{ s}$).
+       6. **Chuyển Về S2 (Loss of Lock):** Trở về trạng thái mất khóa, mở lại bộ đệm ứng viên chờ cơ hội tái neo mới.
+
+### 3.4. Giới Hạn Bản Chất Của Standalone GPS & Xử Lý Bất Định GPS-Only (Task 3 Remediation)
+1. **Giới Hạn Bản Chất Vật Lý:**
+   Một máy thu GPS độc lập (standalone GNSS) không có cảm biến phụ trợ (như la bàn từ tính, con quay hồi chuyển IMU, cảm biến đo tốc độ bánh xe) **về mặt toán học không thể phân biệt** giữa một cụm phản xạ đa đường (coherent multipath reflection) di chuyển có tính nhất quán động học nội bộ ($v \le 20\text{ m/s}, a \le 4\text{ m/s}^2$) và chuyển động thực của phương tiện.
+   
+2. **Nguyên Tắc Fail-Closed Thận Trọng:**
+   Do đó, FSM **tuyệt đối không bao giờ tuyên bố vị trí tuyệt đối đã được xác thực (verified absolute positioning)** chỉ dựa vào các điểm đo GPS nhất quán nội bộ.
+   
+3. **Cơ Chế Phân Cấp Sau Cửa Sổ Thử Thách S5:**
+   - **Nếu Có Cảm Biến Phụ Trợ (`hasAuxiliarySensors == true`):** Cảm biến quán tính/la bàn đối chiếu và xác nhận chuyển động thật $\to$ Cam kết Escrow vào $d_{\text{accum}}$ và chuyển về `s0NormalTracking`.
+   - **Nếu Chỉ Có GPS Đơn Lẻ (`hasAuxiliarySensors == false`):**
+     1. Sau khi vượt qua $M=3$ mẫu S5, FSM **bắt buộc chuyển sang `s0Provisional`** (chế độ bám vết tạm thời), **KHÔNG** được chuyển về `s0NormalTracking`.
+     2. **Quãng Đường Tiếp Tục Bị Giữ Trong Escrow:** Toàn bộ quãng đường dây cung và các bước di chuyển tiếp theo tích lũy vào $d_{\text{escrow}}$, không cộng vào $d_{\text{accum}}$ ($addedDistance = 0.0\text{ m}$).
+     3. **Tăng Phương Sai Đo Lường $R$ 4 Lần:** Đặt $\sigma_{\text{pos}}^2 = 4.0 \cdot \text{acc}^2$ để hạn chế lực kéo lệch tâm của Kalman gain.
+     4. **Hủy Bỏ Toàn Bộ Escrow Khi Cụm Giả Tan Rã:** Nếu cụm đa đường tan rã (do hết tường phản xạ hoặc tín hiệu thật xuất hiện gây từ chối NIS $NIS \ge G_1$), toàn bộ $d_{\text{escrow}}$ lập tức bị xóa về $0.0\text{ m}$, bảo toàn $100\%$ tính nguyên vẹn của quãng đường tập luyện.
+     5. **Cam Kết Một Lần Duy Nhất (Exact-Once Accounting):** Chỉ khi chuỗi điểm vượt qua đủ cửa sổ kiểm chứng $N=5$ điểm đo sạch liên tiếp tại `s0Provisional`, toàn bộ Escrow mới được cam kết một lần duy nhất vào $d_{\text{accum}}$ và chuyển sang `s0NormalTracking`.
 
 ---
 

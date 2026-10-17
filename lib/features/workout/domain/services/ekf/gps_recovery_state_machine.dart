@@ -6,10 +6,12 @@ import 'package:latlong2/latlong.dart';
 /// States of the GPS Recovery Finite State Machine for EKF 4-State.
 enum GpsRecoveryState {
   /// Normal tracking state: GPS measurements admitted and updated through EKF.
+  /// Distance is committed directly to workout distance.
   s0NormalTracking,
 
   /// Low-confidence provisional tracking state (GPS-only, weak geometry, no heading corroboration).
-  /// Measurement variance scaled 4x, heading innovation damped, distance held in escrow.
+  /// Measurement variance scaled 4x, heading innovation damped, tentative distance held in escrow.
+  /// Distance is committed only after passing the provisional validation window.
   s0Provisional,
 
   /// Suspected degraded state: N_reject >= 3 or time gap >= 3.0s.
@@ -26,7 +28,7 @@ enum GpsRecoveryState {
   s3CandidateReacquisition,
 
   /// Validated re-anchor state: K=3 candidates verified kinematically.
-  /// Immutable snapshot is captured prior to resetting the filter state.
+  /// Snapshot is captured prior to resetting the filter state.
   s4ValidatedReAnchor,
 
   /// Safe reset state: State vector and diagonal covariance P_reset re-initialized.
@@ -74,22 +76,31 @@ class SpatialBlacklistEntry {
 }
 
 /// Immutable snapshot captured at S4 before safe reset (S5),
-/// used for rollback if probationary tracking fails.
+/// used for cold reinitialization and distance recovery if probation fails.
 class RecoverySnapshot {
-  final LatLng position;
-  final double speedMs;
-  final double headingDeg;
-  final double positionVariance;
-  final double accumulatedDistanceMeters;
-  final DateTime timestamp;
+  /// The last known trustworthy position confirmed in S0/S1 before entering loss of lock.
+  final LatLng? lastValidPosition;
+  final double lastValidSpeedMs;
+  final double? lastValidHeadingDeg;
+  final DateTime? lastValidTimestamp;
+
+  /// The committed workout distance strictly before any tentative re-anchor.
+  final double committedDistanceMeters;
+
+  /// The baseline position variance from before re-anchor attempt.
+  final double baselinePositionVariance;
+
+  /// Timestamp when snapshot was captured at S4.
+  final DateTime snapshotTimestamp;
 
   const RecoverySnapshot({
-    required this.position,
-    required this.speedMs,
-    required this.headingDeg,
-    required this.positionVariance,
-    required this.accumulatedDistanceMeters,
-    required this.timestamp,
+    required this.lastValidPosition,
+    required this.lastValidSpeedMs,
+    required this.lastValidHeadingDeg,
+    required this.lastValidTimestamp,
+    required this.committedDistanceMeters,
+    required this.baselinePositionVariance,
+    required this.snapshotTimestamp,
   });
 }
 
@@ -134,7 +145,8 @@ class GpsRecoveryFsmResult {
 ///
 /// Implements S0–S5 states, rejection counters, candidate buffering (K=3),
 /// pairwise kinematic checks, probationary tracking window (M=3), spatial blacklisting,
-/// and snapshot rollback without modifying the EKF core or production pipeline.
+/// cold reinitialization rollback, and provisional distance escrow without modifying
+/// the EKF core, NIS thresholds, or production pipeline.
 class GpsRecoveryStateMachine {
   final ExtendedKalmanFilter _ekf;
 
@@ -173,6 +185,7 @@ class GpsRecoveryStateMachine {
   static const double kCandidateBufferLifetimeSec = 6.0;
   static const int kRequiredCandidateCount = 3;
   static const int kProbationWindowSize = 3;
+  static const int kProvisionalValidationFixes = 5;
   static const double kMaxPairwiseSpeedMs = 20.0; // 72 km/h
   static const double kMaxPairwiseAccelMs2 = 4.0;
   static const double kCandidateMinDtSec = 0.4;
@@ -183,6 +196,9 @@ class GpsRecoveryStateMachine {
   static const double kNisG2 = 13.816;
   static const double kStationarySpeedThresholdMs = 0.8;
   static const double kStationaryDisplacementThresholdMeters = 2.5;
+
+  bool _isSessionStarted = false;
+  bool get isSessionStarted => _isSessionStarted;
 
   GpsRecoveryStateMachine({ExtendedKalmanFilter? ekf})
       : _ekf = ekf ?? ExtendedKalmanFilter();
@@ -213,7 +229,9 @@ class GpsRecoveryStateMachine {
   void _transitionToS2(DateTime timestamp) {
     _state = GpsRecoveryState.s2LossOfLock;
     _candidateBuffer.clear();
-    // In S2, heading is frozen and distance accumulation is completely frozen
+    // In S2, any uncommitted escrow distance is purged and distance accumulation is frozen
+    _escrowDistanceMeters = 0.0;
+    _provisionalSuccessCount = 0;
   }
 
   /// Process an incoming raw GPS measurement through the recovery state machine.
@@ -236,8 +254,9 @@ class GpsRecoveryStateMachine {
     var decision = EkfMeasurementDecision.normal;
     double? nis;
 
-    // Handle initialization on the first valid point
-    if (!_ekf.isInitialized || _currentPosition == null) {
+    // Handle initialization on the first valid point of the session
+    if (!_isSessionStarted) {
+      _isSessionStarted = true;
       final initialEstimate = _ekf.update(
         measurementPoint: point,
         accuracyMeters: accuracyMeters,
@@ -273,27 +292,22 @@ class GpsRecoveryStateMachine {
     // Main FSM state dispatch
     switch (_state) {
       case GpsRecoveryState.s0NormalTracking:
-      case GpsRecoveryState.s0Provisional:
         // Check for time gap degradation
         if (dt >= kTimeGapS2Sec) {
           _consecutiveRejections = kRejectionLimitS2;
           _transitionToS2(timestamp);
           decision = EkfMeasurementDecision.rejected;
+          addedDistance = 0.0;
           break;
         } else if (dt >= kTimeGapS1Sec) {
           _consecutiveRejections = kRejectionLimitS1;
           _state = GpsRecoveryState.s1SuspectedDegraded;
         }
 
-        // Apply 4x measurement variance inflation if in S0_provisional
-        final effectiveAccuracy = (_state == GpsRecoveryState.s0Provisional)
-            ? accuracyMeters * 2.0
-            : accuracyMeters;
-
         final prevPos = _currentPosition!;
         final ekfEstimate = _ekf.update(
           measurementPoint: point,
-          accuracyMeters: effectiveAccuracy,
+          accuracyMeters: accuracyMeters,
           timeDeltaSec: dt,
           speedMs: speedMs,
           headingDeg: headingDeg,
@@ -306,14 +320,18 @@ class GpsRecoveryStateMachine {
           _consecutiveRejections++;
           if (_consecutiveRejections >= kRejectionLimitS2) {
             _transitionToS2(timestamp);
+            addedDistance = 0.0;
           } else if (_consecutiveRejections >= kRejectionLimitS1) {
             _state = GpsRecoveryState.s1SuspectedDegraded;
+            addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
+            _accumulatedDistanceMeters += addedDistance;
+          } else {
+            // Single/isolated spike in S0: predict-only motion along track
+            // Distance accumulated along inertial velocity, zero contribution from the spike
+            addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
+            _accumulatedDistanceMeters += addedDistance;
           }
 
-          // Single/isolated spike in S0: predict-only motion along track
-          // Distance accumulated along inertial velocity, zero contribution from the spike
-          addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
-          _accumulatedDistanceMeters += addedDistance;
           _currentPosition = ekfEstimate.position;
           _currentSpeedMs = ekfEstimate.speedMs;
           _currentHeadingDeg = ekfEstimate.headingDeg;
@@ -343,13 +361,89 @@ class GpsRecoveryStateMachine {
           _lastValidSpeedMs = ekfEstimate.speedMs;
           _lastValidHeadingDeg = ekfEstimate.headingDeg;
           _lastValidTimestamp = timestamp;
+        }
+        break;
 
-          if (_state == GpsRecoveryState.s0Provisional) {
-            _provisionalSuccessCount++;
-            if (_provisionalSuccessCount >= 5) {
-              _state = GpsRecoveryState.s0NormalTracking;
-              _provisionalSuccessCount = 0;
-            }
+      case GpsRecoveryState.s0Provisional:
+        // Check for time gap degradation
+        if (dt >= kTimeGapS2Sec) {
+          _consecutiveRejections = kRejectionLimitS2;
+          _transitionToS2(timestamp);
+          decision = EkfMeasurementDecision.rejected;
+          addedDistance = 0.0;
+          break;
+        } else if (dt >= kTimeGapS1Sec) {
+          _consecutiveRejections = kRejectionLimitS1;
+          _state = GpsRecoveryState.s1SuspectedDegraded;
+          _escrowDistanceMeters = 0.0; // Discard unverified escrow on degradation
+          _provisionalSuccessCount = 0;
+        }
+
+        // Apply 4x measurement variance inflation in provisional mode
+        final effectiveAccuracy = accuracyMeters * 2.0;
+        final prevPos = _currentPosition!;
+        final ekfEstimate = _ekf.update(
+          measurementPoint: point,
+          accuracyMeters: effectiveAccuracy,
+          timeDeltaSec: dt,
+          speedMs: speedMs,
+          headingDeg: headingDeg,
+        );
+
+        decision = ekfEstimate.diagnostics.positionDecision;
+        nis = ekfEstimate.diagnostics.positionNis;
+
+        if (decision == EkfMeasurementDecision.rejected) {
+          // Rejection in provisional mode: unverified track broke down!
+          _escrowDistanceMeters = 0.0; // Discard escrow completely!
+          _provisionalSuccessCount = 0;
+          _consecutiveRejections++;
+          if (_consecutiveRejections >= kRejectionLimitS2) {
+            _transitionToS2(timestamp);
+          } else if (_consecutiveRejections >= kRejectionLimitS1) {
+            _state = GpsRecoveryState.s1SuspectedDegraded;
+          }
+          addedDistance = 0.0;
+          _currentPosition = ekfEstimate.position;
+          _currentSpeedMs = ekfEstimate.speedMs;
+          _currentHeadingDeg = ekfEstimate.headingDeg;
+          _currentPositionVariance = ekfEstimate.positionVariance;
+        } else {
+          _consecutiveRejections = 0;
+          final stepDist = _distance.as(LengthUnit.Meter, prevPos, ekfEstimate.position);
+          final tentativeStep = stepDist.clamp(0.0, kMaxPairwiseSpeedMs * dt);
+
+          final isStationary = (speedMs != null && speedMs < kStationarySpeedThresholdMs) ||
+              (ekfEstimate.speedMs < kStationarySpeedThresholdMs &&
+                  stepDist < kStationaryDisplacementThresholdMeters);
+
+          if (isStationary) {
+            _currentSpeedMs = 0.0;
+          } else {
+            _currentSpeedMs = ekfEstimate.speedMs;
+            // ACCUMULATE TENTATIVE DISTANCE IN ESCROW, NOT COMMITTED WORKOUT DISTANCE
+            _escrowDistanceMeters += tentativeStep;
+          }
+
+          _currentPosition = ekfEstimate.position;
+          _currentHeadingDeg = ekfEstimate.headingDeg;
+          _currentPositionVariance = ekfEstimate.positionVariance;
+          _lastValidPosition = ekfEstimate.position;
+          _lastValidSpeedMs = ekfEstimate.speedMs;
+          _lastValidHeadingDeg = ekfEstimate.headingDeg;
+          _lastValidTimestamp = timestamp;
+
+          _provisionalSuccessCount++;
+          if (_provisionalSuccessCount >= kProvisionalValidationFixes) {
+            // Provisional validation window passed: commit escrow to workout distance!
+            _accumulatedDistanceMeters += _escrowDistanceMeters;
+            addedDistance = _escrowDistanceMeters;
+            _escrowDistanceMeters = 0.0;
+            _state = GpsRecoveryState.s0NormalTracking;
+            _provisionalSuccessCount = 0;
+          } else {
+            // Still in provisional window: distance remains in escrow
+            addedDistance = 0.0;
           }
         }
         break;
@@ -359,6 +453,7 @@ class GpsRecoveryStateMachine {
           _consecutiveRejections = kRejectionLimitS2;
           _transitionToS2(timestamp);
           decision = EkfMeasurementDecision.rejected;
+          addedDistance = 0.0;
           break;
         }
 
@@ -414,6 +509,7 @@ class GpsRecoveryStateMachine {
 
         if (_consecutiveRejections >= kRejectionLimitS2 || innov > dMax) {
           _transitionToS2(timestamp);
+          addedDistance = 0.0; // Strictly zero added distance when transitioning to S2
         } else {
           // In S1: distance accumulates along inertial velocity clamped
           addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
@@ -428,7 +524,7 @@ class GpsRecoveryStateMachine {
 
       case GpsRecoveryState.s2LossOfLock:
       case GpsRecoveryState.s3CandidateReacquisition:
-        // In S2 and S3, distance accumulation is frozen
+        // In S2 and S3, distance accumulation is completely frozen
         addedDistance = 0.0;
 
         final isBlacklisted = _blacklist.any((entry) => entry.contains(point));
@@ -538,6 +634,7 @@ class GpsRecoveryStateMachine {
           _executeSnapshotRollback(timestamp);
           rollbackApplied = true;
           decision = EkfMeasurementDecision.rejected;
+          addedDistance = 0.0;
         } else {
           _probationRemaining--;
           final stepDist = _distance.as(LengthUnit.Meter, prevPos, ekfEstimate.position);
@@ -552,22 +649,31 @@ class GpsRecoveryStateMachine {
           _currentPositionVariance = ekfEstimate.positionVariance;
 
           if (_probationRemaining == 0) {
-            // Probation PASSED! Commit escrow distance to workout distance
-            _accumulatedDistanceMeters += _escrowDistanceMeters;
-            addedDistance = _escrowDistanceMeters;
-            _escrowDistanceMeters = 0.0;
-            _candidateBuffer.clear();
-
-            _lastValidPosition = _currentPosition;
-            _lastValidSpeedMs = _currentSpeedMs;
-            _lastValidHeadingDeg = _currentHeadingDeg;
-            _lastValidTimestamp = timestamp;
             _consecutiveRejections = 0;
 
             if (hasAuxiliarySensors) {
+              // Auxiliary sensors confirm track: commit escrow and return to S0
+              _accumulatedDistanceMeters += _escrowDistanceMeters;
+              addedDistance = _escrowDistanceMeters;
+              _escrowDistanceMeters = 0.0;
+              _candidateBuffer.clear();
+
+              _lastValidPosition = _currentPosition;
+              _lastValidSpeedMs = _currentSpeedMs;
+              _lastValidHeadingDeg = _currentHeadingDeg;
+              _lastValidTimestamp = timestamp;
               _state = GpsRecoveryState.s0NormalTracking;
             } else {
+              // GPS-ONLY: Do not claim verified absolute positioning solely from GPS!
+              // Enter s0Provisional with distance remaining in escrow!
+              _candidateBuffer.clear();
+              _lastValidPosition = _currentPosition;
+              _lastValidSpeedMs = _currentSpeedMs;
+              _lastValidHeadingDeg = _currentHeadingDeg;
+              _lastValidTimestamp = timestamp;
               _state = GpsRecoveryState.s0Provisional;
+              _provisionalSuccessCount = 0;
+              addedDistance = 0.0; // Distance remains in escrow!
             }
           }
         }
@@ -599,14 +705,15 @@ class GpsRecoveryStateMachine {
   void _executeReAnchorAndSafeReset(DateTime timestamp, bool hasAuxiliarySensors) {
     assert(_candidateBuffer.length == kRequiredCandidateCount);
 
-    // 1. Capture immutable snapshot at S4
+    // 1. Capture snapshot before safe reset: records last known valid position and committed distance
     _snapshot = RecoverySnapshot(
-      position: _currentPosition ?? _candidateBuffer.first.point,
-      speedMs: _currentSpeedMs,
-      headingDeg: _currentHeadingDeg,
-      positionVariance: _currentPositionVariance,
-      accumulatedDistanceMeters: _accumulatedDistanceMeters,
-      timestamp: timestamp,
+      lastValidPosition: _lastValidPosition,
+      lastValidSpeedMs: _lastValidSpeedMs,
+      lastValidHeadingDeg: _lastValidHeadingDeg,
+      lastValidTimestamp: _lastValidTimestamp,
+      committedDistanceMeters: _accumulatedDistanceMeters,
+      baselinePositionVariance: _currentPositionVariance,
+      snapshotTimestamp: timestamp,
     );
 
     // 2. Re-anchor kinematic parameters
@@ -666,27 +773,32 @@ class GpsRecoveryStateMachine {
     _probationRemaining = kProbationWindowSize;
   }
 
-  /// Executes Snapshot Rollback on probation failure.
+  /// Executes Cold Reinitialization with conservative uncertainty on recovery failure.
+  ///
+  /// Distinguishes cold reinitialization from exact state rollback:
+  /// - Does NOT pretend to restore full 4x4 covariance or diverged internal state.
+  /// - Resets EKF to cold uninitialized state.
+  /// - Restores committed distance strictly to pre-attempt baseline.
+  /// - Completely purges escrow and bridging distance.
+  /// - Adds failed anchor to spatial blacklist.
+  /// - Sets conservative position variance (>= 100 m^2) to indicate untrusted position.
   void _executeSnapshotRollback(DateTime timestamp) {
-    if (_snapshot != null) {
-      _currentPosition = _snapshot!.position;
-      _currentSpeedMs = _snapshot!.speedMs;
-      _currentHeadingDeg = _snapshot!.headingDeg;
-      // Inflate position variance x 2.0 to reflect increased uncertainty
-      _currentPositionVariance = _snapshot!.positionVariance * 2.0;
-      _accumulatedDistanceMeters = _snapshot!.accumulatedDistanceMeters;
+    // 1. Reset EKF to cold state - never treat diverged filter as trusted
+    _ekf.reset();
 
-      // Re-init EKF at snapshot
-      _ekf.reset();
-      _ekf.init(
-        initialPoint: _snapshot!.position,
-        initialAccuracyMeters: math.sqrt(_currentPositionVariance),
-        initialSpeedMs: _snapshot!.speedMs,
-        initialHeadingDeg: _snapshot!.headingDeg,
-      );
+    // 2. Restore committed distance strictly to pre-attempt baseline
+    if (_snapshot != null) {
+      _accumulatedDistanceMeters = _snapshot!.committedDistanceMeters;
+      _currentPosition = _snapshot!.lastValidPosition;
+      _currentSpeedMs = 0.0;
+      _currentHeadingDeg = _snapshot!.lastValidHeadingDeg ?? 0.0;
+      _currentPositionVariance = math.max(100.0, _snapshot!.baselinePositionVariance * 4.0);
+    } else {
+      _currentSpeedMs = 0.0;
+      _currentPositionVariance = math.max(100.0, _currentPositionVariance * 4.0);
     }
 
-    // Add failed anchor point to spatial blacklist
+    // 3. Blacklist failed anchor coordinates
     if (_candidateBuffer.isNotEmpty) {
       final failedAnchor = _candidateBuffer.last.point;
       _blacklist.add(SpatialBlacklistEntry(
@@ -696,10 +808,12 @@ class GpsRecoveryStateMachine {
       ));
     }
 
-    // Purge escrow distance completely
+    // 4. Purge all tentative distance in escrow completely
     _escrowDistanceMeters = 0.0;
     _candidateBuffer.clear();
     _state = GpsRecoveryState.s2LossOfLock;
     _consecutiveRejections = kRejectionLimitS2;
+    _probationRemaining = 0;
+    _provisionalSuccessCount = 0;
   }
 }

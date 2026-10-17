@@ -479,7 +479,6 @@ void main() {
       driveFsmToS2(fsm, origin, baseTime.add(const Duration(seconds: 1)));
       expect(fsm.state, GpsRecoveryState.s2LossOfLock);
       final distBeforeCluster = fsm.accumulatedDistanceMeters;
-      final posBeforeCluster = fsm.currentPosition!;
 
       // Coherent false multipath cluster: 3 points offset 50m North, moving East at 4 m/s
       final c1 = offsetMeters(origin, 40.0, 50.0);
@@ -528,8 +527,12 @@ void main() {
           reason: 'After rollback, state must return to S2');
       expect(fsm.accumulatedDistanceMeters, equals(distBeforeCluster),
           reason: 'All distance from false cluster must be purged on rollback');
-      expect(fsm.currentPosition, equals(posBeforeCluster),
-          reason: 'Position must be restored to snapshot position on rollback');
+      expect(fsm.currentPosition, equals(fsm.snapshot!.lastValidPosition),
+          reason: 'Position must be restored to snapshot last valid position on rollback');
+      expect(fsm.currentPositionVariance, greaterThanOrEqualTo(100.0),
+          reason: 'Position uncertainty must be set to conservative value after rollback');
+      expect(fsm.currentSpeedMs, equals(0.0),
+          reason: 'Speed must be reset to 0.0 m/s after rollback');
       expect(fsm.escrowDistanceMeters, 0.0);
 
       // Verify spatial blacklist: c3 must be blacklisted
@@ -716,6 +719,449 @@ void main() {
           reason: 'Safe Reset step must NOT add the Euclidean jump to accumulated distance');
       expect(fsm.accumulatedDistanceMeters, equals(distAtS2),
           reason: 'Accumulated distance before probation pass must remain unchanged');
+    });
+
+    test('11. Cold reinitialization & covariance behavior on rollback (Task 1)', () {
+      final fsm = GpsRecoveryStateMachine();
+      final origin = LatLng(10.7769, 106.7009);
+
+      // Start in S0
+      fsm.processMeasurement(
+        point: origin,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      fsm.processMeasurement(
+        point: offsetMeters(origin, 5.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 1)),
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+
+      // Drive into S2
+      driveFsmToS2(fsm, origin, baseTime.add(const Duration(seconds: 1)));
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+      final preAttemptDist = fsm.accumulatedDistanceMeters;
+
+      // Reacquisition: K=3 candidates
+      for (var k = 1; k <= 3; k++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 40.0 + k * 5.0, 30.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 10 + k)),
+          speedMs: 5.0,
+        );
+      }
+      expect(fsm.state, GpsRecoveryState.s5SafeReset);
+
+      // Probation fix 1: severe outlier triggering NIS >= 13.816 -> rollback!
+      final res = fsm.processMeasurement(
+        point: offsetMeters(origin, 55.0, -100.0),
+        accuracyMeters: 2.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 14)),
+      );
+
+      expect(res.wasRollbackApplied, isTrue);
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+
+      // Verify Cold Reinitialization properties:
+      // 1. Covariance is valid and PSD (never corrupted, NaN, or indefinite)
+      expect(fsm.isCovariancePositiveSemiDefinite, isTrue);
+      final cov = fsm.covariance;
+      for (var r = 0; r < 4; r++) {
+        for (var c = 0; c < 4; c++) {
+          expect(cov[r][c].isFinite, isTrue, reason: 'Covariance entries must be finite');
+        }
+      }
+
+      // 2. Position variance is set conservatively (>= 100 m^2), never claiming converged filter
+      expect(fsm.currentPositionVariance, greaterThanOrEqualTo(100.0));
+
+      // 3. Speed is reset to 0.0 m/s
+      expect(fsm.currentSpeedMs, equals(0.0));
+
+      // 4. Accumulated workout distance strictly preserved at pre-attempt baseline
+      expect(fsm.accumulatedDistanceMeters, equals(preAttemptDist));
+
+      // 5. Escrow buffer completely purged
+      expect(fsm.escrowDistanceMeters, equals(0.0));
+      expect(res.addedDistanceMeters, equals(0.0));
+    });
+
+    test('12. Repeated failed re-anchors maintain zero distance leak and spatial blacklist (Task 1)', () {
+      final fsm = GpsRecoveryStateMachine();
+      final origin = LatLng(10.7769, 106.7009);
+
+      // Start in S0
+      fsm.processMeasurement(
+        point: origin,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      fsm.processMeasurement(
+        point: offsetMeters(origin, 5.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 1)),
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+
+      driveFsmToS2(fsm, origin, baseTime.add(const Duration(seconds: 1)));
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+      final preAttemptDist = fsm.accumulatedDistanceMeters;
+
+      // ATTEMPT 1: False Cluster A (East 40m, North 50m)
+      final clusterAAnchor = offsetMeters(origin, 50.0, 50.0);
+      for (var k = 1; k <= 3; k++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 40.0 + k * 5.0, 50.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 10 + k)),
+          speedMs: 5.0,
+        );
+      }
+      expect(fsm.state, GpsRecoveryState.s5SafeReset);
+
+      // Fail probation 1
+      var res = fsm.processMeasurement(
+        point: offsetMeters(origin, 55.0, 0.0),
+        accuracyMeters: 2.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 14)),
+      );
+      expect(res.wasRollbackApplied, isTrue);
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+      expect(fsm.isPointBlacklisted(clusterAAnchor, baseTime.add(const Duration(seconds: 15))), isTrue);
+
+      // ATTEMPT 2: False Cluster B (East 80m, South 60m)
+      final clusterBAnchor = offsetMeters(origin, 90.0, -60.0);
+      for (var k = 1; k <= 3; k++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 80.0 + k * 5.0, -60.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 15 + k)),
+          speedMs: 5.0,
+        );
+      }
+      expect(fsm.state, GpsRecoveryState.s5SafeReset);
+
+      // Fail probation 2 at t=19s
+      res = fsm.processMeasurement(
+        point: offsetMeters(origin, 95.0, 0.0),
+        accuracyMeters: 2.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 19)),
+      );
+      expect(res.wasRollbackApplied, isTrue);
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+
+      // At t=20s (6s after Cluster A failure, 1s after Cluster B failure):
+      // Both anchors must remain blacklisted simultaneously (< 10s duration)
+      expect(fsm.isPointBlacklisted(clusterAAnchor, baseTime.add(const Duration(seconds: 20))), isTrue);
+      expect(fsm.isPointBlacklisted(clusterBAnchor, baseTime.add(const Duration(seconds: 20))), isTrue);
+
+      // At t=26s (12s after Cluster A failure, 7s after Cluster B failure):
+      // Cluster A has expired (>10s), but Cluster B remains active (<10s)
+      expect(fsm.isPointBlacklisted(clusterAAnchor, baseTime.add(const Duration(seconds: 26))), isFalse,
+          reason: 'Cluster A must expire after 10s blacklist window');
+      expect(fsm.isPointBlacklisted(clusterBAnchor, baseTime.add(const Duration(seconds: 26))), isTrue,
+          reason: 'Cluster B must remain active within its 10s window');
+
+      // Total distance after 2 failed re-anchors must have ZERO distance leak
+      expect(fsm.accumulatedDistanceMeters, equals(preAttemptDist));
+      expect(fsm.escrowDistanceMeters, equals(0.0));
+      expect(fsm.isCovariancePositiveSemiDefinite, isTrue);
+    });
+
+    test('13. Provisional distance escrow & exact-once accounting (Task 2)', () {
+      final fsm = GpsRecoveryStateMachine();
+      final origin = LatLng(10.7769, 106.7009);
+
+      // Start in S0
+      fsm.processMeasurement(
+        point: origin,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      fsm.processMeasurement(
+        point: offsetMeters(origin, 5.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 1)),
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+
+      driveFsmToS2(fsm, origin, baseTime.add(const Duration(seconds: 1)));
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+      final distAtS2 = fsm.accumulatedDistanceMeters;
+
+      // Reacquire K=3 candidates on genuine track
+      for (var k = 1; k <= 3; k++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 30.0 + k * 5.0, 0.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 10 + k)),
+          speedMs: 5.0,
+        );
+      }
+      expect(fsm.state, GpsRecoveryState.s5SafeReset);
+
+      // S5 probation with hasAuxiliarySensors = false (GPS-only)
+      for (var m = 1; m <= 3; m++) {
+        final res = fsm.processMeasurement(
+          point: offsetMeters(origin, 45.0 + m * 5.0, 0.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 13 + m)),
+          speedMs: 5.0,
+          hasAuxiliarySensors: false, // GPS-only!
+        );
+        expect(res.addedDistanceMeters, 0.0, reason: 'Distance in S5 must be held in escrow');
+      }
+
+      // After 3 probation fixes, GPS-only enters s0Provisional (NOT s0NormalTracking)
+      expect(fsm.state, GpsRecoveryState.s0Provisional);
+      expect(fsm.accumulatedDistanceMeters, equals(distAtS2),
+          reason: 'Accumulated workout distance must remain unchanged while in provisional escrow');
+      expect(fsm.escrowDistanceMeters, greaterThan(0.0),
+          reason: 'Escrow must hold tentative distance');
+
+      final escrowBeforeProv = fsm.escrowDistanceMeters;
+
+      // Feed 4 clean fixes in s0Provisional: distance must stay in escrow (addedDistance == 0.0)
+      for (var p = 1; p <= 4; p++) {
+        final res = fsm.processMeasurement(
+          point: offsetMeters(origin, 60.0 + p * 5.0, 0.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 16 + p)),
+          speedMs: 5.0,
+          hasAuxiliarySensors: false,
+        );
+        expect(res.state, GpsRecoveryState.s0Provisional);
+        expect(res.addedDistanceMeters, 0.0,
+            reason: 'Each provisional fix must keep addedDistance == 0.0');
+        expect(fsm.accumulatedDistanceMeters, equals(distAtS2));
+      }
+
+      // 5th clean fix in s0Provisional: provisional validation window passes!
+      final res5 = fsm.processMeasurement(
+        point: offsetMeters(origin, 85.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 21)),
+        speedMs: 5.0,
+        hasAuxiliarySensors: false,
+      );
+
+      // Now state transitions to s0NormalTracking and commits escrow
+      expect(res5.state, GpsRecoveryState.s0NormalTracking);
+      expect(res5.addedDistanceMeters, greaterThan(escrowBeforeProv),
+          reason: 'Escrow must be committed in bulk on passing provisional validation window');
+      expect(fsm.escrowDistanceMeters, equals(0.0),
+          reason: 'Escrow must be cleared once committed');
+      final committedTotal = fsm.accumulatedDistanceMeters;
+      expect(committedTotal, equals(distAtS2 + res5.addedDistanceMeters));
+
+      // 6th fix in s0NormalTracking: standard per-step incremental accumulation
+      final res6 = fsm.processMeasurement(
+        point: offsetMeters(origin, 90.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 22)),
+        speedMs: 5.0,
+      );
+      expect(res6.state, GpsRecoveryState.s0NormalTracking);
+      expect(res6.addedDistanceMeters, closeTo(5.0, 0.8));
+      expect(fsm.accumulatedDistanceMeters, closeTo(committedTotal + 5.0, 0.8),
+          reason: 'Exact-once accounting: subsequent fixes add only their incremental step');
+    });
+
+    test('14. Coherent false GPS cluster persisting beyond probation is purged on breakdown (Task 3)', () {
+      final fsm = GpsRecoveryStateMachine();
+      final origin = LatLng(10.7769, 106.7009);
+
+      // Start in S0
+      fsm.processMeasurement(
+        point: origin,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      fsm.processMeasurement(
+        point: offsetMeters(origin, 5.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 1)),
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+
+      driveFsmToS2(fsm, origin, baseTime.add(const Duration(seconds: 1)));
+      expect(fsm.state, GpsRecoveryState.s2LossOfLock);
+      final distBeforeFalseCluster = fsm.accumulatedDistanceMeters;
+
+      // Coherent false cluster (East 40m, North 80m, moving at 4 m/s East)
+      // 3 candidates collected in S3
+      for (var k = 1; k <= 3; k++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 30.0 + k * 4.0, 80.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 10 + k)),
+          speedMs: 4.0,
+        );
+      }
+      expect(fsm.state, GpsRecoveryState.s5SafeReset);
+
+      // 3 false probation fixes (also moving at 4 m/s East) - GPS-only!
+      for (var m = 1; m <= 3; m++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 42.0 + m * 4.0, 80.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 13 + m)),
+          speedMs: 4.0,
+          hasAuxiliarySensors: false, // GPS-only!
+        );
+      }
+
+      // FSM MUST NOT claim verified absolute positioning! It MUST enter s0Provisional!
+      expect(fsm.state, GpsRecoveryState.s0Provisional,
+          reason: 'GPS-only reacquisition must enter provisional state, not verified normal tracking');
+      expect(fsm.accumulatedDistanceMeters, equals(distBeforeFalseCluster),
+          reason: 'Accumulated distance must NOT include false cluster fixes');
+      expect(fsm.escrowDistanceMeters, greaterThan(0.0),
+          reason: 'False cluster distance must be trapped in escrow');
+
+      // False cluster continues for 2 more fixes in s0Provisional
+      for (var p = 1; p <= 2; p++) {
+        fsm.processMeasurement(
+          point: offsetMeters(origin, 54.0 + p * 4.0, 80.0),
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 16 + p)),
+          speedMs: 4.0,
+          hasAuxiliarySensors: false,
+        );
+        expect(fsm.state, GpsRecoveryState.s0Provisional);
+        expect(fsm.accumulatedDistanceMeters, equals(distBeforeFalseCluster));
+      }
+
+      // Now false cluster breaks down: multipath wall ends, true signal appears 80m South (on real road)
+      final trueFix = offsetMeters(origin, 66.0, 0.0);
+      final resBreakdown = fsm.processMeasurement(
+        point: trueFix,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 19)),
+        speedMs: 4.0,
+        hasAuxiliarySensors: false,
+      );
+
+      // On breakdown in provisional mode:
+      // Escrow is completely purged to 0.0!
+      // Added distance is strictly 0.0!
+      // Total accumulated workout distance has ZERO contribution from the 8 false fixes!
+      expect(fsm.escrowDistanceMeters, equals(0.0),
+          reason: 'All tentative distance in escrow must be discarded on breakdown');
+      expect(resBreakdown.addedDistanceMeters, equals(0.0));
+      expect(fsm.accumulatedDistanceMeters, equals(distBeforeFalseCluster),
+          reason: 'Permanent workout distance must have zero corruption from false cluster');
+    });
+
+    test('15. Transitions from S0 and S1 to S2 add strictly zero distance increment (Task 2)', () {
+      // Case A: S0 -> S2 via time gap (dt >= 5.0s)
+      final fsmA = GpsRecoveryStateMachine();
+      final origin = LatLng(10.7769, 106.7009);
+
+      fsmA.processMeasurement(
+        point: origin,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      final distA1 = fsmA.accumulatedDistanceMeters;
+
+      final resA2 = fsmA.processMeasurement(
+        point: offsetMeters(origin, 50.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 5.5,
+        timestamp: baseTime.add(const Duration(milliseconds: 5500)),
+      );
+      expect(resA2.state, GpsRecoveryState.s2LossOfLock);
+      expect(resA2.addedDistanceMeters, equals(0.0),
+          reason: 'Transition S0 -> S2 on time gap must add strictly 0.0m');
+      expect(fsmA.accumulatedDistanceMeters, equals(distA1));
+
+      // Case B: S1 -> S2 on 5th consecutive rejection
+      final fsmB = GpsRecoveryStateMachine();
+      fsmB.processMeasurement(
+        point: origin,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      fsmB.processMeasurement(
+        point: offsetMeters(origin, 5.0, 0.0),
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 1)),
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+
+      // Rejections 1-4 drive FSM into S1
+      for (var i = 1; i <= 4; i++) {
+        fsmB.processMeasurement(
+          point: offsetMeters(origin, 5.0 + i * 5.0, 27.0),
+          accuracyMeters: 1.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 1 + i)),
+          speedMs: 5.0,
+          headingDeg: 90.0,
+        );
+      }
+      expect(fsmB.state, GpsRecoveryState.s1SuspectedDegraded);
+      final distBeforeS2 = fsmB.accumulatedDistanceMeters;
+
+      // 5th rejection triggers S1 -> S2 transition
+      final resB5 = fsmB.processMeasurement(
+        point: offsetMeters(origin, 30.0, 27.0),
+        accuracyMeters: 1.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 6)),
+        speedMs: 5.0,
+        headingDeg: 90.0,
+      );
+      expect(resB5.state, GpsRecoveryState.s2LossOfLock);
+      expect(resB5.addedDistanceMeters, equals(0.0),
+          reason: 'Transition S1 -> S2 on 5th rejection must add strictly 0.0m');
+      expect(fsmB.accumulatedDistanceMeters, equals(distBeforeS2));
     });
   });
 }
