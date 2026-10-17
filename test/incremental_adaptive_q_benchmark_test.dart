@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/matrix_math_4x4.dart';
@@ -368,6 +369,10 @@ void main() {
     int scenarioCount = 0;
     final totalRouteDist = _routeLengthMeters();
     final scenarioRecords = <Map<String, dynamic>>[];
+    final allOutputPositionsA = <String>[];
+    final allOutputPositionsB1 = <String>[];
+    final allOutputPositionsB2 = <String>[];
+    final allOutputPositionsC = <String>[];
 
     for (final seed in seeds) {
       for (final noise in noiseProfiles) {
@@ -447,6 +452,10 @@ void main() {
               speedProfile: speed.name,
               rateProfile: rate.name,
               scenarioRecords: scenarioRecords,
+              allOutputPositionsA: allOutputPositionsA,
+              allOutputPositionsB1: allOutputPositionsB1,
+              allOutputPositionsB2: allOutputPositionsB2,
+              allOutputPositionsC: allOutputPositionsC,
             );
           }
         }
@@ -455,17 +464,28 @@ void main() {
 
     print('\nSuccessfully completed $scenarioCount scenarios (${statA.inputCount} points per variant).');
 
+    final globalHashA = sha256.convert(utf8.encode(allOutputPositionsA.join(';'))).toString();
+    final globalHashB1 = sha256.convert(utf8.encode(allOutputPositionsB1.join(';'))).toString();
+    final globalHashB2 = sha256.convert(utf8.encode(allOutputPositionsB2.join(';'))).toString();
+    final globalHashC = sha256.convert(utf8.encode(allOutputPositionsC.join(';'))).toString();
+
     // Export machine-readable benchmark report outside Git
     final benchmarkReport = {
       'schema_version': 4,
       'benchmark_label': 'phase4a_final_benchmark_correctness_remediation',
       'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
-      'git_head_sha': '1c437684e27f05bca4f50625902dc6ba3fcad77b',
+      'git_head_sha': '4c1a13465f475e015e3ad314886ff2a39742bc68',
       'phase3_comparator_sha': '9e5fa2c1c7feac88c8ebdf03fa8725a6240758db',
       'config_fingerprint': 'fnv1a32-12b93cef',
       'total_scenarios': scenarioCount,
       'total_scheduled_points_per_variant': statA.inputCount,
       'paired_common_points': statC.scoredCount,
+      'global_output_sha256': {
+        'config_a': globalHashA,
+        'config_b1': globalHashB1,
+        'config_b2': globalHashB2,
+        'config_c': globalHashC,
+      },
       'summary': {
         'config_a_baseline': _variantSummary(statA),
         'config_b1_phase3_historical': _variantSummary(statB1),
@@ -513,6 +533,12 @@ void main() {
 
     _printComprehensiveReport(statA, statB1, statB2, statC);
 
+    print('Global Output SHA-256 Checksums:');
+    print('  Config A (Baseline):            $globalHashA');
+    print('  Config B1 (Phase 3 Historical): $globalHashB1');
+    print('  Config B2 (Phase 4A Ablation):  $globalHashB2');
+    print('  Config C (Phase 4A Candidate):  $globalHashC');
+
     // Final Gate Assertions
     expect(statA.inputCount, equals(statB1.inputCount));
     expect(statB1.inputCount, equals(statC.inputCount));
@@ -520,6 +546,7 @@ void main() {
     expect(statC.psdPercent, equals(100.0));
     expect(statC.pairedRmse, lessThan(statB1.pairedRmse));
     expect(statC.availabilityPercent, greaterThanOrEqualTo(statB1.availabilityPercent));
+    expect(globalHashB1, equals('e8aaa8d27692ef75276fe3fc8ae8f50a0b58a14438bfeecc0724682a28218261'));
   });
 }
 
@@ -572,6 +599,10 @@ void _runEvaluationScenario({
   required String speedProfile,
   required String rateProfile,
   required List<Map<String, dynamic>> scenarioRecords,
+  required List<String> allOutputPositionsA,
+  required List<String> allOutputPositionsB1,
+  required List<String> allOutputPositionsB2,
+  required List<String> allOutputPositionsC,
 }) {
   const smoother = GpsSmoothingService();
   LatLng? prevAcceptedA;
@@ -603,6 +634,21 @@ void _runEvaluationScenario({
   bool eventDetectedC = false;
   double eventEntryTimeSec = 0.0;
 
+  final scenOutputsA = <String>[];
+  final scenOutputsB1 = <String>[];
+  final scenOutputsB2 = <String>[];
+  final scenOutputsC = <String>[];
+  final pairedSampleIds = <int>[];
+  final scenInput = trace.length;
+  int scenAcceptedA = 0;
+  int scenRejectedA = 0;
+  int scenAcceptedB1 = 0;
+  int scenRejectedB1 = 0;
+  int scenAcceptedB2 = 0;
+  int scenRejectedB2 = 0;
+  int scenAcceptedC = 0;
+  int scenRejectedC = 0;
+
   for (int i = 0; i < trace.length; i++) {
     final pt = trace[i];
     final timeSec = i * dt;
@@ -612,8 +658,10 @@ void _runEvaluationScenario({
     if (pt.accuracy > 40.0) {
       statA.rejectedCount++;
       statA.droppedCount++;
+      scenRejectedA++;
     } else {
       statA.acceptedCount++;
+      scenAcceptedA++;
       final update = smoother.smoothAcceptedPoint(
         activityType: 'cycling',
         acceptedPoint: pt.raw,
@@ -632,6 +680,9 @@ void _runEvaluationScenario({
       prevSmoothedA = outA;
       if (update.shouldAppendRoutePoint) lastRouteA = outA;
     }
+    final outStrA = '${(lastOutA ?? pt.truth).latitude.toStringAsFixed(7)},${(lastOutA ?? pt.truth).longitude.toStringAsFixed(7)}';
+    scenOutputsA.add(outStrA);
+    allOutputPositionsA.add(outStrA);
 
     // --- Config B1 execution (True Phase 3 Commit 9e5fa2c) ---
     statB1.inputCount++;
@@ -643,11 +694,16 @@ void _runEvaluationScenario({
     if (isRejB1) {
       statB1.rejectedCount++;
       statB1.droppedCount++;
+      scenRejectedB1++;
     } else {
       statB1.acceptedCount++;
+      scenAcceptedB1++;
       if (lastOutB1 != null) distB1 += _distance.distance(lastOutB1, estB1.position);
       lastOutB1 = estB1.position;
     }
+    final outStrB1 = '${estB1.position.latitude.toStringAsFixed(7)},${estB1.position.longitude.toStringAsFixed(7)}';
+    scenOutputsB1.add(outStrB1);
+    allOutputPositionsB1.add(outStrB1);
 
     // --- Config B2 execution (Phase 4A Fixed-Q Ablation with COG Anchor) ---
     statB2.inputCount++;
@@ -659,11 +715,16 @@ void _runEvaluationScenario({
     if (isRejB2) {
       statB2.rejectedCount++;
       statB2.droppedCount++;
+      scenRejectedB2++;
     } else {
       statB2.acceptedCount++;
+      scenAcceptedB2++;
       if (lastOutB2 != null) distB2 += _distance.distance(lastOutB2, estB2.position);
       lastOutB2 = estB2.position;
     }
+    final outStrB2 = '${estB2.position.latitude.toStringAsFixed(7)},${estB2.position.longitude.toStringAsFixed(7)}';
+    scenOutputsB2.add(outStrB2);
+    allOutputPositionsB2.add(outStrB2);
 
     // --- Config C execution (Phase 4A Candidate: Bounded Adaptive Q + COG Anchor) ---
     statC.inputCount++;
@@ -675,11 +736,16 @@ void _runEvaluationScenario({
     if (isRejC) {
       statC.rejectedCount++;
       statC.droppedCount++;
+      scenRejectedC++;
     } else {
       statC.acceptedCount++;
+      scenAcceptedC++;
       if (lastOutC != null) distC += _distance.distance(lastOutC, estC.position);
       lastOutC = estC.position;
     }
+    final outStrC = '${estC.position.latitude.toStringAsFixed(7)},${estC.position.longitude.toStringAsFixed(7)}';
+    scenOutputsC.add(outStrC);
+    allOutputPositionsC.add(outStrC);
 
     // --- Turn event management & false turn accounting ---
     if (pt.associatedTurn != null) {
@@ -726,6 +792,8 @@ void _runEvaluationScenario({
 
     // --- Scoring Protocol 1: Paired Common Sample Set ---
     if (!isRejB1 && !isRejB2 && !isRejC && lastOutA != null) {
+      pairedSampleIds.add(i);
+
       final errA = _distance.distance(lastOutA, pt.truth);
       final errB1 = _distance.distance(estB1.position, pt.truth);
       final errB2 = _distance.distance(estB2.position, pt.truth);
@@ -845,6 +913,11 @@ void _runEvaluationScenario({
   statC.signedDistanceErrors.add(signedErrC);
   statC.absDistanceErrors.add(signedErrC.abs());
 
+  final scenHashA = sha256.convert(utf8.encode(scenOutputsA.join(';'))).toString();
+  final scenHashB1 = sha256.convert(utf8.encode(scenOutputsB1.join(';'))).toString();
+  final scenHashB2 = sha256.convert(utf8.encode(scenOutputsB2.join(';'))).toString();
+  final scenHashC = sha256.convert(utf8.encode(scenOutputsC.join(';'))).toString();
+
   scenarioRecords.add({
     'scenario_index': scenarioIndex,
     'seed': seed,
@@ -852,6 +925,21 @@ void _runEvaluationScenario({
     'speed_profile': speedProfile,
     'rate_profile': rateProfile,
     'truth_distance_meters': scenarioTruthDist,
+    'counts': {
+      'input': scenInput,
+      'config_a': {'accepted': scenAcceptedA, 'rejected': scenRejectedA},
+      'config_b1': {'accepted': scenAcceptedB1, 'rejected': scenRejectedB1},
+      'config_b2': {'accepted': scenAcceptedB2, 'rejected': scenRejectedB2},
+      'config_c': {'accepted': scenAcceptedC, 'rejected': scenRejectedC},
+      'paired_scored': pairedSampleIds.length,
+    },
+    'output_sha256': {
+      'config_a': scenHashA,
+      'config_b1': scenHashB1,
+      'config_b2': scenHashB2,
+      'config_c': scenHashC,
+    },
+    'paired_scoring_sample_ids': pairedSampleIds,
     'distance_errors_signed_percent': {
       'config_a': signedErrA,
       'config_b1': signedErrB1,

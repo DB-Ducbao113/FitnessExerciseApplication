@@ -11,7 +11,7 @@
 **Config fingerprint:** `fnv1a32-12b93cef`<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
 **Reviewed Commit:** `1c437684e27f05bca4f50625902dc6ba3fcad77b` (short SHA `1c43768`)<br>
-**Remediated Commit:** `78a3927fcb30b67470d70bd5dbb72f2a857cdff6` (short SHA `78a3927`)<br>
+**Remediated Commit:** `4c1a13465f475e015e3ad314886ff2a39742bc68` (short SHA `4c1a134`)<br>
 **Comparator Phase 3 Approved Commit:** `9e5fa2c1c7feac88c8ebdf03fa8725a6240758db` (short SHA `9e5fa2c`)
 
 ---
@@ -135,8 +135,18 @@ Theo quy định kiểm tra độc lập, bất kỳ chỉ số nào có độ s
 - `/Users/baobungbu/.gemini/antigravity-ide/brain/c659a9a4-3ce5-48e0-8cd1-99cde235c597/scratch/aetron_phase4a_benchmark_report.json`
 Chứa toàn bộ 108 kịch bản với:
 - Tham số kịch bản (`seed`, `noise_profile`, `speed_profile`, `rate_profile`, `truth_distance_meters`).
+- Số lượng mẫu chấp nhận / từ chối chi tiết theo từng cấu hình (`counts.config_a`, `counts.config_b1`, `counts.config_b2`, `counts.config_c`).
+- Danh sách chỉ mục mẫu ghép đôi tính toán sai số chung (`paired_scoring_sample_ids`).
+- Mã băm SHA-256 tọa độ đầu ra cho từng kịch bản (`output_sha256.config_a/b1/b2/c`).
 - Sai số quãng đường có dấu và tuyệt đối của cả 4 cấu hình (`distance_errors_signed_percent`, `distance_errors_abs_percent`).
-- Hạch toán mẫu và phân rã cắt góc theo góc cua.
+- Hạch toán mẫu và phân rã cắt góc theo từng dải góc rẽ.
+
+#### **Mã băm toàn cục (Global Output SHA-256 Checksums across all 75,600 points):**
+- **Config A (Production Baseline):** `069db86716721d2187217acc0e7352be6aed476358f419f7d05ca13333224b18`
+- **Config B1 (Phase 3 Historical Ref):** `e8aaa8d27692ef75276fe3fc8ae8f50a0b58a14438bfeecc0724682a28218261`
+  *(Khớp từng byte 100% với mã chạy độc lập trong isolated Git worktree tại commit `9e5fa2c`)*
+- **Config B2 (Phase 4A Ablation Ref):** `cdfd7139f937797363f3f36f469379445beba282e46831856411f8a10e9670ed`
+- **Config C (Phase 4A Candidate):** `62e51c8863238d7798924c07e9ab481a9b97b9583eefbd868eff07436808c517`
 
 ### 5.2. Lệnh Chạy & Mã Thoát (Commands & Exit Codes)
 1. **Targeted Tests (26 tests bao gồm Geometry, Turn Event, COG Audit, Rejected Sample Scoring, và Benchmark):**
