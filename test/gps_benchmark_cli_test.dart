@@ -36,7 +36,7 @@ void main() {
       final report = jsonDecode(reportText) as Map<String, dynamic>;
       expect(report['schema_version'], 2);
       expect(report['evidence_kind'], 'field_development_no_ground_truth');
-      expect(report['algorithm_version'], 'phase3-nis-adaptive-covariance');
+      expect(report['algorithm_version'], 'phase4a-adaptive-q-turn-motion');
       expect(report['config_fingerprint'], isNotEmpty);
       expect(report['dataset_id'], 'fixture-workout');
       expect(

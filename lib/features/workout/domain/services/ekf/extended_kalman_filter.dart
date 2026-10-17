@@ -99,6 +99,8 @@ class ExtendedKalmanFilter {
   double? _lastEffectiveHeadingRad;
   double? _lastRawZx;
   double? _lastRawZy;
+  double? _cogAnchorZx;
+  double? _cogAnchorZy;
   bool _covarianceCorrectionAppliedThisUpdate = false;
 
   bool _initialized = false;
@@ -167,6 +169,8 @@ class ExtendedKalmanFilter {
     _lastEffectiveHeadingRad = validInitialHeading;
     _lastRawZx = 0.0;
     _lastRawZy = 0.0;
+    _cogAnchorZx = null;
+    _cogAnchorZy = null;
     _initialized = true;
   }
 
@@ -181,6 +185,8 @@ class ExtendedKalmanFilter {
     _lastEffectiveHeadingRad = null;
     _lastRawZx = null;
     _lastRawZy = null;
+    _cogAnchorZx = null;
+    _cogAnchorZy = null;
     _covarianceCorrectionAppliedThisUpdate = false;
   }
 
@@ -241,6 +247,7 @@ class ExtendedKalmanFilter {
       dt: dt,
       zx: zx,
       zy: zy,
+      accuracyMeters: accuracyMeters,
     );
 
     // 1. PREDICT STEP: x_k|k-1 = f(x_k-1, dt)
@@ -701,6 +708,7 @@ class ExtendedKalmanFilter {
     required double dt,
     required double zx,
     required double zy,
+    required double accuracyMeters,
   }) {
     double? effectiveHeading = headingRad;
     double? effectiveSpeed = speedMs;
@@ -713,18 +721,47 @@ class ExtendedKalmanFilter {
       if (effectiveSpeed == null && displacementMeters > 0) {
         effectiveSpeed = (displacementMeters / dt).clamp(0.0, 20.0);
       }
-
-      if (effectiveHeading == null &&
-          displacementMeters >= 1.0 &&
-          (_x[2] >= 1.0 || (effectiveSpeed ?? 0.0) >= 1.0)) {
-        effectiveHeading = EquirectangularProjection.normalizeAngleRad(
-          math.atan2(dx, dy),
-        );
-      }
     }
 
     final currentSpeed = effectiveSpeed ?? _x[2];
     final isStationary = currentSpeed < 0.8;
+
+    // Accuracy-aware course-over-ground fallback when heading sensor is missing
+    if (effectiveHeading != null) {
+      // Device heading provided: sync anchor to current filtered position
+      _cogAnchorZx = _x[0];
+      _cogAnchorZy = _x[1];
+    } else if (isStationary) {
+      // Stationary: reset anchor to avoid drift accumulation while stopped
+      _cogAnchorZx = _x[0];
+      _cogAnchorZy = _x[1];
+      effectiveHeading = _lastEffectiveHeadingRad;
+    } else {
+      // Heading dropout while in motion:
+      if (_cogAnchorZx == null || _cogAnchorZy == null) {
+        _cogAnchorZx = _x[0];
+        _cogAnchorZy = _x[1];
+        effectiveHeading = _lastEffectiveHeadingRad;
+      } else {
+        final anchorDx = _x[0] - _cogAnchorZx!;
+        final anchorDy = _x[1] - _cogAnchorZy!;
+        final anchorDist = math.sqrt(anchorDx * anchorDx + anchorDy * anchorDy);
+        // Minimum displacement to overcome GNSS lateral noise:
+        // Filtered position has standard deviation ~1.0-1.5m.
+        // Requiring anchorDist >= max(5.0, 1.25 * accuracyMeters) ensures angular noise < 15°.
+        final minAnchorDist = math.max(5.0, 1.25 * accuracyMeters);
+        if (anchorDist >= minAnchorDist && currentSpeed >= 1.0) {
+          effectiveHeading = EquirectangularProjection.normalizeAngleRad(
+            math.atan2(anchorDx, anchorDy),
+          );
+          _cogAnchorZx = _x[0];
+          _cogAnchorZy = _x[1];
+        } else {
+          // Keep previous validated heading while within noise circle
+          effectiveHeading = _lastEffectiveHeadingRad;
+        }
+      }
+    }
 
     double? headingDelta;
     bool turnDetected = false;

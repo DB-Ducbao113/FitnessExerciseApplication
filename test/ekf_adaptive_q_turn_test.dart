@@ -297,19 +297,42 @@ void main() {
 
       // 1. Moving north with no heading reported: course inferred from displacement
       var point = distance.offset(startPoint, 5.0, 0.0);
-      var estimate = ekf.update(
+      ekf.update(
         measurementPoint: point,
         accuracyMeters: 4.0,
         timeDeltaSec: 1.0,
         speedMs: 5.0,
         headingDeg: null, // Missing heading sensor
       );
-      // First displacement seeds course
+      point = distance.offset(point, 5.0, 0.0);
+      ekf.update(
+        measurementPoint: point,
+        accuracyMeters: 4.0,
+        timeDeltaSec: 1.0,
+        speedMs: 5.0,
+        headingDeg: null,
+      );
       expect(ekf.isCovariancePositiveSemiDefinite, isTrue);
 
-      // Second point moving east: 90° turn derived from displacement (dx=5, dy=0)
+      // Subsequent points moving east: 90° turn derived from displacement
       point = distance.offset(point, 5.0, 90.0);
-      estimate = ekf.update(
+      ekf.update(
+        measurementPoint: point,
+        accuracyMeters: 4.0,
+        timeDeltaSec: 1.0,
+        speedMs: 5.0,
+        headingDeg: null,
+      );
+      point = distance.offset(point, 5.0, 90.0);
+      ekf.update(
+        measurementPoint: point,
+        accuracyMeters: 4.0,
+        timeDeltaSec: 1.0,
+        speedMs: 5.0,
+        headingDeg: null,
+      );
+      point = distance.offset(point, 5.0, 90.0);
+      var estimate = ekf.update(
         measurementPoint: point,
         accuracyMeters: 4.0,
         timeDeltaSec: 1.0,
