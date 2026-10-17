@@ -543,5 +543,165 @@ void main() {
       expect(adapter.totalReAnchorJumpMeters, equals(0.0),
           reason: 'No re-anchor jump occurred on clean tracking');
     });
+
+    test('8. Deterministic Reproduction: S0 Euclidean Step Distance Jitter Accumulation (Task 3 & 4)', () {
+      final origin = LatLng(10.738082, 106.625303);
+      final fsm = GpsRecoveryStateMachine(
+        ekf: ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0),
+      );
+
+      final rand = math.Random(42);
+      const dt = 0.5; // 2.0 Hz
+      const speedMs = 8.33; // 30 km/h
+      const steps = 600; // 300 seconds
+      final startTime = DateTime.utc(2026, 10, 15, 8, 0, 0);
+
+      double truthDistance = 0.0;
+      for (int s = 0; s < steps; s++) {
+        final t = startTime.add(Duration(milliseconds: (s * dt * 1000).round()));
+        truthDistance += speedMs * dt;
+        final truthPoint = offsetMeters(origin, truthDistance, 0.0);
+
+        // Add 8.0m Gaussian noise (Urban Canyon profile)
+        final u1 = rand.nextDouble().clamp(1e-7, 1.0);
+        final u2 = rand.nextDouble();
+        final radiusNoise = 8.0 * math.sqrt(-2.0 * math.log(u1));
+        final angleNoise = 2.0 * math.pi * u2;
+        final noisyPoint = offsetMeters(truthPoint, radiusNoise * math.cos(angleNoise), radiusNoise * math.sin(angleNoise));
+
+        fsm.processMeasurement(
+          point: noisyPoint,
+          accuracyMeters: 11.0,
+          timeDeltaSec: dt,
+          timestamp: t,
+          speedMs: speedMs,
+          headingDeg: 90.0,
+          hasAuxiliarySensors: true,
+        );
+      }
+
+      final estimatedDistance = fsm.accumulatedDistanceMeters;
+      final overcountPercent = (estimatedDistance - truthDistance) / truthDistance * 100.0;
+
+      // Deterministic reproduction:
+      // Even with 0 re-anchors, S0 pairwise Euclidean integration accumulates > 15% distance overcount
+      expect(fsm.state, equals(GpsRecoveryState.s0NormalTracking));
+      expect(overcountPercent, greaterThan(15.0),
+          reason: 'Deterministic reproduction: raw Euclidean step distance accumulates > 15% overcount under 8m noise at 2 Hz');
+    });
+
+    test('9. Deterministic Reproduction: Scenario 25 S5 Probation Heading Rollback Loop (Task 2 & 4)', () {
+      final totalRouteDist = _routeLengthMeters();
+      final rand = math.Random(42); // exact seed for Scenario 25
+      const dt = 2.0;
+      const speedMs = 8.33;
+      const stepCount = 90; // inspect first 180 seconds covering the turn
+      final startTime = DateTime.utc(2026, 10, 15, 8, 0, 0);
+
+      final fsm = GpsRecoveryStateMachine(
+        ekf: ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0),
+      );
+
+      double dist = 0.0;
+      int rollbackCount = 0;
+      double maxTransientError = 0.0;
+      int reAnchorCount = 0;
+
+      for (int s = 0; s < stepCount; s++) {
+        final t = startTime.add(Duration(milliseconds: (s * dt * 1000).round()));
+        dist += speedMs * dt;
+        final (truthPos, _) = _interpolateRoute(dist, totalRouteDist);
+
+        final u1 = rand.nextDouble().clamp(1e-7, 1.0);
+        final u2 = rand.nextDouble();
+        final radiusNoise = 5.0 * math.sqrt(-2.0 * math.log(u1));
+        final angleNoise = 2.0 * math.pi * u2;
+        final eastNoise = radiusNoise * math.sin(angleNoise);
+        final northNoise = radiusNoise * math.cos(angleNoise);
+        final noisyPos = _distance.offset(_distance.offset(truthPos, eastNoise, 90.0), northNoise, 0.0);
+        final isOutlier = (s == 180);
+        final finalRaw = isOutlier ? _distance.offset(truthPos, 55.0, 45.0) : noisyPos;
+        final acc = isOutlier ? 50.0 : (7.0 + (rand.nextDouble() - 0.5) * 3.0).clamp(2.0, 30.0);
+
+        final res = fsm.processMeasurement(
+          point: finalRaw,
+          accuracyMeters: acc,
+          timeDeltaSec: dt,
+          timestamp: t,
+          speedMs: speedMs,
+          headingDeg: null, // heading dropout during turn
+          hasAuxiliarySensors: false,
+        );
+
+        final err = _distance.distance(res.estimatedPosition, truthPos);
+        maxTransientError = math.max(maxTransientError, err);
+
+        if (res.wasRollbackApplied) {
+          rollbackCount++;
+        }
+        if (res.wasResetApplied) {
+          reAnchorCount++;
+        }
+      }
+
+      // Assert that Scenario 25 exhibits the exact root-cause failure mode:
+      // 1. Multiple rollback events occur during probation (rollbackCount >= 4)
+      expect(rollbackCount, greaterThanOrEqualTo(4),
+          reason: 'Scenario 25 must reproduce the multiple S5 probation rollback loop');
+      // 2. Max transient error exceeds 300m due to stale snapshot restoration
+      expect(maxTransientError, greaterThan(300.0),
+          reason: 'Scenario 25 must reproduce > 300m transient tracking error');
+      // 3. Repeated re-anchor attempts occur
+      expect(reAnchorCount, greaterThanOrEqualTo(5));
+    });
+
+    test('10. Controlled Experimental Hypothesis: Along-Track Displacement Damps Noise Overcount (Task 4)', () {
+      final origin = LatLng(10.738082, 106.625303);
+      final rand = math.Random(42);
+      const dt = 0.5;
+      const speedMs = 8.33;
+      const steps = 600;
+
+      final ekf = ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0);
+      double truthDistance = 0.0;
+      double projectedAccumulatedDistance = 0.0;
+      LatLng? prevEkfPos;
+
+      for (int s = 0; s < steps; s++) {
+        truthDistance += speedMs * dt;
+        final truthPoint = offsetMeters(origin, truthDistance, 0.0);
+
+        final u1 = rand.nextDouble().clamp(1e-7, 1.0);
+        final u2 = rand.nextDouble();
+        final radiusNoise = 8.0 * math.sqrt(-2.0 * math.log(u1));
+        final angleNoise = 2.0 * math.pi * u2;
+        final noisyPoint = offsetMeters(truthPoint, radiusNoise * math.cos(angleNoise), radiusNoise * math.sin(angleNoise));
+
+        final est = ekf.update(
+          measurementPoint: noisyPoint,
+          accuracyMeters: 11.0,
+          timeDeltaSec: dt,
+          speedMs: speedMs,
+          headingDeg: 90.0,
+        );
+
+        if (s > 0 && prevEkfPos != null) {
+          final stepDist = _distance.distance(prevEkfPos, est.position);
+          final stepBearingRad = _distance.bearing(prevEkfPos, est.position) * math.pi / 180.0;
+          final headingRad = est.headingDeg * math.pi / 180.0;
+          final alongTrack = stepDist * math.max(0.0, math.cos(stepBearingRad - headingRad));
+          projectedAccumulatedDistance += alongTrack;
+        }
+
+        prevEkfPos = est.position;
+      }
+
+      final projectedOvercountPercent =
+          (projectedAccumulatedDistance - truthDistance).abs() / truthDistance * 100.0;
+
+      // Along-track projection eliminates transverse jitter and damps overcount from > 15% down to <= 7%
+      expect(projectedOvercountPercent, lessThanOrEqualTo(7.0),
+          reason: 'Controlled hypothesis: along-track displacement damping contains overcount <= 7.0% under 8m noise');
+    });
   });
 }

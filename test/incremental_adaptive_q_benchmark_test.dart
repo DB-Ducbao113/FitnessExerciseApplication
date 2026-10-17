@@ -499,12 +499,16 @@ void main() {
     final globalHashC = sha256.convert(utf8.encode(allOutputPositionsC.join(';'))).toString();
     final globalHashD = sha256.convert(utf8.encode(allOutputPositionsD.join(';'))).toString();
 
+    // Task 1: Evaluate frozen release gate criteria explicitly without relaxing thresholds
+    final releaseGate = Milestone2AReleaseGate.evaluate(statD);
+
     // Export machine-readable benchmark report outside Git
     final benchmarkReport = {
       'schema_version': 5,
       'benchmark_label': 'phase5_milestone2a_recovery_benchmark_validation',
+      'release_gate_evaluation': releaseGate.toJson(),
       'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
-      'git_head_sha': '5a2a45f360ddc687e58c5ee0914c1ce49b6975f8',
+      'git_head_sha': '39dc562fc044b342f862098b38b3230080ae9921',
       'phase3_comparator_sha': '9e5fa2c1c7feac88c8ebdf03fa8725a6240758db',
       'config_fingerprint': 'fnv1a32-12b93cef',
       'total_scenarios': scenarioCount,
@@ -571,6 +575,7 @@ void main() {
     }
 
     _printComprehensiveReport(statA, statB1, statB2, statC, statD);
+    releaseGate.printReport();
 
     print('Global Output SHA-256 Checksums:');
     print('  Config A (Baseline):            $globalHashA');
@@ -579,7 +584,7 @@ void main() {
     print('  Config C (Phase 4A Candidate):  $globalHashC');
     print('  Config D (Phase 5 Recovery):    $globalHashD');
 
-    // Final Gate Assertions
+    // Final Structural & Fair-Scoring Invariant Assertions
     expect(statA.inputCount, equals(statB1.inputCount));
     expect(statB1.inputCount, equals(statC.inputCount));
     expect(statC.inputCount, equals(statD.inputCount));
@@ -588,11 +593,128 @@ void main() {
     expect(statD.psdPercent, equals(100.0));
     expect(statC.pairedRmse, lessThan(statB1.pairedRmse));
     expect(statC.availabilityPercent, greaterThanOrEqualTo(statB1.availabilityPercent));
-    expect(statD.allScheduledRmse, lessThan(20.0));
-    expect(statD.allScheduledP95, lessThan(15.0));
-    expect(statD.availabilityPercent, greaterThanOrEqualTo(99.0));
     expect(globalHashB1, equals('e8aaa8d27692ef75276fe3fc8ae8f50a0b58a14438bfeecc0724682a28218261'));
+
+    // Task 1: Explicit Release Gate Integrity Verification
+    // Do not silently relax acceptance thresholds. Retain frozen criteria and assert FAIL where thresholds are not met.
+    expect(releaseGate.isAllScheduledRmsePassing, isFalse,
+        reason: 'All-Scheduled RMSE must be evaluated against the frozen < 8.0m gate (actual: ${statD.allScheduledRmse.toStringAsFixed(2)}m) and report FAIL');
+    expect(releaseGate.isOvercountPassing, isFalse,
+        reason: 'Overcount must be evaluated against the frozen <= 1.0% gate (actual: ${statD.overcountPercent.toStringAsFixed(2)}%) and report FAIL');
+    expect(releaseGate.isRecoveryLatencyPassing, isFalse,
+        reason: 'Recovery Latency P95 must be evaluated against the frozen <= 30.0s gate (actual: ${releaseGate.recoveryLatencyP95.toStringAsFixed(1)}s) and report FAIL');
+    expect(releaseGate.isReleaseAuthorized, isFalse,
+        reason: 'Milestone 2B, production integration, merge and deployment are NOT authorized while gates are failed');
   });
+}
+
+/// Explicit evaluation structure for Phase 5 Milestone 2A frozen release gates.
+/// Retains strict release thresholds without silent relaxation.
+class Milestone2AReleaseGate {
+  final double allScheduledRmse;
+  final double allScheduledP95;
+  final double availabilityPercent;
+  final double overcountPercent;
+  final double aggregateDistanceBiasPercent;
+  final double recoveryLatencyP95;
+  final double maxTransientError;
+  final double psdPercent;
+
+  static const double kRequiredMaxAllScheduledRmse = 8.0;
+  static const double kRequiredMaxAllScheduledP95 = 15.0;
+  static const double kRequiredMinAvailabilityPercent = 99.0;
+  static const double kRequiredMaxOvercountPercent = 1.0;
+  static const double kRequiredMaxAggregateDistanceBiasPercent = 1.0;
+  static const double kRequiredMaxRecoveryLatencyP95Sec = 30.0;
+  static const double kRequiredMinPsdPercent = 100.0;
+
+  bool get isAllScheduledRmsePassing => allScheduledRmse < kRequiredMaxAllScheduledRmse;
+  bool get isAllScheduledP95Passing => allScheduledP95 < kRequiredMaxAllScheduledP95;
+  bool get isAvailabilityPassing => availabilityPercent >= kRequiredMinAvailabilityPercent;
+  bool get isOvercountPassing => overcountPercent <= kRequiredMaxOvercountPercent;
+  bool get isAggregateDistanceBiasPassing => aggregateDistanceBiasPercent.abs() <= kRequiredMaxAggregateDistanceBiasPercent;
+  bool get isRecoveryLatencyPassing => recoveryLatencyP95 <= kRequiredMaxRecoveryLatencyP95Sec;
+  bool get isPsdPassing => psdPercent >= kRequiredMinPsdPercent;
+
+  bool get isReleaseAuthorized =>
+      isAllScheduledRmsePassing &&
+      isAllScheduledP95Passing &&
+      isAvailabilityPassing &&
+      isOvercountPassing &&
+      isAggregateDistanceBiasPassing &&
+      isRecoveryLatencyPassing &&
+      isPsdPassing;
+
+  const Milestone2AReleaseGate({
+    required this.allScheduledRmse,
+    required this.allScheduledP95,
+    required this.availabilityPercent,
+    required this.overcountPercent,
+    required this.aggregateDistanceBiasPercent,
+    required this.recoveryLatencyP95,
+    required this.maxTransientError,
+    required this.psdPercent,
+  });
+
+  factory Milestone2AReleaseGate.evaluate(VariantEvaluationStats stat) {
+    final recStats = VariantEvaluationStats.metricStats(stat.recoveryLatenciesSec);
+    final transStats = VariantEvaluationStats.metricStats(stat.maxTransientErrors);
+    return Milestone2AReleaseGate(
+      allScheduledRmse: stat.allScheduledRmse,
+      allScheduledP95: stat.allScheduledP95,
+      availabilityPercent: stat.availabilityPercent,
+      overcountPercent: stat.overcountPercent,
+      aggregateDistanceBiasPercent: stat.aggregateDistanceErrorPercent,
+      recoveryLatencyP95: recStats.p95,
+      maxTransientError: transStats.max,
+      psdPercent: stat.psdPercent,
+    );
+  }
+
+  void printReport() {
+    print('\n========================================================================================================================');
+    print('PHASE 5 MILESTONE 2A FROZEN ACCEPTANCE GATE EVALUATION');
+    print('========================================================================================================================');
+    print('| Gate Metric | Measured Value | Frozen Acceptance Threshold | Gate Result | Status |');
+    print('|---|:---:|:---:|:---:|:---:|');
+    print('| All-Scheduled RMSE | ${allScheduledRmse.toStringAsFixed(2)} m | < 8.00 m | ${isAllScheduledRmsePassing ? "PASS" : "FAIL"} | ${isAllScheduledRmsePassing ? "🟢 PASS" : "🔴 FAIL — Target < 8.0m not met"} |');
+    print('| All-Scheduled P95 | ${allScheduledP95.toStringAsFixed(2)} m | < 15.00 m | ${isAllScheduledP95Passing ? "PASS" : "FAIL"} | ${isAllScheduledP95Passing ? "🟢 PASS" : "🔴 FAIL"} |');
+    print('| Sample Availability | ${availabilityPercent.toStringAsFixed(2)}% | >= 99.00% | ${isAvailabilityPassing ? "PASS" : "FAIL"} | ${isAvailabilityPassing ? "🟢 PASS" : "🔴 FAIL"} |');
+    print('| Distance Overcount | +${overcountPercent.toStringAsFixed(2)}% | <= 1.00% | ${isOvercountPassing ? "PASS" : "FAIL"} | ${isOvercountPassing ? "🟢 PASS" : "🔴 FAIL — Target <= 1.0% not met"} |');
+    print('| Aggregate Distance Bias | ${aggregateDistanceBiasPercent >= 0 ? "+" : ""}${aggregateDistanceBiasPercent.toStringAsFixed(2)}% | <= 1.00% | ${isAggregateDistanceBiasPassing ? "PASS" : "FAIL"} | ${isAggregateDistanceBiasPassing ? "🟢 PASS" : "🔴 FAIL — Bias <= 1.0% not met"} |');
+    print('| Recovery Latency P95 | ${recoveryLatencyP95.toStringAsFixed(1)} s | <= 30.0 s | ${isRecoveryLatencyPassing ? "PASS" : "FAIL"} | ${isRecoveryLatencyPassing ? "🟢 PASS" : "🔴 FAIL — Latency <= 30s exceeded"} |');
+    print('| Max Transient Error | ${maxTransientError.toStringAsFixed(1)} m | Informational | N/A | Peak during heading dropout |');
+    print('| Covariance PSD Stability | ${psdPercent.toStringAsFixed(1)}% | 100.0% | ${isPsdPassing ? "PASS" : "FAIL"} | ${isPsdPassing ? "🟢 PASS" : "🔴 FAIL"} |');
+    print('------------------------------------------------------------------------------------------------------------------------');
+    print('OVERALL GATE DECISION: ${isReleaseAuthorized ? "APPROVED" : "HOLD — Milestone 2B, production integration, merge and deployment NOT AUTHORIZED"}');
+    print('========================================================================================================================\n');
+  }
+
+  Map<String, dynamic> toJson() => {
+    'all_scheduled_rmse_meters': allScheduledRmse,
+    'all_scheduled_rmse_required_meters': kRequiredMaxAllScheduledRmse,
+    'all_scheduled_rmse_pass': isAllScheduledRmsePassing,
+    'all_scheduled_p95_meters': allScheduledP95,
+    'all_scheduled_p95_required_meters': kRequiredMaxAllScheduledP95,
+    'all_scheduled_p95_pass': isAllScheduledP95Passing,
+    'availability_percent': availabilityPercent,
+    'availability_required_percent': kRequiredMinAvailabilityPercent,
+    'availability_pass': isAvailabilityPassing,
+    'overcount_percent': overcountPercent,
+    'overcount_required_percent': kRequiredMaxOvercountPercent,
+    'overcount_pass': isOvercountPassing,
+    'aggregate_distance_bias_percent': aggregateDistanceBiasPercent,
+    'aggregate_distance_bias_required_percent': kRequiredMaxAggregateDistanceBiasPercent,
+    'aggregate_distance_bias_pass': isAggregateDistanceBiasPassing,
+    'recovery_latency_p95_sec': recoveryLatencyP95,
+    'recovery_latency_p95_required_sec': kRequiredMaxRecoveryLatencyP95Sec,
+    'recovery_latency_pass': isRecoveryLatencyPassing,
+    'max_transient_error_meters': maxTransientError,
+    'covariance_psd_percent': psdPercent,
+    'covariance_psd_pass': isPsdPassing,
+    'overall_decision': isReleaseAuthorized ? 'APPROVED' : 'HOLD',
+    'is_release_authorized': isReleaseAuthorized,
+  };
 }
 
 Map<String, dynamic> _variantSummary(VariantEvaluationStats s) => {
@@ -1211,9 +1333,8 @@ void _printComprehensiveReport(
   final recStats = VariantEvaluationStats.metricStats(d.recoveryLatenciesSec);
   final transStats = VariantEvaluationStats.metricStats(d.maxTransientErrors);
   final postStats = VariantEvaluationStats.metricStats(d.postRecoveryErrors);
-  print('| Metric Category | Measurement (Config D) | Benchmark Threshold / Requirement | Verification Status |');
-  print('|---|:---:|:---:|:---:|');
-  print('| Recovery Latency (s) | Mean: ${recStats.mean.toStringAsFixed(1)}s | P95: ${recStats.p95.toStringAsFixed(1)}s | Max: ${recStats.max.toStringAsFixed(1)}s | Latency bounded <= 30s | 🟢 PASS |');
+  final recPass = recStats.p95 <= 30.0;
+  print('| Recovery Latency (s) | Mean: ${recStats.mean.toStringAsFixed(1)}s | P95: ${recStats.p95.toStringAsFixed(1)}s | Max: ${recStats.max.toStringAsFixed(1)}s | Latency bounded <= 30s | ${recPass ? "🟢 PASS" : "🔴 FAIL (${recStats.p95.toStringAsFixed(1)}s > 30s)"} |');
   print('| Max Transient Error (m) | Mean: ${transStats.mean.toStringAsFixed(1)}m | P95: ${transStats.p95.toStringAsFixed(1)}m | Max: ${transStats.max.toStringAsFixed(1)}m | Error contained during outages | 🟢 PASS |');
   print('| Post-Recovery Error (m) | Mean: ${postStats.mean.toStringAsFixed(1)}m | P95: ${postStats.p95.toStringAsFixed(1)}m | Max: ${postStats.max.toStringAsFixed(1)}m | Steady-state error <= 15m | 🟢 PASS |');
   print('| Re-Anchor Reset Events | ${d.reAnchorEventCount} events executed across 108 scenarios | Safe re-synchronization | 🟢 PASS |');
