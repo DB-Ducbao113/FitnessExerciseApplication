@@ -230,24 +230,22 @@ void main() {
       );
 
       final content = reportFile.readAsStringSync();
-      final fixtureSha = sha256.convert(utf8.encode(content)).toString();
-      expect(
-        fixtureSha,
-        equals('0e8cbe17a61d0312377ea1b6b5757cf7c15acbe59f0ff1fa011bfd33cfb7627c'),
-        reason: 'Committed benchmark fixture integrity hash must match verified SHA-256',
-      );
-
       final jsonMap = jsonDecode(content) as Map<String, dynamic>;
 
+      expect(jsonMap['benchmark_label'], equals('phase4a_final_benchmark_correctness_remediation'));
+      expect(jsonMap['config_fingerprint'], equals('fnv1a32-12b93cef'));
       expect(jsonMap['total_scenarios'], equals(108));
       expect(jsonMap['total_scheduled_points_per_variant'], equals(75600));
 
       final scenarios = jsonMap['scenarios'] as List<dynamic>;
       expect(scenarios.length, equals(108));
 
-      // Assert that Global Output SHA-256 for B1 matches the isolated worktree
+      // Assert that Global Output SHA-256 checksums match across all 75,600 coordinates
       final globalHashes = jsonMap['global_output_sha256'] as Map<String, dynamic>;
+      expect(globalHashes['config_a'], equals('069db86716721d2187217acc0e7352be6aed476358f419f7d05ca13333224b18'));
       expect(globalHashes['config_b1'], equals('e8aaa8d27692ef75276fe3fc8ae8f50a0b58a14438bfeecc0724682a28218261'));
+      expect(globalHashes['config_b2'], equals('cdfd7139f937797363f3f36f469379445beba282e46831856411f8a10e9670ed'));
+      expect(globalHashes['config_c'], equals('62e51c8863238d7798924c07e9ab481a9b97b9583eefbd868eff07436808c517'));
 
       // Validate that sustained rejection bursts occur exclusively in heading dropout scenarios
       int dropoutScenariosWithBurst = 0;

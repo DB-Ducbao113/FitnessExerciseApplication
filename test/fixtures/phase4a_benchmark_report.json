@@ -1,7 +1,7 @@
 {
   "schema_version": 4,
   "benchmark_label": "phase4a_final_benchmark_correctness_remediation",
-  "generated_at_utc": "2026-10-17T13:31:15.322021Z",
+  "generated_at_utc": "2026-10-17T13:32:32.881767Z",
   "git_head_sha": "4c1a13465f475e015e3ad314886ff2a39742bc68",
   "phase3_comparator_sha": "9e5fa2c1c7feac88c8ebdf03fa8725a6240758db",
   "config_fingerprint": "fnv1a32-12b93cef",
@@ -36,7 +36,7 @@
       "worst_case_abs_distance_error_percent": 474.7747747747833,
       "aggregate_distance_error_percent": 56.12337075751766,
       "psd_percent": 100.0,
-      "avg_latency_us": 9.225304232804232
+      "avg_latency_us": 8.299113756613757
     },
     "config_b1_phase3_historical": {
       "label": "Config B1: Approved Phase 3 Historical Ref (Commit 9e5fa2c)",
@@ -59,7 +59,7 @@
       "worst_case_abs_distance_error_percent": 98.47939175670267,
       "aggregate_distance_error_percent": 0.034950746332500345,
       "psd_percent": 100.0,
-      "avg_latency_us": 9.188373015873015
+      "avg_latency_us": 8.28357142857143
     },
     "config_b2_phase4a_ablation": {
       "label": "Config B2: Phase 4A Ablation (Fixed-Q + Anchor)",
@@ -82,7 +82,7 @@
       "worst_case_abs_distance_error_percent": 98.47939175670267,
       "aggregate_distance_error_percent": 0.5221103798335991,
       "psd_percent": 100.0,
-      "avg_latency_us": 9.16904761904762
+      "avg_latency_us": 8.254193121693122
     },
     "config_c_phase4a_candidate": {
       "label": "Config C: Phase 4A Adaptive-Q Candidate",
@@ -105,7 +105,7 @@
       "worst_case_abs_distance_error_percent": 98.47939175670267,
       "aggregate_distance_error_percent": 1.6878521959826434,
       "psd_percent": 100.0,
-      "avg_latency_us": 9.168002645502645
+      "avg_latency_us": 8.253015873015872
     }
   },
   "shortcutting_by_turn_angle": {
