@@ -103,6 +103,61 @@ void main() {
       ]);
       expect(validP.isPositiveSemiDefinite(), isTrue);
     });
+
+    test('adversarial PSD tests: near-singular, rank-deficient, and subtle indefinite matrices', () {
+      // 1. Rank-1 semidefinite matrix (v * v^T): true PSD with 3 zero eigenvalues
+      final v = [1.0, 2.0, -1.0, 3.0];
+      final rank1 = Matrix4x4();
+      for (var i = 0; i < 4; i++) {
+        for (var j = 0; j < 4; j++) {
+          rank1.set(i, j, v[i] * v[j]);
+        }
+      }
+      expect(rank1.determinant, closeTo(0.0, 1e-12));
+      expect(rank1.isPositiveSemiDefinite(), isTrue);
+
+      // 2. Near-singular diagonal matrix with 14 orders of magnitude dynamic range
+      final nearSingular = Matrix4x4.diagonal(1e6, 1.0, 1e-4, 1e-8);
+      expect(nearSingular.isPositiveSemiDefinite(), isTrue);
+
+      // 3. Cauchy-Schwarz violation in 2x2 submatrix (P00*P11 - P01^2 = 36 - 36.0012 < 0)
+      final csViolation = Matrix4x4.fromList([
+        4.0, 6.0001, 0.0, 0.0,
+        6.0001, 9.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+      ]);
+      expect(csViolation.isPositiveSemiDefinite(), isFalse);
+
+      // 4. Adversarial 3x3 indefinite: all 1x1 (>0) and 2x2 (>0) minors positive, but 3x3 minor is -1.944 < 0
+      final adv3 = Matrix4x4.fromList([
+        1.0, 0.8, 0.8, 0.0,
+        0.8, 1.0, -0.8, 0.0,
+        0.8, -0.8, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0,
+      ]);
+      // Verify principal minors manually:
+      expect(adv3.get(0, 0), 1.0); // 1x1 > 0
+      expect(adv3.get(0, 0) * adv3.get(1, 1) - adv3.get(0, 1) * adv3.get(1, 0), closeTo(0.36, 1e-9)); // 2x2 > 0
+      expect(adv3.determinant, closeTo(-1.944, 1e-9)); // 3x3 minor (and 4x4 det since col 4 is [0,0,0,1]) < 0
+      expect(adv3.isPositiveSemiDefinite(), isFalse);
+
+      // 5. Adversarial 4x4 indefinite (Schur complement construction):
+      // All 1x1 (1.0 > 0), all six 2x2 (>= 0.64 > 0), and all four 3x3 (>= 0.28 > 0)
+      // principal minors are strictly positive, but 4x4 determinant is 1 - 3*(0.6^2) = -0.08 < 0.
+      final adv4 = Matrix4x4.fromList([
+        1.0, 0.0, 0.0, 0.6,
+        0.0, 1.0, 0.0, 0.6,
+        0.0, 0.0, 1.0, 0.6,
+        0.6, 0.6, 0.6, 1.0,
+      ]);
+      expect(adv4.determinant, closeTo(-0.08, 1e-9));
+      expect(adv4.isPositiveSemiDefinite(), isFalse);
+
+      // 6. Slightly negative eigenvalue (-1e-4) on diagonal
+      final slightNegative = Matrix4x4.diagonal(100.0, 50.0, 10.0, -1e-4);
+      expect(slightNegative.isPositiveSemiDefinite(), isFalse);
+    });
   });
 
   group('Matrix2x2', () {
