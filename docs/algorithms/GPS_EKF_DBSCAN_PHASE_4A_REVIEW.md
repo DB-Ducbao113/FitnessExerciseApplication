@@ -5,7 +5,7 @@
 **Algorithm label:** `phase4a-adaptive-q-turn-motion`<br>
 **Config fingerprint:** `fnv1a32-12b93cef`<br>
 **Nhánh Git:** `EKF+DBSCAN`<br>
-**Git HEAD:** `9e5fa2c1c7feac88c8ebdf03fa8725a6240758db` (nhánh `EKF+DBSCAN`, short SHA `9e5fa2c`)
+**Git HEAD:** `13e0691ec1b40df3ebebbe74de19d1eccdfda564` (nhánh `EKF+DBSCAN`, short SHA `13e0691`, baseline `9e5fa2c`)
 
 ---
 
