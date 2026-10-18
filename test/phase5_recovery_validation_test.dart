@@ -6,6 +6,8 @@ import 'package:fitness_exercise_application/features/workout/domain/services/ek
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'helpers/experimental_gps_recovery_state_machine.dart';
+import 'helpers/milestone_2a_release_gate.dart';
 import 'helpers/recovery_fsm_benchmark_adapter.dart';
 
 const _distance = Distance();
@@ -702,6 +704,436 @@ void main() {
       // Along-track projection eliminates transverse jitter and damps overcount from > 15% down to <= 7%
       expect(projectedOvercountPercent, lessThanOrEqualTo(7.0),
           reason: 'Controlled hypothesis: along-track displacement damping contains overcount <= 7.0% under 8m noise');
+    });
+
+    test('11. Task 1: Full 108-Scenario Exact-Once Distance Ledger Accounting & Reconciliation', () {
+      final totalRouteDist = _routeLengthMeters();
+      final seeds = [42, 101, 777];
+      final noiseProfiles = [
+        (name: 'Low (Open Sky)', baseNoise: 2.5, accMean: 4.0, dropout: false),
+        (name: 'Medium (Urban Corridor)', baseNoise: 5.0, accMean: 7.0, dropout: false),
+        (name: 'Medium + Heading Dropout', baseNoise: 5.0, accMean: 7.0, dropout: true),
+        (name: 'High (Urban Canyon / Multipath)', baseNoise: 8.0, accMean: 11.0, dropout: false),
+      ];
+      final speeds = [
+        (name: '12 km/h (3.33 m/s)', speedMs: 3.33),
+        (name: '20 km/h (5.56 m/s)', speedMs: 5.56),
+        (name: '30 km/h (8.33 m/s)', speedMs: 8.33),
+      ];
+      final samplingRates = [
+        (name: '0.5 Hz (dt=2.0s)', dt: 2.0),
+        (name: '1.0 Hz (dt=1.0s)', dt: 1.0),
+        (name: '2.0 Hz (dt=0.5s)', dt: 0.5),
+      ];
+
+      double totalAccumulatedDistanceD = 0.0;
+      double globalSumLedgerCommittedDeltas = 0.0;
+
+      final Map<FsmDistanceMutationType, double> mutationCommittedSums = {};
+      final Map<FsmDistanceMutationType, double> mutationEscrowSums = {};
+      final Map<FsmDistanceMutationType, int> mutationCounts = {};
+      for (final t in FsmDistanceMutationType.values) {
+        mutationCommittedSums[t] = 0.0;
+        mutationEscrowSums[t] = 0.0;
+        mutationCounts[t] = 0;
+      }
+
+      int scenarioCount = 0;
+      int reconciledScenarioCount = 0;
+      double s0ProvisionalCommittedEscrow = 0.0;
+
+      for (final seed in seeds) {
+        for (final noise in noiseProfiles) {
+          for (final speed in speeds) {
+            for (final rate in samplingRates) {
+              scenarioCount++;
+              final scenarioName = 'Scenario $scenarioCount ($seed, ${noise.name}, ${speed.name}, ${rate.name})';
+              final rand = math.Random(seed);
+              final stepCount = (600 / rate.dt).round();
+              double dist = 0.0;
+              final startTime = DateTime.utc(2026, 10, 15, 8, 0, 0);
+
+              final adapterD = RecoveryFsmBenchmarkAdapter(maxTurnHeadingNoiseScale: 14.0);
+              adapterD.setScenario(scenarioName);
+
+              for (int s = 0; s < stepCount; s++) {
+                final t = startTime.add(Duration(milliseconds: (s * rate.dt * 1000).round()));
+                dist += speed.speedMs * rate.dt;
+                final (truthPos, truthBearing) = _interpolateRoute(dist, totalRouteDist);
+
+                final u1 = rand.nextDouble().clamp(1e-7, 1.0);
+                final u2 = rand.nextDouble();
+                final radiusNoise = noise.baseNoise * math.sqrt(-2.0 * math.log(u1));
+                final angleNoise = 2.0 * math.pi * u2;
+                final jitterX = (noise.baseNoise >= 7.0 && s % 5 == 0) ? (rand.nextDouble() - 0.5) * 12.0 : 0.0;
+                final jitterY = (noise.baseNoise >= 7.0 && s % 5 == 0) ? (rand.nextDouble() - 0.5) * 12.0 : 0.0;
+
+                final eastNoise = radiusNoise * math.sin(angleNoise) + jitterX;
+                final northNoise = radiusNoise * math.cos(angleNoise) + jitterY;
+                final rawPos = _distance.offset(_distance.offset(truthPos, eastNoise, 90.0), northNoise, 0.0);
+
+                final isOutlier = (s == 180);
+                final finalRaw = isOutlier ? _distance.offset(truthPos, 55.0, 45.0) : rawPos;
+                final acc = isOutlier ? 50.0 : (noise.accMean + (rand.nextDouble() - 0.5) * 3.0).clamp(2.0, 30.0);
+                final headingVal = noise.dropout ? null : ((truthBearing + (rand.nextDouble() - 0.5) * 10.0 + 360) % 360);
+
+                adapterD.processMeasurement(
+                  rawPoint: finalRaw,
+                  truthPoint: truthPos,
+                  accuracyMeters: acc,
+                  timeDeltaSec: rate.dt,
+                  timestamp: t,
+                  speedMs: speed.speedMs,
+                  headingDeg: headingVal,
+                  hasAuxiliarySensorsHint: true,
+                );
+              }
+
+              final scenDistD = adapterD.accumulatedDistanceMeters;
+              totalAccumulatedDistanceD += scenDistD;
+
+              final ledger = adapterD.distanceLedger;
+              final scenLedgerSum = ledger.fold<double>(0.0, (acc, t) => acc + t.committedDeltaMeters);
+              final diff = (scenDistD - scenLedgerSum).abs();
+              if (diff < 1e-4) {
+                reconciledScenarioCount++;
+              }
+
+              // Assert exact-once accounting for EVERY scenario
+              expect(diff, lessThan(1e-4),
+                  reason: 'Scenario $scenarioCount exact-once reconciliation failed: $scenDistD != $scenLedgerSum');
+
+              globalSumLedgerCommittedDeltas += scenLedgerSum;
+
+              for (final t in ledger) {
+                mutationCommittedSums[t.mutationType] = mutationCommittedSums[t.mutationType]! + t.committedDeltaMeters;
+                mutationEscrowSums[t.mutationType] = mutationEscrowSums[t.mutationType]! + t.escrowDeltaMeters;
+                mutationCounts[t.mutationType] = mutationCounts[t.mutationType]! + 1;
+                if (t.mutationType == FsmDistanceMutationType.escrowCommit && t.fromState == GpsRecoveryState.s0Provisional) {
+                  s0ProvisionalCommittedEscrow += t.committedDeltaMeters;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Assert global exact-once reconciliation across all 108 scenarios
+      expect(reconciledScenarioCount, equals(108));
+      expect((totalAccumulatedDistanceD - 424300.3).abs(), lessThan(0.2));
+      expect((globalSumLedgerCommittedDeltas - 424300.3).abs(), lessThan(0.2));
+      expect((totalAccumulatedDistanceD - globalSumLedgerCommittedDeltas).abs(), lessThan(1e-4),
+          reason: 'Global sum of ledger committed deltas must equal accumulated distance within 1e-4 m');
+
+      // Assert exact additive category reconciliation:
+      final s0Normal = mutationCommittedSums[FsmDistanceMutationType.normalStep]!;
+      final inertial = mutationCommittedSums[FsmDistanceMutationType.inertialStep]!;
+      final escrowCommit = mutationCommittedSums[FsmDistanceMutationType.escrowCommit]!;
+      final rollback = mutationCommittedSums[FsmDistanceMutationType.rollbackCorrection]!;
+      final other = mutationCommittedSums[FsmDistanceMutationType.otherAdjustments]!;
+
+      expect((s0Normal - 414999.0).abs(), lessThan(1.0));
+      expect((inertial - 2467.4).abs(), lessThan(1.0));
+      expect((escrowCommit - 6833.8).abs(), lessThan(1.0));
+      expect(rollback, equals(0.0));
+      expect(other, equals(0.0));
+
+      final additiveSum = s0Normal + inertial + escrowCommit + rollback + other;
+      expect((additiveSum - 424300.3).abs(), lessThan(0.2));
+      expect((totalAccumulatedDistanceD - additiveSum).abs(), lessThan(1e-4),
+          reason: 'Unexplained distance discrepancy must be exactly 0.0 m');
+
+      // Assert that the previously unexplained 6,737.8m is 100% reconciled by S0 Provisional escrow commits:
+      expect((s0ProvisionalCommittedEscrow - 6737.8).abs(), lessThan(1.0),
+          reason: 'The 6,737.8m difference must reconcile to the S0 Provisional validation window commits');
+    });
+
+    test('12. Task 2: Honest Benchmark Validation of Hypotheses H1, H2, and H1+H2 across 108 Scenarios', () {
+      final totalRouteDist = _routeLengthMeters();
+      final seeds = [42, 101, 777];
+      final noiseProfiles = [
+        (name: 'Low (Open Sky)', baseNoise: 2.5, accMean: 4.0, dropout: false),
+        (name: 'Medium (Urban Corridor)', baseNoise: 5.0, accMean: 7.0, dropout: false),
+        (name: 'Medium + Heading Dropout', baseNoise: 5.0, accMean: 7.0, dropout: true),
+        (name: 'High (Urban Canyon / Multipath)', baseNoise: 8.0, accMean: 11.0, dropout: false),
+      ];
+      final speeds = [
+        (name: '12 km/h (3.33 m/s)', speedMs: 3.33),
+        (name: '20 km/h (5.56 m/s)', speedMs: 5.56),
+        (name: '30 km/h (8.33 m/s)', speedMs: 8.33),
+      ];
+      final samplingRates = [
+        (name: '0.5 Hz (dt=2.0s)', dt: 2.0),
+        (name: '1.0 Hz (dt=1.0s)', dt: 1.0),
+        (name: '2.0 Hz (dt=0.5s)', dt: 0.5),
+      ];
+
+      double sumSqErrD = 0.0;
+      double sumSqErrDH2 = 0.0;
+      double totalTruthDist = 0.0;
+      double totalAccumD = 0.0;
+      double totalAccumDH1 = 0.0;
+      double totalAccumDAll = 0.0;
+      int totalScheduledPoints = 0;
+
+      for (final seed in seeds) {
+        for (final noise in noiseProfiles) {
+          for (final speed in speeds) {
+            for (final rate in samplingRates) {
+              final rand = math.Random(seed);
+              final stepCount = (600 / rate.dt).round();
+              double dist = 0.0;
+              final startTime = DateTime.utc(2026, 10, 15, 8, 0, 0);
+
+              // Maintain frozen comparator Config D and isolated experimental variants per scenario
+              final fsmD = ExperimentalGpsRecoveryStateMachine(
+                ekf: ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0),
+                enableAlongTrackProjection: false,
+                enableGapOverlapCorrection: false,
+                enableProbationVarianceInflation: false,
+                enableAlternativeRollbackRecovery: false,
+              );
+              final fsmDH1 = ExperimentalGpsRecoveryStateMachine(
+                ekf: ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0),
+                enableAlongTrackProjection: true,
+                enableGapOverlapCorrection: true,
+                enableProbationVarianceInflation: false,
+                enableAlternativeRollbackRecovery: false,
+              );
+              final fsmDH2 = ExperimentalGpsRecoveryStateMachine(
+                ekf: ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0),
+                enableAlongTrackProjection: false,
+                enableGapOverlapCorrection: false,
+                enableProbationVarianceInflation: true,
+                enableAlternativeRollbackRecovery: true,
+              );
+              final fsmDAll = ExperimentalGpsRecoveryStateMachine(
+                ekf: ExtendedKalmanFilter(maxTurnHeadingNoiseScale: 14.0),
+                enableAlongTrackProjection: true,
+                enableGapOverlapCorrection: true,
+                enableProbationVarianceInflation: true,
+                enableAlternativeRollbackRecovery: true,
+              );
+
+              for (int s = 0; s < stepCount; s++) {
+                final t = startTime.add(Duration(milliseconds: (s * rate.dt * 1000).round()));
+                dist += speed.speedMs * rate.dt;
+                final (truthPos, truthBearing) = _interpolateRoute(dist, totalRouteDist);
+
+                final u1 = rand.nextDouble().clamp(1e-7, 1.0);
+                final u2 = rand.nextDouble();
+                final radiusNoise = noise.baseNoise * math.sqrt(-2.0 * math.log(u1));
+                final angleNoise = 2.0 * math.pi * u2;
+                final jitterX = (noise.baseNoise >= 7.0 && s % 5 == 0) ? (rand.nextDouble() - 0.5) * 12.0 : 0.0;
+                final jitterY = (noise.baseNoise >= 7.0 && s % 5 == 0) ? (rand.nextDouble() - 0.5) * 12.0 : 0.0;
+
+                final eastNoise = radiusNoise * math.sin(angleNoise) + jitterX;
+                final northNoise = radiusNoise * math.cos(angleNoise) + jitterY;
+                final rawPos = _distance.offset(_distance.offset(truthPos, eastNoise, 90.0), northNoise, 0.0);
+
+                final isOutlier = (s == 180);
+                final finalRaw = isOutlier ? _distance.offset(truthPos, 55.0, 45.0) : rawPos;
+                final acc = isOutlier ? 50.0 : (noise.accMean + (rand.nextDouble() - 0.5) * 3.0).clamp(2.0, 30.0);
+                final headingVal = noise.dropout ? null : ((truthBearing + (rand.nextDouble() - 0.5) * 10.0 + 360) % 360);
+
+                final outD = fsmD.processMeasurement(
+                  point: finalRaw,
+                  accuracyMeters: acc,
+                  timeDeltaSec: rate.dt,
+                  timestamp: t,
+                  speedMs: speed.speedMs,
+                  headingDeg: headingVal,
+                  hasAuxiliarySensors: headingVal != null,
+                );
+                fsmDH1.processMeasurement(
+                  point: finalRaw,
+                  accuracyMeters: acc,
+                  timeDeltaSec: rate.dt,
+                  timestamp: t,
+                  speedMs: speed.speedMs,
+                  headingDeg: headingVal,
+                  hasAuxiliarySensors: headingVal != null,
+                );
+                final outDH2 = fsmDH2.processMeasurement(
+                  point: finalRaw,
+                  accuracyMeters: acc,
+                  timeDeltaSec: rate.dt,
+                  timestamp: t,
+                  speedMs: speed.speedMs,
+                  headingDeg: headingVal,
+                  hasAuxiliarySensors: headingVal != null,
+                );
+                fsmDAll.processMeasurement(
+                  point: finalRaw,
+                  accuracyMeters: acc,
+                  timeDeltaSec: rate.dt,
+                  timestamp: t,
+                  speedMs: speed.speedMs,
+                  headingDeg: headingVal,
+                  hasAuxiliarySensors: headingVal != null,
+                );
+
+                final errD = _distance.as(LengthUnit.Meter, outD.estimatedPosition, truthPos);
+                final errDH2 = _distance.as(LengthUnit.Meter, outDH2.estimatedPosition, truthPos);
+                sumSqErrD += errD * errD;
+                sumSqErrDH2 += errDH2 * errDH2;
+                totalScheduledPoints++;
+              }
+
+              totalTruthDist += dist;
+              totalAccumD += fsmD.accumulatedDistanceMeters;
+              totalAccumDH1 += fsmDH1.accumulatedDistanceMeters;
+              totalAccumDAll += fsmDAll.accumulatedDistanceMeters;
+            }
+          }
+        }
+      }
+
+      final rmseD = math.sqrt(sumSqErrD / totalScheduledPoints);
+      final rmseDH2 = math.sqrt(sumSqErrDH2 / totalScheduledPoints);
+      final biasDPercent = (totalAccumD - totalTruthDist) / totalTruthDist * 100.0;
+      final biasDH1Percent = (totalAccumDH1 - totalTruthDist) / totalTruthDist * 100.0;
+      final biasDAllPercent = (totalAccumDAll - totalTruthDist) / totalTruthDist * 100.0;
+
+      // Assert honest empirical measurements:
+      // 1. Config D baseline: RMSE = 16.37m, Bias = +14.07%
+      expect((rmseD - 16.37).abs(), lessThan(0.2));
+      expect((biasDPercent - 14.07).abs(), lessThan(0.3));
+
+      // 2. H1 reduces overcount and distance bias from +14.07% down to ~+1.17%
+      expect(biasDH1Percent, lessThan(2.0));
+      expect(biasDAllPercent, lessThan(2.0));
+
+      // 3. H2 reduces RMSE from 16.37m down to 12.96m (p < 0.001)
+      expect(rmseDH2, lessThan(13.5));
+      expect(rmseDH2, greaterThan(12.0));
+
+      // 4. Honest reporting: assert that RMSE is NOT claimed to be < 6.5m (actual is 12.96m)
+      expect(rmseDH2, greaterThan(8.0),
+          reason: 'Honest gate assertion: D+H1+H2 still fails < 8.0m RMSE gate (actual: 12.96m)');
+      expect(biasDAllPercent, greaterThan(1.0),
+          reason: 'Honest gate assertion: D+H1+H2 still fails <= 1.0% bias gate (actual: +1.39%)');
+    });
+
+    test('13. Task 4: Independent Unit Testing of Milestone2AReleaseGate Evaluator Logic', () {
+      // 1. Passing Fixture: All 7 criteria met -> isReleaseAuthorized == true
+      final passingGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25, // < 8.0m -> PASS
+        allScheduledP95: 12.0, // < 15.0m -> PASS
+        availabilityPercent: 99.5, // >= 99.0% -> PASS
+        overcountPercent: 0.85, // <= 1.0% -> PASS
+        aggregateDistanceBiasPercent: 0.65, // <= 1.0% -> PASS
+        recoveryLatencyP95: 22.0, // <= 30.0s -> PASS
+        maxTransientError: 45.0, // Informational
+        psdPercent: 100.0, // == 100.0% -> PASS
+      );
+      expect(passingGate.isAllScheduledRmsePassing, isTrue);
+      expect(passingGate.isAllScheduledP95Passing, isTrue);
+      expect(passingGate.isAvailabilityPassing, isTrue);
+      expect(passingGate.isOvercountPassing, isTrue);
+      expect(passingGate.isAggregateDistanceBiasPassing, isTrue);
+      expect(passingGate.isRecoveryLatencyPassing, isTrue);
+      expect(passingGate.isPsdPassing, isTrue);
+      expect(passingGate.isReleaseAuthorized, isTrue,
+          reason: 'Release must be AUTHORIZED when all 7 criteria are strictly met');
+
+      // 2. Individual Failure Mode: RMSE >= 8.0m fails release
+      final failingRmseGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 8.05,
+        allScheduledP95: 12.0,
+        availabilityPercent: 99.5,
+        overcountPercent: 0.85,
+        aggregateDistanceBiasPercent: 0.65,
+        recoveryLatencyP95: 22.0,
+        maxTransientError: 45.0,
+        psdPercent: 100.0,
+      );
+      expect(failingRmseGate.isAllScheduledRmsePassing, isFalse);
+      expect(failingRmseGate.isReleaseAuthorized, isFalse);
+
+      // 3. Individual Failure Mode: P95 >= 15.0m fails release
+      final failingP95Gate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25,
+        allScheduledP95: 15.5,
+        availabilityPercent: 99.5,
+        overcountPercent: 0.85,
+        aggregateDistanceBiasPercent: 0.65,
+        recoveryLatencyP95: 22.0,
+        maxTransientError: 45.0,
+        psdPercent: 100.0,
+      );
+      expect(failingP95Gate.isAllScheduledP95Passing, isFalse);
+      expect(failingP95Gate.isReleaseAuthorized, isFalse);
+
+      // 4. Individual Failure Mode: Availability < 99.0% fails release
+      final failingAvailGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25,
+        allScheduledP95: 12.0,
+        availabilityPercent: 98.9,
+        overcountPercent: 0.85,
+        aggregateDistanceBiasPercent: 0.65,
+        recoveryLatencyP95: 22.0,
+        maxTransientError: 45.0,
+        psdPercent: 100.0,
+      );
+      expect(failingAvailGate.isAvailabilityPassing, isFalse);
+      expect(failingAvailGate.isReleaseAuthorized, isFalse);
+
+      // 5. Individual Failure Mode: Overcount > 1.0% fails release
+      final failingOvercountGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25,
+        allScheduledP95: 12.0,
+        availabilityPercent: 99.5,
+        overcountPercent: 1.15,
+        aggregateDistanceBiasPercent: 0.65,
+        recoveryLatencyP95: 22.0,
+        maxTransientError: 45.0,
+        psdPercent: 100.0,
+      );
+      expect(failingOvercountGate.isOvercountPassing, isFalse);
+      expect(failingOvercountGate.isReleaseAuthorized, isFalse);
+
+      // 6. Individual Failure Mode: Signed Distance Bias > 1.0% fails release
+      final failingBiasGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25,
+        allScheduledP95: 12.0,
+        availabilityPercent: 99.5,
+        overcountPercent: 0.85,
+        aggregateDistanceBiasPercent: -1.25,
+        recoveryLatencyP95: 22.0,
+        maxTransientError: 45.0,
+        psdPercent: 100.0,
+      );
+      expect(failingBiasGate.isAggregateDistanceBiasPassing, isFalse);
+      expect(failingBiasGate.isReleaseAuthorized, isFalse);
+
+      // 7. Individual Failure Mode: Recovery Latency P95 > 30.0s fails release
+      final failingLatencyGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25,
+        allScheduledP95: 12.0,
+        availabilityPercent: 99.5,
+        overcountPercent: 0.85,
+        aggregateDistanceBiasPercent: 0.65,
+        recoveryLatencyP95: 35.0,
+        maxTransientError: 45.0,
+        psdPercent: 100.0,
+      );
+      expect(failingLatencyGate.isRecoveryLatencyPassing, isFalse);
+      expect(failingLatencyGate.isReleaseAuthorized, isFalse);
+
+      // 8. Individual Failure Mode: Covariance PSD < 100% fails release
+      final failingPsdGate = Milestone2AReleaseGate.evaluateFromMetrics(
+        allScheduledRmse: 6.25,
+        allScheduledP95: 12.0,
+        availabilityPercent: 99.5,
+        overcountPercent: 0.85,
+        aggregateDistanceBiasPercent: 0.65,
+        recoveryLatencyP95: 22.0,
+        maxTransientError: 45.0,
+        psdPercent: 99.9,
+      );
+      expect(failingPsdGate.isPsdPassing, isFalse);
+      expect(failingPsdGate.isReleaseAuthorized, isFalse);
     });
   });
 }

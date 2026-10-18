@@ -141,12 +141,82 @@ class GpsRecoveryFsmResult {
   });
 }
 
+/// Exact-once mutation types for FSM distance ledger accounting.
+enum FsmDistanceMutationType {
+  /// Normal tracking Euclidean step admitted in S0 or S1 hysteresis recovery.
+  normalStep,
+
+  /// Inertial predict-only velocity step during rejection in S0 or S1.
+  inertialStep,
+
+  /// Tentative distance placed into escrow (S0 provisional or S5 probation).
+  escrowCreation,
+
+  /// Validated escrow committed to workout accumulated distance (S0 provisional or S5).
+  escrowCommit,
+
+  /// Unverified escrow purged and discarded (on degradation, rejection, or rollback).
+  escrowDiscard,
+
+  /// Net gap bridging displacement placed into escrow at S4/S5 re-anchor.
+  gapBridging,
+
+  /// Snapshot distance restoration upon probation rollback failure.
+  rollbackCorrection,
+
+  /// State transition or other adjustments without distance mutation.
+  otherAdjustments,
+}
+
+/// Immutable record of an exact-once FSM distance mutation.
+class FsmDistanceTransaction {
+  final int eventId;
+  final String scenario;
+  final DateTime timestamp;
+  final GpsRecoveryState fromState;
+  final GpsRecoveryState toState;
+  final FsmDistanceMutationType mutationType;
+  final double committedDeltaMeters;
+  final double escrowDeltaMeters;
+  final double resultingAccumulatedDistanceMeters;
+  final double resultingEscrowDistanceMeters;
+  final String description;
+
+  const FsmDistanceTransaction({
+    required this.eventId,
+    required this.scenario,
+    required this.timestamp,
+    required this.fromState,
+    required this.toState,
+    required this.mutationType,
+    required this.committedDeltaMeters,
+    required this.escrowDeltaMeters,
+    required this.resultingAccumulatedDistanceMeters,
+    required this.resultingEscrowDistanceMeters,
+    required this.description,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'event_id': eventId,
+    'scenario': scenario,
+    'timestamp': timestamp.toIso8601String(),
+    'from_state': fromState.name,
+    'to_state': toState.name,
+    'mutation_type': mutationType.name,
+    'committed_delta_meters': committedDeltaMeters,
+    'escrow_delta_meters': escrowDeltaMeters,
+    'resulting_accumulated_meters': resultingAccumulatedDistanceMeters,
+    'resulting_escrow_meters': resultingEscrowDistanceMeters,
+    'description': description,
+  };
+}
+
 /// Isolated GPS Recovery Finite State Machine for EKF 4-State filtering.
 ///
 /// Implements S0–S5 states, rejection counters, candidate buffering (K=3),
 /// pairwise kinematic checks, probationary tracking window (M=3), spatial blacklisting,
-/// cold reinitialization rollback, and provisional distance escrow without modifying
-/// the EKF core, NIS thresholds, or production pipeline.
+/// cold reinitialization rollback, provisional distance escrow, and exact-once distance
+/// ledger accounting without modifying the EKF core, NIS thresholds, or production pipeline.
 class GpsRecoveryStateMachine {
   final ExtendedKalmanFilter _ekf;
 
@@ -200,8 +270,77 @@ class GpsRecoveryStateMachine {
   bool _isSessionStarted = false;
   bool get isSessionStarted => _isSessionStarted;
 
+  /// Active scenario tag for distance ledger auditing.
+  String currentScenario = '';
+
+  /// Exact-once distance mutation audit ledger.
+  final List<FsmDistanceTransaction> distanceLedger = [];
+
   GpsRecoveryStateMachine({ExtendedKalmanFilter? ekf})
       : _ekf = ekf ?? ExtendedKalmanFilter();
+
+  void setScenario(String scenario) {
+    currentScenario = scenario;
+  }
+
+  void clearDistanceLedger() {
+    distanceLedger.clear();
+  }
+
+  void reset() {
+    _ekf.reset();
+    _state = GpsRecoveryState.s0NormalTracking;
+    _consecutiveRejections = 0;
+    _s1CleanFixCount = 0;
+    _probationRemaining = 0;
+    _provisionalSuccessCount = 0;
+    _accumulatedDistanceMeters = 0.0;
+    _escrowDistanceMeters = 0.0;
+    _currentPosition = null;
+    _currentSpeedMs = 0.0;
+    _currentHeadingDeg = 0.0;
+    _currentPositionVariance = 25.0;
+    _lastTimestamp = null;
+    _lastValidPosition = null;
+    _lastValidSpeedMs = 0.0;
+    _lastValidHeadingDeg = null;
+    _lastValidTimestamp = null;
+    _candidateBuffer.clear();
+    _blacklist.clear();
+    _snapshot = null;
+    _isSessionStarted = false;
+    distanceLedger.clear();
+  }
+
+  void _recordDistanceTransaction({
+    required DateTime timestamp,
+    required GpsRecoveryState fromState,
+    required GpsRecoveryState toState,
+    required FsmDistanceMutationType mutationType,
+    required double committedDelta,
+    required double escrowDelta,
+    required String description,
+  }) {
+    distanceLedger.add(FsmDistanceTransaction(
+      eventId: distanceLedger.length + 1,
+      scenario: currentScenario,
+      timestamp: timestamp,
+      fromState: fromState,
+      toState: toState,
+      mutationType: mutationType,
+      committedDeltaMeters: committedDelta,
+      escrowDeltaMeters: escrowDelta,
+      resultingAccumulatedDistanceMeters: _accumulatedDistanceMeters,
+      resultingEscrowDistanceMeters: _escrowDistanceMeters,
+      description: description,
+    ));
+    assert(
+      (_accumulatedDistanceMeters -
+              distanceLedger.fold<double>(0.0, (sum, t) => sum + t.committedDeltaMeters))
+          .abs() < 1e-4,
+      'Distance ledger reconciliation failed: accumulated $_accumulatedDistanceMeters != sum deltas',
+    );
+  }
 
   GpsRecoveryState get state => _state;
   int get consecutiveRejections => _consecutiveRejections;
@@ -226,12 +365,24 @@ class GpsRecoveryStateMachine {
     _blacklist.removeWhere((entry) => entry.isExpired(now));
   }
 
-  void _transitionToS2(DateTime timestamp) {
+  void _transitionToS2(DateTime timestamp, [String reason = 'rejection/time-gap']) {
+    final from = _state;
     _state = GpsRecoveryState.s2LossOfLock;
     _candidateBuffer.clear();
-    // In S2, any uncommitted escrow distance is purged and distance accumulation is frozen
+    final discarded = _escrowDistanceMeters;
     _escrowDistanceMeters = 0.0;
     _provisionalSuccessCount = 0;
+    if (discarded > 0.0) {
+      _recordDistanceTransaction(
+        timestamp: timestamp,
+        fromState: from,
+        toState: _state,
+        mutationType: FsmDistanceMutationType.escrowDiscard,
+        committedDelta: 0.0,
+        escrowDelta: -discarded,
+        description: 'Transition to S2 ($reason): unverified escrow discarded',
+      );
+    }
   }
 
   /// Process an incoming raw GPS measurement through the recovery state machine.
@@ -274,6 +425,15 @@ class GpsRecoveryStateMachine {
       _lastValidTimestamp = timestamp;
       _lastTimestamp = timestamp;
       _state = GpsRecoveryState.s0NormalTracking;
+      _recordDistanceTransaction(
+        timestamp: timestamp,
+        fromState: GpsRecoveryState.s0NormalTracking,
+        toState: GpsRecoveryState.s0NormalTracking,
+        mutationType: FsmDistanceMutationType.otherAdjustments,
+        committedDelta: 0.0,
+        escrowDelta: 0.0,
+        description: 'First fix initialized: filter anchored at initial position',
+      );
 
       return GpsRecoveryFsmResult(
         state: _state,
@@ -295,7 +455,7 @@ class GpsRecoveryStateMachine {
         // Check for time gap degradation
         if (dt >= kTimeGapS2Sec) {
           _consecutiveRejections = kRejectionLimitS2;
-          _transitionToS2(timestamp);
+          _transitionToS2(timestamp, 'time gap dt >= 5.0s in S0');
           decision = EkfMeasurementDecision.rejected;
           addedDistance = 0.0;
           break;
@@ -319,17 +479,36 @@ class GpsRecoveryStateMachine {
         if (decision == EkfMeasurementDecision.rejected) {
           _consecutiveRejections++;
           if (_consecutiveRejections >= kRejectionLimitS2) {
-            _transitionToS2(timestamp);
+            _transitionToS2(timestamp, 'N_reject >= 5 in S0');
             addedDistance = 0.0;
           } else if (_consecutiveRejections >= kRejectionLimitS1) {
+            final from = _state;
             _state = GpsRecoveryState.s1SuspectedDegraded;
             addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
             _accumulatedDistanceMeters += addedDistance;
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: from,
+              toState: _state,
+              mutationType: FsmDistanceMutationType.inertialStep,
+              committedDelta: addedDistance,
+              escrowDelta: 0.0,
+              description: 'S0 to S1 degradation: inertial velocity step on rejection',
+            );
           } else {
             // Single/isolated spike in S0: predict-only motion along track
             // Distance accumulated along inertial velocity, zero contribution from the spike
             addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
             _accumulatedDistanceMeters += addedDistance;
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: GpsRecoveryState.s0NormalTracking,
+              toState: GpsRecoveryState.s0NormalTracking,
+              mutationType: FsmDistanceMutationType.inertialStep,
+              committedDelta: addedDistance,
+              escrowDelta: 0.0,
+              description: 'S0 isolated spike: inertial velocity step on rejection',
+            );
           }
 
           _currentPosition = ekfEstimate.position;
@@ -353,6 +532,17 @@ class GpsRecoveryStateMachine {
           }
 
           _accumulatedDistanceMeters += addedDistance;
+          _recordDistanceTransaction(
+            timestamp: timestamp,
+            fromState: GpsRecoveryState.s0NormalTracking,
+            toState: GpsRecoveryState.s0NormalTracking,
+            mutationType: FsmDistanceMutationType.normalStep,
+            committedDelta: addedDistance,
+            escrowDelta: 0.0,
+            description: isStationary
+                ? 'S0 stationary fix: jitter suppressed (0.0m added)'
+                : 'S0 clean fix: Euclidean step added to workout distance',
+          );
           _currentPosition = ekfEstimate.position;
           _currentHeadingDeg = ekfEstimate.headingDeg;
           _currentPositionVariance = ekfEstimate.positionVariance;
@@ -368,15 +558,28 @@ class GpsRecoveryStateMachine {
         // Check for time gap degradation
         if (dt >= kTimeGapS2Sec) {
           _consecutiveRejections = kRejectionLimitS2;
-          _transitionToS2(timestamp);
+          _transitionToS2(timestamp, 'time gap dt >= 5.0s in S0 Provisional');
           decision = EkfMeasurementDecision.rejected;
           addedDistance = 0.0;
           break;
         } else if (dt >= kTimeGapS1Sec) {
+          final from = _state;
           _consecutiveRejections = kRejectionLimitS1;
           _state = GpsRecoveryState.s1SuspectedDegraded;
+          final discarded = _escrowDistanceMeters;
           _escrowDistanceMeters = 0.0; // Discard unverified escrow on degradation
           _provisionalSuccessCount = 0;
+          if (discarded > 0.0) {
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: from,
+              toState: _state,
+              mutationType: FsmDistanceMutationType.escrowDiscard,
+              committedDelta: 0.0,
+              escrowDelta: -discarded,
+              description: 'S0 Provisional to S1: unverified escrow discarded on time gap',
+            );
+          }
         }
 
         // Apply 4x measurement variance inflation in provisional mode
@@ -395,13 +598,26 @@ class GpsRecoveryStateMachine {
 
         if (decision == EkfMeasurementDecision.rejected) {
           // Rejection in provisional mode: unverified track broke down!
+          final discarded = _escrowDistanceMeters;
           _escrowDistanceMeters = 0.0; // Discard escrow completely!
           _provisionalSuccessCount = 0;
           _consecutiveRejections++;
+          final from = _state;
           if (_consecutiveRejections >= kRejectionLimitS2) {
-            _transitionToS2(timestamp);
+            _transitionToS2(timestamp, 'N_reject >= 5 in S0 Provisional');
           } else if (_consecutiveRejections >= kRejectionLimitS1) {
             _state = GpsRecoveryState.s1SuspectedDegraded;
+          }
+          if (discarded > 0.0) {
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: from,
+              toState: _state,
+              mutationType: FsmDistanceMutationType.escrowDiscard,
+              committedDelta: 0.0,
+              escrowDelta: -discarded,
+              description: 'S0 Provisional rejection: unverified escrow discarded',
+            );
           }
           addedDistance = 0.0;
           _currentPosition = ekfEstimate.position;
@@ -423,6 +639,15 @@ class GpsRecoveryStateMachine {
             _currentSpeedMs = ekfEstimate.speedMs;
             // ACCUMULATE TENTATIVE DISTANCE IN ESCROW, NOT COMMITTED WORKOUT DISTANCE
             _escrowDistanceMeters += tentativeStep;
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: GpsRecoveryState.s0Provisional,
+              toState: GpsRecoveryState.s0Provisional,
+              mutationType: FsmDistanceMutationType.escrowCreation,
+              committedDelta: 0.0,
+              escrowDelta: tentativeStep,
+              description: 'S0 Provisional tentative step placed in escrow',
+            );
           }
 
           _currentPosition = ekfEstimate.position;
@@ -436,11 +661,21 @@ class GpsRecoveryStateMachine {
           _provisionalSuccessCount++;
           if (_provisionalSuccessCount >= kProvisionalValidationFixes) {
             // Provisional validation window passed: commit escrow to workout distance!
-            _accumulatedDistanceMeters += _escrowDistanceMeters;
-            addedDistance = _escrowDistanceMeters;
+            final committed = _escrowDistanceMeters;
+            _accumulatedDistanceMeters += committed;
+            addedDistance = committed;
             _escrowDistanceMeters = 0.0;
             _state = GpsRecoveryState.s0NormalTracking;
             _provisionalSuccessCount = 0;
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: GpsRecoveryState.s0Provisional,
+              toState: GpsRecoveryState.s0NormalTracking,
+              mutationType: FsmDistanceMutationType.escrowCommit,
+              committedDelta: committed,
+              escrowDelta: -committed,
+              description: 'S0 Provisional validated ($kProvisionalValidationFixes clean fixes): escrow committed to workout distance',
+            );
           } else {
             // Still in provisional window: distance remains in escrow
             addedDistance = 0.0;
@@ -451,7 +686,7 @@ class GpsRecoveryStateMachine {
       case GpsRecoveryState.s1SuspectedDegraded:
         if (dt >= kTimeGapS2Sec) {
           _consecutiveRejections = kRejectionLimitS2;
-          _transitionToS2(timestamp);
+          _transitionToS2(timestamp, 'time gap dt >= 5.0s in S1');
           decision = EkfMeasurementDecision.rejected;
           addedDistance = 0.0;
           break;
@@ -479,6 +714,7 @@ class GpsRecoveryStateMachine {
           _s1CleanFixCount++;
           if (_s1CleanFixCount >= 2) {
             // Hysteresis exit: 2 consecutive clean fixes -> return to S0
+            final from = _state;
             _state = GpsRecoveryState.s0NormalTracking;
             _consecutiveRejections = 0;
             _s1CleanFixCount = 0;
@@ -486,6 +722,15 @@ class GpsRecoveryStateMachine {
             final stepDist = _distance.as(LengthUnit.Meter, prevPos, ekfEstimate.position);
             addedDistance = stepDist.clamp(0.0, kMaxPairwiseSpeedMs * dt);
             _accumulatedDistanceMeters += addedDistance;
+            _recordDistanceTransaction(
+              timestamp: timestamp,
+              fromState: from,
+              toState: _state,
+              mutationType: FsmDistanceMutationType.normalStep,
+              committedDelta: addedDistance,
+              escrowDelta: 0.0,
+              description: 'S1 hysteresis recovery (2 clean fixes): Euclidean step added to workout distance',
+            );
 
             _currentPosition = ekfEstimate.position;
             _currentSpeedMs = ekfEstimate.speedMs;
@@ -508,12 +753,21 @@ class GpsRecoveryStateMachine {
         final innov = ekfEstimate.diagnostics.positionInnovationMeters ?? 0.0;
 
         if (_consecutiveRejections >= kRejectionLimitS2 || innov > dMax) {
-          _transitionToS2(timestamp);
+          _transitionToS2(timestamp, 'N_reject >= 5 or innov > dMax in S1');
           addedDistance = 0.0; // Strictly zero added distance when transitioning to S2
         } else {
           // In S1: distance accumulates along inertial velocity clamped
           addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
           _accumulatedDistanceMeters += addedDistance;
+          _recordDistanceTransaction(
+            timestamp: timestamp,
+            fromState: GpsRecoveryState.s1SuspectedDegraded,
+            toState: GpsRecoveryState.s1SuspectedDegraded,
+            mutationType: FsmDistanceMutationType.inertialStep,
+            committedDelta: addedDistance,
+            escrowDelta: 0.0,
+            description: 'S1 degraded tracking: inertial velocity step added to workout distance',
+          );
 
           _currentPosition = ekfEstimate.position;
           _currentSpeedMs = ekfEstimate.speedMs;
@@ -642,6 +896,15 @@ class GpsRecoveryStateMachine {
 
           // Escrow buffer holds distance during probation
           _escrowDistanceMeters += clampedStep;
+          _recordDistanceTransaction(
+            timestamp: timestamp,
+            fromState: GpsRecoveryState.s5SafeReset,
+            toState: GpsRecoveryState.s5SafeReset,
+            mutationType: FsmDistanceMutationType.escrowCreation,
+            committedDelta: 0.0,
+            escrowDelta: clampedStep,
+            description: 'S5 probation step placed in escrow',
+          );
 
           _currentPosition = ekfEstimate.position;
           _currentSpeedMs = ekfEstimate.speedMs;
@@ -653,8 +916,10 @@ class GpsRecoveryStateMachine {
 
             if (hasAuxiliarySensors) {
               // Auxiliary sensors confirm track: commit escrow and return to S0
-              _accumulatedDistanceMeters += _escrowDistanceMeters;
-              addedDistance = _escrowDistanceMeters;
+              final from = _state;
+              final committed = _escrowDistanceMeters;
+              _accumulatedDistanceMeters += committed;
+              addedDistance = committed;
               _escrowDistanceMeters = 0.0;
               _candidateBuffer.clear();
 
@@ -663,9 +928,19 @@ class GpsRecoveryStateMachine {
               _lastValidHeadingDeg = _currentHeadingDeg;
               _lastValidTimestamp = timestamp;
               _state = GpsRecoveryState.s0NormalTracking;
+              _recordDistanceTransaction(
+                timestamp: timestamp,
+                fromState: from,
+                toState: _state,
+                mutationType: FsmDistanceMutationType.escrowCommit,
+                committedDelta: committed,
+                escrowDelta: -committed,
+                description: 'S5 probation verified with auxiliary sensors: escrow committed to workout distance',
+              );
             } else {
               // GPS-ONLY: Do not claim verified absolute positioning solely from GPS!
               // Enter s0Provisional with distance remaining in escrow!
+              final from = _state;
               _candidateBuffer.clear();
               _lastValidPosition = _currentPosition;
               _lastValidSpeedMs = _currentSpeedMs;
@@ -674,6 +949,15 @@ class GpsRecoveryStateMachine {
               _state = GpsRecoveryState.s0Provisional;
               _provisionalSuccessCount = 0;
               addedDistance = 0.0; // Distance remains in escrow!
+              _recordDistanceTransaction(
+                timestamp: timestamp,
+                fromState: from,
+                toState: _state,
+                mutationType: FsmDistanceMutationType.otherAdjustments,
+                committedDelta: 0.0,
+                escrowDelta: 0.0,
+                description: 'S5 probation complete (GPS-only): transitioned to S0 Provisional with escrow retained',
+              );
             }
           }
         }
@@ -751,7 +1035,17 @@ class GpsRecoveryStateMachine {
     }
 
     // Place bridged distance into escrow (committed ONLY if probation passes)
+    final prevEscrow = _escrowDistanceMeters;
     _escrowDistanceMeters = bridgedDistance;
+    _recordDistanceTransaction(
+      timestamp: p3.timestamp,
+      fromState: GpsRecoveryState.s4ValidatedReAnchor,
+      toState: GpsRecoveryState.s5SafeReset,
+      mutationType: FsmDistanceMutationType.gapBridging,
+      committedDelta: 0.0,
+      escrowDelta: bridgedDistance - prevEscrow,
+      description: 'S4 to S5 safe reset: gap bridging placed into escrow',
+    );
 
     // 4. Safe Reset of EKF state vector and covariance
     final sigmaPos = math.max(5.0, p3.accuracyMeters);
@@ -786,6 +1080,9 @@ class GpsRecoveryStateMachine {
     // 1. Reset EKF to cold state - never treat diverged filter as trusted
     _ekf.reset();
 
+    final prevCommitted = _accumulatedDistanceMeters;
+    final prevEscrow = _escrowDistanceMeters;
+
     // 2. Restore committed distance strictly to pre-attempt baseline
     if (_snapshot != null) {
       _accumulatedDistanceMeters = _snapshot!.committedDistanceMeters;
@@ -815,5 +1112,15 @@ class GpsRecoveryStateMachine {
     _consecutiveRejections = kRejectionLimitS2;
     _probationRemaining = 0;
     _provisionalSuccessCount = 0;
+
+    _recordDistanceTransaction(
+      timestamp: timestamp,
+      fromState: GpsRecoveryState.s5SafeReset,
+      toState: GpsRecoveryState.s2LossOfLock,
+      mutationType: FsmDistanceMutationType.rollbackCorrection,
+      committedDelta: _accumulatedDistanceMeters - prevCommitted,
+      escrowDelta: -prevEscrow,
+      description: 'Rollback executed: purged escrow (${prevEscrow.toStringAsFixed(1)}m) and restored snapshot distance',
+    );
   }
 }

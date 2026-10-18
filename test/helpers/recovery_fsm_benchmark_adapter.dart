@@ -82,6 +82,10 @@ class RecoveryFsmBenchmarkAdapter {
   double get accumulatedDistanceMeters => fsm.accumulatedDistanceMeters;
   double get escrowDistanceMeters => fsm.escrowDistanceMeters;
   LatLng? get currentPosition => fsm.currentPosition;
+  List<FsmDistanceTransaction> get distanceLedger => fsm.distanceLedger;
+
+  void setScenario(String scenario) => fsm.setScenario(scenario);
+  void clearDistanceLedger() => fsm.clearDistanceLedger();
 
   /// Process a single benchmark measurement with ground-truth correlation.
   RecoveryAdapterOutput processMeasurement({
