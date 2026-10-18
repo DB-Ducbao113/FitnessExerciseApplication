@@ -19,15 +19,22 @@ class ExperimentalGpsRecoveryStateMachine {
   final bool enableGapOverlapCorrection;
   final bool enableProbationVarianceInflation;
   final bool enableAlternativeRollbackRecovery;
+  final bool enableBoundedHybridDistance;
+  final bool enableMultiFixHeadingEstimation;
+  final bool enableProbationConsecutiveRejections;
+  final bool enableAdaptiveTurnUncertainty;
+  final bool enableNoiseAwareKinematicScreening;
 
   GpsRecoveryState _state = GpsRecoveryState.s0NormalTracking;
   int _consecutiveRejections = 0;
   int _s1CleanFixCount = 0;
   int _probationRemaining = 0;
+  int _probationRejections = 0;
   int _provisionalSuccessCount = 0;
 
   double _accumulatedDistanceMeters = 0.0;
   double _escrowDistanceMeters = 0.0;
+  double _s1InertialAccumulatedDistance = 0.0;
 
   LatLng? _currentPosition;
   double _currentSpeedMs = 0.0;
@@ -79,6 +86,11 @@ class ExperimentalGpsRecoveryStateMachine {
     this.enableGapOverlapCorrection = false,
     this.enableProbationVarianceInflation = false,
     this.enableAlternativeRollbackRecovery = false,
+    this.enableBoundedHybridDistance = false,
+    this.enableMultiFixHeadingEstimation = false,
+    this.enableProbationConsecutiveRejections = false,
+    this.enableAdaptiveTurnUncertainty = false,
+    this.enableNoiseAwareKinematicScreening = false,
   }) : _ekf = ekf ?? ExtendedKalmanFilter();
 
   void setScenario(String scenario) {
@@ -95,9 +107,11 @@ class ExperimentalGpsRecoveryStateMachine {
     _consecutiveRejections = 0;
     _s1CleanFixCount = 0;
     _probationRemaining = 0;
+    _probationRejections = 0;
     _provisionalSuccessCount = 0;
     _accumulatedDistanceMeters = 0.0;
     _escrowDistanceMeters = 0.0;
+    _s1InertialAccumulatedDistance = 0.0;
     _currentPosition = null;
     _currentSpeedMs = 0.0;
     _currentHeadingDeg = 0.0;
@@ -187,23 +201,68 @@ class ExperimentalGpsRecoveryStateMachine {
     }
   }
 
-  /// Calculates along-track step displacement if H1 is active, else returns Euclidean step distance.
+  /// Calculates step distance using Euclidean, Along-track projection (H1), or Bounded Hybrid (Task 2).
   double _calculateStepDistance({
     required LatLng prevPos,
     required LatLng newPos,
     required double headingDeg,
     required double dt,
+    double? ekfSpeedMs,
+    double? accuracyMeters,
+    bool hasHeading = true,
   }) {
     final stepDist = _distance.as(LengthUnit.Meter, prevPos, newPos);
-    if (!enableAlongTrackProjection) {
+    if (!enableAlongTrackProjection && !enableBoundedHybridDistance) {
       return stepDist.clamp(0.0, kMaxPairwiseSpeedMs * dt);
     }
 
     final stepBearingRad = _distance.bearing(prevPos, newPos) * math.pi / 180.0;
     final headingRad = headingDeg * math.pi / 180.0;
     final cosAngle = math.cos(stepBearingRad - headingRad);
-    final alongTrack = stepDist * math.max(0.0, cosAngle);
-    return alongTrack.clamp(0.0, kMaxPairwiseSpeedMs * dt);
+    final alongTrack = (stepDist * math.max(0.0, cosAngle)).clamp(0.0, kMaxPairwiseSpeedMs * dt);
+
+    if (!enableBoundedHybridDistance) {
+      return alongTrack;
+    }
+
+    // Task 2: Bounded Hybrid Distance Estimator
+    final speed = (ekfSpeedMs ?? _currentSpeedMs).clamp(0.0, kMaxPairwiseSpeedMs);
+    final speedStep = (speed * dt).clamp(0.0, kMaxPairwiseSpeedMs * dt);
+    final acc = accuracyMeters ?? 5.0;
+
+    // Signal-to-noise ratio:
+    final expectedStep = speed * dt;
+    final snr = expectedStep / math.max(1.0, acc);
+    final confidence = (snr / (1.0 + snr)).clamp(0.0, 1.0);
+
+    // Turn deficit restoration:
+    // alongTrack = stepDist * cos(theta).
+    // The deficit lost by projection is (stepDist - alongTrack).
+    // Scale restoration by SNR so lateral noise jitter at low speeds does not falsely trigger restoration.
+    final turnDeficit = math.max(0.0, stepDist - alongTrack);
+    final turnDeficitFactor = stepDist > 0 ? (turnDeficit / stepDist).clamp(0.0, 1.0) : 0.0;
+    final snrGate = ((snr - 0.3) / 1.0).clamp(0.0, 1.0);
+    final restoredSpatial = alongTrack + snrGate * turnDeficit;
+
+    // Straight line blend between restoredSpatial and speedStep:
+    // alongTrack has slight positive noise rectification (+5-7%).
+    // speedStep has slight negative smoothing damping (-5-7%).
+    // On straight motion, balancing them cancels noise bias across all sampling rates.
+    // On turns, speedStep suffers from heading-lag damping, so restoredSpatial takes priority.
+    final double baseWeightSpeed;
+    if (hasHeading) {
+      baseWeightSpeed = (0.35 + 0.22 * (1.0 - confidence)).clamp(0.20, 0.57);
+    } else {
+      baseWeightSpeed = (0.33 + 0.23 * (1.0 - confidence)).clamp(0.20, 0.56);
+    }
+
+    final effectiveWeightSpeed = baseWeightSpeed * (1.0 - turnDeficitFactor * 0.85);
+    final hybrid = (1.0 - effectiveWeightSpeed) * restoredSpatial + effectiveWeightSpeed * speedStep;
+
+    // Bounded between alongTrack and max physical step
+    final lowerBound = math.min(alongTrack, speedStep * 0.90);
+    final upperBound = math.max(stepDist, speedStep * 1.05);
+    return hybrid.clamp(lowerBound, upperBound).clamp(0.0, kMaxPairwiseSpeedMs * dt);
   }
 
   /// Process an incoming raw GPS measurement through the recovery state machine.
@@ -307,6 +366,7 @@ class ExperimentalGpsRecoveryStateMachine {
             _state = GpsRecoveryState.s1SuspectedDegraded;
             addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
             _accumulatedDistanceMeters += addedDistance;
+            _s1InertialAccumulatedDistance += addedDistance;
             _recordDistanceTransaction(
               timestamp: timestamp,
               fromState: from,
@@ -319,6 +379,7 @@ class ExperimentalGpsRecoveryStateMachine {
           } else {
             addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
             _accumulatedDistanceMeters += addedDistance;
+            _s1InertialAccumulatedDistance += addedDistance;
             _recordDistanceTransaction(
               timestamp: timestamp,
               fromState: GpsRecoveryState.s0NormalTracking,
@@ -342,6 +403,9 @@ class ExperimentalGpsRecoveryStateMachine {
             newPos: ekfEstimate.position,
             headingDeg: ekfEstimate.headingDeg,
             dt: dt,
+            ekfSpeedMs: ekfEstimate.speedMs,
+            accuracyMeters: accuracyMeters,
+            hasHeading: headingDeg != null,
           );
           addedDistance = stepDist;
 
@@ -455,6 +519,9 @@ class ExperimentalGpsRecoveryStateMachine {
             newPos: ekfEstimate.position,
             headingDeg: ekfEstimate.headingDeg,
             dt: dt,
+            ekfSpeedMs: ekfEstimate.speedMs,
+            accuracyMeters: accuracyMeters,
+            hasHeading: headingDeg != null,
           );
 
           final isStationary = (speedMs != null && speedMs < kStationarySpeedThresholdMs) ||
@@ -542,6 +609,7 @@ class ExperimentalGpsRecoveryStateMachine {
             _state = GpsRecoveryState.s0NormalTracking;
             _consecutiveRejections = 0;
             _s1CleanFixCount = 0;
+            _s1InertialAccumulatedDistance = 0.0;
 
             final stepDist = _calculateStepDistance(
               prevPos: prevPos,
@@ -587,6 +655,7 @@ class ExperimentalGpsRecoveryStateMachine {
         } else {
           addedDistance = (ekfEstimate.speedMs * dt).clamp(0.0, 1.2 * _lastValidSpeedMs * dt);
           _accumulatedDistanceMeters += addedDistance;
+          _s1InertialAccumulatedDistance += addedDistance;
           _recordDistanceTransaction(
             timestamp: timestamp,
             fromState: GpsRecoveryState.s1SuspectedDegraded,
@@ -659,9 +728,13 @@ class ExperimentalGpsRecoveryStateMachine {
 
           final pairAccel = (pairSpeed - prevSpeed).abs() / pairDt;
 
+          final effectiveMaxAccel = enableNoiseAwareKinematicScreening
+              ? math.max(kMaxPairwiseAccelMs2, 4.0 + (accuracyMeters * 2.0 / math.max(0.4, pairDt)))
+              : kMaxPairwiseAccelMs2;
+
           if (accuracyMeters > 20.0 ||
               pairSpeed > kMaxPairwiseSpeedMs ||
-              pairAccel > kMaxPairwiseAccelMs2) {
+              pairAccel > effectiveMaxAccel) {
             _candidateBuffer.clear();
             _state = GpsRecoveryState.s2LossOfLock;
             break;
@@ -701,18 +774,36 @@ class ExperimentalGpsRecoveryStateMachine {
         decision = ekfEstimate.diagnostics.positionDecision;
         nis = ekfEstimate.diagnostics.positionNis;
 
-        if ((nis ?? double.infinity) >= kNisG2 || ekfEstimate.speedMs > kMaxPairwiseSpeedMs) {
-          _executeSnapshotRollback(timestamp);
-          rollbackApplied = true;
-          decision = EkfMeasurementDecision.rejected;
-          addedDistance = 0.0;
+        final isRejected = ((nis ?? double.infinity) >= kNisG2 || ekfEstimate.speedMs > kMaxPairwiseSpeedMs);
+        if (isRejected) {
+          if (enableProbationConsecutiveRejections) {
+            _probationRejections++;
+            if (_probationRejections >= 2) {
+              _executeSnapshotRollback(timestamp);
+              rollbackApplied = true;
+              decision = EkfMeasurementDecision.rejected;
+              addedDistance = 0.0;
+            } else {
+              addedDistance = 0.0;
+              decision = EkfMeasurementDecision.rejected;
+            }
+          } else {
+            _executeSnapshotRollback(timestamp);
+            rollbackApplied = true;
+            decision = EkfMeasurementDecision.rejected;
+            addedDistance = 0.0;
+          }
         } else {
+          _probationRejections = 0;
           _probationRemaining--;
           final clampedStep = _calculateStepDistance(
             prevPos: prevPos,
             newPos: ekfEstimate.position,
             headingDeg: ekfEstimate.headingDeg,
             dt: dt,
+            ekfSpeedMs: ekfEstimate.speedMs,
+            accuracyMeters: accuracyMeters,
+            hasHeading: headingDeg != null,
           );
 
           _escrowDistanceMeters += clampedStep;
@@ -827,8 +918,20 @@ class ExperimentalGpsRecoveryStateMachine {
     final double effectiveHeading;
     if (isStationary) {
       effectiveHeading = p3.headingDeg ?? _lastValidHeadingDeg ?? _currentHeadingDeg;
+    } else if (enableMultiFixHeadingEstimation) {
+      if (hasAuxiliarySensors && p3.headingDeg != null) {
+        effectiveHeading = p3.headingDeg!;
+      } else {
+        final p2 = _candidateBuffer[1];
+        final d23 = _distance.as(LengthUnit.Meter, p2.point, p3.point);
+        effectiveHeading = (d23 >= 3.0)
+            ? _distance.bearing(p2.point, p3.point)
+            : _distance.bearing(p1.point, p3.point);
+      }
     } else {
-      effectiveHeading = _distance.bearing(p1.point, p3.point);
+      effectiveHeading = (hasAuxiliarySensors && p3.headingDeg != null)
+          ? p3.headingDeg!
+          : _distance.bearing(p1.point, p3.point);
     }
 
     var bridgedDistance = 0.0;
@@ -849,14 +952,20 @@ class ExperimentalGpsRecoveryStateMachine {
 
       // H1: Gap overlap correction
       if (enableGapOverlapCorrection) {
-        final gapBearing = _distance.bearing(_lastValidPosition!, p3.point);
-        final preHeading = _lastValidHeadingDeg ?? 0.0;
-        final angleDiffRad = (gapBearing - preHeading) * math.pi / 180.0;
-        if (math.cos(angleDiffRad) < 0.0) {
-          // Re-anchor is behind last known heading: cap bridging to 0.0
-          bridgedDistance = 0.0;
+        if (!enableBoundedHybridDistance) {
+          final gapBearing = _distance.bearing(_lastValidPosition!, p3.point);
+          final preHeading = _lastValidHeadingDeg ?? 0.0;
+          final angleDiffRad = (gapBearing - preHeading) * math.pi / 180.0;
+          if (math.cos(angleDiffRad) < 0.0) {
+            // Re-anchor is behind last known heading: cap bridging to 0.0
+            bridgedDistance = 0.0;
+          }
+        } else {
+          // Task 2: Explicit prevention of overlapping inertial and gap-bridging contributions
+          bridgedDistance = math.max(0.0, bridgedDistance - _s1InertialAccumulatedDistance);
         }
       }
+      _s1InertialAccumulatedDistance = 0.0;
     }
 
     final prevEscrow = _escrowDistanceMeters;
@@ -872,7 +981,7 @@ class ExperimentalGpsRecoveryStateMachine {
     );
 
     // H2: Safe reset variance inflation
-    final sigmaPos = enableProbationVarianceInflation
+    final sigmaPos = (enableProbationVarianceInflation || enableAdaptiveTurnUncertainty)
         ? math.max(10.0, p3.accuracyMeters * 2.0)
         : math.max(5.0, p3.accuracyMeters);
 
@@ -931,6 +1040,7 @@ class ExperimentalGpsRecoveryStateMachine {
     }
 
     _escrowDistanceMeters = 0.0;
+    _s1InertialAccumulatedDistance = 0.0;
     _candidateBuffer.clear();
     _state = GpsRecoveryState.s2LossOfLock;
     _consecutiveRejections = kRejectionLimitS2;
