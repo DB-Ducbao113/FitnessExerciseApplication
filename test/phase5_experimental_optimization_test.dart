@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, no_leading_underscores_for_local_identifiers
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -7,11 +7,15 @@ import 'package:fitness_exercise_application/features/workout/domain/services/ek
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/gps_recovery_state_machine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:io';
 
 import 'helpers/experimental_gps_recovery_state_machine.dart';
 import 'helpers/milestone_2a_release_gate.dart';
 
-const Distance _distance = Distance();
+
+
+import 'helpers/metric_accumulator.dart';
+
 
 const _route = <LatLng>[
   LatLng(10.738082, 106.625303),
@@ -217,14 +221,17 @@ void main() {
         (id: 'DH1H2', name: 'Config D+H1+H2', factory: makeDH1H2),
         (id: 'DOpt', name: 'Proposed D+Opt', factory: makeDOpt),
       ];
+        // Map to track total scheduled points per config for later checks
+        final configScheduledPoints = <String, int>{};
+      // Stratified accumulators for D+Opt using MetricAccumulator
+      final Map<String, MetricAccumulator> noiseAcc = {};
+      final Map<String, MetricAccumulator> speedAcc = {};
+      final Map<String, MetricAccumulator> rateAcc = {};
 
-      // Stratified accumulators for D+Opt
-      final noiseRmseDOpt = <String, double>{};
-      final noiseBiasDOpt = <String, double>{};
-      final speedRmseDOpt = <String, double>{};
-      final speedBiasDOpt = <String, double>{};
-      final rateRmseDOpt = <String, double>{};
-      final rateBiasDOpt = <String, double>{};
+// Removed unused *_RmseDOpt maps – no longer needed
+
+
+
 
       double turnSqErrDOpt = 0.0;
       int turnCountDOpt = 0;
@@ -365,16 +372,16 @@ void main() {
                 // Accumulate per-category stats for D+Opt
                 if (cfg.id == 'DOpt') {
                   final nKey = noise.name;
-                  noiseRmseDOpt[nKey] = (noiseRmseDOpt[nKey] ?? 0.0) + (scenRmse * scenRmse);
-                  noiseBiasDOpt[nKey] = (noiseBiasDOpt[nKey] ?? 0.0) + (finalDist - scenarioDist);
+                  final nAcc = noiseAcc.putIfAbsent(nKey, () => MetricAccumulator());
+                  nAcc.add(scenSqErr, scenarioDist, finalDist, stepCount);
 
                   final sKey = speed.name;
-                  speedRmseDOpt[sKey] = (speedRmseDOpt[sKey] ?? 0.0) + (scenRmse * scenRmse);
-                  speedBiasDOpt[sKey] = (speedBiasDOpt[sKey] ?? 0.0) + (finalDist - scenarioDist);
+                  final sAcc = speedAcc.putIfAbsent(sKey, () => MetricAccumulator());
+                  sAcc.add(scenSqErr, scenarioDist, finalDist, stepCount);
 
                   final rKey = rate.name;
-                  rateRmseDOpt[rKey] = (rateRmseDOpt[rKey] ?? 0.0) + (scenRmse * scenRmse);
-                  rateBiasDOpt[rKey] = (rateBiasDOpt[rKey] ?? 0.0) + (finalDist - scenarioDist);
+                  final rAcc = rateAcc.putIfAbsent(rKey, () => MetricAccumulator());
+                  rAcc.add(scenSqErr, scenarioDist, finalDist, stepCount);
                 }
               }
             }
@@ -387,14 +394,17 @@ void main() {
         final p95 = allErrors[(allErrors.length * 0.95).floor()];
         final latP95 = latencies.isNotEmpty ? latencies[(latencies.length * 0.95).floor()] : 0.0;
         final rmse = math.sqrt(sumSqErr / totalScheduledPoints);
+        // Compute metrics before constructing the summary
         final signedBias = (totalAccum - totalTruthDist) / totalTruthDist * 100.0;
         final overPercent = grossOvercount / totalTruthDist * 100.0;
         final underPercent = grossUndercount / totalTruthDist * 100.0;
         final availPercent = availablePoints / totalScheduledPoints * 100.0;
         final psdPercent = psdPassCount / totalScheduledPoints * 100.0;
 
+        // Compute digest for verification
         final digest = sha256.convert(utf8.encode(hashBuffer.toString())).toString();
 
+        // Store summary for this config
         configSummaries[cfg.id] = ConfigBenchmarkSummary(
           name: cfg.name,
           rmse: rmse,
@@ -409,6 +419,8 @@ void main() {
           outputHash: digest,
           scenarioResults: scenarioResults,
         );
+        // Track total scheduled points for later checks
+        configScheduledPoints[cfg.id] = totalScheduledPoints;
       }
 
       final d = configSummaries['D']!;
@@ -434,23 +446,34 @@ void main() {
       print('-----------------------------------------------------------------------------------------------------------------------------');
       print('1. BY NOISE PROFILE:');
       for (final n in noiseProfiles) {
-        final rVal = math.sqrt(noiseRmseDOpt[n.name]! / 27);
-        final bVal = noiseBiasDOpt[n.name]! / (totalRouteDist * 27) * 100.0;
-        print('   - ${n.name.padRight(32)}: RMSE = ${rVal.toStringAsFixed(2)} m | Signed Bias = ${bVal >= 0 ? "+" : ""}${bVal.toStringAsFixed(2)}%');
+        final sqErr = noiseAcc[n.name]?.sumSqErr ?? 0.0;
+        final count = noiseAcc[n.name]?.sumCount ?? 0;
+        final rmse = count > 0 ? math.sqrt(sqErr / count) : 0.0;
+        final truthDist = noiseAcc[n.name]?.sumTruthDist ?? 0.0;
+        final bias = truthDist > 0 ? (noiseAcc[n.name]?.sumEstDist ?? 0.0) / truthDist * 100.0 : 0.0;
+        print('   - ${n.name.padRight(32)}: RMSE = ${rmse.toStringAsFixed(2)} m | Signed Bias = ${bias >= 0 ? "+" : ""}${bias.toStringAsFixed(2)}%');
       }
 
       print('\n2. BY USER SPEED:');
       for (final sp in speeds) {
-        final rVal = math.sqrt(speedRmseDOpt[sp.name]! / 36);
-        final bVal = speedBiasDOpt[sp.name]! / (totalRouteDist * 36) * 100.0;
-        print('   - ${sp.name.padRight(32)}: RMSE = ${rVal.toStringAsFixed(2)} m | Signed Bias = ${bVal >= 0 ? "+" : ""}${bVal.toStringAsFixed(2)}%');
+        final acc = speedAcc[sp.name];
+        final sqErr = acc?.sumSqErr ?? 0.0;
+        final count = acc?.sumCount ?? 0;
+        final rmse = count > 0 ? math.sqrt(sqErr / count) : 0.0;
+        final truthDist = acc?.sumTruthDist ?? 0.0;
+        final bias = truthDist > 0 ? ((acc?.sumEstDist ?? 0.0) - truthDist) / truthDist * 100.0 : 0.0;
+        print('   - ${sp.name.padRight(32)}: RMSE = ${rmse.toStringAsFixed(2)} m | Signed Bias = ${bias >= 0 ? "+" : ""}${bias.toStringAsFixed(2)}%');
       }
 
       print('\n3. BY SAMPLING RATE:');
       for (final sr in samplingRates) {
-        final rVal = math.sqrt(rateRmseDOpt[sr.name]! / 36);
-        final bVal = rateBiasDOpt[sr.name]! / (totalRouteDist * 36) * 100.0;
-        print('   - ${sr.name.padRight(32)}: RMSE = ${rVal.toStringAsFixed(2)} m | Signed Bias = ${bVal >= 0 ? "+" : ""}${bVal.toStringAsFixed(2)}%');
+        final acc = rateAcc[sr.name];
+        final sqErr = acc?.sumSqErr ?? 0.0;
+        final count = acc?.sumCount ?? 0;
+        final rmse = count > 0 ? math.sqrt(sqErr / count) : 0.0;
+        final truthDist = acc?.sumTruthDist ?? 0.0;
+        final bias = truthDist > 0 ? ((acc?.sumEstDist ?? 0.0) - truthDist) / truthDist * 100.0 : 0.0;
+        print('   - ${sr.name.padRight(32)}: RMSE = ${rmse.toStringAsFixed(2)} m | Signed Bias = ${bias >= 0 ? "+" : ""}${bias.toStringAsFixed(2)}%');
       }
 
       final turnRmseDOpt = math.sqrt(turnSqErrDOpt / math.max(1, turnCountDOpt));
@@ -488,6 +511,115 @@ void main() {
         psdPercent: dOpt.psdPercent,
       );
       gateEvaluation.printReport();
+
+    // ---------- Stratification verification & JSON evidence ----------
+    // Capture global metrics computed earlier in this test scope.
+    final double _globalSse = sumSqErr;
+    final int _globalCount = totalScheduledPoints;
+    final double _globalTruth = totalTruthDist;
+    final double _globalEst = totalAccum;
+
+    // Aggregate per‑group metrics for each stratification.
+    double _noiseSse = 0.0;
+    int _noiseCount = 0;
+    double _noiseTruth = 0.0;
+    double _noiseEst = 0.0;
+    for (final acc in noiseAcc.values) {
+      _noiseSse += acc.sumSqErr;
+      _noiseCount += acc.sumCount;
+      _noiseTruth += acc.sumTruthDist;
+      _noiseEst += acc.sumEstDist;
+    }
+    double _speedSse = 0.0;
+    int _speedCount = 0;
+    double _speedTruth = 0.0;
+    double _speedEst = 0.0;
+    for (final acc in speedAcc.values) {
+      _speedSse += acc.sumSqErr;
+      _speedCount += acc.sumCount;
+      _speedTruth += acc.sumTruthDist;
+      _speedEst += acc.sumEstDist;
+    }
+    double _rateSse = 0.0;
+    int _rateCount = 0;
+    double _rateTruth = 0.0;
+    double _rateEst = 0.0;
+    for (final acc in rateAcc.values) {
+      _rateSse += acc.sumSqErr;
+      _rateCount += acc.sumCount;
+      _rateTruth += acc.sumTruthDist;
+      _rateEst += acc.sumEstDist;
+    }
+
+    const double _tol = 1e-6;
+    bool _noiseOk = (_noiseSse - _globalSse).abs() < _tol &&
+        (_noiseCount - _globalCount).abs() < _tol &&
+        (_noiseTruth - _globalTruth).abs() < _tol &&
+        (_noiseEst - _globalEst).abs() < _tol;
+    bool _speedOk = (_speedSse - _globalSse).abs() < _tol &&
+        (_speedCount - _globalCount).abs() < _tol &&
+        (_speedTruth - _globalTruth).abs() < _tol &&
+        (_speedEst - _globalEst).abs() < _tol;
+    bool _rateOk = (_rateSse - _globalSse).abs() < _tol &&
+        (_rateCount - _globalCount).abs() < _tol &&
+        (_rateTruth - _globalTruth).abs() < _tol &&
+        (_rateEst - _globalEst).abs() < _tol;
+
+    // Recompute RMSE and bias from global numerators for sanity check.
+    final double _recomputedRmse = math.sqrt(_globalSse / _globalCount);
+    final double _recomputedBias = (_globalEst - _globalTruth) / _globalTruth * 100.0;
+    bool _rmseMatch = (_recomputedRmse - dOpt.rmse).abs() < _tol;
+    bool _biasMatch = (_recomputedBias - dOpt.signedBiasPercent).abs() < _tol;
+
+    // Gather JSON report.
+    final commitSha = Process.runSync('git', ['rev-parse', 'HEAD']).stdout.toString().trim();
+    final report = {
+      'schemaVersion': '1.0',
+      'commitSha': commitSha,
+      'global': {
+        'sse': _globalSse,
+        'count': _globalCount,
+        'truthDist': _globalTruth,
+        'estDist': _globalEst,
+        'rmse': _recomputedRmse,
+        'biasPercent': _recomputedBias,
+      },
+      'stratifications': {
+        'noise': {
+          'sse': _noiseSse,
+          'count': _noiseCount,
+          'truthDist': _noiseTruth,
+          'estDist': _noiseEst,
+        },
+        'speed': {
+          'sse': _speedSse,
+          'count': _speedCount,
+          'truthDist': _speedTruth,
+          'estDist': _speedEst,
+        },
+        'rate': {
+          'sse': _rateSse,
+          'count': _rateCount,
+          'truthDist': _rateTruth,
+          'estDist': _rateEst,
+        },
+      },
+      'invariants': {
+        'noiseMatch': _noiseOk,
+        'speedMatch': _speedOk,
+        'rateMatch': _rateOk,
+        'rmseMatch': _rmseMatch,
+        'biasMatch': _biasMatch,
+      },
+    };
+    // Ensure artifact directory exists.
+    final artifactDir = Directory('test/artifacts');
+    if (!artifactDir.existsSync()) artifactDir.createSync(recursive: true);
+    File('test/artifacts/metric_accumulator_report.json')
+        .writeAsStringSync(JsonEncoder.withIndent('  ').convert(report));
+    // Emit summary for debugging.
+    print('--- MetricAccumulator verification completed. Invariants: noise=$_noiseOk, speed=$_speedOk, rate=$_rateOk, rmse=$_rmseMatch, bias=$_biasMatch');
+
 
       // Assert Frozen Baselines Integrity (Task 1)
       expect((d.rmse - 16.37).abs(), lessThan(0.2), reason: 'Config D baseline RMSE must remain 16.37m');
