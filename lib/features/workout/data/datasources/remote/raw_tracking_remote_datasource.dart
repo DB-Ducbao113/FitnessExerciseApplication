@@ -48,6 +48,20 @@ class RawGpsPointPayload {
       'device_source': deviceSource,
     };
   }
+
+  factory RawGpsPointPayload.fromJson(Map<String, dynamic> json) {
+    return RawGpsPointPayload(
+      workoutId: (json['workout_id'] ?? json['sessionId'] ?? '') as String,
+      timestamp: DateTime.parse(json['timestamp'] as String).toUtc(),
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      altitude: (json['altitude'] as num?)?.toDouble(),
+      speed: (json['speed'] as num?)?.toDouble(),
+      accuracy: (json['accuracy'] as num?)?.toDouble(),
+      heading: (json['heading'] as num?)?.toDouble(),
+      deviceSource: json['device_source'] as String?,
+    );
+  }
 }
 
 class RawStepIntervalPayload {
@@ -112,6 +126,47 @@ class RawTrackingRemoteDataSource {
         .from(DbTables.rawGpsPoints)
         .count(CountOption.exact)
         .eq('workout_id', workoutId);
+  }
+
+  /// Fetches a paginated batch of raw GPS points for [workoutId], ordered by timestamp ascending.
+  Future<List<RawGpsPointPayload>> fetchRawGpsPointsPaged(
+    String workoutId, {
+    int offset = 0,
+    int limit = 1000,
+  }) async {
+    final response = await _supabase
+        .from(DbTables.rawGpsPoints)
+        .select()
+        .eq('workout_id', workoutId)
+        .order('timestamp', ascending: true)
+        .order('latitude', ascending: true)
+        .order('longitude', ascending: true)
+        .range(offset, offset + limit - 1);
+
+    final list = response as List;
+    return list
+        .map((row) => RawGpsPointPayload.fromJson(row as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// Fetches all raw GPS points for [workoutId] by paging through the database.
+  Future<List<RawGpsPointPayload>> fetchAllRawGpsPoints(
+    String workoutId, {
+    int pageSize = 1000,
+  }) async {
+    final allPoints = <RawGpsPointPayload>[];
+    var offset = 0;
+    while (true) {
+      final page = await fetchRawGpsPointsPaged(
+        workoutId,
+        offset: offset,
+        limit: pageSize,
+      );
+      allPoints.addAll(page);
+      if (page.length < pageSize) break;
+      offset += page.length;
+    }
+    return allPoints;
   }
 
   Future<void> _insertChunked({
