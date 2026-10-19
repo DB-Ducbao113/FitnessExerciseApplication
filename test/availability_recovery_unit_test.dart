@@ -562,4 +562,255 @@ void main() {
       expect(outGuarded.state, equals(GpsRecoveryState.s0NormalTracking));
     });
   });
+
+  group('TASK 2 — Trust Semantics & State x Decision Classification Tests', () {
+    test('11. Accepted measurement in S0: updates EKF and commits distance directly', () {
+      final fsm = GpsRecoveryStateMachine();
+      final acc = AvailabilityRecoveryAccumulator();
+      final p0 = const LatLng(10.738082, 106.625303);
+
+      // Init
+      final outInit = fsm.processMeasurement(
+        point: p0,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+        hasAuxiliarySensors: true,
+      );
+      acc.recordStep(result: outInit, dt: 1.0, timestamp: baseTime);
+
+      // Clean measurement
+      final p1 = distance.offset(p0, 5.0, 90.0);
+      final t1 = baseTime.add(const Duration(seconds: 1));
+      final out1 = fsm.processMeasurement(
+        point: p1,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 1.0,
+        timestamp: t1,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+        hasAuxiliarySensors: true,
+      );
+      acc.recordStep(result: out1, dt: 1.0, timestamp: t1);
+
+      expect(out1.state, equals(GpsRecoveryState.s0NormalTracking));
+      expect(out1.decision, equals(EkfMeasurementDecision.normal));
+      expect(out1.addedDistanceMeters, closeTo(5.0, 0.5));
+      expect(out1.escrowDistanceMeters, equals(0.0));
+
+      final avail = acc.computeOperationalAvailability();
+      expect(avail.s0NormalStateOccupancyCount, equals(2));
+      expect(avail.s0MeasurementValidatedCount, equals(2));
+      expect(avail.s0PredictOnlyCount, equals(0));
+    });
+
+    test('12. Rejected measurement while FSM remains S0: predict-only step without measurement admittance', () {
+      final fsm = GpsRecoveryStateMachine();
+      final acc = AvailabilityRecoveryAccumulator();
+      final p0 = const LatLng(10.738082, 106.625303);
+
+      // Init
+      final out0 = fsm.processMeasurement(
+        point: p0,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+        hasAuxiliarySensors: true,
+      );
+      acc.recordStep(result: out0, dt: 1.0, timestamp: baseTime);
+
+      // Outlier measurement: 55m jump with accuracy 4.0m -> NIS >> 13.816 -> rejection
+      final pSpike = distance.offset(p0, 55.0, 45.0);
+      final t1 = baseTime.add(const Duration(seconds: 1));
+      final outSpike = fsm.processMeasurement(
+        point: pSpike,
+        accuracyMeters: 4.0,
+        timeDeltaSec: 1.0,
+        timestamp: t1,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+        hasAuxiliarySensors: true,
+      );
+      acc.recordStep(result: outSpike, dt: 1.0, timestamp: t1);
+
+      // State is S0, BUT measurement decision is REJECTED
+      expect(outSpike.state, equals(GpsRecoveryState.s0NormalTracking));
+      expect(outSpike.decision, equals(EkfMeasurementDecision.rejected));
+      expect(outSpike.consecutiveRejections, equals(1));
+
+      // Emitted position is inertial prediction, NOT the 55m spike!
+      final distToTruthInertial = distance.as(
+        LengthUnit.Meter,
+        outSpike.estimatedPosition,
+        distance.offset(p0, 5.0, 90.0),
+      );
+      expect(distToTruthInertial, lessThan(2.0));
+      expect(outSpike.addedDistanceMeters, closeTo(5.0, 1.5)); // Inertial step
+
+      final avail = acc.computeOperationalAvailability();
+      expect(avail.s0NormalStateOccupancyCount, equals(2));
+      expect(avail.s0MeasurementValidatedCount, equals(1)); // Only out0 was admitted
+      expect(avail.s0PredictOnlyCount, equals(1)); // outSpike was predict-only
+    });
+
+    test('13. S0 Provisional Escrow: tentative distance held in escrow until validated', () {
+      final fsm = GpsRecoveryStateMachine();
+      final acc = AvailabilityRecoveryAccumulator();
+      var pos = const LatLng(10.738082, 106.625303);
+
+      // Init
+      fsm.processMeasurement(
+        point: pos,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+        hasAuxiliarySensors: false,
+      );
+
+      // Force S2 loss
+      fsm.processMeasurement(
+        point: pos,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 5.0,
+        timestamp: baseTime.add(const Duration(seconds: 5)),
+        hasAuxiliarySensors: false,
+      );
+
+      // Re-anchor through S3 (3 candidates)
+      for (int i = 1; i <= 3; i++) {
+        pos = distance.offset(pos, 5.0, 90.0);
+        fsm.processMeasurement(
+          point: pos,
+          accuracyMeters: 5.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 5 + i)),
+          hasAuxiliarySensors: false,
+        );
+      }
+
+      // S5 probation (3 fixes) without auxiliary sensors
+      GpsRecoveryFsmResult? outProb;
+      for (int i = 4; i <= 6; i++) {
+        pos = distance.offset(pos, 5.0, 90.0);
+        outProb = fsm.processMeasurement(
+          point: pos,
+          accuracyMeters: 4.0,
+          timeDeltaSec: 1.0,
+          timestamp: baseTime.add(Duration(seconds: 5 + i)),
+          hasAuxiliarySensors: false,
+        );
+      }
+
+      // Enters S0 Provisional
+      expect(outProb!.state, equals(GpsRecoveryState.s0Provisional));
+      expect(outProb.escrowDistanceMeters, greaterThan(0.0));
+
+      // Provisional step: measurement admitted with 4x variance, tentative step added to escrow
+      pos = distance.offset(pos, 5.0, 90.0);
+      final tProv = baseTime.add(const Duration(seconds: 12));
+      final outProv = fsm.processMeasurement(
+        point: pos,
+        accuracyMeters: 4.0,
+        timeDeltaSec: 1.0,
+        timestamp: tProv,
+        hasAuxiliarySensors: false,
+      );
+      acc.recordStep(result: outProv, dt: 1.0, timestamp: tProv);
+
+      expect(outProv.state, equals(GpsRecoveryState.s0Provisional));
+      expect(outProv.decision, equals(EkfMeasurementDecision.normal));
+      expect(outProv.addedDistanceMeters, equals(0.0)); // Uncommitted
+      expect(outProv.escrowDistanceMeters, greaterThan(0.0)); // Held in escrow
+    });
+
+    test('14. S3 Candidate Buffering: fixes buffered without EKF admittance or distance', () {
+      final fsm = GpsRecoveryStateMachine();
+      final p0 = const LatLng(10.738082, 106.625303);
+
+      fsm.processMeasurement(
+        point: p0,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime,
+      );
+      fsm.processMeasurement(
+        point: p0,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 5.0,
+        timestamp: baseTime.add(const Duration(seconds: 5)),
+      );
+      expect(fsm.state, equals(GpsRecoveryState.s2LossOfLock));
+
+      final pCand = distance.offset(p0, 6.0, 90.0);
+      final outCand = fsm.processMeasurement(
+        point: pCand,
+        accuracyMeters: 5.0,
+        timeDeltaSec: 1.0,
+        timestamp: baseTime.add(const Duration(seconds: 6)),
+      );
+
+      expect(outCand.state, equals(GpsRecoveryState.s3CandidateReacquisition));
+      expect(outCand.isCandidateBuffered, isTrue);
+      expect(outCand.candidateCount, equals(1));
+      expect(outCand.addedDistanceMeters, equals(0.0));
+      expect(outCand.totalAccumulatedDistanceMeters, equals(0.0));
+    });
+
+    test('15. State x Decision matrix reconciliation invariants', () {
+      final acc = AvailabilityRecoveryAccumulator();
+      final fsm = GpsRecoveryStateMachine();
+
+      var pos = const LatLng(10.738082, 106.625303);
+
+      // 5 normal steps
+      for (int i = 0; i < 5; i++) {
+        pos = distance.offset(pos, 5.0, 90.0);
+        final t = baseTime.add(Duration(seconds: i));
+        final out = fsm.processMeasurement(
+          point: pos,
+          accuracyMeters: 3.0,
+          timeDeltaSec: 1.0,
+          timestamp: t,
+          speedMs: 5.0,
+          headingDeg: 90.0,
+          hasAuxiliarySensors: true,
+        );
+        acc.recordStep(result: out, dt: 1.0, timestamp: t);
+      }
+
+      // 1 isolated spike in S0
+      final spikePos = distance.offset(pos, 60.0, 0.0);
+      final tSpike = baseTime.add(const Duration(seconds: 5));
+      final outSpike = fsm.processMeasurement(
+        point: spikePos,
+        accuracyMeters: 3.0,
+        timeDeltaSec: 1.0,
+        timestamp: tSpike,
+        speedMs: 5.0,
+        headingDeg: 90.0,
+        hasAuxiliarySensors: true,
+      );
+      acc.recordStep(result: outSpike, dt: 1.0, timestamp: tSpike);
+
+      acc.finalizeScenario();
+
+      final avail = acc.computeOperationalAvailability();
+      final residuals = acc.computeReconciliationResiduals();
+
+      expect(residuals.allInvariantsHold, isTrue);
+      expect(residuals.s0ValidationResidual, equals(0));
+      expect(avail.s0NormalStateOccupancyCount, equals(6));
+      expect(avail.s0MeasurementValidatedCount, equals(5));
+      expect(avail.s0PredictOnlyCount, equals(1));
+      expect(
+        avail.s0MeasurementValidatedCount + avail.s0PredictOnlyCount,
+        equals(avail.s0NormalStateOccupancyCount),
+      );
+    });
+  });
 }
+

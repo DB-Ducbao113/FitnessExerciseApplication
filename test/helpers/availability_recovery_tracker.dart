@@ -32,12 +32,18 @@ class MeasurementAcceptance {
   final int rejectedMeasurementCount;
   final int bufferedCandidateCount;
   final int provisionalMeasurementCount;
+  final int admittedToEkfCount;
+  final int cleanFixCount;
+  final int downweightedFixCount;
 
   const MeasurementAcceptance({
     required this.acceptedMeasurementCount,
     required this.rejectedMeasurementCount,
     required this.bufferedCandidateCount,
     required this.provisionalMeasurementCount,
+    required this.admittedToEkfCount,
+    required this.cleanFixCount,
+    required this.downweightedFixCount,
   });
 
   Map<String, dynamic> toJson() => {
@@ -45,6 +51,9 @@ class MeasurementAcceptance {
         'rejectedMeasurementCount': rejectedMeasurementCount,
         'bufferedCandidateCount': bufferedCandidateCount,
         'provisionalMeasurementCount': provisionalMeasurementCount,
+        'admittedToEkfCount': admittedToEkfCount,
+        'cleanFixCount': cleanFixCount,
+        'downweightedFixCount': downweightedFixCount,
       };
 }
 
@@ -124,48 +133,82 @@ class FsmStateOccupancy {
       };
 }
 
-/// Operational Tracking Availability metrics distinguishing legacy, trusted, and provisional tracking.
+/// Operational Tracking Availability metrics distinguishing legacy, FSM state occupancy,
+/// measurement-validated tracking, and position output.
 class OperationalTrackingAvailability {
-  final int trustedOperationalCount;
+  final int trustedOperationalCount; // Backward compatibility alias to s0NormalCount
+  final int s0NormalStateOccupancyCount;
+  final int s0MeasurementValidatedCount;
+  final int s0PredictOnlyCount;
   final int untrustedOrProvisionalCount;
   final int unavailableCount;
   final int positionOutputAvailableCount;
   final int legacyAvailableCount;
+  final int directCommittedDistanceCount;
+  final int measurementAnchoredDistanceCount;
 
   final double legacyAvailabilityPercent;
-  final double trustedOperationalAvailabilityPercent;
+  final double s0NormalStateOccupancyPercent;
+  final double trustedOperationalAvailabilityPercent; // Backward compatibility alias to s0NormalStateOccupancyPercent
+  final double measurementValidatedTrustedPercent;
+  final double s0PredictOnlyPercent;
   final double positionOutputAvailabilityPercent;
-  final double trustedDistanceAccountingAvailabilityPercent;
+  final double directCommittedDistancePercent;
+  final double measurementAnchoredDistancePercent;
   final double measurementAcceptanceRatePercent;
-  final double gapDeltaPercent;
+  final double gapDeltaPercent; // Legacy minus S0 state occupancy
+  final double measurementValidationGapDeltaPercent; // Legacy minus Measurement-validated
+
+  final Map<String, int> stateDecisionMatrix;
 
   const OperationalTrackingAvailability({
     required this.trustedOperationalCount,
+    required this.s0NormalStateOccupancyCount,
+    required this.s0MeasurementValidatedCount,
+    required this.s0PredictOnlyCount,
     required this.untrustedOrProvisionalCount,
     required this.unavailableCount,
     required this.positionOutputAvailableCount,
     required this.legacyAvailableCount,
+    required this.directCommittedDistanceCount,
+    required this.measurementAnchoredDistanceCount,
     required this.legacyAvailabilityPercent,
+    required this.s0NormalStateOccupancyPercent,
     required this.trustedOperationalAvailabilityPercent,
+    required this.measurementValidatedTrustedPercent,
+    required this.s0PredictOnlyPercent,
     required this.positionOutputAvailabilityPercent,
-    required this.trustedDistanceAccountingAvailabilityPercent,
+    required this.directCommittedDistancePercent,
+    required this.measurementAnchoredDistancePercent,
     required this.measurementAcceptanceRatePercent,
     required this.gapDeltaPercent,
+    required this.measurementValidationGapDeltaPercent,
+    required this.stateDecisionMatrix,
   });
 
   Map<String, dynamic> toJson() => {
         'trustedOperationalCount': trustedOperationalCount,
+        's0NormalStateOccupancyCount': s0NormalStateOccupancyCount,
+        's0MeasurementValidatedCount': s0MeasurementValidatedCount,
+        's0PredictOnlyCount': s0PredictOnlyCount,
         'untrustedOrProvisionalCount': untrustedOrProvisionalCount,
         'unavailableCount': unavailableCount,
         'positionOutputAvailableCount': positionOutputAvailableCount,
         'legacyAvailableCount': legacyAvailableCount,
+        'directCommittedDistanceCount': directCommittedDistanceCount,
+        'measurementAnchoredDistanceCount': measurementAnchoredDistanceCount,
         'legacyAvailabilityPercent': legacyAvailabilityPercent,
+        's0NormalStateOccupancyPercent': s0NormalStateOccupancyPercent,
         'trustedOperationalAvailabilityPercent': trustedOperationalAvailabilityPercent,
+        'measurementValidatedTrustedPercent': measurementValidatedTrustedPercent,
+        's0PredictOnlyPercent': s0PredictOnlyPercent,
         'positionOutputAvailabilityPercent': positionOutputAvailabilityPercent,
-        'trustedDistanceAccountingAvailabilityPercent':
-            trustedDistanceAccountingAvailabilityPercent,
+        'directCommittedDistancePercent': directCommittedDistancePercent,
+        'measurementAnchoredDistancePercent': measurementAnchoredDistancePercent,
         'measurementAcceptanceRatePercent': measurementAcceptanceRatePercent,
         'gapDeltaPercent': gapDeltaPercent,
+        'measurementValidationGapDeltaPercent': measurementValidationGapDeltaPercent,
+        'stateDecisionMatrix': stateDecisionMatrix,
       };
 }
 
@@ -209,6 +252,7 @@ class ReconciliationResiduals {
   final int processingResidual;
   final int stateOccupancyResidual;
   final int availabilityPartitionResidual;
+  final int s0ValidationResidual;
   final int recoveryEventResidual;
   final bool allInvariantsHold;
 
@@ -217,6 +261,7 @@ class ReconciliationResiduals {
     required this.processingResidual,
     required this.stateOccupancyResidual,
     required this.availabilityPartitionResidual,
+    required this.s0ValidationResidual,
     required this.recoveryEventResidual,
     required this.allInvariantsHold,
   });
@@ -226,6 +271,7 @@ class ReconciliationResiduals {
         'processingResidual': processingResidual,
         'stateOccupancyResidual': stateOccupancyResidual,
         'availabilityPartitionResidual': availabilityPartitionResidual,
+        's0ValidationResidual': s0ValidationResidual,
         'recoveryEventResidual': recoveryEventResidual,
         'allInvariantsHold': allInvariantsHold,
       };
@@ -243,8 +289,14 @@ class AvailabilityRecoveryAccumulator {
   int rejectedMeasurementCount = 0;
   int bufferedCandidateCount = 0;
   int provisionalMeasurementCount = 0;
+  int cleanFixCount = 0;
+  int downweightedFixCount = 0;
 
   int s0NormalCount = 0;
+  int s0NormalCleanCount = 0;
+  int s0NormalDownweightedCount = 0;
+  int s0NormalRejectedCount = 0;
+
   int s0ProvisionalCount = 0;
   int s1DegradedCount = 0;
   int s2LossCount = 0;
@@ -252,6 +304,8 @@ class AvailabilityRecoveryAccumulator {
   int s4ValidatedCount = 0;
   int s5ProbationCount = 0;
   int transitionCount = 0;
+
+  final Map<String, int> stateDecisionCounts = {};
 
   double timeInS0NormalSec = 0.0;
   double timeInS0ProvisionalSec = 0.0;
@@ -279,6 +333,10 @@ class AvailabilityRecoveryAccumulator {
     receivedCount++;
     processedCount++;
 
+    // State x Decision matrix
+    final key = '${result.state.name} x ${result.decision.name}';
+    stateDecisionCounts[key] = (stateDecisionCounts[key] ?? 0) + 1;
+
     // Transition tracking
     if (_lastState != null && result.state != _lastState) {
       transitionCount++;
@@ -289,6 +347,13 @@ class AvailabilityRecoveryAccumulator {
       case GpsRecoveryState.s0NormalTracking:
         s0NormalCount++;
         timeInS0NormalSec += dt;
+        if (result.decision == EkfMeasurementDecision.normal) {
+          s0NormalCleanCount++;
+        } else if (result.decision == EkfMeasurementDecision.downWeighted) {
+          s0NormalDownweightedCount++;
+        } else {
+          s0NormalRejectedCount++;
+        }
         break;
       case GpsRecoveryState.s0Provisional:
         s0ProvisionalCount++;
@@ -321,11 +386,16 @@ class AvailabilityRecoveryAccumulator {
         break;
     }
 
-    // Measurement acceptance
+    // Measurement acceptance & decisions
     if (result.decision == EkfMeasurementDecision.rejected) {
       rejectedMeasurementCount++;
     } else {
       acceptedMeasurementCount++;
+      if (result.decision == EkfMeasurementDecision.normal) {
+        cleanFixCount++;
+      } else if (result.decision == EkfMeasurementDecision.downWeighted) {
+        downweightedFixCount++;
+      }
     }
 
     if (result.isCandidateBuffered) {
@@ -372,8 +442,14 @@ class AvailabilityRecoveryAccumulator {
     rejectedMeasurementCount += other.rejectedMeasurementCount;
     bufferedCandidateCount += other.bufferedCandidateCount;
     provisionalMeasurementCount += other.provisionalMeasurementCount;
+    cleanFixCount += other.cleanFixCount;
+    downweightedFixCount += other.downweightedFixCount;
 
     s0NormalCount += other.s0NormalCount;
+    s0NormalCleanCount += other.s0NormalCleanCount;
+    s0NormalDownweightedCount += other.s0NormalDownweightedCount;
+    s0NormalRejectedCount += other.s0NormalRejectedCount;
+
     s0ProvisionalCount += other.s0ProvisionalCount;
     s1DegradedCount += other.s1DegradedCount;
     s2LossCount += other.s2LossCount;
@@ -395,6 +471,11 @@ class AvailabilityRecoveryAccumulator {
     unresolvedEventCount += other.unresolvedEventCount;
     latencies.addAll(other.latencies);
     totalUnavailableDurationSec += other.totalUnavailableDurationSec;
+
+    for (final entry in other.stateDecisionCounts.entries) {
+      stateDecisionCounts[entry.key] =
+          (stateDecisionCounts[entry.key] ?? 0) + entry.value;
+    }
   }
 
   InputAccounting computeInputAccounting() {
@@ -408,11 +489,22 @@ class AvailabilityRecoveryAccumulator {
   }
 
   MeasurementAcceptance computeMeasurementAcceptance() {
+    // Admitted to active EKF filter: S0 admitted + S0 Prov admitted + S5 admitted
+    final s0Admitted = s0NormalCleanCount + s0NormalDownweightedCount;
+    final provAdmitted = (stateDecisionCounts['s0Provisional x normal'] ?? 0) +
+        (stateDecisionCounts['s0Provisional x downWeighted'] ?? 0);
+    final s5Admitted = (stateDecisionCounts['s5SafeReset x normal'] ?? 0) +
+        (stateDecisionCounts['s5SafeReset x downWeighted'] ?? 0);
+    final totalAdmittedToEkf = s0Admitted + provAdmitted + s5Admitted;
+
     return MeasurementAcceptance(
       acceptedMeasurementCount: acceptedMeasurementCount,
       rejectedMeasurementCount: rejectedMeasurementCount,
       bufferedCandidateCount: bufferedCandidateCount,
       provisionalMeasurementCount: provisionalMeasurementCount,
+      admittedToEkfCount: totalAdmittedToEkf,
+      cleanFixCount: cleanFixCount,
+      downweightedFixCount: downweightedFixCount,
     );
   }
 
@@ -437,33 +529,52 @@ class AvailabilityRecoveryAccumulator {
   }
 
   OperationalTrackingAvailability computeOperationalAvailability() {
-    final trusted = s0NormalCount;
-    final provisional = s0ProvisionalCount + s1DegradedCount + s5ProbationCount;
-    final unavailable = s2LossCount + s3ReacquisitionCount + s4ValidatedCount;
-    final positionOutput = trusted + provisional;
-    final legacy = scheduledCount - s2LossCount;
-
     final denom = scheduledCount > 0 ? scheduledCount.toDouble() : 1.0;
 
+    final s0StateOccupancy = s0NormalCount;
+    final s0MeasurementValidated = s0NormalCleanCount + s0NormalDownweightedCount;
+    final s0PredictOnly = s0NormalRejectedCount;
+
+    final provisional = s0ProvisionalCount + s1DegradedCount + s5ProbationCount;
+    final unavailable = s2LossCount + s3ReacquisitionCount + s4ValidatedCount;
+    final positionOutput = s0StateOccupancy + provisional;
+    final legacy = scheduledCount - s2LossCount;
+
     final legacyPct = (legacy / denom) * 100.0;
-    final trustedPct = (trusted / denom) * 100.0;
+    final s0OccupancyPct = (s0StateOccupancy / denom) * 100.0;
+    final measValidatedPct = (s0MeasurementValidated / denom) * 100.0;
+    final s0PredictOnlyPct = (s0PredictOnly / denom) * 100.0;
     final posOutputPct = (positionOutput / denom) * 100.0;
-    final trustedDistPct = (trusted / denom) * 100.0;
+    final directDistPct = (s0StateOccupancy / denom) * 100.0;
+    final measAnchoredDistPct = (s0MeasurementValidated / denom) * 100.0;
     final acceptRatePct = (acceptedMeasurementCount / denom) * 100.0;
-    final gapDeltaPct = legacyPct - trustedPct;
+
+    final gapDeltaPct = legacyPct - s0OccupancyPct;
+    final measValGapPct = legacyPct - measValidatedPct;
 
     return OperationalTrackingAvailability(
-      trustedOperationalCount: trusted,
+      trustedOperationalCount: s0StateOccupancy,
+      s0NormalStateOccupancyCount: s0StateOccupancy,
+      s0MeasurementValidatedCount: s0MeasurementValidated,
+      s0PredictOnlyCount: s0PredictOnly,
       untrustedOrProvisionalCount: provisional,
       unavailableCount: unavailable,
       positionOutputAvailableCount: positionOutput,
       legacyAvailableCount: legacy,
+      directCommittedDistanceCount: s0StateOccupancy,
+      measurementAnchoredDistanceCount: s0MeasurementValidated,
       legacyAvailabilityPercent: legacyPct,
-      trustedOperationalAvailabilityPercent: trustedPct,
+      s0NormalStateOccupancyPercent: s0OccupancyPct,
+      trustedOperationalAvailabilityPercent: s0OccupancyPct,
+      measurementValidatedTrustedPercent: measValidatedPct,
+      s0PredictOnlyPercent: s0PredictOnlyPct,
       positionOutputAvailabilityPercent: posOutputPct,
-      trustedDistanceAccountingAvailabilityPercent: trustedDistPct,
+      directCommittedDistancePercent: directDistPct,
+      measurementAnchoredDistancePercent: measAnchoredDistPct,
       measurementAcceptanceRatePercent: acceptRatePct,
       gapDeltaPercent: gapDeltaPct,
+      measurementValidationGapDeltaPercent: measValGapPct,
+      stateDecisionMatrix: Map.unmodifiable(stateDecisionCounts),
     );
   }
 
@@ -504,6 +615,8 @@ class AvailabilityRecoveryAccumulator {
         (s0NormalCount +
             (s0ProvisionalCount + s1DegradedCount + s5ProbationCount) +
             (s2LossCount + s3ReacquisitionCount + s4ValidatedCount));
+    final s0Res = s0NormalCount -
+        (s0NormalCleanCount + s0NormalDownweightedCount + s0NormalRejectedCount);
     final recRes = lossOfLockEventCount -
         (recoveredEventCount + unresolvedEventCount);
 
@@ -511,6 +624,7 @@ class AvailabilityRecoveryAccumulator {
         procRes == 0 &&
         stateRes == 0 &&
         availRes == 0 &&
+        s0Res == 0 &&
         recRes == 0 &&
         totalUnavailableDurationSec >= 0.0;
 
@@ -519,6 +633,7 @@ class AvailabilityRecoveryAccumulator {
       processingResidual: procRes,
       stateOccupancyResidual: stateRes,
       availabilityPartitionResidual: availRes,
+      s0ValidationResidual: s0Res,
       recoveryEventResidual: recRes,
       allInvariantsHold: holds,
     );
