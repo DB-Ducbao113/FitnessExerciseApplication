@@ -1,7 +1,7 @@
 {
   "schema_version": "aetron.phase5.task2.availability_recovery.v1",
-  "generated_at": "2026-10-19T03:19:27.016843Z",
-  "git_commit": "7ef5b04d614bf62feb0c65cb1e2616c276c3afd0",
+  "generated_at": "2026-10-19T04:26:15.795377Z",
+  "git_commit": "3debccced0d69ac4c0438d15fd2819fe89d40e11",
   "metric_definitions": {
     "scheduledCount": "Total scheduled sample epochs over 108 scenarios (75,600 total).",
     "legacyAvailabilityPercent": "Historical metric: (scheduledCount - s2LossCount) / scheduledCount.",
