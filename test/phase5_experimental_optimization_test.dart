@@ -1,5 +1,6 @@
-// ignore_for_file: avoid_print, no_leading_underscores_for_local_identifiers
+// ignore_for_file: avoid_print
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
@@ -7,14 +8,12 @@ import 'package:fitness_exercise_application/features/workout/domain/services/ek
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/gps_recovery_state_machine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:io';
 
 import 'helpers/experimental_gps_recovery_state_machine.dart';
+import 'helpers/metric_accumulator.dart';
 import 'helpers/milestone_2a_release_gate.dart';
 
-
-
-import 'helpers/metric_accumulator.dart';
+const Distance _distance = Distance();
 
 
 const _route = <LatLng>[
@@ -240,6 +239,16 @@ void main() {
 
       final configSummaries = <String, ConfigBenchmarkSummary>{};
 
+      // Immutable snapshot of D+Opt global metrics captured inside its iteration
+      ({
+        double sse,
+        int count,
+        double truthDist,
+        double estDist,
+        double rmse,
+        double signedBiasPercent,
+      })? dOptSnapshot;
+
       for (final cfg in configs) {
         double sumSqErr = 0.0;
         final allErrors = <double>[];
@@ -419,6 +428,18 @@ void main() {
           outputHash: digest,
           scenarioResults: scenarioResults,
         );
+        // Capture immutable snapshot for D+Opt only
+        if (cfg.id == 'DOpt') {
+          dOptSnapshot = (
+            sse: sumSqErr,
+            count: totalScheduledPoints,
+            truthDist: totalTruthDist,
+            estDist: totalAccum,
+            rmse: rmse,
+            signedBiasPercent: signedBias,
+          );
+        }
+
         // Track total scheduled points for later checks
         configScheduledPoints[cfg.id] = totalScheduledPoints;
       }
@@ -450,7 +471,7 @@ void main() {
         final count = noiseAcc[n.name]?.sumCount ?? 0;
         final rmse = count > 0 ? math.sqrt(sqErr / count) : 0.0;
         final truthDist = noiseAcc[n.name]?.sumTruthDist ?? 0.0;
-        final bias = truthDist > 0 ? (noiseAcc[n.name]?.sumEstDist ?? 0.0) / truthDist * 100.0 : 0.0;
+        final bias = truthDist > 0 ? ((noiseAcc[n.name]?.sumEstDist ?? 0.0) - truthDist) / truthDist * 100.0 : 0.0;
         print('   - ${n.name.padRight(32)}: RMSE = ${rmse.toStringAsFixed(2)} m | Signed Bias = ${bias >= 0 ? "+" : ""}${bias.toStringAsFixed(2)}%');
       }
 
@@ -512,113 +533,257 @@ void main() {
       );
       gateEvaluation.printReport();
 
-    // ---------- Stratification verification & JSON evidence ----------
-    // Capture global metrics computed earlier in this test scope.
-    final double _globalSse = sumSqErr;
-    final int _globalCount = totalScheduledPoints;
-    final double _globalTruth = totalTruthDist;
-    final double _globalEst = totalAccum;
+      // ---------- Stratification verification & JSON evidence ----------
+      expect(dOptSnapshot, isNotNull, reason: 'D+Opt metrics snapshot must be captured during benchmark iteration');
+      final dOptMetrics = dOptSnapshot!;
 
-    // Aggregate per‑group metrics for each stratification.
-    double _noiseSse = 0.0;
-    int _noiseCount = 0;
-    double _noiseTruth = 0.0;
-    double _noiseEst = 0.0;
-    for (final acc in noiseAcc.values) {
-      _noiseSse += acc.sumSqErr;
-      _noiseCount += acc.sumCount;
-      _noiseTruth += acc.sumTruthDist;
-      _noiseEst += acc.sumEstDist;
-    }
-    double _speedSse = 0.0;
-    int _speedCount = 0;
-    double _speedTruth = 0.0;
-    double _speedEst = 0.0;
-    for (final acc in speedAcc.values) {
-      _speedSse += acc.sumSqErr;
-      _speedCount += acc.sumCount;
-      _speedTruth += acc.sumTruthDist;
-      _speedEst += acc.sumEstDist;
-    }
-    double _rateSse = 0.0;
-    int _rateCount = 0;
-    double _rateTruth = 0.0;
-    double _rateEst = 0.0;
-    for (final acc in rateAcc.values) {
-      _rateSse += acc.sumSqErr;
-      _rateCount += acc.sumCount;
-      _rateTruth += acc.sumTruthDist;
-      _rateEst += acc.sumEstDist;
-    }
+      final double globalSse = dOptMetrics.sse;
+      final int globalCount = dOptMetrics.count;
+      final double globalTruth = dOptMetrics.truthDist;
+      final double globalEst = dOptMetrics.estDist;
+      final double globalRmse = dOptMetrics.rmse;
+      final double globalRmseSq = globalSse / globalCount;
+      final double globalBias = dOptMetrics.signedBiasPercent;
 
-    const double _tol = 1e-6;
-    bool _noiseOk = (_noiseSse - _globalSse).abs() < _tol &&
-        (_noiseCount - _globalCount).abs() < _tol &&
-        (_noiseTruth - _globalTruth).abs() < _tol &&
-        (_noiseEst - _globalEst).abs() < _tol;
-    bool _speedOk = (_speedSse - _globalSse).abs() < _tol &&
-        (_speedCount - _globalCount).abs() < _tol &&
-        (_speedTruth - _globalTruth).abs() < _tol &&
-        (_speedEst - _globalEst).abs() < _tol;
-    bool _rateOk = (_rateSse - _globalSse).abs() < _tol &&
-        (_rateCount - _globalCount).abs() < _tol &&
-        (_rateTruth - _globalTruth).abs() < _tol &&
-        (_rateEst - _globalEst).abs() < _tol;
+      // Aggregate per‑group metrics for each stratification.
+      double noiseSse = 0.0;
+      int noiseCount = 0;
+      double noiseTruth = 0.0;
+      double noiseEst = 0.0;
+      final noiseGroups = <String, Map<String, dynamic>>{};
+      for (final n in noiseProfiles) {
+        final acc = noiseAcc[n.name] ?? MetricAccumulator();
+        noiseSse += acc.sumSqErr;
+        noiseCount += acc.sumCount;
+        noiseTruth += acc.sumTruthDist;
+        noiseEst += acc.sumEstDist;
+        noiseGroups[n.name] = {
+          'sse': acc.sumSqErr,
+          'count': acc.sumCount,
+          'truthDist': acc.sumTruthDist,
+          'estDist': acc.sumEstDist,
+          'scenarioCount': acc.scenarioCount,
+          'sampleWeightedRmse': acc.sampleWeightedRMSE(),
+          'scenarioWeightedRmse': acc.scenarioWeightedRMSE(),
+          'biasPercent': acc.biasPercent(totalRouteDist),
+        };
+      }
 
-    // Recompute RMSE and bias from global numerators for sanity check.
-    final double _recomputedRmse = math.sqrt(_globalSse / _globalCount);
-    final double _recomputedBias = (_globalEst - _globalTruth) / _globalTruth * 100.0;
-    bool _rmseMatch = (_recomputedRmse - dOpt.rmse).abs() < _tol;
-    bool _biasMatch = (_recomputedBias - dOpt.signedBiasPercent).abs() < _tol;
+      double speedSse = 0.0;
+      int speedCount = 0;
+      double speedTruth = 0.0;
+      double speedEst = 0.0;
+      final speedGroups = <String, Map<String, dynamic>>{};
+      for (final sp in speeds) {
+        final acc = speedAcc[sp.name] ?? MetricAccumulator();
+        speedSse += acc.sumSqErr;
+        speedCount += acc.sumCount;
+        speedTruth += acc.sumTruthDist;
+        speedEst += acc.sumEstDist;
+        speedGroups[sp.name] = {
+          'sse': acc.sumSqErr,
+          'count': acc.sumCount,
+          'truthDist': acc.sumTruthDist,
+          'estDist': acc.sumEstDist,
+          'scenarioCount': acc.scenarioCount,
+          'sampleWeightedRmse': acc.sampleWeightedRMSE(),
+          'scenarioWeightedRmse': acc.scenarioWeightedRMSE(),
+          'biasPercent': acc.biasPercent(totalRouteDist),
+        };
+      }
 
-    // Gather JSON report.
-    final commitSha = Process.runSync('git', ['rev-parse', 'HEAD']).stdout.toString().trim();
-    final report = {
-      'schemaVersion': '1.0',
-      'commitSha': commitSha,
-      'global': {
-        'sse': _globalSse,
-        'count': _globalCount,
-        'truthDist': _globalTruth,
-        'estDist': _globalEst,
-        'rmse': _recomputedRmse,
-        'biasPercent': _recomputedBias,
-      },
-      'stratifications': {
+      double rateSse = 0.0;
+      int rateCount = 0;
+      double rateTruth = 0.0;
+      double rateEst = 0.0;
+      final rateGroups = <String, Map<String, dynamic>>{};
+      for (final sr in samplingRates) {
+        final acc = rateAcc[sr.name] ?? MetricAccumulator();
+        rateSse += acc.sumSqErr;
+        rateCount += acc.sumCount;
+        rateTruth += acc.sumTruthDist;
+        rateEst += acc.sumEstDist;
+        rateGroups[sr.name] = {
+          'sse': acc.sumSqErr,
+          'count': acc.sumCount,
+          'truthDist': acc.sumTruthDist,
+          'estDist': acc.sumEstDist,
+          'scenarioCount': acc.scenarioCount,
+          'sampleWeightedRmse': acc.sampleWeightedRMSE(),
+          'scenarioWeightedRmse': acc.scenarioWeightedRMSE(),
+          'biasPercent': acc.biasPercent(totalRouteDist),
+        };
+      }
+
+      final double noiseRecomputedRmseSq = noiseSse / noiseCount;
+      final double noiseRecomputedBias = (noiseEst - noiseTruth) / noiseTruth * 100.0;
+      final double speedRecomputedRmseSq = speedSse / speedCount;
+      final double speedRecomputedBias = (speedEst - speedTruth) / speedTruth * 100.0;
+      final double rateRecomputedRmseSq = rateSse / rateCount;
+      final double rateRecomputedBias = (rateEst - rateTruth) / rateTruth * 100.0;
+
+      // Mathematical invariants evaluation
+      const double tol = 1e-4;
+      final bool noiseMatch = (noiseSse - globalSse).abs() < tol &&
+          noiseCount == globalCount &&
+          (noiseTruth - globalTruth).abs() < tol &&
+          (noiseEst - globalEst).abs() < tol;
+
+      final bool speedMatch = (speedSse - globalSse).abs() < tol &&
+          speedCount == globalCount &&
+          (speedTruth - globalTruth).abs() < tol &&
+          (speedEst - globalEst).abs() < tol;
+
+      final bool rateMatch = (rateSse - globalSse).abs() < tol &&
+          rateCount == globalCount &&
+          (rateTruth - globalTruth).abs() < tol &&
+          (rateEst - globalEst).abs() < tol;
+
+      final bool rmseMatch = (noiseRecomputedRmseSq - globalRmseSq).abs() < 1e-6 &&
+          (speedRecomputedRmseSq - globalRmseSq).abs() < 1e-6 &&
+          (rateRecomputedRmseSq - globalRmseSq).abs() < 1e-6;
+
+      final bool biasMatch = (noiseRecomputedBias - globalBias).abs() < 1e-6 &&
+          (speedRecomputedBias - globalBias).abs() < 1e-6 &&
+          (rateRecomputedBias - globalBias).abs() < 1e-6;
+
+      // Residuals calculation
+      final residuals = {
         'noise': {
-          'sse': _noiseSse,
-          'count': _noiseCount,
-          'truthDist': _noiseTruth,
-          'estDist': _noiseEst,
+          'sseResidual': (noiseSse - globalSse).abs(),
+          'countResidual': (noiseCount - globalCount).abs(),
+          'truthDistResidual': (noiseTruth - globalTruth).abs(),
+          'estDistResidual': (noiseEst - globalEst).abs(),
+          'rmseSqResidual': (noiseRecomputedRmseSq - globalRmseSq).abs(),
+          'biasResidual': (noiseRecomputedBias - globalBias).abs(),
         },
         'speed': {
-          'sse': _speedSse,
-          'count': _speedCount,
-          'truthDist': _speedTruth,
-          'estDist': _speedEst,
+          'sseResidual': (speedSse - globalSse).abs(),
+          'countResidual': (speedCount - globalCount).abs(),
+          'truthDistResidual': (speedTruth - globalTruth).abs(),
+          'estDistResidual': (speedEst - globalEst).abs(),
+          'rmseSqResidual': (speedRecomputedRmseSq - globalRmseSq).abs(),
+          'biasResidual': (speedRecomputedBias - globalBias).abs(),
         },
         'rate': {
-          'sse': _rateSse,
-          'count': _rateCount,
-          'truthDist': _rateTruth,
-          'estDist': _rateEst,
+          'sseResidual': (rateSse - globalSse).abs(),
+          'countResidual': (rateCount - globalCount).abs(),
+          'truthDistResidual': (rateTruth - globalTruth).abs(),
+          'estDistResidual': (rateEst - globalEst).abs(),
+          'rmseSqResidual': (rateRecomputedRmseSq - globalRmseSq).abs(),
+          'biasResidual': (rateRecomputedBias - globalBias).abs(),
         },
-      },
-      'invariants': {
-        'noiseMatch': _noiseOk,
-        'speedMatch': _speedOk,
-        'rateMatch': _rateOk,
-        'rmseMatch': _rmseMatch,
-        'biasMatch': _biasMatch,
-      },
-    };
-    // Ensure artifact directory exists.
-    final artifactDir = Directory('test/artifacts');
-    if (!artifactDir.existsSync()) artifactDir.createSync(recursive: true);
-    File('test/artifacts/metric_accumulator_report.json')
-        .writeAsStringSync(JsonEncoder.withIndent('  ').convert(report));
-    // Emit summary for debugging.
-    print('--- MetricAccumulator verification completed. Invariants: noise=$_noiseOk, speed=$_speedOk, rate=$_rateOk, rmse=$_rmseMatch, bias=$_biasMatch');
+      };
+
+      // Gather JSON report.
+      String commitSha;
+      try {
+        final result = Process.runSync('git', ['rev-parse', 'HEAD']);
+        if (result.exitCode == 0) {
+          commitSha = result.stdout.toString().trim();
+        } else {
+          commitSha = Platform.environment['GITHUB_SHA'] ?? 'unknown';
+        }
+      } catch (_) {
+        commitSha = Platform.environment['GITHUB_SHA'] ?? 'unknown';
+      }
+
+      final report = {
+        'schemaVersion': '1.0',
+        'commitSha': commitSha,
+        'global': {
+          'sse': globalSse,
+          'count': globalCount,
+          'truthDist': globalTruth,
+          'estDist': globalEst,
+          'rmse': globalRmse,
+          'rmseSq': globalRmseSq,
+          'biasPercent': globalBias,
+        },
+        'stratifications': {
+          'noise': {
+            'sse': noiseSse,
+            'count': noiseCount,
+            'truthDist': noiseTruth,
+            'estDist': noiseEst,
+            'recomputedRmseSq': noiseRecomputedRmseSq,
+            'recomputedBiasPercent': noiseRecomputedBias,
+            'groups': noiseGroups,
+          },
+          'speed': {
+            'sse': speedSse,
+            'count': speedCount,
+            'truthDist': speedTruth,
+            'estDist': speedEst,
+            'recomputedRmseSq': speedRecomputedRmseSq,
+            'recomputedBiasPercent': speedRecomputedBias,
+            'groups': speedGroups,
+          },
+          'rate': {
+            'sse': rateSse,
+            'count': rateCount,
+            'truthDist': rateTruth,
+            'estDist': rateEst,
+            'recomputedRmseSq': rateRecomputedRmseSq,
+            'recomputedBiasPercent': rateRecomputedBias,
+            'groups': rateGroups,
+          },
+        },
+        'residuals': residuals,
+        'invariants': {
+          'noiseMatch': noiseMatch,
+          'speedMatch': speedMatch,
+          'rateMatch': rateMatch,
+          'rmseMatch': rmseMatch,
+          'biasMatch': biasMatch,
+        },
+      };
+
+      // Ensure artifact directory exists.
+      final artifactDir = Directory('test/artifacts');
+      if (!artifactDir.existsSync()) artifactDir.createSync(recursive: true);
+      File('test/artifacts/metric_accumulator_report.json')
+          .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(report));
+
+      // Emit summary for debugging.
+      print('--- MetricAccumulator verification completed. Invariants: noise=$noiseMatch, speed=$speedMatch, rate=$rateMatch, rmse=$rmseMatch, bias=$biasMatch');
+
+      // Assert Mathematical Invariants (Task 2)
+      // 1. Group scheduled count must equal 75,600 and match D+Opt global count
+      expect(globalCount, equals(75600), reason: 'D+Opt total scheduled points must equal 75,600');
+      expect(noiseCount, equals(75600), reason: 'Noise group scheduled count must equal 75,600');
+      expect(speedCount, equals(75600), reason: 'Speed group scheduled count must equal 75,600');
+      expect(rateCount, equals(75600), reason: 'Sampling rate group scheduled count must equal 75,600');
+
+      // 2. Group SSE must equal D+Opt global SSE
+      expect(noiseSse, closeTo(globalSse, tol), reason: 'Noise group SSE must equal D+Opt global SSE');
+      expect(speedSse, closeTo(globalSse, tol), reason: 'Speed group SSE must equal D+Opt global SSE');
+      expect(rateSse, closeTo(globalSse, tol), reason: 'Sampling rate group SSE must equal D+Opt global SSE');
+
+      // 3. Group truth and estimated distance totals must equal D+Opt totals
+      expect(noiseTruth, closeTo(globalTruth, tol), reason: 'Noise group truth distance must equal D+Opt global truth distance');
+      expect(speedTruth, closeTo(globalTruth, tol), reason: 'Speed group truth distance must equal D+Opt total truth distance');
+      expect(rateTruth, closeTo(globalTruth, tol), reason: 'Sampling rate group truth distance must equal D+Opt global truth distance');
+
+      expect(noiseEst, closeTo(globalEst, tol), reason: 'Noise group estimated distance must equal D+Opt total estimated distance');
+      expect(speedEst, closeTo(globalEst, tol), reason: 'Speed group estimated distance must equal D+Opt total estimated distance');
+      expect(rateEst, closeTo(globalEst, tol), reason: 'Sampling rate group estimated distance must equal D+Opt total estimated distance');
+
+      // 4. Recomputed RMSE² and signed bias must agree with direct global calculations
+      expect(noiseRecomputedRmseSq, closeTo(globalRmseSq, 1e-6), reason: 'Noise recomputed RMSE² must agree with global RMSE²');
+      expect(speedRecomputedRmseSq, closeTo(globalRmseSq, 1e-6), reason: 'Speed recomputed RMSE² must agree with global RMSE²');
+      expect(rateRecomputedRmseSq, closeTo(globalRmseSq, 1e-6), reason: 'Sampling rate recomputed RMSE² must agree with global RMSE²');
+
+      expect(noiseRecomputedBias, closeTo(globalBias, 1e-6), reason: 'Noise recomputed signed bias must agree with global bias');
+      expect(speedRecomputedBias, closeTo(globalBias, 1e-6), reason: 'Speed recomputed signed bias must agree with global bias');
+      expect(rateRecomputedBias, closeTo(globalBias, 1e-6), reason: 'Sampling rate recomputed signed bias must agree with global bias');
+
+      // 5. Invariant flags must be true
+      expect(noiseMatch, isTrue, reason: 'Noise stratification invariant must be true');
+      expect(speedMatch, isTrue, reason: 'Speed stratification invariant must be true');
+      expect(rateMatch, isTrue, reason: 'Sampling rate stratification invariant must be true');
+      expect(rmseMatch, isTrue, reason: 'RMSE recomposition invariant must be true');
+      expect(biasMatch, isTrue, reason: 'Signed bias recomposition invariant must be true');
 
 
       // Assert Frozen Baselines Integrity (Task 1)

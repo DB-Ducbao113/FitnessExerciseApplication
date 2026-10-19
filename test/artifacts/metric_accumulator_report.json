@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "1.0",
+  "commitSha": "0fab4fad7d12c44028ef8f821060257a2a2ab6b6",
+  "global": {
+    "sse": 3571227.0,
+    "count": 75600,
+    "truthDist": 371951.99999999866,
+    "estDist": 372010.21272710303,
+    "rmse": 6.873023525418226,
+    "rmseSq": 47.23845238095238,
+    "biasPercent": 0.015650601987453244
+  },
+  "stratifications": {
+    "noise": {
+      "sse": 3571227.0,
+      "count": 75600,
+      "truthDist": 371951.9999999988,
+      "estDist": 372010.21272710303,
+      "recomputedRmseSq": 47.23845238095238,
+      "recomputedBiasPercent": 0.01565060198742194,
+      "groups": {
+        "Low (Open Sky)": {
+          "sse": 132757.0,
+          "count": 18900,
+          "truthDist": 92987.9999999997,
+          "estDist": 94144.69253331717,
+          "scenarioCount": 27,
+          "sampleWeightedRmse": 2.6503169422127413,
+          "scenarioWeightedRmse": 3.1422892103499134,
+          "biasPercent": 1.2439159174490009
+        },
+        "Medium (Urban Corridor)": {
+          "sse": 297705.0,
+          "count": 18900,
+          "truthDist": 92987.9999999997,
+          "estDist": 94185.62042407399,
+          "scenarioCount": 27,
+          "sampleWeightedRmse": 3.9688269427612113,
+          "scenarioWeightedRmse": 4.337910687854519,
+          "biasPercent": 1.287930081380715
+        },
+        "Medium + Heading Dropout": {
+          "sse": 2563404.0,
+          "count": 18900,
+          "truthDist": 92987.9999999997,
+          "estDist": 90203.91017014201,
+          "scenarioCount": 27,
+          "sampleWeightedRmse": 11.646022551491185,
+          "scenarioWeightedRmse": 15.776642173529984,
+          "biasPercent": -2.9940313049615956
+        },
+        "High (Urban Canyon / Multipath)": {
+          "sse": 577361.0,
+          "count": 18900,
+          "truthDist": 92987.9999999997,
+          "estDist": 93475.98959956986,
+          "scenarioCount": 27,
+          "sampleWeightedRmse": 5.527042704575482,
+          "scenarioWeightedRmse": 6.09724183747794,
+          "biasPercent": 0.5247877140815674
+        }
+      }
+    },
+    "speed": {
+      "sse": 3571227.0,
+      "count": 75600,
+      "truthDist": 371951.9999999988,
+      "estDist": 372010.21272710303,
+      "recomputedRmseSq": 47.23845238095238,
+      "recomputedBiasPercent": 0.01565060198742194,
+      "groups": {
+        "12 km/h (3.33 m/s)": {
+          "sse": 403104.0,
+          "count": 25200,
+          "truthDist": 71927.99999999958,
+          "estDist": 72183.34483240929,
+          "scenarioCount": 36,
+          "sampleWeightedRmse": 3.9995237811757636,
+          "scenarioWeightedRmse": 4.367551861084108,
+          "biasPercent": 0.35500060117021626
+        },
+        "20 km/h (5.56 m/s)": {
+          "sse": 789156.0,
+          "count": 25200,
+          "truthDist": 120096.00000000025,
+          "estDist": 119749.14792651548,
+          "scenarioCount": 36,
+          "sampleWeightedRmse": 5.596044521419954,
+          "scenarioWeightedRmse": 6.951398740141759,
+          "biasPercent": -0.288812344694885
+        },
+        "30 km/h (8.33 m/s)": {
+          "sse": 2378967.0,
+          "count": 25200,
+          "truthDist": 179927.99999999895,
+          "estDist": 180077.71996817825,
+          "scenarioCount": 36,
+          "sampleWeightedRmse": 9.71614390491168,
+          "scenarioWeightedRmse": 12.987695387615211,
+          "biasPercent": 0.08321104451741802
+        }
+      }
+    },
+    "rate": {
+      "sse": 3571227.0,
+      "count": 75600,
+      "truthDist": 371951.99999999884,
+      "estDist": 372010.21272710303,
+      "recomputedRmseSq": 47.23845238095238,
+      "recomputedBiasPercent": 0.01565060198740629,
+      "groups": {
+        "0.5 Hz (dt=2.0s)": {
+          "sse": 1906326.0,
+          "count": 10800,
+          "truthDist": 123983.99999999962,
+          "estDist": 122544.69761875444,
+          "scenarioCount": 36,
+          "sampleWeightedRmse": 13.285769329123047,
+          "scenarioWeightedRmse": 13.285769329123047,
+          "biasPercent": -1.160877517458052
+        },
+        "1.0 Hz (dt=1.0s)": {
+          "sse": 908351.0,
+          "count": 21600,
+          "truthDist": 123983.99999999913,
+          "estDist": 124128.71346242493,
+          "scenarioCount": 36,
+          "sampleWeightedRmse": 6.484850579391713,
+          "scenarioWeightedRmse": 6.484850579391714,
+          "biasPercent": 0.11671946575832713
+        },
+        "2.0 Hz (dt=0.5s)": {
+          "sse": 756550.0,
+          "count": 43200,
+          "truthDist": 123984.00000000006,
+          "estDist": 125336.80164592367,
+          "scenarioCount": 36,
+          "sampleWeightedRmse": 4.184821559096813,
+          "scenarioWeightedRmse": 4.184821559096813,
+          "biasPercent": 1.0911098576619638
+        }
+      }
+    }
+  },
+  "residuals": {
+    "noise": {
+      "sseResidual": 0.0,
+      "countResidual": 0,
+      "truthDistResidual": 1.1641532182693481e-10,
+      "estDistResidual": 0.0,
+      "rmseSqResidual": 0.0,
+      "biasResidual": 3.130481984747746e-14
+    },
+    "speed": {
+      "sseResidual": 0.0,
+      "countResidual": 0,
+      "truthDistResidual": 1.1641532182693481e-10,
+      "estDistResidual": 0.0,
+      "rmseSqResidual": 0.0,
+      "biasResidual": 3.130481984747746e-14
+    },
+    "rate": {
+      "sseResidual": 0.0,
+      "countResidual": 0,
+      "truthDistResidual": 1.7462298274040222e-10,
+      "estDistResidual": 0.0,
+      "rmseSqResidual": 0.0,
+      "biasResidual": 4.6955495047740214e-14
+    }
+  },
+  "invariants": {
+    "noiseMatch": true,
+    "speedMatch": true,
+    "rateMatch": true,
+    "rmseMatch": true,
+    "biasMatch": true
+  }
+}

@@ -19,8 +19,9 @@ class MetricAccumulator {
     scenarioRmseSq.add(rmse * rmse);
   }
 
-  double sampleWeightedRMSE() => math.sqrt(sumSqErr / sumCount);
-  double scenarioWeightedRMSE() => math.sqrt(scenarioRmseSq.reduce((a, b) => a + b) / scenarioCount);
+  double sampleWeightedRMSE() => sumCount > 0 ? math.sqrt(sumSqErr / sumCount) : 0.0;
+  double scenarioWeightedRMSE() =>
+      scenarioCount > 0 ? math.sqrt(scenarioRmseSq.reduce((a, b) => a + b) / scenarioCount) : 0.0;
   double biasPercent(double totalRouteDist) {
     if (sumTruthDist == 0) return 0.0;
     return (sumEstDist - sumTruthDist) / sumTruthDist * 100.0;
