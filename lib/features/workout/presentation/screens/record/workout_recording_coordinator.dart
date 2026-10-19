@@ -300,22 +300,13 @@ class WorkoutRecordingCoordinator {
         await RawGpsRecoveryJournal.instance.checkpoint(
           workoutId,
           isFinalized: true,
-          cloudVerified: true,
+          cloudVerified: false,
           cloudVerifiedCount: diagnostics.serverConfirmedGpsPoints,
         );
       } catch (_) {}
 
-      try {
-        await _deleteRecoveryGpsJournal(workoutId);
-      } catch (error) {
-        debugPrint(
-          jsonEncode({
-            'event': 'raw_gps_recovery_journal_delete_failed',
-            'workout_id': workoutId,
-            'error_type': error.runtimeType.toString(),
-          }),
-        );
-      }
+      // NOTE: Automatic post-finalization journal deletion is disabled until
+      // cloud read-back digest verification is implemented in RG-1B (P0-01).
     } else {
       try {
         await RawGpsRecoveryJournal.instance.checkpoint(
@@ -327,6 +318,11 @@ class WorkoutRecordingCoordinator {
     }
     return diagnostics;
   }
+
+  /// Explicitly requests recovery journal deletion (e.g. on user workout or account deletion),
+  /// strictly preserving explicit deletion semantics separately from automated cleanup.
+  Future<void> deleteRecoveryJournalExplicit(String workoutId) =>
+      _deleteRecoveryGpsJournal(workoutId);
 
   RawTrackingDiagnostics get rawTrackingDiagnostics => RawTrackingDiagnostics(
     capturedGpsPoints: _capturedGpsPoints,

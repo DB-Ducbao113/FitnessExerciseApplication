@@ -11,9 +11,11 @@ import 'package:path_provider/path_provider.dart';
 /// Status outcomes for recovery journal reading.
 enum RawGpsRecoveryStatus {
   verifiedIntact,
+  staleCheckpoint,
+  corrupted,
+  corruptedWithRecoveredPoints,
   partiallyRecoveredTruncated,
   recoveredLegacyNoManifest,
-  corruptedWithRecoveredPoints,
   accountMismatch,
   emptyOrNotFound,
 }
@@ -147,8 +149,11 @@ class RawGpsAppendResult {
 /// Diagnostics snapshot for an active journal writer.
 class RawGpsJournalDiagnostics {
   final String sessionId;
+  final int acceptedSamples;
   final int queuedAppends;
   final int committedSamples;
+  final int durableSamples;
+  final int failedSamples;
   final int droppedSamples;
   final int totalLatencyMicros;
   final int minLatencyMicros;
@@ -156,13 +161,16 @@ class RawGpsJournalDiagnostics {
 
   const RawGpsJournalDiagnostics({
     required this.sessionId,
+    this.acceptedSamples = 0,
     required this.queuedAppends,
     required this.committedSamples,
+    int? durableSamples,
+    this.failedSamples = 0,
     required this.droppedSamples,
     required this.totalLatencyMicros,
     required this.minLatencyMicros,
     required this.maxLatencyMicros,
-  });
+  }) : durableSamples = durableSamples ?? committedSamples;
 
   double get meanLatencyMs => committedSamples > 0
       ? (totalLatencyMicros / committedSamples) / 1000.0
@@ -172,8 +180,11 @@ class RawGpsJournalDiagnostics {
 
   Map<String, dynamic> toJson() => {
     'session_id': sessionId,
+    'accepted_samples': acceptedSamples,
     'queued_appends': queuedAppends,
     'committed_samples': committedSamples,
+    'durable_samples': durableSamples,
+    'failed_samples': failedSamples,
     'dropped_samples': droppedSamples,
     'mean_latency_ms': meanLatencyMs,
     'min_latency_ms': minLatencyMs,
@@ -409,6 +420,7 @@ class RawGpsRecoveryJournal {
     var corruptedLinesCount = 0;
     var hasTruncatedFinalLine = false;
     String? truncatedSnippet;
+    var hasAnyLineUserId = false;
 
     for (var i = 0; i < rawLines.length; i++) {
       final line = rawLines[i].trim();
@@ -422,13 +434,14 @@ class RawGpsRecoveryJournal {
 
         // Line-level account isolation
         final lineUserId = decoded['user_id'] as String?;
-        if (activeUserId != null &&
-            lineUserId != null &&
-            lineUserId != activeUserId) {
-          return RawGpsRecoveryResult.accountMismatch(
-            sessionId: sessionId,
-            accountMismatchUserId: lineUserId,
-          );
+        if (lineUserId != null) {
+          hasAnyLineUserId = true;
+          if (activeUserId != null && lineUserId != activeUserId) {
+            return RawGpsRecoveryResult.accountMismatch(
+              sessionId: sessionId,
+              accountMismatchUserId: lineUserId,
+            );
+          }
         }
 
         final point = _pointFromJson(decoded);
@@ -451,6 +464,17 @@ class RawGpsRecoveryJournal {
       }
     }
 
+    // Conservative Account Isolation:
+    // If activeUserId is provided, but neither manifest nor any line has ownership metadata,
+    // fail closed to prevent unauthorized cross-account replay of anonymous/orphaned traces.
+    final hasOwnershipMetadata = (manifest?.userId != null) || hasAnyLineUserId;
+    if (activeUserId != null && !hasOwnershipMetadata) {
+      return RawGpsRecoveryResult.accountMismatch(
+        sessionId: sessionId,
+        accountMismatchUserId: 'unknown_unattributed',
+      );
+    }
+
     // Sort monotonically by timestamp
     validPoints.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
@@ -458,11 +482,23 @@ class RawGpsRecoveryJournal {
     if (hasTruncatedFinalLine) {
       status = RawGpsRecoveryStatus.partiallyRecoveredTruncated;
     } else if (corruptedLinesCount > 0) {
-      status = RawGpsRecoveryStatus.corruptedWithRecoveredPoints;
+      status = RawGpsRecoveryStatus.corrupted;
     } else if (manifest == null) {
       status = RawGpsRecoveryStatus.recoveredLegacyNoManifest;
     } else {
-      status = RawGpsRecoveryStatus.verifiedIntact;
+      final actualFileSha256 = await _computeFileSha256(file);
+      final digestMatches = manifest.sha256Digest != null &&
+          actualFileSha256 != null &&
+          manifest.sha256Digest!.toLowerCase() == actualFileSha256.toLowerCase();
+
+      if (validPoints.length == manifest.sampleCount && digestMatches) {
+        status = RawGpsRecoveryStatus.verifiedIntact;
+      } else if (validPoints.length > manifest.sampleCount) {
+        status = RawGpsRecoveryStatus.staleCheckpoint;
+      } else {
+        // Count mismatch (< sampleCount) or digest mismatch (coordinate tampering/corruption)
+        status = RawGpsRecoveryStatus.corrupted;
+      }
     }
 
     final isUnfinalizedCrash = manifest == null ? true : !manifest.isFinalized;
@@ -523,31 +559,53 @@ class RawGpsRecoveryJournal {
     );
   }
 
+  /// Static helper to compute SHA-256 digest of a file.
+  static Future<String?> _computeFileSha256(File file) async {
+    try {
+      if (!await file.exists()) return null;
+      final length = await file.length();
+      if (length == 0) return null;
+      final digest = await sha256.bind(file.openRead()).first;
+      return digest.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Safe deletion requiring explicit verification or [force].
   ///
-  /// Rejects blind deletion if [verifySafe] is true and an alternative copy
-  /// (cloud or Isar) has not been confirmed.
+  /// Rejects blind deletion if [verifySafe] is true. Fails closed unless
+  /// cloud read-back digest verification confirms identity with manifest.
   Future<void> delete(
     String sessionId, {
     bool force = false,
     bool verifySafe = false,
     int? verifiedCloudCount,
     int? verifiedIsarCount,
+    String? cloudReadBackSha256,
   }) async {
     if (verifySafe && !force) {
       final manifest = await readManifest(sessionId);
-      if (manifest != null && manifest.sampleCount > 0) {
-        final cloudOk =
-            verifiedCloudCount != null &&
-            verifiedCloudCount >= manifest.sampleCount;
-        final isarOk =
-            verifiedIsarCount != null &&
-            verifiedIsarCount >= manifest.sampleCount;
-        if (!cloudOk && !isarOk && !manifest.cloudVerified) {
-          throw StateError(
-            'Cannot delete unverified raw GPS journal for $sessionId without confirmed local or cloud replica.',
-          );
-        }
+      if (manifest == null) {
+        throw StateError(
+          'Cannot delete raw GPS recovery journal for $sessionId: missing integrity manifest (fails closed).',
+        );
+      }
+
+      // Cloud row count or isar row count alone is NOT proof of integrity.
+      // manifest.cloudVerified boolean alone is NOT trusted.
+      // Cloud read-back digest verification is required.
+      final manifestDigest = manifest.sha256Digest;
+      final digestMatches = manifestDigest != null &&
+          cloudReadBackSha256 != null &&
+          manifestDigest.toLowerCase() == cloudReadBackSha256.toLowerCase();
+
+      if (!digestMatches) {
+        throw StateError(
+          'Cannot delete unverified raw GPS recovery journal for $sessionId: '
+          'cloud read-back digest verification is required (RG-1B). '
+          'Row counts and cloudVerified flags are insufficient proof of integrity.',
+        );
       }
     }
 
@@ -570,6 +628,11 @@ class RawGpsRecoveryJournal {
     final tmpManifest = File('${manifestFile.path}.tmp');
     if (await tmpManifest.exists()) {
       await tmpManifest.delete();
+    }
+
+    final quarantineFile = File('${journalFile.path}.quarantine');
+    if (await quarantineFile.exists()) {
+      await quarantineFile.delete();
     }
   }
 
@@ -608,12 +671,71 @@ class RawGpsRecoveryJournal {
         } catch (_) {}
       }
 
+      // Reconcile actual committed lines and detect truncated final line
+      var actualCommittedCount = 0;
+      DateTime? firstTimestamp;
+      DateTime? lastTimestamp;
+      if (await journalFile.exists()) {
+        final lines = await journalFile.readAsLines();
+        final validLines = <String>[];
+        var hadTruncatedFinalLine = false;
+        String? truncatedSnippet;
+
+        for (var i = 0; i < lines.length; i++) {
+          final line = lines[i].trim();
+          if (line.isEmpty) continue;
+          try {
+            final decoded = jsonDecode(line);
+            if (decoded is! Map<String, dynamic>) {
+              throw const FormatException('Expected JSON object');
+            }
+            validLines.add(line);
+            final tsStr = decoded['timestamp'] as String?;
+            if (tsStr != null) {
+              final ts = DateTime.tryParse(tsStr)?.toUtc();
+              if (ts != null) {
+                firstTimestamp ??= ts;
+                lastTimestamp = ts;
+              }
+            }
+          } catch (_) {
+            if (i == lines.length - 1) {
+              hadTruncatedFinalLine = true;
+              truncatedSnippet = line;
+            }
+          }
+        }
+
+        actualCommittedCount = validLines.length;
+
+        // If final line was truncated, quarantine it and rewrite clean valid lines
+        if (hadTruncatedFinalLine && truncatedSnippet != null) {
+          final quarantineFile = File('${journalFile.path}.quarantine');
+          await quarantineFile.writeAsString(
+            '$truncatedSnippet\n',
+            mode: FileMode.append,
+            flush: true,
+          );
+          final cleanContent = validLines.isEmpty
+              ? ''
+              : '${validLines.join('\n')}\n';
+          await journalFile.writeAsString(cleanContent, flush: true);
+        }
+      }
+
+      final initialCount = actualCommittedCount > 0
+          ? actualCommittedCount
+          : (existingManifest?.sampleCount ?? 0);
+
       final writer = _SessionJournalWriter(
         sessionId: sessionId,
         journalFile: journalFile,
         manifestFile: manifestFile,
         userId: userId ?? existingManifest?.userId,
         initialManifest: existingManifest,
+        initialSampleCount: initialCount,
+        initialFirstTimestamp: firstTimestamp,
+        initialLastTimestamp: lastTimestamp,
         checkpointInterval: checkpointInterval,
         maxQueueDepth: maxQueueDepth,
       );
@@ -667,6 +789,9 @@ class _SessionJournalWriter {
     required this.manifestFile,
     this.userId,
     RawGpsJournalManifest? initialManifest,
+    int initialSampleCount = 0,
+    DateTime? initialFirstTimestamp,
+    DateTime? initialLastTimestamp,
     required this.checkpointInterval,
     required this.maxQueueDepth,
   }) : _manifest =
@@ -674,11 +799,16 @@ class _SessionJournalWriter {
            RawGpsJournalManifest(
              workoutId: sessionId,
              userId: userId,
-             sampleCount: 0,
+             sampleCount: initialSampleCount,
              checkpointSeq: 0,
              checkpointTimestampUtc: DateTime.now().toUtc(),
            ),
-       _sampleCount = initialManifest?.sampleCount ?? 0,
+       _sampleCount = initialSampleCount,
+       _acceptedCount = initialSampleCount,
+       _committedCount = initialSampleCount,
+       _durableCount = initialSampleCount,
+       _firstTimestamp = initialFirstTimestamp ?? initialManifest?.firstTimestampUtc,
+       _lastTimestamp = initialLastTimestamp ?? initialManifest?.lastTimestampUtc,
        _checkpointSeq = initialManifest?.checkpointSeq ?? 0;
 
   final String sessionId;
@@ -691,7 +821,11 @@ class _SessionJournalWriter {
   RawGpsJournalManifest _manifest;
   int _sampleCount;
   int _checkpointSeq;
+  int _acceptedCount;
   int _queuedCount = 0;
+  int _committedCount;
+  int _durableCount;
+  int _failedCount = 0;
   int _droppedCount = 0;
   int _totalLatencyMicros = 0;
   int _minLatencyMicros = 0x7fffffffffffffff;
@@ -719,6 +853,7 @@ class _SessionJournalWriter {
       );
     }
 
+    _acceptedCount += 1;
     _queuedCount += 1;
     final completer = Completer<RawGpsAppendResult>();
 
@@ -735,6 +870,8 @@ class _SessionJournalWriter {
         );
 
         _sampleCount += 1;
+        _committedCount += 1;
+        _durableCount += 1;
         _firstTimestamp ??= point.timestamp.toUtc();
         _lastTimestamp = point.timestamp.toUtc();
 
@@ -761,6 +898,7 @@ class _SessionJournalWriter {
         );
       } catch (error) {
         sw.stop();
+        _failedCount += 1;
         completer.complete(
           RawGpsAppendResult(
             success: false,
@@ -807,8 +945,11 @@ class _SessionJournalWriter {
   RawGpsJournalDiagnostics getDiagnostics() {
     return RawGpsJournalDiagnostics(
       sessionId: sessionId,
+      acceptedSamples: _acceptedCount,
       queuedAppends: _queuedCount,
-      committedSamples: _sampleCount,
+      committedSamples: _committedCount,
+      durableSamples: _durableCount,
+      failedSamples: _failedCount,
       droppedSamples: _droppedCount,
       totalLatencyMicros: _totalLatencyMicros,
       minLatencyMicros:
@@ -829,6 +970,11 @@ class _SessionJournalWriter {
   }) async {
     _checkpointSeq += 1;
     final currentDigest = await _computeFileSha256();
+    if (currentDigest == null && _sampleCount > 0) {
+      throw StateError(
+        'Failed to compute SHA-256 for journal $sessionId at checkpoint sequence $_checkpointSeq',
+      );
+    }
 
     _manifest = _manifest.copyWith(
       sampleCount: _sampleCount,
@@ -847,17 +993,8 @@ class _SessionJournalWriter {
     await RawGpsRecoveryJournal._writeManifestAtomic(manifestFile, _manifest);
   }
 
-  Future<String?> _computeFileSha256() async {
-    try {
-      if (!await journalFile.exists()) return null;
-      final length = await journalFile.length();
-      if (length == 0) return null;
-      final digest = await sha256.bind(journalFile.openRead()).first;
-      return digest.toString();
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<String?> _computeFileSha256() =>
+      RawGpsRecoveryJournal._computeFileSha256(journalFile);
 
   static Map<String, dynamic> _toJson(
     LocalGPSPoint point, {

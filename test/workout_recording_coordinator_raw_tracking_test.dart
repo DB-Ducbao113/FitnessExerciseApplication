@@ -38,7 +38,7 @@ void main() {
 
         expect(locallySaved, hasLength(2));
         expect(recoverySaved, hasLength(2));
-        expect(recoveryDeleted, isTrue);
+        expect(recoveryDeleted, isFalse);
         expect(rawTracking.savedGpsPoints, hasLength(2));
         expect(result.capturedGpsPoints, 2);
         expect(result.localSavedGpsPoints, 2);
