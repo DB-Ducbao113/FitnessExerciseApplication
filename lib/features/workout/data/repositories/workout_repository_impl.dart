@@ -14,6 +14,7 @@ import 'package:fitness_exercise_application/features/workout/domain/services/ro
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
+import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_cloud_outbox_service.dart';
 
 class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutRemoteDataSource _remoteDataSource;
@@ -21,6 +22,7 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   final WorkoutProcessingRemoteDataSource _processingRemoteDataSource;
   final SupabaseClient _supabase;
   final PendingWorkoutSyncStore _pendingSyncStore;
+  final RawGpsCloudOutboxService? _outboxService;
   final RouteMatchQualityService _routeMatchQualityService =
       const RouteMatchQualityService();
 
@@ -30,8 +32,10 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
     this._processingRemoteDataSource,
     this._supabase, {
     PendingWorkoutSyncStore? pendingSyncStore,
+    RawGpsCloudOutboxService? outboxService,
   }) : _pendingSyncStore =
-           pendingSyncStore ?? PendingWorkoutSyncStore(DatabaseHelper.instance);
+           pendingSyncStore ?? PendingWorkoutSyncStore(DatabaseHelper.instance),
+       _outboxService = outboxService;
 
   @override
   Future<void> saveSessionRemote(WorkoutSession session) async {
@@ -370,16 +374,20 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   }
 
   Future<void> _syncRawTrackingForSession(String sessionId) async {
-    final unsyncedGpsPoints = await LocalDB.getUnsyncedGpsPointsForSession(
-      sessionId,
-    );
-    if (unsyncedGpsPoints.isNotEmpty) {
-      await _rawTrackingRemoteDataSource.saveRawGpsPoints(
-        unsyncedGpsPoints.map(LocalDB.rawGpsPointToPayload).toList(),
+    if (_outboxService != null) {
+      await _outboxService.uploadAndVerifySession(sessionId);
+    } else {
+      final unsyncedGpsPoints = await LocalDB.getUnsyncedGpsPointsForSession(
+        sessionId,
       );
-      await LocalDB.markGpsPointsAsSynced(
-        unsyncedGpsPoints.map((point) => point.id).toList(),
-      );
+      if (unsyncedGpsPoints.isNotEmpty) {
+        await _rawTrackingRemoteDataSource.saveRawGpsPoints(
+          unsyncedGpsPoints.map(LocalDB.rawGpsPointToPayload).toList(),
+        );
+        await LocalDB.markGpsPointsAsSynced(
+          unsyncedGpsPoints.map((point) => point.id).toList(),
+        );
+      }
     }
 
     final unsyncedStepIntervals =

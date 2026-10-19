@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_cloud_outbox_service.dart';
 
 final workoutRecordingCoordinatorProvider =
     Provider.autoDispose<WorkoutRecordingCoordinator>((ref) {
@@ -24,6 +25,7 @@ final workoutRecordingCoordinatorProvider =
         workoutRemote: ref.watch(workoutRemoteDataSourceProvider),
         processingRemote: ref.watch(workoutProcessingRemoteDataSourceProvider),
         currentUserId: () => ref.read(currentUserIdProvider),
+        outboxService: ref.watch(rawGpsCloudOutboxServiceProvider),
       );
     });
 
@@ -38,10 +40,12 @@ class WorkoutRecordingCoordinator {
     Future<void> Function(LocalGPSPoint point)? saveRecoveryGpsPoint,
     Future<void> Function(String workoutId)? deleteRecoveryGpsJournal,
     RawGpsRecoveryJournal? recoveryJournal,
+    RawGpsCloudOutboxService? outboxService,
   }) : _rawTracking = rawTracking,
        _workoutRemote = workoutRemote,
        _processingRemote = processingRemote,
        _currentUserId = currentUserId,
+       _outboxService = outboxService,
        _saveLocalGpsPoint = saveLocalGpsPoint ?? LocalDB.saveRawGpsPoint,
        _saveLocalStepInterval =
            saveLocalStepInterval ?? LocalDB.saveRawStepInterval,
@@ -80,6 +84,7 @@ class WorkoutRecordingCoordinator {
   final WorkoutRemoteDataSource _workoutRemote;
   final WorkoutProcessingRemoteDataSource _processingRemote;
   final String? Function() _currentUserId;
+  final RawGpsCloudOutboxService? _outboxService;
   final Future<void> Function(LocalGPSPoint point) _saveLocalGpsPoint;
   final Future<void> Function(LocalStepInterval interval)
   _saveLocalStepInterval;
@@ -317,8 +322,14 @@ class WorkoutRecordingCoordinator {
         );
       } catch (_) {}
 
-      // NOTE: Automatic post-finalization journal deletion is disabled until
-      // cloud read-back digest verification is implemented in RG-1B (P0-01).
+      // Trigger durable outbox upload and canonical read-back verification (RG-1B / RG-1B.1 P0-03)
+      if (_outboxService != null) {
+        try {
+          await _outboxService.uploadAndVerifySession(workoutId);
+        } catch (e) {
+          debugPrint('[Workout][RawTracking] Post-finalization outbox sync error: $e');
+        }
+      }
     } else {
       try {
         await RawGpsRecoveryJournal.instance.checkpoint(

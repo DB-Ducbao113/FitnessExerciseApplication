@@ -141,6 +141,7 @@ class _MockRawTrackingDataSource implements RawTrackingRemoteDataSource {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Directory tempDir;
   late RawGpsRecoveryJournal journal;
   late _MockRawTrackingDataSource mockTracking;
@@ -297,7 +298,7 @@ void main() {
 
       await outboxRun1.uploadAndVerifySession(testWorkoutId);
       expect(mockTracking.getServerPoints(testWorkoutId).length, 25);
-      expect(syncedIds.length, 25);
+      expect(syncedIds.length, 0); // P0-01: Points in Isar are NOT marked synced before successful cloud verification!
 
       // App restart: new outbox instance discovers remaining 75 points
       final outboxRun2 = RawGpsCloudOutboxService(
@@ -527,9 +528,11 @@ void main() {
     test('11. Safe cloud verification state transitions', () {
       expect(RawGpsVerificationState.pendingUpload.label, 'PENDING_UPLOAD');
       expect(RawGpsVerificationState.uploading.label, 'UPLOADING');
+      expect(RawGpsVerificationState.uploadedUnverified.label, 'UPLOADED_UNVERIFIED');
       expect(RawGpsVerificationState.cloudVerified.label, 'CLOUD_VERIFIED');
       expect(RawGpsVerificationState.partial.label, 'PARTIAL');
       expect(RawGpsVerificationState.integrityMismatch.label, 'INTEGRITY_MISMATCH');
+      expect(RawGpsVerificationState.restoredUnverified.label, 'RESTORED_UNVERIFIED');
       expect(RawGpsVerificationState.unknown.label, 'UNKNOWN');
       expect(RawGpsVerificationState.authRequired.label, 'AUTH_REQUIRED');
     });
@@ -571,4 +574,401 @@ void main() {
       expect(canonical.heading, original.heading);
     });
   });
+
+  group('AETRON RG-1B.1 Integration & Verification Hotfix Suite', () {
+    test('H1. Upload succeeds but cloud read-back fails: local stays retryable (P0-01)', () async {
+      final localPoints = [
+        createPoint(sessionId: testWorkoutId, index: 0),
+        createPoint(sessionId: testWorkoutId, index: 1),
+      ];
+      final syncedIds = <int>{};
+
+      // Mock throws SocketException on read-back, but save succeeds
+      final failingReadTracking = _FailingReadTrackingDataSource(mockTracking);
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: failingReadTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (s) async => localPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (s) async => localPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      final report = await outbox.uploadAndVerifySession(testWorkoutId);
+      expect(report.isVerified, isFalse);
+      expect(report.state, RawGpsVerificationState.partial);
+
+      // Points MUST NOT be marked synced in Isar!
+      expect(syncedIds, isEmpty);
+
+      // Verify that points remain retryable
+      final unsynced = localPoints.where((p) => !syncedIds.contains(p.id)).toList();
+      expect(unsynced.length, 2);
+    });
+
+    test('H2. Same point count with mismatched telemetry: never mark synced (P0-01 & P1)', () async {
+      final localPoints = List.generate(
+        5,
+        (i) => createPoint(sessionId: testWorkoutId, index: i, speed: 3.5),
+      );
+      final syncedIds = <int>{};
+
+      // Cloud has matching count (5), but telemetry (speed) is mismatched on point #1
+      final cloudPoints = List.generate(
+        5,
+        (i) => RawGpsPointPayload(
+          workoutId: testWorkoutId,
+          timestamp: localPoints[i].timestamp,
+          latitude: localPoints[i].latitude,
+          longitude: localPoints[i].longitude,
+          altitude: localPoints[i].altitude,
+          speed: i == 1 ? 9.9 : localPoints[i].speed, // Mismatched speed!
+          accuracy: localPoints[i].accuracy,
+          heading: localPoints[i].heading,
+          deviceSource: localPoints[i].deviceSource,
+        ),
+      );
+      mockTracking.injectPoints(testWorkoutId, cloudPoints);
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (s) async => localPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (s) async => localPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      final report = await outbox.uploadAndVerifySession(testWorkoutId);
+      expect(report.state, RawGpsVerificationState.integrityMismatch);
+      expect(report.isVerified, isFalse);
+      expect(report.mismatchedSampleCount, 1);
+
+      // Points MUST NOT be marked synced!
+      expect(syncedIds, isEmpty);
+    });
+
+    test('H3. Isar empty, journal contains 3,600 points: upload and verify all 3,600 (P0-02)', () async {
+      const totalPoints = 3600;
+      final startTime = DateTime.utc(2026, 10, 19, 6, 0, 0);
+
+      // Write 3,600 points to journal ONLY (simulating complete Isar write failure)
+      for (var i = 0; i < totalPoints; i++) {
+        final p = createPoint(
+          sessionId: testWorkoutId,
+          index: i,
+          startTime: startTime,
+          confidence: 'high',
+        );
+        await journal.appendPoint(p, userId: testUserId);
+      }
+      await journal.flushSession(testWorkoutId);
+      await journal.checkpoint(testWorkoutId, isFinalized: true);
+
+      final isarStorage = <LocalGPSPoint>[];
+      final syncedIds = <int>{};
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        chunkSize: 250,
+        getUnsyncedPoints: (s) async => isarStorage.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (s) async => isarStorage, // Initially 0 points in Isar!
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      final report = await outbox.uploadAndVerifySession(testWorkoutId);
+
+      expect(report.state, RawGpsVerificationState.cloudVerified);
+      expect(report.isVerified, isTrue);
+      expect(report.localCount, totalPoints);
+      expect(report.cloudCount, totalPoints);
+      expect(mockTracking.getServerPoints(testWorkoutId).length, totalPoints);
+    });
+
+    test('H4. Isar contains 1,200, journal contains 3,600: reconcile all 3,600 (P0-02)', () async {
+      const totalPoints = 3600;
+      const isarCount = 1200;
+      final startTime = DateTime.utc(2026, 10, 19, 5, 0, 0);
+
+      final isarPoints = <LocalGPSPoint>[];
+
+      // Write all 3,600 to journal, but only first 1,200 to Isar (partial write crash)
+      for (var i = 0; i < totalPoints; i++) {
+        final p = createPoint(
+          sessionId: testWorkoutId,
+          index: i,
+          startTime: startTime,
+          confidence: 'high',
+        );
+        await journal.appendPoint(p, userId: testUserId);
+        if (i < isarCount) {
+          isarPoints.add(p);
+        }
+      }
+      await journal.flushSession(testWorkoutId);
+      await journal.checkpoint(testWorkoutId, isFinalized: true);
+
+      final syncedIds = <int>{};
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        chunkSize: 250,
+        getUnsyncedPoints: (s) async => isarPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (s) async => isarPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      final report = await outbox.uploadAndVerifySession(testWorkoutId);
+
+      expect(report.state, RawGpsVerificationState.cloudVerified);
+      expect(report.isVerified, isTrue);
+      expect(report.localCount, totalPoints);
+      expect(report.cloudCount, totalPoints);
+      expect(mockTracking.getServerPoints(testWorkoutId).length, totalPoints);
+    });
+
+    test('H5. Cloud contains only 2,000 of 3,600: never CLOUD_VERIFIED (P0-01 & P0-04)', () async {
+      const totalPoints = 3600;
+      const cloudCutoff = 2000;
+      final startTime = DateTime.utc(2026, 10, 19, 4, 0, 0);
+
+      final localPoints = <LocalGPSPoint>[];
+      for (var i = 0; i < totalPoints; i++) {
+        final p = createPoint(
+          sessionId: testWorkoutId,
+          index: i,
+          startTime: startTime,
+        );
+        localPoints.add(p);
+      }
+
+      // Inject only 2,000 points in cloud
+      final cloudPoints = localPoints.take(cloudCutoff).map((p) => RawGpsPointPayload(
+        workoutId: p.sessionId,
+        timestamp: p.timestamp,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        altitude: p.altitude,
+        speed: p.speed,
+        accuracy: p.accuracy,
+        heading: p.heading,
+        deviceSource: p.deviceSource,
+      )).toList();
+      mockTracking.injectPoints(testWorkoutId, cloudPoints);
+
+      final syncedIds = <int>{};
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (s) async => const [], // already uploaded
+        getAllLocalPoints: (s) async => localPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      final report = await outbox.uploadAndVerifySession(testWorkoutId);
+
+      // Must be PARTIAL, NEVER CLOUD_VERIFIED!
+      expect(report.state, RawGpsVerificationState.partial);
+      expect(report.isVerified, isFalse);
+      expect(report.cloudCount, cloudCutoff);
+      expect(report.localCount, totalPoints);
+      expect(report.missingCloudSampleCount, 1600);
+      expect(syncedIds, isEmpty);
+    });
+
+    test('H6. Device B restores cloud-only data without source manifest: RESTORED_UNVERIFIED (P0-04)', () async {
+      const pointCount = 500;
+      final startTime = DateTime.utc(2026, 10, 19, 3, 0, 0);
+
+      // Cloud contains 500 points from Device A
+      final cloudPayloads = List.generate(
+        pointCount,
+        (i) => RawGpsPointPayload(
+          workoutId: testWorkoutId,
+          timestamp: startTime.add(Duration(seconds: i)),
+          latitude: 10.7380 + (i * 0.0001),
+          longitude: 106.6250 + (i * 0.0001),
+          altitude: 15.0,
+          speed: 3.5,
+          accuracy: 4.0,
+          heading: 90.0,
+          deviceSource: 'gps',
+        ),
+      );
+      mockTracking.injectPoints(testWorkoutId, cloudPayloads);
+
+      // Device B environment: NO local points, NO journal manifest
+      final deviceBPoints = <LocalGPSPoint>[];
+      final deviceBJournal = RawGpsRecoveryJournal(
+        documentsDirectory: () async => Directory.systemTemp.createTempSync('device-b-empty-'),
+      );
+
+      final recovery = RawGpsCloudRecoveryService(
+        rawTracking: mockTracking,
+        journal: deviceBJournal,
+        currentUserId: () => testUserId,
+        getLocalPoints: (s) async => deviceBPoints,
+        saveLocalPoints: (pts) async => deviceBPoints.addAll(pts),
+      );
+
+      final result = await recovery.restoreRawGpsFromCloud(testWorkoutId);
+
+      // MUST be RESTORED_UNVERIFIED, NEVER CLOUD_VERIFIED!
+      expect(result.state, RawGpsVerificationState.restoredUnverified);
+      expect(result.isSuccess, isTrue);
+      expect(result.isFullyVerified, isFalse);
+      expect(result.restoredPointsCount, pointCount);
+
+      // Confidence is marked 'cloud_restored', NOT fabricating local sensor confidence
+      expect(deviceBPoints.first.confidence, 'cloud_restored');
+      expect(deviceBPoints.first.isSynced, isTrue);
+    });
+
+    test('H7. App lifecycle startup actually invokes recovery of pending work (P0-03)', () async {
+      final localPoints = [createPoint(sessionId: testWorkoutId, index: 0)];
+      final syncedIds = <int>{};
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (s) async => localPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (s) async => localPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+        getUnsyncedSessionIds: (userId) async => [testWorkoutId],
+      );
+
+      final processed = await outbox.resumePendingUploads();
+      expect(processed, 1);
+      expect(syncedIds.length, 1);
+    });
+
+    test('H8. Simulated crash between HTTP ACK and verified local state leaves work retryable (P0-01)', () async {
+      final localPoints = List.generate(
+        50,
+        (i) => createPoint(sessionId: testWorkoutId, index: i),
+      );
+      final syncedIds = <int>{};
+
+      // Run 1: Crash simulated right after HTTP chunk upload
+      final outboxRun1 = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        chunkSize: 50,
+        getUnsyncedPoints: (s) async => localPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (s) async => localPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      // Pre-upload chunk succeeds to cloud
+      await mockTracking.saveRawGpsPoints(localPoints.map((p) => RawGpsPointPayload(
+        workoutId: p.sessionId,
+        timestamp: p.timestamp,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        altitude: p.altitude,
+        speed: p.speed,
+        accuracy: p.accuracy,
+        heading: p.heading,
+        deviceSource: p.deviceSource,
+      )).toList());
+
+      // But process died before verification: syncedIds remains empty!
+      expect(syncedIds, isEmpty);
+
+      // Restart: Run 2 verifies and completes verification
+      final report = await outboxRun1.uploadAndVerifySession(testWorkoutId);
+      expect(report.state, RawGpsVerificationState.cloudVerified);
+      expect(syncedIds.length, 50);
+    });
+
+    test('H9. Token expiration, logout and account switch safety (P0-03 & P1)', () async {
+      String? activeUser = testUserId;
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => activeUser,
+        getUnsyncedPoints: (s) async => [createPoint(sessionId: testWorkoutId, index: 0)],
+        getAllLocalPoints: (s) async => [createPoint(sessionId: testWorkoutId, index: 0)],
+        markPointsSynced: (_) async {},
+      );
+
+      // 1. User logs out
+      activeUser = null;
+      final reportLoggedOut = await outbox.uploadAndVerifySession(testWorkoutId);
+      expect(reportLoggedOut.state, RawGpsVerificationState.authRequired);
+
+      // 2. Switch to different user
+      activeUser = 'athlete-other-user-999';
+      mockTracking.isAuthExpired = true;
+      final reportExpired = await outbox.uploadAndVerifySession(testWorkoutId);
+      expect(reportExpired.state, RawGpsVerificationState.authRequired);
+    });
+
+    test('H10. No duplicate upload workers or infinite retries (P0-03)', () async {
+      final localPoints = [createPoint(sessionId: testWorkoutId, index: 0)];
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (s) async => localPoints,
+        getAllLocalPoints: (s) async => localPoints,
+        markPointsSynced: (_) async {},
+      );
+
+      // Launch two concurrent uploads for the exact same session
+      final future1 = outbox.uploadAndVerifySession(testWorkoutId);
+      final future2 = outbox.uploadAndVerifySession(testWorkoutId);
+
+      final results = await Future.wait([future1, future2]);
+      expect(results, hasLength(2));
+      // One is verified or handled safely without duplicate server rows
+      expect(mockTracking.getServerPoints(testWorkoutId).length, 1);
+    });
+  });
 }
+
+class _FailingReadTrackingDataSource implements RawTrackingRemoteDataSource {
+  final _MockRawTrackingDataSource _inner;
+
+  _FailingReadTrackingDataSource(this._inner);
+
+  @override
+  Future<void> saveRawGpsPoints(List<RawGpsPointPayload> points) =>
+      _inner.saveRawGpsPoints(points);
+
+  @override
+  Future<void> saveRawStepIntervals(List<RawStepIntervalPayload> intervals) =>
+      _inner.saveRawStepIntervals(intervals);
+
+  @override
+  Future<int> countRawGpsPointsForWorkout(String workoutId) =>
+      _inner.countRawGpsPointsForWorkout(workoutId);
+
+  @override
+  Future<List<RawGpsPointPayload>> fetchRawGpsPointsPaged(
+    String workoutId, {
+    int offset = 0,
+    int limit = 1000,
+  }) async {
+    throw const SocketException('Simulated read-back connection dropout');
+  }
+
+  @override
+  Future<List<RawGpsPointPayload>> fetchAllRawGpsPoints(
+    String workoutId, {
+    int pageSize = 1000,
+  }) async {
+    throw const SocketException('Simulated read-back connection dropout');
+  }
+}
+

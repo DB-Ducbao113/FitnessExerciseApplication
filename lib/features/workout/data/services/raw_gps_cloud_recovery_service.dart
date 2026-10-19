@@ -1,8 +1,18 @@
+import 'package:fitness_exercise_application/core/providers/app_providers.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final rawGpsCloudRecoveryServiceProvider =
+    Provider<RawGpsCloudRecoveryService>((ref) {
+      return RawGpsCloudRecoveryService(
+        rawTracking: ref.watch(rawTrackingRemoteDataSourceProvider),
+        currentUserId: () => ref.read(currentUserIdProvider),
+      );
+    });
 
 /// Result of a cloud download and reconciliation operation.
 class RawGpsCloudRecoveryResult {
@@ -24,19 +34,26 @@ class RawGpsCloudRecoveryResult {
     required this.message,
   });
 
+  /// Successful restoration is accepted if cloud records were fully verified against
+  /// independent ground truth, or safely restored with explicit RESTORED_UNVERIFIED status.
+  /// PARTIAL, UNKNOWN, and INTEGRITY_MISMATCH are NOT considered full successes.
   bool get isSuccess =>
       state == RawGpsVerificationState.cloudVerified ||
-      (state != RawGpsVerificationState.authRequired &&
-          state != RawGpsVerificationState.integrityMismatch);
+      state == RawGpsVerificationState.restoredUnverified;
+
+  bool get isFullyVerified =>
+      state == RawGpsVerificationState.cloudVerified;
 }
 
-/// Service implementing Cloud Download and Recovery for RG-1B:
+/// Service implementing Cloud Download and Recovery for RG-1B & RG-1B.1:
 /// - Downloads raw GPS for an authenticated user's workout with pagination.
 /// - Verifies account/workout ownership using authenticated Supabase context and RLS.
 /// - Reconciles cloud records against local Isar and journal.
 /// - Deterministically deduplicates records by (timestamp, lat, lng).
 /// - NEVER overwrites a richer local record with a cloud record missing fields.
 /// - Does NOT reconstruct unavailable `confidence` or other local-only fields as if they were original.
+/// - Validates completeness against independent capture manifest (P0-04).
+/// - Device B restoring cloud-only data without source manifest receives RESTORED_UNVERIFIED.
 /// - Historical workouts without a reliable manifest remain UNKNOWN until verified.
 /// - NEVER fabricates workout distance or automatically finalizes crashed sessions.
 class RawGpsCloudRecoveryService {
@@ -96,23 +113,28 @@ class RawGpsCloudRecoveryService {
     // 2. Fetch existing local points (Isar and/or Journal)
     var existingLocal = await _getLocalPoints(workoutId);
     if (existingLocal.isEmpty) {
-      final recovery = await _journal.readJournal(workoutId, activeUserId: userId);
+      final recovery = await _journal.readJournal(
+        workoutId,
+        activeUserId: userId,
+      );
       if (recovery.points.isNotEmpty) {
         existingLocal = recovery.points;
       }
     }
+    final existingLocalSnapshot = List<LocalGPSPoint>.from(existingLocal);
+    final priorLocalCount = existingLocalSnapshot.length;
 
     // If cloud has 0 rows
     if (cloudPayloads.isEmpty) {
       return RawGpsCloudRecoveryResult(
         workoutId: workoutId,
-        state: existingLocal.isEmpty
+        state: priorLocalCount == 0
             ? RawGpsVerificationState.unknown
             : RawGpsVerificationState.pendingUpload,
         restoredPointsCount: 0,
-        preservedLocalPointsCount: existingLocal.length,
-        totalPointsCount: existingLocal.length,
-        message: existingLocal.isEmpty
+        preservedLocalPointsCount: priorLocalCount,
+        totalPointsCount: priorLocalCount,
+        message: priorLocalCount == 0
             ? 'No records found in cloud or local storage.'
             : 'No cloud records found; local records are pending upload.',
       );
@@ -122,7 +144,7 @@ class RawGpsCloudRecoveryService {
     // RULE: "Never overwrite a richer local record with a cloud record missing fields."
     // RULE: "Do not reconstruct unavailable confidence or other local-only fields as if they were original."
     final localMap = <String, LocalGPSPoint>{};
-    for (final p in existingLocal) {
+    for (final p in existingLocalSnapshot) {
       final key =
           '${p.timestamp.toUtc().microsecondsSinceEpoch}|${p.latitude.toStringAsFixed(7)}|${p.longitude.toStringAsFixed(7)}';
       localMap[key] = p;
@@ -163,13 +185,37 @@ class RawGpsCloudRecoveryService {
     }
 
     final allLocalAfter = await _getLocalPoints(workoutId);
-    final localCanon = allLocalAfter.map(CanonicalGpsPoint.fromLocal).toList();
-    final cloudCanon = cloudPayloads.map(CanonicalGpsPoint.fromPayload).toList();
-    final report = RawGpsCanonicalVerification.verify(
-      workoutId: workoutId,
-      localPoints: localCanon,
-      cloudPoints: cloudCanon,
-    );
+    final cloudCanon =
+        cloudPayloads.map(CanonicalGpsPoint.fromPayload).toList();
+
+    // 4. Verification against independent ground truth (P0-04)
+    // Avoid circular verification of downloaded cloud data against newly reconstructed local copy.
+    final manifest = await _journal.readManifest(workoutId);
+    RawGpsVerificationReport report;
+
+    if (manifest != null) {
+      // Independent capture manifest exists: verify completeness against manifest
+      report = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: workoutId,
+        manifest: manifest,
+        cloudPoints: cloudCanon,
+      );
+    } else if (priorLocalCount > 0) {
+      // Local points existed prior to cloud recovery: verify against prior local ground truth
+      report = RawGpsCanonicalVerification.verify(
+        workoutId: workoutId,
+        localPoints: existingLocalSnapshot.map(CanonicalGpsPoint.fromLocal).toList(),
+        cloudPoints: cloudCanon,
+      );
+    } else {
+      // Device B recovery: no prior local points and no capture manifest
+      // Must NOT be labeled CLOUD_VERIFIED; marked RESTORED_UNVERIFIED
+      report = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: workoutId,
+        manifest: null,
+        cloudPoints: cloudCanon,
+      );
+    }
 
     return RawGpsCloudRecoveryResult(
       workoutId: workoutId,
@@ -180,7 +226,8 @@ class RawGpsCloudRecoveryService {
       verificationReport: report,
       message:
           'Cloud recovery complete: ${pointsToInsert.length} points restored, '
-          '$preservedLocalCount local points preserved without overwrite.',
+          '$preservedLocalCount local points preserved without overwrite. '
+          'Verification: ${report.state.label}',
     );
   }
 }

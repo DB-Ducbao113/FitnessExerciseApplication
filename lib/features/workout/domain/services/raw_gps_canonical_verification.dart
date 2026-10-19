@@ -2,24 +2,29 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 
-/// Verification states for raw GPS cloud backup and integrity reconciliation (RG-1B).
+/// Verification states for raw GPS cloud backup and integrity reconciliation (RG-1B / RG-1B.1).
 enum RawGpsVerificationState {
   pendingUpload,
   uploading,
+  uploadedUnverified,
   cloudVerified,
   partial,
   integrityMismatch,
+  restoredUnverified,
   unknown,
   authRequired;
 
   String get label => switch (this) {
     RawGpsVerificationState.pendingUpload => 'PENDING_UPLOAD',
     RawGpsVerificationState.uploading => 'UPLOADING',
+    RawGpsVerificationState.uploadedUnverified => 'UPLOADED_UNVERIFIED',
     RawGpsVerificationState.cloudVerified => 'CLOUD_VERIFIED',
     RawGpsVerificationState.partial => 'PARTIAL',
     RawGpsVerificationState.integrityMismatch => 'INTEGRITY_MISMATCH',
+    RawGpsVerificationState.restoredUnverified => 'RESTORED_UNVERIFIED',
     RawGpsVerificationState.unknown => 'UNKNOWN',
     RawGpsVerificationState.authRequired => 'AUTH_REQUIRED',
   };
@@ -28,9 +33,17 @@ enum RawGpsVerificationState {
 /// Versioned canonical representation of a raw GPS point that is mutually preserved
 /// by both client storage (Isar / JSONL journal) and Supabase (public.raw_gps_points).
 ///
-/// Local-only attributes such as `confidence` or `local_sequence_id` are intentionally
-/// excluded from the canonical digest so verification evaluates true data fidelity
-/// against cloud tables.
+/// PRECISION AND CANONICALIZATION SPECIFICATION:
+/// 1. Spatial Resolution: `latitude` and `longitude` are formatted using `toStringAsFixed(7)`.
+///    This represents ~1.1 cm resolution at the equator, eliminating floating-point
+///    representation discrepancies across Dart (IEEE-754 double) and Postgres (numeric/float8).
+/// 2. Telemetry Resolution: `altitude`, `speed`, `accuracy`, and `heading` are formatted using
+///    `toStringAsFixed(2)` (cm, cm/s, 0.01 degrees). Null values are formatted as empty strings.
+/// 3. Timestamp Resolution: UTC ISO 8601 microseconds (`toUtc().microsecondsSinceEpoch`).
+/// 4. Local-only Attributes: `confidence` and `local_sequence_id` are intentionally excluded
+///    from the canonical digest because they are not preserved in `public.raw_gps_points`.
+///    Consequently, canonical verification evaluates true data fidelity of mutually preserved
+///    fields, but does not imply full-fidelity capture of sensor-only local metadata.
 class CanonicalGpsPoint implements Comparable<CanonicalGpsPoint> {
   final String workoutId;
   final DateTime timestamp;
@@ -134,7 +147,7 @@ class CanonicalGpsPoint implements Comparable<CanonicalGpsPoint> {
   int get hashCode => toCanonicalLine().hashCode;
 }
 
-/// Detailed result of canonical cloud read-back verification against local ground truth.
+/// Detailed result of canonical cloud read-back verification against local ground truth or manifest.
 class RawGpsVerificationReport {
   final String workoutId;
   final RawGpsVerificationState state;
@@ -164,7 +177,7 @@ class RawGpsVerificationReport {
 }
 
 /// Service implementing versioned canonical digest calculation and verification
-/// for RG-1B cloud preservation.
+/// for RG-1B / RG-1B.1 cloud preservation.
 class RawGpsCanonicalVerification {
   /// Canonical SHA-256 digest of an empty record set
   static const String emptyDigest =
@@ -278,6 +291,105 @@ class RawGpsCanonicalVerification {
       extraCloudSampleCount: extraCloud,
       mismatchedSampleCount: mismatched,
       message: message,
+    );
+  }
+
+  /// Verifies cloud-retrieved records against an independently recorded capture manifest (P0-04).
+  ///
+  /// Prevents circular verification where downloaded cloud records are compared only against
+  /// a local cache reconstructed from that same download. If no independent capture manifest
+  /// exists, returns [RawGpsVerificationState.restoredUnverified] (or [unknown] if empty).
+  static RawGpsVerificationReport verifyAgainstManifest({
+    required String workoutId,
+    required RawGpsJournalManifest? manifest,
+    required List<CanonicalGpsPoint> cloudPoints,
+  }) {
+    if (cloudPoints.isEmpty && manifest == null) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.unknown,
+        localCount: 0,
+        cloudCount: 0,
+        localDigest: emptyDigest,
+        cloudDigest: null,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: 0,
+        message: 'No cloud records or capture manifest found.',
+      );
+    }
+
+    if (manifest == null) {
+      // Independent capture manifest is missing: cannot prove full original capture completeness!
+      final cloudDigest = computeCanonicalDigest(cloudPoints);
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.restoredUnverified,
+        localCount: 0,
+        cloudCount: cloudPoints.length,
+        localDigest: emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: cloudPoints.length,
+        mismatchedSampleCount: 0,
+        message:
+            'Downloaded ${cloudPoints.length} points from cloud without independent capture manifest; '
+            'marked as RESTORED_UNVERIFIED.',
+      );
+    }
+
+    final cloudSorted = cloudPoints.toList()..sort();
+    final cloudDigest = computeCanonicalDigest(cloudSorted);
+    final expectedCount = manifest.sampleCount;
+    final expectedDigest =
+        manifest.cloudVerifiedSha256 ?? manifest.sha256Digest;
+
+    if (cloudPoints.length < expectedCount) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.partial,
+        localCount: expectedCount,
+        cloudCount: cloudPoints.length,
+        localDigest: expectedDigest ?? emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: expectedCount - cloudPoints.length,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: 0,
+        message:
+            'Partial cloud records: ${cloudPoints.length}/$expectedCount confirmed.',
+      );
+    }
+
+    final digestMatches =
+        expectedDigest != null && expectedDigest == cloudDigest;
+    if (cloudPoints.length == expectedCount && digestMatches) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.cloudVerified,
+        localCount: expectedCount,
+        cloudCount: cloudPoints.length,
+        localDigest: expectedDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: 0,
+        message:
+            'Canonical manifest verification PASSED ($cloudDigest, $expectedCount samples).',
+      );
+    }
+
+    return RawGpsVerificationReport(
+      workoutId: workoutId,
+      state: RawGpsVerificationState.integrityMismatch,
+      localCount: expectedCount,
+      cloudCount: cloudPoints.length,
+      localDigest: expectedDigest ?? emptyDigest,
+      cloudDigest: cloudDigest,
+      missingCloudSampleCount: 0,
+      extraCloudSampleCount: 0,
+      mismatchedSampleCount: cloudPoints.length,
+      message:
+          'Integrity mismatch: expected digest $expectedDigest, got $cloudDigest.',
     );
   }
 }

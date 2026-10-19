@@ -4,6 +4,7 @@ import 'package:fitness_exercise_application/features/workout/data/datasources/r
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_processing_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/repositories/workout_repository_impl.dart';
+import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_cloud_outbox_service.dart';
 import 'package:fitness_exercise_application/features/workout/domain/repositories/workout_repository.dart';
 
 part 'workout_providers_infra.g.dart';
@@ -26,11 +27,13 @@ WorkoutRepository workoutRepository(WorkoutRepositoryRef ref) {
     workoutProcessingRemoteDataSourceProvider,
   );
   final supabase = ref.watch(supabaseClientProvider);
+  final outboxService = ref.watch(rawGpsCloudOutboxServiceProvider);
 
   return WorkoutRepositoryImpl(
     remoteDataSource,
     rawTrackingRemoteDataSource,
     processingRemoteDataSource,
     supabase,
+    outboxService: outboxService,
   );
 }
