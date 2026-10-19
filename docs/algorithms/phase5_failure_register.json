@@ -1,9 +1,9 @@
 {
-  "schema_version": "aetron.phase5.task6.failure_register.v2",
-  "generated_at_utc": "2026-10-19T10:40:00.000000Z",
+  "schema_version": "aetron.phase5.task6.failure_register.v3",
+  "generated_at_utc": "2026-10-19T10:55:00.000000Z",
   "target_candidate": "D+Opt",
   "branch": "EKF+DBSCAN",
-  "commit_sha": "a685fc66f991dbed5cf4f6403de65f346a829ce5",
+  "commit_sha": "575c331fe64ea04115bd102ae5ea84c6fe7873a8",
   "total_failures_recorded": 3,
   "failures": [
     {
@@ -11,32 +11,44 @@
       "gate": "All-Scheduled RMSE Gate",
       "severity": "CRITICAL",
       "target_threshold": "< 8.00 m",
-      "observed_value": 9.6419,
-      "original_108_baseline": 6.8730,
-      "delta": 2.7689,
+      "observed_value": 9.638879,
+      "original_108_baseline": 6.873024,
+      "delta": 2.768879,
       "gate_status": "BREACHED",
-      "affected_scenarios": "Holdout Route B (City Center Corners), Route C (Mountain Descent), Route D (Figure-8 Loop) under Severe Canyon and Heading Dropout profiles",
-      "observed_empirical_evidence": {
-        "description": "Trajectory error grew substantially on high-curvature holdout routes relative to straight routes.",
-        "kinematic_phase_partition": {
-          "turn_sections_excess_contribution_percent": 91.4,
-          "straight_sections_excess_contribution_percent": 8.6,
-          "stationary_periods_excess_contribution_percent": 0.0
+      "affected_scenarios": "Holdout Route A (Coastal Straight Highway), Route B (Mountain Hairpin Switchbacks), Route C (Urban Grid with Stop-and-Go), Route D (Figure-8 Athletic Loop)",
+      "observed_empirical_metrics": {
+        "overall_holdout_rmse_m": 9.638879,
+        "per_route_rmse_m": {
+          "RouteA_StraightHighway": 10.872990,
+          "RouteB_Hairpins": 8.992890,
+          "RouteC_UrbanGrid": 9.728154,
+          "RouteD_FigureEight": 8.826155
         },
-        "empirical_conclusion": "Excess error correlates quantitatively with turning maneuvers."
+        "empirical_finding": "RMSE exceeded the <8.00 m threshold across all four holdout routes, with Route A showing the highest error (10.87 m)."
+      },
+      "kinematic_net_distance_bias_partition": {
+        "metric_partitioned": "Net Distance Bias (NOT position RMSE or gross overcount)",
+        "turn_sections_excess_m": 5387.753046,
+        "turn_sections_share_percent": 58.911375,
+        "straight_sections_excess_m": 3757.786308,
+        "straight_sections_share_percent": 41.088625,
+        "stationary_dwell_excess_m": 0.000000,
+        "stationary_dwell_share_percent": 0.000000,
+        "total_net_distance_bias_m": 9145.539354,
+        "accounting_status": "EXACT_MATCH_ZERO_RESIDUAL"
       },
       "hypothesized_causal_mechanisms": [
         {
           "hypothesis_id": "HYP-RMSE-A",
           "name": "Innovation Gating Disconnection (Unproven Hypothesis)",
           "description": "Hypothesized that when heading is unavailable, high turn rates induce position innovations exceeding Chi-square thresholds (NIS >= G2), triggering predict-only coasting away from the true turn arc.",
-          "proof_status": "UNPROVEN_HYPOTHESIS (Requires step-level innovation logging on real-world hardware)"
+          "proof_status": "UNPROVEN_HYPOTHESIS (Requires step-level innovation logging on real-world hardware; no trace-level attribution proven)"
         },
         {
           "hypothesis_id": "HYP-RMSE-B",
           "name": "Process Noise Underestimation (Unproven Hypothesis)",
           "description": "Hypothesized that the tuned Q-matrix heading variance is too stiff to permit rapid heading re-orientation during abrupt right-angle turns.",
-          "proof_status": "UNPROVEN_HYPOTHESIS (Requires field IMU/gyro telemetry attribution)"
+          "proof_status": "UNPROVEN_HYPOTHESIS (Requires field IMU/gyro telemetry attribution; no trace-level attribution proven)"
         }
       ],
       "resolution_prerequisite": "Field-first trace collection via RG-1/RG-2 with real hardware IMU/GPS sync before any further filter retuning."
@@ -46,14 +58,23 @@
       "gate": "Distance Overcount Gate",
       "severity": "CRITICAL",
       "target_threshold": "<= 1.00 %",
-      "observed_value": 3.3146,
-      "original_108_baseline": 0.9800,
-      "delta": 2.3346,
+      "observed_value": 3.314631,
+      "original_108_baseline": 0.980000,
+      "delta": 2.334631,
       "gate_status": "BREACHED",
-      "affected_scenarios": "Holdout Route B and Route D across all seeds with noise",
-      "observed_empirical_evidence": {
-        "description": "Accumulated distance exceeded ground truth by up to 250 m per 2.5 km scenario on athletic loop routes.",
-        "empirical_conclusion": "Distance overcount is structurally concentrated in curved trajectories."
+      "affected_scenarios": "Holdout Route C (5.02%), Route D (3.42%), Route A (3.03%), Route B (2.76%)",
+      "observed_empirical_metrics": {
+        "overall_gross_overcount_percent": 3.314631,
+        "overall_gross_overcount_m": 9413.087136,
+        "overall_gross_undercount_percent": 0.094212,
+        "overall_gross_undercount_m": 267.547782,
+        "per_route_overcount_percent": {
+          "RouteA_StraightHighway": 3.027594,
+          "RouteB_Hairpins": 2.762709,
+          "RouteC_UrbanGrid": 5.024532,
+          "RouteD_FigureEight": 3.421650
+        },
+        "empirical_finding": "Gross overcount breached the <=1.00% threshold across all routes, peaking on Route C (Urban Grid with Stop-and-Go at 5.02%)."
       },
       "hypothesized_causal_mechanisms": [
         {
@@ -76,14 +97,21 @@
       "gate": "Signed Distance Bias Gate",
       "severity": "HIGH",
       "target_threshold": "<= 1.00 %",
-      "observed_value": 3.2204,
-      "original_108_baseline": 0.0200,
-      "delta": 3.2004,
+      "observed_value": 3.220419,
+      "original_108_baseline": 0.020000,
+      "delta": 3.200419,
       "gate_status": "BREACHED",
-      "affected_scenarios": "All holdout scenarios with non-zero route curvature",
-      "observed_empirical_evidence": {
-        "description": "Aggregate distance bias shifted from near-zero (+0.02%) on training routes to +3.22% on holdout routes.",
-        "empirical_conclusion": "Distance error does not average out symmetrically; net bias is strongly positive."
+      "affected_scenarios": "Holdout Route C (+5.02%), Route D (+3.34%), Route A (+2.92%), Route B (+2.62%)",
+      "observed_empirical_metrics": {
+        "overall_signed_bias_percent": 3.220419,
+        "overall_net_distance_bias_m": 9145.539354,
+        "per_route_signed_bias_percent": {
+          "RouteA_StraightHighway": 2.922976,
+          "RouteB_Hairpins": 2.617608,
+          "RouteC_UrbanGrid": 5.024532,
+          "RouteD_FigureEight": 3.344813
+        },
+        "empirical_finding": "Net distance bias was positive across all 108 holdout scenarios, peaking on Route C (+5.02%)."
       },
       "hypothesized_causal_mechanisms": [
         {
@@ -99,7 +127,7 @@
   "cross_platform_audit_finding": {
     "id": "FIND-P5-004",
     "item": "Cross-Platform Float64 Canonical Digest Equivalence",
-    "verdict": "INCONCLUSIVE (Architecture Discrepancy)",
+    "verdict": "TECHNICAL_PASS for Single-Platform Determinism Engine; Cross-Platform Numerical Equivalence INCONCLUSIVE",
     "scope": "macOS ARM64 vs Ubuntu Linux x86_64",
     "observed_empirical_evidence": {
       "legacy_rounded_hash_match": "540 / 540 (100.0%)",
@@ -107,7 +135,7 @@
       "maximum_discrepancy_meters": 2.8251452022232115e-7,
       "mean_discrepancy_meters": 7.416072431051698e-9
     },
-    "technical_assessment": "The determinism engine functions as specified on a single architecture (TECHNICAL PASS). However, cross-platform bit-exact equivalence is INCONCLUSIVE because standard IEEE-754 Float64 transcendental operations and FMA instructions differ between ARM64 and x86_64 math libraries at the sub-micron level (max 0.28 micrometers)."
+    "technical_assessment": "The determinism engine functions as specified on a single architecture (TECHNICAL PASS). However, cross-platform canonical bit-exact match was 0/540. Cross-platform numerical equivalence is INCONCLUSIVE and the exact root cause of platform differences is UNDETERMINED."
   },
   "remediation_status": {
     "action": "HALT_ALGORITHM_DEPLOYMENT",
