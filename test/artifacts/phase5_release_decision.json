@@ -1,6 +1,6 @@
 {
-  "schema_version": "aetron.phase5.task6.release_decision.v3",
-  "generated_at_utc": "2026-10-19T10:55:00.000000Z",
+  "schema_version": "aetron.phase5.task6.release_decision.v4",
+  "generated_at_utc": "2026-10-19T12:50:00.000000Z",
   "branch": "EKF+DBSCAN",
   "target_candidate": "D+Opt (Optimized EKF Gap-Recovery FSM)",
   "production_baseline": "Main (Baseline GpsSmoothingService + Rolling Average)",
@@ -8,14 +8,16 @@
   "release_verdict": "NO-GO",
   "milestone_2b_status": "HOLD",
   "production_merge_authorized": false,
-  "executive_summary": "Phase 5 independent holdout evaluation across 108 unseen scenarios confirmed that D+Opt breached three mandatory frozen release gates: All-Scheduled RMSE (9.638879 m vs <8.00 m threshold), Distance Overcount (3.31% vs <=1.00% threshold), and Signed Distance Bias (+3.22% vs <=1.00% threshold). Task 4 determinism verification is a TECHNICAL PASS for local bit-exact reproducibility on macOS ARM64; cross-platform canonical bit-exact match was 0/540, rendering cross-platform numerical equivalence INCONCLUSIVE and exact root cause of platform differences UNDETERMINED. In accordance with Owner directives, Milestone 2B and production algorithm rollout remain on HOLD. Raw GPS Preservation and Cable-Free Export (RG-1 / RG-2) are decoupled into an independent workstream.",
+  "executive_summary": "Phase 5 independent holdout evaluation across 108 unseen scenarios confirmed that D+Opt breached three mandatory frozen release gates: All-Scheduled RMSE (9.638879 m vs <8.00 m threshold; delta +2.765855 m vs exact 6.873024 m baseline, delta +2.768879 m vs historical 6.87 m rounded reference), Distance Overcount (3.314631% vs <=1.00% threshold; delta +2.334631%), and Signed Distance Bias (+3.220419% vs <=1.00% threshold; delta +3.200419%). Task 4 determinism verification is a TECHNICAL PASS for local bit-exact reproducibility on macOS ARM64; cross-platform canonical bit-exact match was 0/540, rendering cross-platform numerical equivalence INCONCLUSIVE and exact root cause of platform differences UNDETERMINED. In accordance with Owner directives, Milestone 2B and production algorithm rollout remain on HOLD. Raw GPS Preservation and Cable-Free Export (RG-1 / RG-2) are decoupled into an independent workstream.",
   "frozen_release_gate_scorecard": {
     "rmse_gate": {
       "status": "FAIL",
       "threshold": "< 8.00 m",
-      "baseline_108_original": 6.873024,
+      "baseline_108_exact": 6.873024,
+      "baseline_108_rounded_reference": 6.870000,
       "holdout_108_observed": 9.638879,
-      "delta": 2.768879,
+      "delta_vs_exact_baseline": 2.765855,
+      "delta_vs_historical_rounded_reference": 2.768879,
       "nature_of_metric": "Original Frozen Release Gate"
     },
     "distance_overcount_gate": {
@@ -76,7 +78,7 @@
       "note": "Audited in Task 2 to inspect measurement-anchored vs predict-only epochs; not an original frozen release gate."
     }
   },
-  "reconciled_phase5_evidence": {
+  "reconciled_historical_evidence": {
     "task1_metric_accumulator": {
       "file": "test/artifacts/metric_accumulator_report.json",
       "sha256": "dd28f70c01890d66d87c9cefd4cb55c0c2b6f6c30db85783496466ac0baaec12",
@@ -113,7 +115,7 @@
     }
   },
   "sign_off": {
-    "research_head_sha": "575c331fe64ea04115bd102ae5ea84c6fe7873a8",
+    "research_head_sha": "4502775b94ee25e5de0e252f4e7ebd87ea18217d",
     "qa_lead": "AI Engineering Assistant",
     "owner_decision": "NO-GO for current D+Opt; HOLD Milestone 2B; Decouple Raw GPS Preservation (RG-1/RG-2)"
   }

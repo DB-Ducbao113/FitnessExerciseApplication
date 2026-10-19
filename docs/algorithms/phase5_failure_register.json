@@ -1,9 +1,9 @@
 {
-  "schema_version": "aetron.phase5.task6.failure_register.v3",
-  "generated_at_utc": "2026-10-19T10:55:00.000000Z",
+  "schema_version": "aetron.phase5.task6.failure_register.v4",
+  "generated_at_utc": "2026-10-19T12:50:00.000000Z",
   "target_candidate": "D+Opt",
   "branch": "EKF+DBSCAN",
-  "commit_sha": "575c331fe64ea04115bd102ae5ea84c6fe7873a8",
+  "commit_sha": "4502775b94ee25e5de0e252f4e7ebd87ea18217d",
   "total_failures_recorded": 3,
   "failures": [
     {
@@ -11,9 +11,11 @@
       "gate": "All-Scheduled RMSE Gate",
       "severity": "CRITICAL",
       "target_threshold": "< 8.00 m",
-      "observed_value": 9.638879,
-      "original_108_baseline": 6.873024,
-      "delta": 2.768879,
+      "observed_holdout_rmse_m": 9.638879,
+      "baseline_exact_rmse_m": 6.873024,
+      "delta_vs_exact_baseline_m": 2.765855,
+      "baseline_rounded_reference_m": 6.870000,
+      "delta_vs_rounded_reference_m": 2.768879,
       "gate_status": "BREACHED",
       "affected_scenarios": "Holdout Route A (Coastal Straight Highway), Route B (Mountain Hairpin Switchbacks), Route C (Urban Grid with Stop-and-Go), Route D (Figure-8 Athletic Loop)",
       "observed_empirical_metrics": {
