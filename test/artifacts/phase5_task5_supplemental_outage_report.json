@@ -1,9 +1,9 @@
 {
   "schema_version": "aetron.phase5.task5.supplemental_true_outage.v1",
-  "generated_at_utc": "2026-10-19T07:02:56.319307Z",
+  "generated_at_utc": "2026-10-19T07:29:52.424124Z",
   "source_provenance": {
     "branch": "EKF+DBSCAN",
-    "base_commit": "aadf993bf82285ff6a3c61022f4800222c6b3e95",
+    "base_commit": "124480d0508a31d5bc82ef47532ad59bca0b737d",
     "generator": "test/phase5_task5_supplemental_true_outage_test.dart",
     "note": "Supplemental deterministic test evaluating true zero-fix GPS blackout outages without modifying production code."
   },
@@ -16,11 +16,13 @@
       240,
       270
     ],
-    "outage_duration_seconds": 30,
+    "no_fix_window_seconds": 30,
     "missing_samples_count": 30,
     "received_samples_count": 570,
+    "actual_inter_fix_gap_seconds": 31.0,
+    "timing_distinction_note": "No-fix silence window is 30.0s (epochs 240..269 inclusive, 30 missing samples). Because the preceding fix arrived at t=239s, the elapsed inter-fix gap upon reacquisition at t=270s is 270s - 239s = 31.0s.",
     "interface_observation_limitation": "NOT TESTABLE during outage silence: Production GpsRecoveryStateMachine interface is sample-driven via processMeasurement(). No ticker or predict-only clock method exists in the absence of GPS fixes. FSM state during silence cannot be polled without altering production code.",
-    "reacquisition_mechanism": "TESTABLE upon first post-outage fix: Delivered with timeDeltaSec=30.0s. FSM time-gap guard (dt >= 5.0s) triggers S2 Loss of Lock, rejects fix, and safe reset proceeds with 0.0m Euclidean jump."
+    "reacquisition_mechanism": "TESTABLE upon first post-outage fix: Delivered with timeDeltaSec=31.0s (30s no-fix window preceded by fix at t=239s). FSM time-gap guard (dt >= 5.0s) triggers S2 Loss of Lock, rejects fix, and safe reset proceeds with 0.0m Euclidean jump."
   },
   "configuration_results": {
     "D": {
@@ -39,7 +41,9 @@
           "rmse_m": 16.359234743823098,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -67,7 +71,9 @@
           "rmse_m": 7.32096245230572,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -95,7 +101,9 @@
           "rmse_m": 4.872587122172153,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -123,7 +131,9 @@
           "rmse_m": 9.786223757844315,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -157,7 +167,9 @@
           "rmse_m": 16.359234743823098,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -185,7 +197,9 @@
           "rmse_m": 7.32096245230572,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -213,7 +227,9 @@
           "rmse_m": 4.872587122172153,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -241,7 +257,9 @@
           "rmse_m": 9.786223757844315,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -275,7 +293,9 @@
           "rmse_m": 16.359610084145135,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -303,7 +323,9 @@
           "rmse_m": 7.32096245230572,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -331,7 +353,9 @@
           "rmse_m": 4.872587122172153,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -359,7 +383,9 @@
           "rmse_m": 9.786223757844315,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -393,7 +419,9 @@
           "rmse_m": 16.359610084145135,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -421,7 +449,9 @@
           "rmse_m": 7.32096245230572,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -449,7 +479,9 @@
           "rmse_m": 4.872587122172153,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -477,7 +509,9 @@
           "rmse_m": 9.786223757844315,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -511,7 +545,9 @@
           "rmse_m": 16.359610084145135,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -539,7 +575,9 @@
           "rmse_m": 7.32096245230572,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -567,7 +605,9 @@
           "rmse_m": 4.872587122172153,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,
@@ -595,7 +635,9 @@
           "rmse_m": 9.786223757844315,
           "p95_m": 4.0,
           "reacquisition": {
-            "trigger_dt_seconds": 30.0,
+            "no_fix_window_seconds": 30,
+            "actual_inter_fix_gap_seconds": 31.0,
+            "trigger_dt_seconds": 31.0,
             "state_at_reacquisition": "s2LossOfLock",
             "decision_at_reacquisition": "rejected",
             "reacquisition_added_distance_m": 0.0,

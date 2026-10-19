@@ -148,13 +148,18 @@ class HoldoutScenarioEvaluation {
           'unresolved_count': unresolvedEvents,
           'latencies_seconds': recoveryLatencies,
         },
-        'causal_overcount_breakdown_m': {
+        'exclusive_motion_phase_bias_m': {
           'stationary_periods_excess_m': stationaryExcessMeters,
           'turn_sections_excess_m': turnExcessMeters,
           'normal_straight_excess_m': normalStraightExcessMeters,
+          'reconciled_sum_m': stationaryExcessMeters + turnExcessMeters + normalStraightExcessMeters,
+          'note': 'Exclusive epoch-by-epoch kinematic motion-phase partitioning of scenario net distance bias.',
+        },
+        'transaction_ledger_diagnostics_m': {
           'escrow_commit_delta_m': escrowCommitDeltaMeters,
           'gap_bridging_delta_m': gapBridgingDeltaMeters,
           'rollback_correction_delta_m': rollbackCorrectionDeltaMeters,
+          'note': 'Internal FSM transaction-ledger mutations; already subsumed within the motion phases above (do not add to motion phases to avoid double counting).',
         },
         'canonical_sha256': canonicalSha256,
         'legacy_rounded_sha256': legacyRoundedSha256,
@@ -648,6 +653,12 @@ void main() {
                 globalGapBridgingDelta += scenGapBridgingDelta;
                 globalRollbackCorrectionDelta += scenRollbackCorrectionDelta;
 
+                // Invariant: exclusive motion phases sum to scenario net distance bias
+                final scenNetBias = fsm.accumulatedDistanceMeters - scenarioTruthDist;
+                final scenMotionSum = scenStationaryExcess + scenTurnExcess + scenNormalStraightExcess;
+                expect((scenMotionSum - scenNetBias).abs(), lessThan(1e-4),
+                    reason: 'Scenario $scenarioId exclusive motion phases must sum to net distance bias');
+
                 accumulator.endScenario(
                   scenarioId: scenarioId,
                   description: '${route.name} | ${noise.name} | ${rate.name} | Seed $seed',
@@ -937,18 +948,32 @@ void main() {
           };
         }
 
-        // Causal overcount diagnostics summary
+        // Invariant: exclusive motion phases sum to net distance bias
+        final exclusiveMotionPhaseSum = globalStationaryExcess + globalTurnExcess + globalNormalStraightExcess;
+        final netDistanceBias = globalAccumDist - globalTruthDist;
+        final motionPhaseResidual = (exclusiveMotionPhaseSum - netDistanceBias).abs();
+        expect(motionPhaseResidual, lessThan(1e-4),
+            reason: 'Global exclusive motion phases must sum to net distance bias with zero residual');
+
+        // Causal overcount diagnostics summary separating exclusive motion phases from transaction ledger
         final overcountCausalDiagnostics = {
-          'net_distance_bias_m': globalAccumDist - globalTruthDist,
+          'net_distance_bias_m': netDistanceBias,
           'gross_overcount_m': grossOvercountMeters,
           'gross_undercount_m': grossUndercountMeters,
-          'observable_components': {
+          'exclusive_motion_phase_net_bias': {
             'stationary_dwell_excess_m': globalStationaryExcess,
             'turn_curvature_excess_m': globalTurnExcess,
             'normal_straight_movement_excess_m': globalNormalStraightExcess,
+            'reconciled_sum_m': exclusiveMotionPhaseSum,
+            'reconciliation_residual_m': motionPhaseResidual,
+            'accounting_status': motionPhaseResidual < 1e-4 ? 'EXACT_MATCH_ZERO_RESIDUAL' : 'RESIDUAL_MISMATCH',
+            'note': 'Exclusive epoch-by-epoch partitioning summing strictly to net_distance_bias_m with zero residual.',
+          },
+          'transaction_ledger_diagnostics': {
             'escrow_commit_delta_m': globalEscrowCommitDelta,
             'gap_bridging_delta_m': globalGapBridgingDelta,
             'rollback_correction_delta_m': globalRollbackCorrectionDelta,
+            'note': 'Discrete internal FSM transaction mutations recorded in distanceLedger; already subsumed within the motion phases above and presented for mechanism diagnosis only. Do NOT add to motion phases to prevent double counting.',
           },
           'internal_cross_coupling_terms':
               'NOT OBSERVABLE (sub-meter EKF innovation covariance gain cross-coupling is not exposed as a discrete transaction)',

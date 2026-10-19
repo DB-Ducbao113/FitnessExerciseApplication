@@ -133,6 +133,7 @@ void main() {
           GpsRecoveryState? stateAtReacquisition;
           EkfMeasurementDecision? decisionAtReacquisition;
           double? reacquisitionAddedDistance;
+          double? reacquisitionTriggerDt;
           DateTime? reacquisitionTime;
           DateTime? recoveryToS0Time;
 
@@ -195,6 +196,7 @@ void main() {
               stateAtReacquisition = out.state;
               decisionAtReacquisition = out.decision;
               reacquisitionAddedDistance = out.addedDistanceMeters;
+              reacquisitionTriggerDt = actualDt;
               reacquisitionTime = t;
             } else if (reacquisitionTime != null &&
                 recoveryToS0Time == null &&
@@ -236,9 +238,15 @@ void main() {
           expect(receivedFixes, equals(expectedReceivedFixes),
               reason: 'Exactly 570 fixes must be received');
 
+          // Timing distinction assertions: 30s no-fix window vs 31s actual inter-fix gap
+          expect(outageDurationSec, equals(30),
+              reason: 'No-fix blackout window is strictly 30 seconds');
+          expect(reacquisitionTriggerDt, equals(31.0),
+              reason: 'Actual inter-fix gap must be 31.0 seconds (t=270s - t_last=239s)');
+
           // Reacquisition behavior assertions
           expect(stateAtReacquisition, equals(GpsRecoveryState.s2LossOfLock),
-              reason: 'Time-gap dt=30.0s must trigger S2 Loss of Lock upon reacquisition');
+              reason: 'Time-gap dt=31.0s must trigger S2 Loss of Lock upon reacquisition');
           expect(decisionAtReacquisition, equals(EkfMeasurementDecision.rejected),
               reason: 'Reacquisition fix must be rejected upon time-gap trip');
           expect(reacquisitionAddedDistance, equals(0.0),
@@ -266,7 +274,9 @@ void main() {
             'rmse_m': rmse,
             'p95_m': p95,
             'reacquisition': {
-              'trigger_dt_seconds': outageDurationSec.toDouble(),
+              'no_fix_window_seconds': outageDurationSec,
+              'actual_inter_fix_gap_seconds': reacquisitionTriggerDt,
+              'trigger_dt_seconds': reacquisitionTriggerDt,
               'state_at_reacquisition': stateAtReacquisition?.name,
               'decision_at_reacquisition': decisionAtReacquisition?.name,
               'reacquisition_added_distance_m': reacquisitionAddedDistance,
@@ -313,13 +323,16 @@ void main() {
           'total_duration_seconds': totalDurationSec,
           'scheduled_samples': scheduledEpochs,
           'outage_window_seconds': [outageStartSec, outageEndSec],
-          'outage_duration_seconds': outageDurationSec,
+          'no_fix_window_seconds': outageDurationSec,
           'missing_samples_count': expectedMissingFixes,
           'received_samples_count': expectedReceivedFixes,
+          'actual_inter_fix_gap_seconds': 31.0,
+          'timing_distinction_note':
+              'No-fix silence window is 30.0s (epochs 240..269 inclusive, 30 missing samples). Because the preceding fix arrived at t=239s, the elapsed inter-fix gap upon reacquisition at t=270s is 270s - 239s = 31.0s.',
           'interface_observation_limitation':
               'NOT TESTABLE during outage silence: Production GpsRecoveryStateMachine interface is sample-driven via processMeasurement(). No ticker or predict-only clock method exists in the absence of GPS fixes. FSM state during silence cannot be polled without altering production code.',
           'reacquisition_mechanism':
-              'TESTABLE upon first post-outage fix: Delivered with timeDeltaSec=30.0s. FSM time-gap guard (dt >= 5.0s) triggers S2 Loss of Lock, rejects fix, and safe reset proceeds with 0.0m Euclidean jump.',
+              'TESTABLE upon first post-outage fix: Delivered with timeDeltaSec=31.0s (30s no-fix window preceded by fix at t=239s). FSM time-gap guard (dt >= 5.0s) triggers S2 Loss of Lock, rejects fix, and safe reset proceeds with 0.0m Euclidean jump.',
         },
         'configuration_results': configResults,
       };
