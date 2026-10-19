@@ -93,7 +93,7 @@
     },
     "task4_deterministic_fingerprint": {
       "file": "test/artifacts/phase5_task4_fingerprint_report.json",
-      "sha256": "c4b62c09bf6ef3ee2ac66d97921e946e3d4f8002474df1e30d0ea585ce8b283a",
+      "sha256": "0c8afccc8f50731b18e04e6fd589b970ee7223b8542bf02ea246af25f942ffb4",
       "linux_evidence_file": "test/artifacts/cross_platform_evidence/linux/phase5_task4_fingerprint_report.json",
       "linux_sha256": "1ff2bf31932435106d53afbf1593c1f770472d282abf9cfe95048f62fd3bf844",
       "verdict": "TECHNICAL_PASS (Determinism engine verified 100% on macOS ARM64; cross-platform bit-exact equivalence INCONCLUSIVE due to sub-micron Float64 transcendental variance)"
