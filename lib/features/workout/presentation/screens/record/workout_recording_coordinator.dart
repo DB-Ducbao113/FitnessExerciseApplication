@@ -45,9 +45,24 @@ class WorkoutRecordingCoordinator {
        _saveLocalStepInterval =
            saveLocalStepInterval ?? LocalDB.saveRawStepInterval,
        _saveRecoveryGpsPoint =
-           saveRecoveryGpsPoint ?? RawGpsRecoveryJournal.instance.append,
+           saveRecoveryGpsPoint ??
+           ((point) async {
+             final result = await RawGpsRecoveryJournal.instance.appendPoint(
+               point,
+               userId: currentUserId(),
+             );
+             if (!result.success) {
+               throw StateError(
+                 result.error ?? 'Raw GPS recovery append failed',
+               );
+             }
+           }),
        _deleteRecoveryGpsJournal =
-           deleteRecoveryGpsJournal ?? RawGpsRecoveryJournal.instance.delete;
+           deleteRecoveryGpsJournal ??
+           ((workoutId) => RawGpsRecoveryJournal.instance.delete(
+                 workoutId,
+                 verifySafe: true,
+               ));
 
   final RawTrackingRemoteDataSource _rawTracking;
   final WorkoutRemoteDataSource _workoutRemote;
@@ -282,6 +297,15 @@ class WorkoutRecordingCoordinator {
     );
     if (diagnostics.isComplete) {
       try {
+        await RawGpsRecoveryJournal.instance.checkpoint(
+          workoutId,
+          isFinalized: true,
+          cloudVerified: true,
+          cloudVerifiedCount: diagnostics.serverConfirmedGpsPoints,
+        );
+      } catch (_) {}
+
+      try {
         await _deleteRecoveryGpsJournal(workoutId);
       } catch (error) {
         debugPrint(
@@ -292,6 +316,14 @@ class WorkoutRecordingCoordinator {
           }),
         );
       }
+    } else {
+      try {
+        await RawGpsRecoveryJournal.instance.checkpoint(
+          workoutId,
+          isFinalized: false,
+          cloudVerified: false,
+        );
+      } catch (_) {}
     }
     return diagnostics;
   }
