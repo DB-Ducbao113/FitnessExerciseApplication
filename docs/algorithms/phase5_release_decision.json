@@ -1,0 +1,114 @@
+{
+  "schema_version": "aetron.phase5.task6.release_decision.v2",
+  "generated_at_utc": "2026-10-19T10:40:00.000000Z",
+  "branch": "EKF+DBSCAN",
+  "target_candidate": "D+Opt (Optimized EKF Gap-Recovery FSM)",
+  "production_baseline": "Main (Baseline GpsSmoothingService + Rolling Average)",
+  "governing_policy": "Lean Field-First v3 (Balanced R&D)",
+  "release_verdict": "NO-GO",
+  "milestone_2b_status": "HOLD",
+  "production_merge_authorized": false,
+  "executive_summary": "Comprehensive Phase 5 evaluation across 108 synthetic benchmark scenarios and 108 independent holdout scenarios confirms that D+Opt failed to generalize on unseen holdout routes under urban canyon and heading-dropout conditions. Specifically, D+Opt breached 3 mandatory holdout release gates: All-Scheduled RMSE (9.64 m vs <8.00 m threshold), Distance Overcount (+3.31% vs <=1.00% threshold), and Signed Distance Bias (+3.22% vs <=1.00% threshold). Task 4 determinism verification achieved a TECHNICAL PASS on single-platform reproducibility, but cross-platform bit-exact equivalence remains INCONCLUSIVE due to IEEE-754 Float64 architecture variance. In accordance with Owner directives, Milestone 2B and production algorithm rollout remain on HOLD. Raw GPS Preservation and Cable-Free Export (RG-1 / RG-2) are decoupled into an independent workstream.",
+  "frozen_holdout_gate_decisions": {
+    "rmse_gate": {
+      "status": "FAIL",
+      "threshold": "< 8.00 m",
+      "baseline_108_original": 6.87,
+      "holdout_108_value": 9.64,
+      "delta": 2.77,
+      "observed_evidence": "Significant position error divergence on high-curvature routes under severe noise profiles."
+    },
+    "distance_overcount_gate": {
+      "status": "FAIL",
+      "threshold": "<= 1.00 %",
+      "baseline_108_original": 0.98,
+      "holdout_108_value": 3.31,
+      "delta": 2.33,
+      "observed_evidence": "Substantial distance inflation observed across multi-corner and Figure-8 holdout scenarios."
+    },
+    "signed_distance_bias_gate": {
+      "status": "FAIL",
+      "threshold": "<= 1.00 %",
+      "baseline_108_original": 0.02,
+      "holdout_108_value": 3.22,
+      "delta": 3.20,
+      "observed_evidence": "Systematic positive net distance error accumulation across holdout trajectories with non-zero curvature."
+    },
+    "p95_error_gate": {
+      "status": "PASS",
+      "threshold": "< 15.00 m",
+      "baseline_108_original": 9.00,
+      "holdout_108_value": 11.00,
+      "delta": 2.00,
+      "observed_evidence": "Error distribution remains bounded without runaway divergence."
+    },
+    "legacy_availability_gate": {
+      "status": "PASS",
+      "threshold": ">= 99.00 %",
+      "baseline_108_original": 99.93,
+      "holdout_108_value": 99.99,
+      "delta": 0.06,
+      "observed_evidence": "Filter tracking occupancy outside S2 Loss-of-Lock exceeded 99.9%."
+    },
+    "measurement_validated_availability_gate": {
+      "status": "PASS",
+      "threshold": ">= 99.00 %",
+      "baseline_108_original": 98.92,
+      "holdout_108_value": 99.89,
+      "delta": 0.97,
+      "observed_evidence": "Tracking epochs anchored by valid admitted measurements met the >=99.00% target."
+    },
+    "recovery_latency_p95_gate": {
+      "status": "PASS",
+      "threshold": "<= 30.0 s",
+      "baseline_108_original": 22.0,
+      "holdout_108_value": 22.0,
+      "delta": 0.0,
+      "observed_evidence": "FSM reacquisition (S3) to validated re-anchor (S4/S5) resolved within 22 seconds."
+    },
+    "covariance_psd_gate": {
+      "status": "PASS",
+      "threshold": "100.0 %",
+      "baseline_108_original": 100.0,
+      "holdout_108_value": 100.0,
+      "delta": 0.0,
+      "observed_evidence": "100% positive semi-definite error covariance matrices verified across all 75,600 holdout epochs via Jacobi and LDLT."
+    }
+  },
+  "reconciled_phase5_evidence": {
+    "task1_metric_accumulator": {
+      "file": "test/artifacts/metric_accumulator_report.json",
+      "sha256": "dd28f70c01890d66d87c9cefd4cb55c0c2b6f6c30db85783496466ac0baaec12",
+      "verdict": "VERIFIED_PASS"
+    },
+    "task2_availability_recovery": {
+      "file": "test/artifacts/phase5_task2_availability_report.json",
+      "sha256": "33942d6438982fe992e39baf45b48491d300a5dedc232f952f448cd946bd7bb0",
+      "verdict": "VERIFIED_AUDITED"
+    },
+    "task3_covariance_stability": {
+      "file": "test/artifacts/phase5_task3_covariance_report.json",
+      "sha256": "35dcd6ed5692ce31732420a8ca5a4f75b5cde8a97e95df2c8ef8597f2d68d2a1",
+      "verdict": "VERIFIED_PASS"
+    },
+    "task4_deterministic_fingerprint": {
+      "file": "test/artifacts/phase5_task4_fingerprint_report.json",
+      "sha256": "c4b62c09bf6ef3ee2ac66d97921e946e3d4f8002474df1e30d0ea585ce8b283a",
+      "linux_evidence_file": "test/artifacts/cross_platform_evidence/linux/phase5_task4_fingerprint_report.json",
+      "linux_sha256": "1ff2bf31932435106d53afbf1593c1f770472d282abf9cfe95048f62fd3bf844",
+      "verdict": "TECHNICAL_PASS (Determinism engine verified 100% on macOS ARM64; cross-platform bit-exact equivalence INCONCLUSIVE due to sub-micron Float64 transcendental variance)"
+    },
+    "task5_independent_holdout": {
+      "file": "test/artifacts/phase5_task5_holdout_report.json",
+      "sha256": "dbb5a25673cf2059ea07d52a0cf1c36aaf2fecf79a515cd96d8155a57dade217",
+      "supplemental_file": "test/artifacts/phase5_task5_supplemental_outage_report.json",
+      "supplemental_sha256": "9a65d19105c67d1974db8282f0560990d7b39a4f8c144d676eaf9c4564ec39ef",
+      "verdict": "VERIFIED_FAIL (3 Gates Breached: RMSE, Overcount, Signed Bias)"
+    }
+  },
+  "sign_off": {
+    "research_head_sha": "a685fc66f991dbed5cf4f6403de65f346a829ce5",
+    "qa_lead": "AI Engineering Assistant",
+    "owner_decision": "NO-GO for current D+Opt; HOLD Milestone 2B; Decouple Raw GPS Preservation (RG-1/RG-2)"
+  }
+}

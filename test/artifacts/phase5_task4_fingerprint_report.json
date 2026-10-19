@@ -1,9 +1,9 @@
 {
   "schema_version": "aetron.phase5.task4.deterministic_fingerprint.v2",
-  "generated_at_utc": "2026-10-19T05:56:00.895900Z",
+  "generated_at_utc": "2026-10-19T10:38:46.290291Z",
   "source_provenance": {
     "branch": "EKF+DBSCAN",
-    "base_commit": "4744496814a663e527f9b5445576d62249e5af5a",
+    "base_commit": "a685fc66f991dbed5cf4f6403de65f346a829ce5",
     "generator": "test/phase5_task4_fingerprint_audit_test.dart",
     "runtime_environment": {
       "os": "macos",

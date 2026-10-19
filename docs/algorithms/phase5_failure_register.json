@@ -1,0 +1,117 @@
+{
+  "schema_version": "aetron.phase5.task6.failure_register.v2",
+  "generated_at_utc": "2026-10-19T10:40:00.000000Z",
+  "target_candidate": "D+Opt",
+  "branch": "EKF+DBSCAN",
+  "commit_sha": "a685fc66f991dbed5cf4f6403de65f346a829ce5",
+  "total_failures_recorded": 3,
+  "failures": [
+    {
+      "id": "FAIL-P5-001",
+      "gate": "All-Scheduled RMSE Gate",
+      "severity": "CRITICAL",
+      "target_threshold": "< 8.00 m",
+      "observed_value": 9.6419,
+      "original_108_baseline": 6.8730,
+      "delta": 2.7689,
+      "gate_status": "BREACHED",
+      "affected_scenarios": "Holdout Route B (City Center Corners), Route C (Mountain Descent), Route D (Figure-8 Loop) under Severe Canyon and Heading Dropout profiles",
+      "observed_empirical_evidence": {
+        "description": "Trajectory error grew substantially on high-curvature holdout routes relative to straight routes.",
+        "kinematic_phase_partition": {
+          "turn_sections_excess_contribution_percent": 91.4,
+          "straight_sections_excess_contribution_percent": 8.6,
+          "stationary_periods_excess_contribution_percent": 0.0
+        },
+        "empirical_conclusion": "Excess error correlates quantitatively with turning maneuvers."
+      },
+      "hypothesized_causal_mechanisms": [
+        {
+          "hypothesis_id": "HYP-RMSE-A",
+          "name": "Innovation Gating Disconnection (Unproven Hypothesis)",
+          "description": "Hypothesized that when heading is unavailable, high turn rates induce position innovations exceeding Chi-square thresholds (NIS >= G2), triggering predict-only coasting away from the true turn arc.",
+          "proof_status": "UNPROVEN_HYPOTHESIS (Requires step-level innovation logging on real-world hardware)"
+        },
+        {
+          "hypothesis_id": "HYP-RMSE-B",
+          "name": "Process Noise Underestimation (Unproven Hypothesis)",
+          "description": "Hypothesized that the tuned Q-matrix heading variance is too stiff to permit rapid heading re-orientation during abrupt right-angle turns.",
+          "proof_status": "UNPROVEN_HYPOTHESIS (Requires field IMU/gyro telemetry attribution)"
+        }
+      ],
+      "resolution_prerequisite": "Field-first trace collection via RG-1/RG-2 with real hardware IMU/GPS sync before any further filter retuning."
+    },
+    {
+      "id": "FAIL-P5-002",
+      "gate": "Distance Overcount Gate",
+      "severity": "CRITICAL",
+      "target_threshold": "<= 1.00 %",
+      "observed_value": 3.3146,
+      "original_108_baseline": 0.9800,
+      "delta": 2.3346,
+      "gate_status": "BREACHED",
+      "affected_scenarios": "Holdout Route B and Route D across all seeds with noise",
+      "observed_empirical_evidence": {
+        "description": "Accumulated distance exceeded ground truth by up to 250 m per 2.5 km scenario on athletic loop routes.",
+        "empirical_conclusion": "Distance overcount is structurally concentrated in curved trajectories."
+      },
+      "hypothesized_causal_mechanisms": [
+        {
+          "hypothesis_id": "HYP-OVER-A",
+          "name": "Tangential Chord-to-Arc Over-Extrapolation (Unproven Hypothesis)",
+          "description": "Hypothesized that during S0 predict-only or S1 degraded intervals, velocity is projected tangentially along straight chords rather than following the arc, inflating distance upon re-anchor.",
+          "proof_status": "UNPROVEN_HYPOTHESIS (Trace-level geometric attribution pending field ground truth)"
+        },
+        {
+          "hypothesis_id": "HYP-OVER-B",
+          "name": "Escrow Distance Committal Policy (Unproven Hypothesis)",
+          "description": "Hypothesized that distance committed during probationary re-anchoring (S4/S5) inadvertently admits over-estimated chord increments.",
+          "proof_status": "UNPROVEN_HYPOTHESIS (Ledger transactions recorded, but causal contribution unisolated)"
+        }
+      ],
+      "resolution_prerequisite": "Empirical wheel sensor ground truth comparison against phone GPS via field recording."
+    },
+    {
+      "id": "FAIL-P5-003",
+      "gate": "Signed Distance Bias Gate",
+      "severity": "HIGH",
+      "target_threshold": "<= 1.00 %",
+      "observed_value": 3.2204,
+      "original_108_baseline": 0.0200,
+      "delta": 3.2004,
+      "gate_status": "BREACHED",
+      "affected_scenarios": "All holdout scenarios with non-zero route curvature",
+      "observed_empirical_evidence": {
+        "description": "Aggregate distance bias shifted from near-zero (+0.02%) on training routes to +3.22% on holdout routes.",
+        "empirical_conclusion": "Distance error does not average out symmetrically; net bias is strongly positive."
+      },
+      "hypothesized_causal_mechanisms": [
+        {
+          "hypothesis_id": "HYP-BIAS-A",
+          "name": "Non-Negative Noise Rectification (Unproven Hypothesis)",
+          "description": "Hypothesized that because distance increments d = sqrt(dx^2 + dy^2) >= 0, zero-mean lateral sensor noise rectifies into positive distance inflation.",
+          "proof_status": "UNPROVEN_HYPOTHESIS (Theoretical statistical mechanism; trace-level quantification pending)"
+        }
+      ],
+      "resolution_prerequisite": "Deadband calibration and post-smoothing trajectory optimization using field traces."
+    }
+  ],
+  "cross_platform_audit_finding": {
+    "id": "FIND-P5-004",
+    "item": "Cross-Platform Float64 Canonical Digest Equivalence",
+    "verdict": "INCONCLUSIVE (Architecture Discrepancy)",
+    "scope": "macOS ARM64 vs Ubuntu Linux x86_64",
+    "observed_empirical_evidence": {
+      "legacy_rounded_hash_match": "540 / 540 (100.0%)",
+      "canonical_float64_hash_match": "0 / 540 (0.0%)",
+      "maximum_discrepancy_meters": 2.8251452022232115e-7,
+      "mean_discrepancy_meters": 7.416072431051698e-9
+    },
+    "technical_assessment": "The determinism engine functions as specified on a single architecture (TECHNICAL PASS). However, cross-platform bit-exact equivalence is INCONCLUSIVE because standard IEEE-754 Float64 transcendental operations and FMA instructions differ between ARM64 and x86_64 math libraries at the sub-micron level (max 0.28 micrometers)."
+  },
+  "remediation_status": {
+    "action": "HALT_ALGORITHM_DEPLOYMENT",
+    "milestone_2b": "HELD",
+    "field_first_mandate": "Field trace collection via RG-1/RG-2 is the sole authorized path forward."
+  }
+}
