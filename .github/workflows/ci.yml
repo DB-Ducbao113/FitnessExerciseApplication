@@ -30,6 +30,13 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      - name: Upload Phase 5 fingerprint evidence
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        if: always()
+        with:
+          name: phase5-task4-fingerprint-linux
+          path: test/artifacts/phase5_task4_fingerprint_report.json
+          if-no-files-found: ignore
 
   edge-functions:
     name: Deno lint, type-check and test

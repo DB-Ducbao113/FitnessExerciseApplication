@@ -36,7 +36,7 @@ class CanonicalFloatHelper {
   }
 }
 
-/// Represents a single scheduled benchmark epoch record in canonical format.
+/// Represents a single scheduled benchmark epoch record in canonical format (Schema v2).
 class CanonicalEpochRecord {
   final String configId;
   final int scenarioId;
@@ -85,6 +85,34 @@ class CanonicalEpochRecord {
         '${CanonicalFloatHelper.doubleToHex(estimatedSpeedMs)}|'
         '${CanonicalFloatHelper.doubleToHex(estimatedHeadingDeg)}|'
         '${CanonicalFloatHelper.doubleToHex(positionVariance)}\n';
+  }
+}
+
+/// Represents a versioned canonical scenario completion record (Schema v2).
+///
+/// Explicitly records:
+/// - Configuration ID
+/// - Scenario ID
+/// - Scheduled sample count
+/// - Final accumulated scenario distance encoded in canonical IEEE-754 Float64 hex.
+class CanonicalScenarioEndRecord {
+  final String configId;
+  final int scenarioId;
+  final int sampleCount;
+  final double finalDistanceMeters;
+
+  const CanonicalScenarioEndRecord({
+    required this.configId,
+    required this.scenarioId,
+    required this.sampleCount,
+    required this.finalDistanceMeters,
+  });
+
+  /// Canonical pipe-delimited encoding:
+  /// `SE|<configId>|<scenarioId>|<sampleCount>|<finalDistHex>\n`
+  String toCanonicalString() {
+    return 'SE|$configId|$scenarioId|$sampleCount|'
+        '${CanonicalFloatHelper.doubleToHex(finalDistanceMeters)}\n';
   }
 }
 
@@ -156,6 +184,9 @@ class ConfigurationFingerprint {
 
 /// Fingerprint accumulator for a single configuration during benchmark execution.
 class ConfigurationFingerprintAccumulator {
+  static const String canonicalEpochSchemaVersion = 'aetron.canonical.epoch.v2';
+  static const String canonicalReportSchemaVersion = 'aetron.phase5.task4.deterministic_fingerprint.v2';
+
   final String configId;
   final String configName;
 
@@ -196,7 +227,19 @@ class ConfigurationFingerprintAccumulator {
     required String description,
     required double finalDistanceMeters,
   }) {
-    // Append scenario suffix to legacy buffer: S$scenarioId:${finalDist.toStringAsFixed(2)};
+    // 1. Write versioned canonical scenario-end record containing configuration ID,
+    // scenario ID, scheduled sample count, and full IEEE-754 Float64 hex final distance.
+    final endRecord = CanonicalScenarioEndRecord(
+      configId: configId,
+      scenarioId: scenarioId,
+      sampleCount: _currentScenarioSampleCount,
+      finalDistanceMeters: finalDistanceMeters,
+    );
+    final canonicalEndLine = endRecord.toCanonicalString();
+    _currentScenarioCanonicalBuffer.write(canonicalEndLine);
+    _canonicalStreamBuffer.write(canonicalEndLine);
+
+    // 2. Append scenario suffix to legacy buffer: S$scenarioId:${finalDist.toStringAsFixed(2)};
     final legacySuffix = 'S$scenarioId:${finalDistanceMeters.toStringAsFixed(2)};';
     _currentScenarioLegacyBuffer.write(legacySuffix);
     _legacyBuffer.write(legacySuffix);
@@ -220,7 +263,7 @@ class ConfigurationFingerprintAccumulator {
   }
 
   ConfigurationFingerprint finalizeFingerprint() {
-    // Direct stream hash across all 75,600 canonical epoch records
+    // Direct stream hash across all canonical epoch and scenario-end records
     final streamSha256 = sha256
         .convert(utf8.encode(_canonicalStreamBuffer.toString()))
         .toString();

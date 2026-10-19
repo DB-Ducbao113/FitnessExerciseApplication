@@ -459,5 +459,73 @@ void main() {
       expect(run1.canonicalScenarioCompositeSha256, equals(run2.canonicalScenarioCompositeSha256));
       expect(run1.legacyRoundedSha256, equals(run2.legacyRoundedSha256));
     });
+
+    test('10. Deliberate Mutation: Changing only finalDistanceMeters changes the canonical fingerprint while legacy may remain undetected', () {
+      final accBase = ConfigurationFingerprintAccumulator(
+        configId: 'DOpt',
+        configName: 'Proposed D+Opt',
+      );
+      final accMutated = ConfigurationFingerprintAccumulator(
+        configId: 'DOpt',
+        configName: 'Proposed D+Opt',
+      );
+
+      accBase.startScenario(1);
+      accMutated.startScenario(1);
+
+      // Record exact same epoch in both
+      final rec = CanonicalEpochRecord(
+        configId: 'DOpt',
+        scenarioId: 1,
+        sampleIndex: 0,
+        elapsedMs: 0,
+        latitude: 10.738082,
+        longitude: 106.625303,
+        fsmState: 's0NormalTracking',
+        measurementDecision: 'acceptedClean',
+        addedDistanceMeters: 5.56,
+        accumulatedDistanceMeters: 5.56,
+        wasResetApplied: false,
+        wasRollbackApplied: false,
+        estimatedSpeedMs: 5.56,
+        estimatedHeadingDeg: 90.0,
+        positionVariance: 4.0,
+      );
+      accBase.recordEpoch(rec);
+      accMutated.recordEpoch(rec);
+
+      // End scenario with sub-centimeter difference (2 mm: 1000.001 vs 1000.003)
+      // Both round to 1000.00 with toStringAsFixed(2)!
+      accBase.endScenario(
+        scenarioId: 1,
+        description: 'Test Scenario',
+        finalDistanceMeters: 1000.001,
+      );
+      accMutated.endScenario(
+        scenarioId: 1,
+        description: 'Test Scenario',
+        finalDistanceMeters: 1000.003,
+      );
+
+      final fpBase = accBase.finalizeFingerprint();
+      final fpMutated = accMutated.finalizeFingerprint();
+
+      // Legacy rounded hash should be blind to the 2mm final distance change
+      expect(fpBase.legacyRoundedSha256, equals(fpMutated.legacyRoundedSha256),
+          reason: 'PROVES DEFECT: Legacy hash is blind to sub-centimeter final distance changes!');
+
+      // Scenario canonical hash MUST detect the final distance change
+      expect(fpBase.scenarioFingerprints.first.canonicalSha256,
+          isNot(equals(fpMutated.scenarioFingerprints.first.canonicalSha256)),
+          reason: 'Canonical scenario digest MUST detect finalDistanceMeters change!');
+
+      // Epoch stream hash MUST detect the final distance change
+      expect(fpBase.canonicalEpochStreamSha256, isNot(equals(fpMutated.canonicalEpochStreamSha256)),
+          reason: 'Canonical stream digest MUST include scenario-end record and detect finalDistanceMeters change!');
+
+      // Composite hash MUST also change
+      expect(fpBase.canonicalScenarioCompositeSha256, isNot(equals(fpMutated.canonicalScenarioCompositeSha256)),
+          reason: 'Canonical composite digest MUST detect finalDistanceMeters change!');
+    });
   });
 }
