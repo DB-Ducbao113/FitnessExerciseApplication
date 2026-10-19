@@ -180,6 +180,7 @@ class HoldoutRouteCatalog {
 class HoldoutNoiseProfile {
   final String id;
   final String name;
+  final String description;
   final double baseNoise;
   final double accMean;
   final bool hasHeadingDropout;
@@ -189,6 +190,7 @@ class HoldoutNoiseProfile {
   const HoldoutNoiseProfile({
     required this.id,
     required this.name,
+    this.description = '',
     required this.baseNoise,
     required this.accMean,
     this.hasHeadingDropout = false,
@@ -199,6 +201,7 @@ class HoldoutNoiseProfile {
   static const lowOpenSky = HoldoutNoiseProfile(
     id: 'Holdout_Low',
     name: 'Holdout Low (Open Sky)',
+    description: 'Clean open-sky satellite reception with nominal measurement variance',
     baseNoise: 2.2,
     accMean: 3.8,
   );
@@ -206,6 +209,7 @@ class HoldoutNoiseProfile {
   static const urbanMultipath = HoldoutNoiseProfile(
     id: 'Holdout_UrbanMultipath',
     name: 'Holdout Urban Multipath',
+    description: 'Urban corridor with periodic uncorrelated multipath bursts',
     baseNoise: 6.2,
     accMean: 8.8,
     hasPeriodicMultipathBursts: true,
@@ -213,7 +217,9 @@ class HoldoutNoiseProfile {
 
   static const severeCanyonOutage = HoldoutNoiseProfile(
     id: 'Holdout_SevereCanyonOutage',
-    name: 'Holdout Severe Canyon (Heading Dropout + 30s Outage)',
+    name: 'Holdout Severe Canyon (Heading Dropout + Corrupted Multipath)',
+    description:
+        'Severe urban canyon with complete heading dropout, 55m outlier spike, and sustained 30s corrupted multipath (65m offset, 65m acc) representing continuous degraded reception, not zero-fix blackout',
     baseNoise: 8.8,
     accMean: 12.5,
     hasHeadingDropout: true,

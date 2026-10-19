@@ -1,0 +1,617 @@
+{
+  "schema_version": "aetron.phase5.task5.supplemental_true_outage.v1",
+  "generated_at_utc": "2026-10-19T07:02:56.319307Z",
+  "source_provenance": {
+    "branch": "EKF+DBSCAN",
+    "base_commit": "aadf993bf82285ff6a3c61022f4800222c6b3e95",
+    "generator": "test/phase5_task5_supplemental_true_outage_test.dart",
+    "note": "Supplemental deterministic test evaluating true zero-fix GPS blackout outages without modifying production code."
+  },
+  "test_specification": {
+    "outage_type": "true_missing_gps_blackout",
+    "sampling_rate_hz": 1.0,
+    "total_duration_seconds": 600,
+    "scheduled_samples": 600,
+    "outage_window_seconds": [
+      240,
+      270
+    ],
+    "outage_duration_seconds": 30,
+    "missing_samples_count": 30,
+    "received_samples_count": 570,
+    "interface_observation_limitation": "NOT TESTABLE during outage silence: Production GpsRecoveryStateMachine interface is sample-driven via processMeasurement(). No ticker or predict-only clock method exists in the absence of GPS fixes. FSM state during silence cannot be polled without altering production code.",
+    "reacquisition_mechanism": "TESTABLE upon first post-outage fix: Delivered with timeDeltaSec=30.0s. FSM time-gap guard (dt >= 5.0s) triggers S2 Loss of Lock, rejects fix, and safe reset proceeds with 0.0m Euclidean jump."
+  },
+  "configuration_results": {
+    "D": {
+      "config_id": "D",
+      "config_name": "Config D (Original)",
+      "routes_evaluated": [
+        {
+          "route_id": "RouteA_StraightHighway",
+          "route_name": "Coastal Straight Highway",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 4164.000000000025,
+          "accumulated_distance_m": 4265.013798675247,
+          "distance_bias_percent": 2.4258837337949535,
+          "rmse_m": 16.359234743823098,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteB_Hairpins",
+          "route_name": "Mountain Hairpin Switchbacks",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2644.0,
+          "distance_bias_percent": 5.675459632293262,
+          "rmse_m": 7.32096245230572,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteC_UrbanGrid",
+          "route_name": "Urban Grid with Stop-and-Go",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 1500.0,
+          "accumulated_distance_m": 1722.0,
+          "distance_bias_percent": 14.799999999999999,
+          "rmse_m": 4.872587122172153,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteD_FigureEight",
+          "route_name": "Figure-8 Athletic Loop",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2669.3461818413216,
+          "distance_bias_percent": 6.688496476470775,
+          "rmse_m": 9.786223757844315,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        }
+      ]
+    },
+    "DH1": {
+      "config_id": "DH1",
+      "config_name": "Config D+H1",
+      "routes_evaluated": [
+        {
+          "route_id": "RouteA_StraightHighway",
+          "route_name": "Coastal Straight Highway",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 4164.000000000025,
+          "accumulated_distance_m": 4191.499908167611,
+          "distance_bias_percent": 0.6604204651197367,
+          "rmse_m": 16.359234743823098,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteB_Hairpins",
+          "route_name": "Mountain Hairpin Switchbacks",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2516.457975766758,
+          "distance_bias_percent": 0.5778567452732397,
+          "rmse_m": 7.32096245230572,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteC_UrbanGrid",
+          "route_name": "Urban Grid with Stop-and-Go",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 1500.0,
+          "accumulated_distance_m": 1556.2972617339487,
+          "distance_bias_percent": 3.7531507822632495,
+          "rmse_m": 4.872587122172153,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteD_FigureEight",
+          "route_name": "Figure-8 Athletic Loop",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2572.1941756348356,
+          "distance_bias_percent": 2.8055226073066986,
+          "rmse_m": 9.786223757844315,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        }
+      ]
+    },
+    "DH2": {
+      "config_id": "DH2",
+      "config_name": "Config D+H2",
+      "routes_evaluated": [
+        {
+          "route_id": "RouteA_StraightHighway",
+          "route_name": "Coastal Straight Highway",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 4164.000000000025,
+          "accumulated_distance_m": 4266.013798675247,
+          "distance_bias_percent": 2.449899103631649,
+          "rmse_m": 16.359610084145135,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteB_Hairpins",
+          "route_name": "Mountain Hairpin Switchbacks",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2645.0,
+          "distance_bias_percent": 5.715427657872798,
+          "rmse_m": 7.32096245230572,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteC_UrbanGrid",
+          "route_name": "Urban Grid with Stop-and-Go",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 1500.0,
+          "accumulated_distance_m": 1722.0,
+          "distance_bias_percent": 14.799999999999999,
+          "rmse_m": 4.872587122172153,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteD_FigureEight",
+          "route_name": "Figure-8 Athletic Loop",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2670.3461818413216,
+          "distance_bias_percent": 6.728464502050311,
+          "rmse_m": 9.786223757844315,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        }
+      ]
+    },
+    "DH1H2": {
+      "config_id": "DH1H2",
+      "config_name": "Config D+H1+H2",
+      "routes_evaluated": [
+        {
+          "route_id": "RouteA_StraightHighway",
+          "route_name": "Coastal Straight Highway",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 4164.000000000025,
+          "accumulated_distance_m": 4192.176903586102,
+          "distance_bias_percent": 0.6766787604725478,
+          "rmse_m": 16.359610084145135,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteB_Hairpins",
+          "route_name": "Mountain Hairpin Switchbacks",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2517.2088189419765,
+          "distance_bias_percent": 0.6078664645065931,
+          "rmse_m": 7.32096245230572,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteC_UrbanGrid",
+          "route_name": "Urban Grid with Stop-and-Go",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 1500.0,
+          "accumulated_distance_m": 1556.3010356882928,
+          "distance_bias_percent": 3.753402379219521,
+          "rmse_m": 4.872587122172153,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteD_FigureEight",
+          "route_name": "Figure-8 Athletic Loop",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2572.833199162318,
+          "distance_bias_percent": 2.8310631159990463,
+          "rmse_m": 9.786223757844315,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        }
+      ]
+    },
+    "DOpt": {
+      "config_id": "DOpt",
+      "config_name": "Proposed D+Opt",
+      "routes_evaluated": [
+        {
+          "route_id": "RouteA_StraightHighway",
+          "route_name": "Coastal Straight Highway",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 4164.000000000025,
+          "accumulated_distance_m": 4216.818034477721,
+          "distance_bias_percent": 1.268444632029208,
+          "rmse_m": 16.359610084145135,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteB_Hairpins",
+          "route_name": "Mountain Hairpin Switchbacks",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2520.0448715842995,
+          "distance_bias_percent": 0.7212178890598698,
+          "rmse_m": 7.32096245230572,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteC_UrbanGrid",
+          "route_name": "Urban Grid with Stop-and-Go",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 1500.0,
+          "accumulated_distance_m": 1504.8580880122736,
+          "distance_bias_percent": 0.32387253415157224,
+          "rmse_m": 4.872587122172153,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        },
+        {
+          "route_id": "RouteD_FigureEight",
+          "route_name": "Figure-8 Athletic Loop",
+          "scheduled_epochs": 600,
+          "received_fixes": 570,
+          "missing_fixes": 30,
+          "truth_distance_m": 2502.0000000000214,
+          "accumulated_distance_m": 2561.425687096241,
+          "distance_bias_percent": 2.3751273819432037,
+          "rmse_m": 9.786223757844315,
+          "p95_m": 4.0,
+          "reacquisition": {
+            "trigger_dt_seconds": 30.0,
+            "state_at_reacquisition": "s2LossOfLock",
+            "decision_at_reacquisition": "rejected",
+            "reacquisition_added_distance_m": 0.0,
+            "recovery_latency_from_reacquisition_seconds": 6.0,
+            "recovered_to_s0": true
+          },
+          "state_counts_received": {
+            "s0": 564,
+            "s2": 1,
+            "s3": 2,
+            "s5": 3
+          },
+          "covariance_psd_pass_percent": 100.0,
+          "covariance_overall_valid_percent": 100.0
+        }
+      ]
+    }
+  }
+}

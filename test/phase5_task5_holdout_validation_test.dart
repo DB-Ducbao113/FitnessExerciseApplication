@@ -52,8 +52,17 @@ class HoldoutScenarioEvaluation {
   final int s5Count;
   final int psdPassCount;
   final int overallValidCovCount;
+  final int lossOfLockEvents;
+  final int recoveredEvents;
+  final int unresolvedEvents;
   final List<double> recoveryLatencies;
   final bool accountingInvariantsHold;
+  final double stationaryExcessMeters;
+  final double turnExcessMeters;
+  final double normalStraightExcessMeters;
+  final double escrowCommitDeltaMeters;
+  final double gapBridgingDeltaMeters;
+  final double rollbackCorrectionDeltaMeters;
   final String canonicalSha256;
   final String legacyRoundedSha256;
 
@@ -82,8 +91,17 @@ class HoldoutScenarioEvaluation {
     required this.s5Count,
     required this.psdPassCount,
     required this.overallValidCovCount,
+    required this.lossOfLockEvents,
+    required this.recoveredEvents,
+    required this.unresolvedEvents,
     required this.recoveryLatencies,
     required this.accountingInvariantsHold,
+    required this.stationaryExcessMeters,
+    required this.turnExcessMeters,
+    required this.normalStraightExcessMeters,
+    required this.escrowCommitDeltaMeters,
+    required this.gapBridgingDeltaMeters,
+    required this.rollbackCorrectionDeltaMeters,
     required this.canonicalSha256,
     required this.legacyRoundedSha256,
   });
@@ -124,7 +142,20 @@ class HoldoutScenarioEvaluation {
         'covariance_valid_count': overallValidCovCount,
         'psd_pass_count': psdPassCount,
         'accounting_invariants_hold': accountingInvariantsHold,
-        'recovery_latencies_seconds': recoveryLatencies,
+        'recovery_events': {
+          'loss_of_lock_count': lossOfLockEvents,
+          'recovered_count': recoveredEvents,
+          'unresolved_count': unresolvedEvents,
+          'latencies_seconds': recoveryLatencies,
+        },
+        'causal_overcount_breakdown_m': {
+          'stationary_periods_excess_m': stationaryExcessMeters,
+          'turn_sections_excess_m': turnExcessMeters,
+          'normal_straight_excess_m': normalStraightExcessMeters,
+          'escrow_commit_delta_m': escrowCommitDeltaMeters,
+          'gap_bridging_delta_m': gapBridgingDeltaMeters,
+          'rollback_correction_delta_m': rollbackCorrectionDeltaMeters,
+        },
         'canonical_sha256': canonicalSha256,
         'legacy_rounded_sha256': legacyRoundedSha256,
       };
@@ -162,6 +193,7 @@ class HoldoutConfigurationResult {
   final Map<String, dynamic> perRouteMetrics;
   final Map<String, dynamic> perNoiseMetrics;
   final Map<String, dynamic> perSamplingRateMetrics;
+  final Map<String, dynamic> overcountCausalDiagnostics;
   final List<Map<String, dynamic>> worstScenarios;
   final int failureCount;
   final List<HoldoutScenarioEvaluation> scenarios;
@@ -197,6 +229,7 @@ class HoldoutConfigurationResult {
     required this.perRouteMetrics,
     required this.perNoiseMetrics,
     required this.perSamplingRateMetrics,
+    required this.overcountCausalDiagnostics,
     required this.worstScenarios,
     required this.failureCount,
     required this.scenarios,
@@ -247,6 +280,7 @@ class HoldoutConfigurationResult {
         'per_route_metrics': perRouteMetrics,
         'per_noise_metrics': perNoiseMetrics,
         'per_sampling_rate_metrics': perSamplingRateMetrics,
+        'overcount_causal_diagnostics': overcountCausalDiagnostics,
         'worst_scenarios': worstScenarios,
         'failure_count': failureCount,
         'scenario_evaluations': scenarios.map((s) => s.toJson()).toList(),
@@ -341,10 +375,10 @@ void main() {
           configId: cfg.id,
           configName: cfg.name,
         );
+        final globalRecoveryAcc = AvailabilityRecoveryAccumulator();
 
         final scenarioEvals = <HoldoutScenarioEvaluation>[];
         final allErrors = <double>[];
-        final allLatencies = <double>[];
         double totalSumSqErr = 0.0;
         double maxGlobalError = 0.0;
         double globalTruthDist = 0.0;
@@ -356,8 +390,14 @@ void main() {
         int totalMeasurementValidated = 0;
         int totalPsdPass = 0;
         int totalOverallValidCov = 0;
-        int totalLossEvents = 0;
-        int totalRecoveredEvents = 0;
+
+        // Diagnostic breakdown accumulators
+        double globalStationaryExcess = 0.0;
+        double globalTurnExcess = 0.0;
+        double globalNormalStraightExcess = 0.0;
+        double globalEscrowCommitDelta = 0.0;
+        double globalGapBridgingDelta = 0.0;
+        double globalRollbackCorrectionDelta = 0.0;
 
         // Sub-aggregators
         final routeSumSq = <String, double>{};
@@ -369,6 +409,8 @@ void main() {
         final routeUndercount = <String, double>{};
         final routeLegacy = <String, int>{};
         final routeValidated = <String, int>{};
+        final routeStationaryExcess = <String, double>{};
+        final routeTurnExcess = <String, double>{};
 
         final noiseSumSq = <String, double>{};
         final noiseEpochs = <String, int>{};
@@ -379,6 +421,8 @@ void main() {
         final noiseUndercount = <String, double>{};
         final noiseLegacy = <String, int>{};
         final noiseValidated = <String, int>{};
+        final noiseStationaryExcess = <String, double>{};
+        final noiseTurnExcess = <String, double>{};
 
         final rateSumSq = <String, double>{};
         final rateEpochs = <String, int>{};
@@ -416,8 +460,10 @@ void main() {
                 int scenS0 = 0, scenS0Prov = 0, scenS1 = 0, scenS2 = 0, scenS3 = 0, scenS4 = 0, scenS5 = 0;
                 int scenPsdPass = 0;
                 int scenOverallValidCov = 0;
-                final scenLatencies = <double>[];
-                DateTime? lossTime;
+
+                double scenStationaryExcess = 0.0;
+                double scenTurnExcess = 0.0;
+                double scenNormalStraightExcess = 0.0;
 
                 for (int s = 0; s < stepCount; s++) {
                   final t = startTime.add(Duration(milliseconds: (s * rate.dt * 1000).round()));
@@ -428,9 +474,10 @@ void main() {
                       ((elapsedMs >= 150000 && elapsedMs < 180000) ||
                           (elapsedMs >= 360000 && elapsedMs < 390000));
                   final currentSpeedMs = isStop ? 0.0 : route.defaultSpeedMs;
-                  scenarioTruthDist += currentSpeedMs * rate.dt;
+                  final stepTruthDist = currentSpeedMs * rate.dt;
+                  scenarioTruthDist += stepTruthDist;
 
-                  final (truthPos, truthBearing, _) = route.interpolate(scenarioTruthDist);
+                  final (truthPos, truthBearing, isTurn) = route.interpolate(scenarioTruthDist);
 
                   // Base noise via Box-Muller
                   final u1 = rand.nextDouble().clamp(1e-7, 1.0);
@@ -447,8 +494,8 @@ void main() {
                   final northNoise = radiusNoise * math.cos(angleNoise) + jitterY;
                   final rawPos = _distance.offset(_distance.offset(truthPos, eastNoise, 90.0), northNoise, 0.0);
 
-                  // Sustained canyon blackout outage at t in [240s, 270s]
-                  final isOutageZone = noise.hasSustainedOutage &&
+                  // Sustained canyon corrupted multipath zone at t in [240s, 270s]
+                  final isCorruptedMultipathZone = noise.hasSustainedOutage &&
                       (elapsedMs >= 240000 && elapsedMs < 270000);
 
                   // Outlier spike at t = 120s
@@ -456,8 +503,8 @@ void main() {
 
                   LatLng finalRaw;
                   double acc;
-                  if (isOutageZone) {
-                    // In severe canyon outage, satellite signal is corrupted and multipath shifted
+                  if (isCorruptedMultipathZone) {
+                    // Continuous corrupted multipath reception (displaced by 65m with 65m nominal acc)
                     finalRaw = _distance.offset(truthPos, 65.0 + (rand.nextDouble() - 0.5) * 20.0, 135.0);
                     acc = 65.0;
                   } else if (isSpike) {
@@ -491,6 +538,16 @@ void main() {
                   scenErrors.add(err);
                   if (err > scenMaxErr) scenMaxErr = err;
                   if (err > maxGlobalError) maxGlobalError = err;
+
+                  // Causal overcount categorization
+                  final stepDelta = out.addedDistanceMeters - stepTruthDist;
+                  if (isStop) {
+                    scenStationaryExcess += out.addedDistanceMeters;
+                  } else if (isTurn) {
+                    scenTurnExcess += stepDelta;
+                  } else {
+                    scenNormalStraightExcess += stepDelta;
+                  }
 
                   // Availability accounting
                   if (out.state != GpsRecoveryState.s2LossOfLock) {
@@ -527,17 +584,6 @@ void main() {
                       break;
                   }
 
-                  // Recovery latency tracking
-                  if (out.state == GpsRecoveryState.s2LossOfLock) {
-                    lossTime ??= t;
-                  } else if (lossTime != null && out.state == GpsRecoveryState.s0NormalTracking) {
-                    final latSec = t.difference(lossTime).inMilliseconds / 1000.0;
-                    scenLatencies.add(latSec);
-                    allLatencies.add(latSec);
-                    totalRecoveredEvents++;
-                    lossTime = null;
-                  }
-
                   // Covariance PSD stability
                   final covResult = CovarianceStabilityValidator.validate(fsm.covariance);
                   if (covResult.overallValid) scenOverallValidCov++;
@@ -563,16 +609,44 @@ void main() {
                   ));
                 }
 
-                if (lossTime != null) {
-                  totalLossEvents++; // Unresolved event at end of scenario
-                } else if (scenLatencies.isNotEmpty) {
-                  totalLossEvents += scenLatencies.length;
-                }
-
                 scenAcc.finalizeScenario();
                 final scenResiduals = scenAcc.computeReconciliationResiduals();
                 expect(scenResiduals.allInvariantsHold, isTrue,
                     reason: 'Scenario $scenarioId failed conservation/accounting invariants');
+
+                final scenRecovery = scenAcc.computeRecoveryReliability();
+                expect(scenRecovery.lossOfLockEventCount,
+                    equals(scenRecovery.recoveredEventCount + scenRecovery.unresolvedEventCount),
+                    reason: 'Recovery events must reconcile: loss = recovered + unresolved');
+
+                globalRecoveryAcc.merge(scenAcc);
+
+                // Causal ledger inspection
+                double scenEscrowCommitDelta = 0.0;
+                double scenGapBridgingDelta = 0.0;
+                double scenRollbackCorrectionDelta = 0.0;
+                for (final tx in fsm.distanceLedger) {
+                  switch (tx.mutationType) {
+                    case FsmDistanceMutationType.escrowCommit:
+                      scenEscrowCommitDelta += tx.committedDeltaMeters;
+                      break;
+                    case FsmDistanceMutationType.gapBridging:
+                      scenGapBridgingDelta += tx.committedDeltaMeters;
+                      break;
+                    case FsmDistanceMutationType.rollbackCorrection:
+                      scenRollbackCorrectionDelta += tx.committedDeltaMeters;
+                      break;
+                    default:
+                      break;
+                  }
+                }
+
+                globalStationaryExcess += scenStationaryExcess;
+                globalTurnExcess += scenTurnExcess;
+                globalNormalStraightExcess += scenNormalStraightExcess;
+                globalEscrowCommitDelta += scenEscrowCommitDelta;
+                globalGapBridgingDelta += scenGapBridgingDelta;
+                globalRollbackCorrectionDelta += scenRollbackCorrectionDelta;
 
                 accumulator.endScenario(
                   scenarioId: scenarioId,
@@ -612,6 +686,8 @@ void main() {
                 routeUndercount[route.id] = (routeUndercount[route.id] ?? 0.0) + scenUndercount;
                 routeLegacy[route.id] = (routeLegacy[route.id] ?? 0) + scenLegacyAvailable;
                 routeValidated[route.id] = (routeValidated[route.id] ?? 0) + scenMeasurementValidated;
+                routeStationaryExcess[route.id] = (routeStationaryExcess[route.id] ?? 0.0) + scenStationaryExcess;
+                routeTurnExcess[route.id] = (routeTurnExcess[route.id] ?? 0.0) + scenTurnExcess;
 
                 // Update noise sub-aggregates
                 noiseSumSq[noise.id] = (noiseSumSq[noise.id] ?? 0.0) + scenSumSqErr;
@@ -623,6 +699,8 @@ void main() {
                 noiseUndercount[noise.id] = (noiseUndercount[noise.id] ?? 0.0) + scenUndercount;
                 noiseLegacy[noise.id] = (noiseLegacy[noise.id] ?? 0) + scenLegacyAvailable;
                 noiseValidated[noise.id] = (noiseValidated[noise.id] ?? 0) + scenMeasurementValidated;
+                noiseStationaryExcess[noise.id] = (noiseStationaryExcess[noise.id] ?? 0.0) + scenStationaryExcess;
+                noiseTurnExcess[noise.id] = (noiseTurnExcess[noise.id] ?? 0.0) + scenTurnExcess;
 
                 // Update rate sub-aggregates
                 final rateKey = rate.name;
@@ -661,8 +739,17 @@ void main() {
                   s5Count: scenS5,
                   psdPassCount: scenPsdPass,
                   overallValidCovCount: scenOverallValidCov,
-                  recoveryLatencies: scenLatencies,
+                  lossOfLockEvents: scenRecovery.lossOfLockEventCount,
+                  recoveredEvents: scenRecovery.recoveredEventCount,
+                  unresolvedEvents: scenRecovery.unresolvedEventCount,
+                  recoveryLatencies: scenRecovery.latencies,
                   accountingInvariantsHold: scenResiduals.allInvariantsHold,
+                  stationaryExcessMeters: scenStationaryExcess,
+                  turnExcessMeters: scenTurnExcess,
+                  normalStraightExcessMeters: scenNormalStraightExcess,
+                  escrowCommitDeltaMeters: scenEscrowCommitDelta,
+                  gapBridgingDeltaMeters: scenGapBridgingDelta,
+                  rollbackCorrectionDeltaMeters: scenRollbackCorrectionDelta,
                   canonicalSha256: '', // populated after finalizing accumulator
                   legacyRoundedSha256: '', // populated after finalizing accumulator
                 ));
@@ -703,8 +790,17 @@ void main() {
             s5Count: s.s5Count,
             psdPassCount: s.psdPassCount,
             overallValidCovCount: s.overallValidCovCount,
+            lossOfLockEvents: s.lossOfLockEvents,
+            recoveredEvents: s.recoveredEvents,
+            unresolvedEvents: s.unresolvedEvents,
             recoveryLatencies: s.recoveryLatencies,
             accountingInvariantsHold: s.accountingInvariantsHold,
+            stationaryExcessMeters: s.stationaryExcessMeters,
+            turnExcessMeters: s.turnExcessMeters,
+            normalStraightExcessMeters: s.normalStraightExcessMeters,
+            escrowCommitDeltaMeters: s.escrowCommitDeltaMeters,
+            gapBridgingDeltaMeters: s.gapBridgingDeltaMeters,
+            rollbackCorrectionDeltaMeters: s.rollbackCorrectionDeltaMeters,
             canonicalSha256: sFp.canonicalSha256,
             legacyRoundedSha256: sFp.legacyRoundedSha256,
           ));
@@ -717,10 +813,10 @@ void main() {
         final grossOverPct = (grossOvercountMeters / globalTruthDist) * 100.0;
         final grossUnderPct = (grossUndercountMeters / globalTruthDist) * 100.0;
 
-        allLatencies.sort();
-        final p50Lat = allLatencies.isNotEmpty ? allLatencies[(allLatencies.length * 0.50).floor()] : 0.0;
-        final p95Lat = allLatencies.isNotEmpty ? allLatencies[(allLatencies.length * 0.95).floor()] : 0.0;
-        final maxLat = allLatencies.isNotEmpty ? allLatencies.last : 0.0;
+        final globalRecovery = globalRecoveryAcc.computeRecoveryReliability();
+        expect(globalRecovery.lossOfLockEventCount,
+            equals(globalRecovery.recoveredEventCount + globalRecovery.unresolvedEventCount),
+            reason: 'Global recovery events must reconcile: loss = recovered + unresolved');
 
         // Compute Per-Route breakdown
         final perRouteMetrics = <String, dynamic>{};
@@ -747,6 +843,8 @@ void main() {
             'signed_bias_percent': rBias,
             'overcount_percent': rOver,
             'undercount_percent': rUnder,
+            'stationary_excess_m': routeStationaryExcess[rId] ?? 0.0,
+            'turn_excess_m': routeTurnExcess[rId] ?? 0.0,
             'legacy_availability': {
               'numerator': rLeg,
               'denominator': rEps,
@@ -785,6 +883,8 @@ void main() {
             'signed_bias_percent': nBias,
             'overcount_percent': nOver,
             'undercount_percent': nUnder,
+            'stationary_excess_m': noiseStationaryExcess[nId] ?? 0.0,
+            'turn_excess_m': noiseTurnExcess[nId] ?? 0.0,
             'legacy_availability': {
               'numerator': nLeg,
               'denominator': nEps,
@@ -837,7 +937,24 @@ void main() {
           };
         }
 
-        // Identify Worst Scenarios (Top 5 by RMSE, Top 5 by Max Error, Top 5 by absolute bias)
+        // Causal overcount diagnostics summary
+        final overcountCausalDiagnostics = {
+          'net_distance_bias_m': globalAccumDist - globalTruthDist,
+          'gross_overcount_m': grossOvercountMeters,
+          'gross_undercount_m': grossUndercountMeters,
+          'observable_components': {
+            'stationary_dwell_excess_m': globalStationaryExcess,
+            'turn_curvature_excess_m': globalTurnExcess,
+            'normal_straight_movement_excess_m': globalNormalStraightExcess,
+            'escrow_commit_delta_m': globalEscrowCommitDelta,
+            'gap_bridging_delta_m': globalGapBridgingDelta,
+            'rollback_correction_delta_m': globalRollbackCorrectionDelta,
+          },
+          'internal_cross_coupling_terms':
+              'NOT OBSERVABLE (sub-meter EKF innovation covariance gain cross-coupling is not exposed as a discrete transaction)',
+        };
+
+        // Identify Worst Scenarios (Top 3 by RMSE, Top 3 by Max Error, Top 3 by absolute bias)
         final sortedByRmse = List<HoldoutScenarioEvaluation>.from(updatedScenarioEvals)
           ..sort((a, b) => b.rmse.compareTo(a.rmse));
         final sortedByMaxErr = List<HoldoutScenarioEvaluation>.from(updatedScenarioEvals)
@@ -890,12 +1007,12 @@ void main() {
           legacyAvailabilityPercent: (totalLegacyAvailable / totalScheduledEpochs) * 100.0,
           totalMeasurementValidatedEpochs: totalMeasurementValidated,
           measurementValidatedAvailabilityPercent: (totalMeasurementValidated / totalScheduledEpochs) * 100.0,
-          recoveryLatencyP50: p50Lat,
-          recoveryLatencyP95: p95Lat,
-          recoveryLatencyMax: maxLat,
-          totalLossOfLockEvents: totalLossEvents,
-          totalRecoveredEvents: totalRecoveredEvents,
-          unresolvedRecoveryEvents: math.max(0, totalLossEvents - totalRecoveredEvents),
+          recoveryLatencyP50: globalRecovery.recoveryLatencyP50,
+          recoveryLatencyP95: globalRecovery.recoveryLatencyP95,
+          recoveryLatencyMax: globalRecovery.recoveryLatencyMax,
+          totalLossOfLockEvents: globalRecovery.lossOfLockEventCount,
+          totalRecoveredEvents: globalRecovery.recoveredEventCount,
+          unresolvedRecoveryEvents: globalRecovery.unresolvedEventCount,
           covarianceOverallValidPercent: (totalOverallValidCov / totalScheduledEpochs) * 100.0,
           covariancePsdPassPercent: (totalPsdPass / totalScheduledEpochs) * 100.0,
           canonicalEpochStreamSha256: fp.canonicalEpochStreamSha256,
@@ -904,6 +1021,7 @@ void main() {
           perRouteMetrics: perRouteMetrics,
           perNoiseMetrics: perNoiseMetrics,
           perSamplingRateMetrics: perRateMetrics,
+          overcountCausalDiagnostics: overcountCausalDiagnostics,
           worstScenarios: worstScenarios,
           failureCount: failureCount,
           scenarios: updatedScenarioEvals,
@@ -924,6 +1042,7 @@ void main() {
         print('  Undercount:           -${res.grossUndercountPercent.toStringAsFixed(2)}%');
         print('  Legacy Availability:  ${res.legacyAvailabilityPercent.toStringAsFixed(2)}% (${res.totalLegacyAvailableEpochs}/${res.totalScheduledEpochs})');
         print('  Validated Avail:      ${res.measurementValidatedAvailabilityPercent.toStringAsFixed(2)}% (${res.totalMeasurementValidatedEpochs}/${res.totalScheduledEpochs})');
+        print('  Recovery Events:      Loss=${res.totalLossOfLockEvents}, Rec=${res.totalRecoveredEvents}, Unres=${res.unresolvedRecoveryEvents}');
         print('  Recovery Latency P95: ${res.recoveryLatencyP95.toStringAsFixed(1)} s (Max: ${res.recoveryLatencyMax.toStringAsFixed(1)} s)');
         print('  Covariance Overall:   ${res.covarianceOverallValidPercent.toStringAsFixed(2)}%');
         print('  Canonical Stream SHA: ${res.canonicalEpochStreamSha256}');
@@ -936,6 +1055,8 @@ void main() {
         expect(res.totalScheduledEpochs, equals(75600), reason: 'Every config must evaluate exactly 75,600 holdout epochs');
         expect(res.covarianceOverallValidPercent, equals(100.0), reason: 'Covariances must remain 100% valid');
         expect(res.covariancePsdPassPercent, equals(100.0), reason: 'Covariances must remain 100% PSD');
+        expect(res.totalLossOfLockEvents, equals(res.totalRecoveredEvents + res.unresolvedRecoveryEvents),
+            reason: 'Loss of lock events must exactly equal recovered + unresolved events');
       }
 
       // Gate evaluations for Proposed D+Opt on Holdout Dataset
@@ -954,16 +1075,21 @@ void main() {
       print('========================================================================================================');
       print('| Gate Metric | Measured Value | Frozen Acceptance Threshold | Gate Result | Status |');
       print('|---|:---:|:---:|:---:|:---:|');
-      print('| All-Scheduled RMSE | ${dOpt.sampleWeightedRmse.toStringAsFixed(2)} m | < 8.00 m | ${rmsePass ? "PASS" : "FAIL"} | ${rmsePass ? "🟢 PASS" : "🔴 FAIL"} |');
+      print('| All-Scheduled RMSE | ${dOpt.sampleWeightedRmse.toStringAsFixed(4)} m | < 8.00 m | ${rmsePass ? "PASS" : "FAIL"} | ${rmsePass ? "🟢 PASS" : "🔴 FAIL"} |');
       print('| All-Scheduled P95 | ${dOpt.allScheduledP95.toStringAsFixed(2)} m | < 15.00 m | ${p95Pass ? "PASS" : "FAIL"} | ${p95Pass ? "🟢 PASS" : "🔴 FAIL"} |');
       print('| Legacy Availability | ${dOpt.legacyAvailabilityPercent.toStringAsFixed(2)}% | >= 99.00% | ${legacyAvailPass ? "PASS" : "FAIL"} | ${legacyAvailPass ? "🟢 PASS" : "🔴 FAIL"} |');
       print('| Measurement-Validated Availability | ${dOpt.measurementValidatedAvailabilityPercent.toStringAsFixed(2)}% | >= 99.00% | ${validatedAvailPass ? "PASS" : "FAIL"} | ${validatedAvailPass ? "🟢 PASS" : "🟡 HOLD (Preserved Outlier Gap)"} |');
-      print('| Distance Overcount | +${dOpt.grossOvercountPercent.toStringAsFixed(2)}% | <= 1.00% | ${overcountPass ? "PASS" : "FAIL"} | ${overcountPass ? "🟢 PASS" : "🔴 FAIL"} |');
-      print('| Aggregate Distance Bias | ${dOpt.signedDistanceBiasPercent > 0 ? "+" : ""}${dOpt.signedDistanceBiasPercent.toStringAsFixed(2)}% | <= 1.00% | ${biasPass ? "PASS" : "FAIL"} | ${biasPass ? "🟢 PASS" : "🔴 FAIL"} |');
+      print('| Distance Overcount | +${dOpt.grossOvercountPercent.toStringAsFixed(4)}% | <= 1.00% | ${overcountPass ? "PASS" : "FAIL"} | ${overcountPass ? "🟢 PASS" : "🔴 FAIL"} |');
+      print('| Aggregate Distance Bias | ${dOpt.signedDistanceBiasPercent > 0 ? "+" : ""}${dOpt.signedDistanceBiasPercent.toStringAsFixed(4)}% | <= 1.00% | ${biasPass ? "PASS" : "FAIL"} | ${biasPass ? "🟢 PASS" : "🔴 FAIL"} |');
       print('| Recovery Latency P95 | ${dOpt.recoveryLatencyP95.toStringAsFixed(1)} s | <= 30.0 s | ${latencyPass ? "PASS" : "FAIL"} | ${latencyPass ? "🟢 PASS" : "🔴 FAIL"} |');
-      print('| Max Transient Error | ${dOpt.maxTransientError.toStringAsFixed(1)} m | Informational | N/A | Peak during severe blackout |');
+      print('| Max Transient Error | ${dOpt.maxTransientError.toStringAsFixed(1)} m | Informational | N/A | Peak during severe multipath |');
       print('| Covariance PSD Stability | ${dOpt.covarianceOverallValidPercent.toStringAsFixed(1)}% | 100.0% | ${covPass ? "PASS" : "FAIL"} | ${covPass ? "🟢 PASS" : "🔴 FAIL"} |');
       print('========================================================================================================');
+
+      // Reconciled Task 2 baseline reference: 75,548 / 75,600
+      const task2LegacyNumerator = 75548;
+      const task2LegacyDenominator = 75600;
+      const task2LegacyPercent = (task2LegacyNumerator / task2LegacyDenominator) * 100.0; // 99.93121693121692%
 
       // Compile final JSON evidence report
       final report = {
@@ -997,14 +1123,14 @@ void main() {
             'all_scheduled_rmse_m': 6.87,
             'all_scheduled_p95_m': 9.00,
             'legacy_availability': {
-              'numerator': 75549,
-              'denominator': 75600,
-              'percent': 99.9325,
+              'numerator': task2LegacyNumerator,
+              'denominator': task2LegacyDenominator,
+              'percent': task2LegacyPercent,
             },
             'measurement_validated_availability': {
               'numerator': 74786,
               'denominator': 75600,
-              'percent': 98.9233,
+              'percent': 98.92328042328043,
             },
             'distance_overcount_percent': 0.98,
             'distance_undercount_percent': 0.96,
@@ -1032,6 +1158,7 @@ void main() {
               .map((p) => {
                     'id': p.id,
                     'name': p.name,
+                    'description': p.description,
                     'base_noise_m': p.baseNoise,
                     'acc_mean_m': p.accMean,
                     'has_heading_dropout': p.hasHeadingDropout,
@@ -1049,8 +1176,8 @@ void main() {
         'original_to_holdout_delta_dopt': {
           'rmse_delta_m': dOpt.sampleWeightedRmse - 6.87,
           'p95_delta_m': dOpt.allScheduledP95 - 9.00,
-          'legacy_availability_delta_percent': dOpt.legacyAvailabilityPercent - 99.9325,
-          'measurement_validated_availability_delta_percent': dOpt.measurementValidatedAvailabilityPercent - 98.9233,
+          'legacy_availability_delta_percent': dOpt.legacyAvailabilityPercent - task2LegacyPercent,
+          'measurement_validated_availability_delta_percent': dOpt.measurementValidatedAvailabilityPercent - 98.92328042328043,
           'distance_overcount_delta_percent': dOpt.grossOvercountPercent - 0.98,
           'signed_distance_bias_delta_percent': dOpt.signedDistanceBiasPercent - 0.02,
           'recovery_latency_p95_delta_seconds': dOpt.recoveryLatencyP95 - 22.0,
