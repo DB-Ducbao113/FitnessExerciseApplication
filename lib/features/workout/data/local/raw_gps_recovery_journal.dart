@@ -12,12 +12,16 @@ import 'package:path_provider/path_provider.dart';
 enum RawGpsRecoveryStatus {
   verifiedIntact,
   staleCheckpoint,
+  integrityUnverified,
   corrupted,
   corruptedWithRecoveredPoints,
   partiallyRecoveredTruncated,
   recoveredLegacyNoManifest,
   accountMismatch,
-  emptyOrNotFound,
+  emptyOrNotFound;
+
+  static const legacyUnverified = recoveredLegacyNoManifest;
+  static const partialTruncated = partiallyRecoveredTruncated;
 }
 
 /// Versioned companion manifest tracking raw GPS journal checkpoints.
@@ -268,6 +272,7 @@ class RawGpsRecoveryJournal {
     Future<Directory> Function()? documentsDirectory,
     this.checkpointInterval = 25,
     this.maxQueueDepth = 1000,
+    this.onIoFaultInject,
   }) : _documentsDirectory =
            documentsDirectory ?? getApplicationDocumentsDirectory;
 
@@ -276,6 +281,9 @@ class RawGpsRecoveryJournal {
   final Future<Directory> Function() _documentsDirectory;
   final int checkpointInterval;
   final int maxQueueDepth;
+
+  /// Optional fault injection hook for testing resilience to I/O failures.
+  final Future<void> Function(String phase)? onIoFaultInject;
 
   final Map<String, _SessionJournalWriter> _activeWriters = {};
   final Map<String, Future<_SessionJournalWriter>> _pendingWriters = {};
@@ -316,27 +324,25 @@ class RawGpsRecoveryJournal {
       );
     } else {
       // If writer is not in memory, update manifest file directly if it exists
-      try {
-        final manifestFile = await manifestFileForSession(sessionId);
-        if (await manifestFile.exists()) {
-          final content = await manifestFile.readAsString();
-          final existing = RawGpsJournalManifest.fromJson(
-            jsonDecode(content) as Map<String, dynamic>,
-          );
-          final updated = existing.copyWith(
-            isFinalized: isFinalized,
-            cloudVerified: cloudVerified,
-            cloudVerifiedCount: cloudVerifiedCount,
-            cloudVerifiedSha256: cloudVerifiedSha256,
-            checkpointTimestampUtc: DateTime.now().toUtc(),
-            checkpointSeq: existing.checkpointSeq + 1,
-          );
-          await _writeManifestAtomic(manifestFile, updated);
-        }
-      } catch (e) {
-        if (e is! FlutterError) {
-          debugPrint('[RawGpsRecoveryJournal] direct checkpoint failed: $e');
-        }
+      final manifestFile = await manifestFileForSession(sessionId);
+      if (await manifestFile.exists()) {
+        final content = await manifestFile.readAsString();
+        final existing = RawGpsJournalManifest.fromJson(
+          jsonDecode(content) as Map<String, dynamic>,
+        );
+        final updated = existing.copyWith(
+          isFinalized: isFinalized,
+          cloudVerified: cloudVerified,
+          cloudVerifiedCount: cloudVerifiedCount,
+          cloudVerifiedSha256: cloudVerifiedSha256,
+          checkpointTimestampUtc: DateTime.now().toUtc(),
+          checkpointSeq: existing.checkpointSeq + 1,
+        );
+        await _writeManifestAtomic(
+          manifestFile,
+          updated,
+          faultInject: onIoFaultInject,
+        );
       }
     }
   }
@@ -399,13 +405,17 @@ class RawGpsRecoveryJournal {
 
     final rawLines = await file.readAsLines();
     if (rawLines.isEmpty) {
+      final isIntact = manifest != null && manifest.sampleCount == 0;
+      final status = isIntact
+          ? RawGpsRecoveryStatus.verifiedIntact
+          : (manifest != null && manifest.sampleCount > 0
+              ? RawGpsRecoveryStatus.corrupted
+              : RawGpsRecoveryStatus.emptyOrNotFound);
       return RawGpsRecoveryResult(
         sessionId: sessionId,
         points: const [],
         manifest: manifest,
-        status: manifest != null
-            ? RawGpsRecoveryStatus.verifiedIntact
-            : RawGpsRecoveryStatus.recoveredLegacyNoManifest,
+        status: status,
         validPointsCount: 0,
         duplicatePointsCount: 0,
         corruptedLinesCount: 0,
@@ -494,7 +504,29 @@ class RawGpsRecoveryJournal {
       if (validPoints.length == manifest.sampleCount && digestMatches) {
         status = RawGpsRecoveryStatus.verifiedIntact;
       } else if (validPoints.length > manifest.sampleCount) {
-        status = RawGpsRecoveryStatus.staleCheckpoint;
+        // Stale checkpoint: check if the checkpointed prefix is verified intact.
+        if (manifest.sha256Digest != null) {
+          final actualLines = rawLines.where((l) => l.trim().isNotEmpty).toList();
+          if (actualLines.length >= manifest.sampleCount) {
+            final prefixContent = actualLines
+                .take(manifest.sampleCount)
+                .map((l) => '$l\n')
+                .join();
+            final prefixSha256 =
+                sha256.convert(utf8.encode(prefixContent)).toString();
+            if (prefixSha256.toLowerCase() ==
+                manifest.sha256Digest!.toLowerCase()) {
+              status = RawGpsRecoveryStatus.staleCheckpoint;
+            } else {
+              // Prefix modified/corrupted: do not conceal corruption under staleCheckpoint!
+              status = RawGpsRecoveryStatus.corrupted;
+            }
+          } else {
+            status = RawGpsRecoveryStatus.integrityUnverified;
+          }
+        } else {
+          status = RawGpsRecoveryStatus.integrityUnverified;
+        }
       } else {
         // Count mismatch (< sampleCount) or digest mismatch (coordinate tampering/corruption)
         status = RawGpsRecoveryStatus.corrupted;
@@ -572,39 +604,44 @@ class RawGpsRecoveryJournal {
     }
   }
 
-  /// Safe deletion requiring explicit verification or [force].
+  /// Safe deletion requiring explicit user authorization.
   ///
-  /// Rejects blind deletion if [verifySafe] is true. Fails closed unless
-  /// cloud read-back digest verification confirms identity with manifest.
+  /// Safe Deletion Semantics (RG-1A.2):
+  /// - Automatic cleanup is DISABLED until RG-1B implements trusted canonical
+  ///   cloud read-back verification. Calling `delete(sessionId)` without options
+  ///   fails closed and throws StateError.
+  /// - Caller-provided SHA-256 or row counts are NOT accepted as proof of actual
+  ///   Supabase read-back verification.
+  /// - Explicit user-authorized workout/account deletion requires [force: true]
+  ///   and verifies ownership if [authorizedUserId] is supplied.
+  /// - Retains legacy and unverified journals against automated deletion.
   Future<void> delete(
     String sessionId, {
     bool force = false,
     bool verifySafe = false,
+    String? authorizedUserId,
     int? verifiedCloudCount,
     int? verifiedIsarCount,
     String? cloudReadBackSha256,
   }) async {
-    if (verifySafe && !force) {
+    // 1. Any automatic or non-forced deletion MUST fail closed.
+    if (!force) {
+      throw StateError(
+        'Automatic raw GPS recovery journal deletion is disabled until RG-1B canonical cloud '
+        'read-back verification is implemented. Journals cannot be deleted automatically '
+        'based on counts, flags, or caller-provided hashes.',
+      );
+    }
+
+    // 2. Explicit user-authorized deletion: verify ownership if authorizedUserId is provided.
+    if (authorizedUserId != null) {
       final manifest = await readManifest(sessionId);
-      if (manifest == null) {
+      if (manifest != null &&
+          manifest.userId != null &&
+          manifest.userId != authorizedUserId) {
         throw StateError(
-          'Cannot delete raw GPS recovery journal for $sessionId: missing integrity manifest (fails closed).',
-        );
-      }
-
-      // Cloud row count or isar row count alone is NOT proof of integrity.
-      // manifest.cloudVerified boolean alone is NOT trusted.
-      // Cloud read-back digest verification is required.
-      final manifestDigest = manifest.sha256Digest;
-      final digestMatches = manifestDigest != null &&
-          cloudReadBackSha256 != null &&
-          manifestDigest.toLowerCase() == cloudReadBackSha256.toLowerCase();
-
-      if (!digestMatches) {
-        throw StateError(
-          'Cannot delete unverified raw GPS recovery journal for $sessionId: '
-          'cloud read-back digest verification is required (RG-1B). '
-          'Row counts and cloudVerified flags are insufficient proof of integrity.',
+          'Cannot delete raw GPS recovery journal for $sessionId: unauthorized. '
+          'Authorized user ($authorizedUserId) does not match journal owner (${manifest.userId}).',
         );
       }
     }
@@ -633,6 +670,16 @@ class RawGpsRecoveryJournal {
     final quarantineFile = File('${journalFile.path}.quarantine');
     if (await quarantineFile.exists()) {
       await quarantineFile.delete();
+    }
+
+    final repairedTmp = File('${journalFile.path}.repaired.tmp');
+    if (await repairedTmp.exists()) {
+      await repairedTmp.delete();
+    }
+
+    final origBak = File('${journalFile.path}.orig.bak');
+    if (await origBak.exists()) {
+      await origBak.delete();
     }
   }
 
@@ -708,18 +755,67 @@ class RawGpsRecoveryJournal {
 
         actualCommittedCount = validLines.length;
 
-        // If final line was truncated, quarantine it and rewrite clean valid lines
+        // If final line was truncated, quarantine it and rewrite clean valid lines.
+        // NON-DESTRUCTIVE: Creates verified replacement file before switching.
+        // Preserves original bytes until replacement is safely committed.
+        // If safe replacement fails, abort and leave the original recoverable.
         if (hadTruncatedFinalLine && truncatedSnippet != null) {
+          final repairedTmp = File('${journalFile.path}.repaired.tmp');
+          final originalBak = File('${journalFile.path}.orig.bak');
           final quarantineFile = File('${journalFile.path}.quarantine');
-          await quarantineFile.writeAsString(
-            '$truncatedSnippet\n',
-            mode: FileMode.append,
-            flush: true,
-          );
-          final cleanContent = validLines.isEmpty
-              ? ''
-              : '${validLines.join('\n')}\n';
-          await journalFile.writeAsString(cleanContent, flush: true);
+
+          try {
+            if (onIoFaultInject != null) {
+              await onIoFaultInject!('repair_copy');
+            }
+
+            final cleanContent = validLines.isEmpty
+                ? ''
+                : '${validLines.join('\n')}\n';
+            await repairedTmp.writeAsString(cleanContent, flush: true);
+
+            if (onIoFaultInject != null) {
+              await onIoFaultInject!('repair_flush');
+            }
+
+            // Verify replacement file exists and matches expected content length
+            final repairedBytes = utf8.encode(cleanContent);
+            if (!await repairedTmp.exists() ||
+                await repairedTmp.length() != repairedBytes.length) {
+              throw StateError(
+                'Repaired replacement journal file verification failed',
+              );
+            }
+
+            // Write quarantine entry
+            await quarantineFile.writeAsString(
+              '$truncatedSnippet\n',
+              mode: FileMode.append,
+              flush: true,
+            );
+
+            // Safe atomic swap: backup original first, rename replacement, remove backup
+            await journalFile.copy(originalBak.path);
+
+            if (onIoFaultInject != null) {
+              await onIoFaultInject!('repair_rename');
+            }
+
+            await repairedTmp.rename(journalFile.path);
+            if (await originalBak.exists()) {
+              await originalBak.delete();
+            }
+          } catch (e) {
+            // Rollback: restore original if needed and clean up tmp files
+            if (await originalBak.exists()) {
+              await originalBak.copy(journalFile.path);
+              await originalBak.delete();
+            }
+            if (await repairedTmp.exists()) {
+              await repairedTmp.delete();
+            }
+            rethrow;
+          }
         }
       }
 
@@ -738,6 +834,7 @@ class RawGpsRecoveryJournal {
         initialLastTimestamp: lastTimestamp,
         checkpointInterval: checkpointInterval,
         maxQueueDepth: maxQueueDepth,
+        onIoFaultInject: onIoFaultInject,
       );
       _activeWriters[sessionId] = writer;
       return writer;
@@ -763,19 +860,26 @@ class RawGpsRecoveryJournal {
 
   static Future<void> _writeManifestAtomic(
     File manifestFile,
-    RawGpsJournalManifest manifest,
-  ) async {
+    RawGpsJournalManifest manifest, {
+    Future<void> Function(String phase)? faultInject,
+  }) async {
     final tmpFile = File('${manifestFile.path}.tmp');
     final jsonStr = jsonEncode(manifest.toJson());
     await tmpFile.writeAsString(jsonStr, flush: true);
+
+    if (faultInject != null) {
+      await faultInject('checkpoint_rename');
+    }
+
     try {
       await tmpFile.rename(manifestFile.path);
-    } catch (_) {
-      // Fallback for filesystems that do not support atomic replace
-      await manifestFile.writeAsString(jsonStr, flush: true);
+    } catch (e) {
       if (await tmpFile.exists()) {
-        await tmpFile.delete();
+        try {
+          await tmpFile.delete();
+        } catch (_) {}
       }
+      rethrow;
     }
   }
 }
@@ -794,6 +898,7 @@ class _SessionJournalWriter {
     DateTime? initialLastTimestamp,
     required this.checkpointInterval,
     required this.maxQueueDepth,
+    this.onIoFaultInject,
   }) : _manifest =
            initialManifest ??
            RawGpsJournalManifest(
@@ -817,6 +922,7 @@ class _SessionJournalWriter {
   final String? userId;
   final int checkpointInterval;
   final int maxQueueDepth;
+  final Future<void> Function(String phase)? onIoFaultInject;
 
   RawGpsJournalManifest _manifest;
   int _sampleCount;
@@ -990,7 +1096,11 @@ class _SessionJournalWriter {
           cloudVerifiedSha256 ?? _manifest.cloudVerifiedSha256,
     );
 
-    await RawGpsRecoveryJournal._writeManifestAtomic(manifestFile, _manifest);
+    await RawGpsRecoveryJournal._writeManifestAtomic(
+      manifestFile,
+      _manifest,
+      faultInject: onIoFaultInject,
+    );
   }
 
   Future<String?> _computeFileSha256() =>

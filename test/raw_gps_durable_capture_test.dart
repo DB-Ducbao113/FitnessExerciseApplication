@@ -30,9 +30,297 @@ void main() {
     }
   });
 
-  group('RG-1A.1: Mandatory Regression Tests (TC-01 through TC-12)', () {
+  group('RG-1A.2: Data Preservation Safety Hotfix Regression Tests', () {
     const testWorkoutId = '00000000-0000-4000-8000-000000000001';
     const testUserId = 'test-athlete-001';
+
+    test('delete(sessionId) without options must not delete (fails closed)', () async {
+      const sessionId = 'test-no-opt-delete';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: testUserId,
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      // Calling delete without options MUST throw StateError and preserve journal
+      expect(() => journal.delete(sessionId), throwsA(isA<StateError>()));
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
+    });
+
+    test('No read-back verification -> no automatic cleanup', () async {
+      const sessionId = 'test-no-readback';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: testUserId,
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      // Automatic cleanup without trusted readback verification rejected
+      expect(
+        () => journal.delete(
+          sessionId,
+          verifySafe: true,
+          verifiedCloudCount: 1,
+        ),
+        throwsA(isA<StateError>()),
+      );
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
+    });
+
+    test('Caller spoofing a manifest digest -> no deletion', () async {
+      const sessionId = 'test-spoof-digest';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: testUserId,
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final manifest = await journal.readManifest(sessionId);
+      expect(manifest!.sha256Digest, isNotNull);
+
+      // Caller passing manifest SHA-256 directly without canonical Supabase read-back must still be rejected
+      expect(
+        () => journal.delete(
+          sessionId,
+          verifySafe: true,
+          cloudReadBackSha256: manifest.sha256Digest,
+        ),
+        throwsA(isA<StateError>()),
+      );
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
+    });
+
+    test('Explicit authorized user deletion follows separate semantics', () async {
+      const sessionId = 'test-explicit-user-delete';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: 'athlete-owner-1',
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
+
+      // Unauthorized user attempting deletion must fail closed
+      expect(
+        () => journal.delete(
+          sessionId,
+          force: true,
+          authorizedUserId: 'intruder-user-2',
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+
+      // Authorized owner deleting explicitly succeeds
+      await journal.delete(
+        sessionId,
+        force: true,
+        authorizedUserId: 'athlete-owner-1',
+      );
+      expect(await file.exists(), isFalse);
+    });
+
+    test('Truncated-tail repair interrupted during replacement -> original journal preserved', () async {
+      const sessionId = 'test-fault-inject-repair';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+
+      final p1 = jsonEncode({
+        'workout_id': sessionId,
+        'user_id': testUserId,
+        'timestamp': '2026-10-19T08:00:00.000Z',
+        'latitude': 10.7380,
+        'longitude': 106.6250,
+      });
+      // Original file content: 1 valid line and 1 truncated line
+      final originalContent =
+          '$p1\n{"workout_id":"$sessionId","latitude":10.7381,"long';
+      await file.writeAsString(originalContent, flush: true);
+
+      // Create journal instance with fault injection during repair_rename
+      final faultJournal = RawGpsRecoveryJournal(
+        documentsDirectory: () async => tempDir,
+        onIoFaultInject: (phase) async {
+          if (phase == 'repair_rename') {
+            throw const FileSystemException(
+              'Injected simulated I/O failure during repair rename',
+            );
+          }
+        },
+      );
+
+      // Attempt to open writer (which triggers repair) -> should fail cleanly
+      expect(
+        () => faultJournal.appendPoint(
+          _syntheticPoint(
+            workoutId: sessionId,
+            timestamp: DateTime.utc(2026, 10, 19, 8, 2),
+            lat: 10.7382,
+            lng: 106.6252,
+          ),
+          userId: testUserId,
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      // Verify original journal content remains intact and recoverable
+      expect(await file.exists(), isTrue);
+      expect(await file.readAsString(), originalContent);
+    });
+
+    test('Manifest replacement failure -> original manifest preserved', () async {
+      const sessionId = 'test-fault-inject-manifest';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: testUserId,
+      );
+      await journal.checkpoint(sessionId, isFinalized: false);
+
+      final originalManifest = await journal.readManifest(sessionId);
+      expect(originalManifest, isNotNull);
+      final originalSeq = originalManifest!.checkpointSeq;
+
+      // Create journal with fault injection during checkpoint_rename
+      final faultJournal = RawGpsRecoveryJournal(
+        documentsDirectory: () async => tempDir,
+        onIoFaultInject: (phase) async {
+          if (phase == 'checkpoint_rename') {
+            throw const FileSystemException(
+              'Injected simulated crash during manifest atomic rename',
+            );
+          }
+        },
+      );
+
+      // Direct checkpoint attempt fails
+      expect(
+        () => faultJournal.checkpoint(sessionId, isFinalized: true),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      // Original manifest remains intact with originalSeq and original digest
+      final afterManifest = await journal.readManifest(sessionId);
+      expect(afterManifest, isNotNull);
+      expect(afterManifest!.checkpointSeq, originalSeq);
+      expect(afterManifest.sha256Digest, originalManifest.sha256Digest);
+    });
+
+    test('Empty journal plus nonzero manifest count -> integrity FAIL', () async {
+      const sessionId = 'test-empty-with-count';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+      // Write empty file (0 bytes / 0 lines)
+      await file.writeAsString('', flush: true);
+
+      // Write manifest claiming 10 points
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifest = RawGpsJournalManifest(
+        workoutId: sessionId,
+        userId: testUserId,
+        sampleCount: 10,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        sha256Digest:
+            'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      );
+      await manifestFile.writeAsString(
+        jsonEncode(manifest.toJson()),
+        flush: true,
+      );
+
+      final recovery = await journal.readJournal(
+        sessionId,
+        activeUserId: testUserId,
+      );
+      expect(recovery.status, RawGpsRecoveryStatus.corrupted);
+      expect(recovery.status, isNot(RawGpsRecoveryStatus.verifiedIntact));
+      expect(recovery.validPointsCount, 0);
+    });
+
+    test('Modified checkpointed prefix plus extra records -> not STALE_CHECKPOINT verified', () async {
+      const sessionId = 'test-corrupted-prefix';
+      for (var i = 0; i < 3; i++) {
+        await journal.appendPoint(
+          _syntheticPoint(
+            workoutId: sessionId,
+            timestamp: DateTime.utc(2026, 10, 19, 8, i),
+            lat: 10.738 + (i * 0.0001),
+            lng: 106.625 + (i * 0.0001),
+          ),
+          userId: testUserId,
+        );
+      }
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: false);
+
+      // Now add 2 more records (total 5 lines) BUT tamper with line 2 (part of the 3-point prefix!)
+      final file = await journal.fileForSession(sessionId);
+      final lines = await file.readAsLines();
+      final tamperedLine2 = jsonDecode(lines[1]) as Map<String, dynamic>;
+      tamperedLine2['latitude'] = 11.2345; // tampered prefix record!
+      lines[1] = jsonEncode(tamperedLine2);
+
+      final p4 = jsonEncode({
+        'workout_id': sessionId,
+        'user_id': testUserId,
+        'timestamp': '2026-10-19T08:03:00.000Z',
+        'latitude': 10.7383,
+        'longitude': 106.6253,
+      });
+      final p5 = jsonEncode({
+        'workout_id': sessionId,
+        'user_id': testUserId,
+        'timestamp': '2026-10-19T08:04:00.000Z',
+        'latitude': 10.7384,
+        'longitude': 106.6254,
+      });
+      lines.add(p4);
+      lines.add(p5);
+      await file.writeAsString('${lines.join('\n')}\n', flush: true);
+
+      final recovery = await journal.readJournal(
+        sessionId,
+        activeUserId: testUserId,
+      );
+      // Must NOT be classified as staleCheckpoint since historical prefix was modified!
+      expect(recovery.status, isNot(RawGpsRecoveryStatus.staleCheckpoint));
+      expect(recovery.status, RawGpsRecoveryStatus.corrupted);
+      // But valid parsed points remain accessible without claiming verified integrity
+      expect(recovery.points, hasLength(5));
+    });
 
     test('TC-01: Journal intact + correct digest => VERIFIED_INTACT', () async {
       const sessionId = 'tc-01-intact';
@@ -295,94 +583,6 @@ void main() {
       expect(recovery.hasTruncatedFinalLine, isFalse);
     });
 
-    test('TC-07: Missing manifest => safe automatic delete rejected', () async {
-      const sessionId = 'tc-07-missing-manifest';
-      await journal.appendPoint(
-        _syntheticPoint(
-          workoutId: sessionId,
-          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
-          lat: 10.738,
-          lng: 106.625,
-        ),
-        userId: testUserId,
-      );
-      await journal.flushSession(sessionId);
-
-      // Ensure no manifest exists
-      final manifestFile = await journal.manifestFileForSession(sessionId);
-      if (await manifestFile.exists()) await manifestFile.delete();
-
-      expect(
-        () => journal.delete(sessionId, verifySafe: true),
-        throwsA(isA<StateError>()),
-      );
-
-      final journalFile = await journal.fileForSession(sessionId);
-      expect(await journalFile.exists(), isTrue);
-    });
-
-    test('TC-08: Cloud count equals expected without digest => journal preserved', () async {
-      const sessionId = 'tc-08-count-only';
-      await journal.appendPoint(
-        _syntheticPoint(
-          workoutId: sessionId,
-          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
-          lat: 10.738,
-          lng: 106.625,
-        ),
-        userId: testUserId,
-      );
-      await journal.flushSession(sessionId);
-      await journal.checkpoint(sessionId, isFinalized: true);
-
-      // Attempt delete passing matching cloud count but NO cloudReadBackSha256 digest
-      expect(
-        () => journal.delete(sessionId, verifySafe: true, verifiedCloudCount: 1),
-        throwsA(isA<StateError>()),
-      );
-
-      final journalFile = await journal.fileForSession(sessionId);
-      expect(await journalFile.exists(), isTrue);
-    });
-
-    test('TC-09: Manifest cloudVerified=true without independently verified read-back => journal preserved', () async {
-      const sessionId = 'tc-09-flag-only';
-      await journal.appendPoint(
-        _syntheticPoint(
-          workoutId: sessionId,
-          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
-          lat: 10.738,
-          lng: 106.625,
-        ),
-        userId: testUserId,
-      );
-      await journal.flushSession(sessionId);
-      // Even if cloudVerified was set to true
-      await journal.checkpoint(
-        sessionId,
-        isFinalized: true,
-        cloudVerified: true,
-        cloudVerifiedCount: 1,
-      );
-
-      // Safe delete without independent read-back digest MUST FAIL and PRESERVE journal
-      expect(
-        () => journal.delete(sessionId, verifySafe: true),
-        throwsA(isA<StateError>()),
-      );
-      final journalFile = await journal.fileForSession(sessionId);
-      expect(await journalFile.exists(), isTrue);
-
-      // Providing actual matching read-back digest allows safe delete to succeed
-      final manifest = await journal.readManifest(sessionId);
-      await journal.delete(
-        sessionId,
-        verifySafe: true,
-        cloudReadBackSha256: manifest!.sha256Digest,
-      );
-      expect(await journalFile.exists(), isFalse);
-    });
-
     test('TC-10: Queue overflow => explicit failure and incomplete capture status', () async {
       final smallBufferJournal = RawGpsRecoveryJournal(
         documentsDirectory: () async => tempDir,
@@ -451,8 +651,8 @@ void main() {
         final point = _syntheticPoint(
           workoutId: testWorkoutId,
           timestamp: startTime.add(Duration(seconds: i)),
-          lat: 10.7380 + (i * 0.00001),
-          lng: 106.6250 + (i * 0.00001),
+          lat: 10.7380 + (i * 0.0001),
+          lng: 106.6250 + (i * 0.0001),
           speed: 4.5,
           accuracy: 4.0,
         );

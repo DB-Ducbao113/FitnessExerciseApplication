@@ -61,7 +61,8 @@ class WorkoutRecordingCoordinator {
            deleteRecoveryGpsJournal ??
            ((workoutId) => RawGpsRecoveryJournal.instance.delete(
                  workoutId,
-                 verifySafe: true,
+                 force: true,
+                 authorizedUserId: currentUserId(),
                ));
 
   final RawTrackingRemoteDataSource _rawTracking;
