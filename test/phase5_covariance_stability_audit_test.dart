@@ -257,6 +257,7 @@ void main() {
                     hasAuxiliarySensors: headingVal != null,
                   );
 
+                  final isResetEvent = out.wasResetApplied;
                   if (out.wasResetApplied) {
                     postReAnchorCountdown = 5;
                   }
@@ -274,6 +275,7 @@ void main() {
                     isInitialized: isInitialized,
                     state: out.state,
                     result: validationResult,
+                    isResetEvent: isResetEvent,
                     isReAnchorOrProbation: isReAnchorStep,
                   );
 
@@ -281,6 +283,7 @@ void main() {
                     isInitialized: isInitialized,
                     state: out.state,
                     result: validationResult,
+                    isResetEvent: isResetEvent,
                     isReAnchorOrProbation: isReAnchorStep,
                   );
 
@@ -288,6 +291,7 @@ void main() {
                         isInitialized: isInitialized,
                         state: out.state,
                         result: validationResult,
+                        isResetEvent: isResetEvent,
                         isReAnchorOrProbation: isReAnchorStep,
                       );
 
@@ -295,6 +299,7 @@ void main() {
                         isInitialized: isInitialized,
                         state: out.state,
                         result: validationResult,
+                        isResetEvent: isResetEvent,
                         isReAnchorOrProbation: isReAnchorStep,
                       );
 
@@ -302,6 +307,7 @@ void main() {
                         isInitialized: isInitialized,
                         state: out.state,
                         result: validationResult,
+                        isResetEvent: isResetEvent,
                         isReAnchorOrProbation: isReAnchorStep,
                       );
 
@@ -310,6 +316,7 @@ void main() {
                       isInitialized: isInitialized,
                       state: out.state,
                       result: validationResult,
+                      isResetEvent: isResetEvent,
                       isReAnchorOrProbation: isReAnchorStep,
                     );
                   } else {
@@ -317,6 +324,7 @@ void main() {
                       isInitialized: isInitialized,
                       state: out.state,
                       result: validationResult,
+                      isResetEvent: isResetEvent,
                       isReAnchorOrProbation: isReAnchorStep,
                     );
                   }
@@ -339,6 +347,12 @@ void main() {
                   'finite_percentage': scenCovAcc.finitePercentage,
                   'symmetry_pass_percentage': scenCovAcc.symmetryPassPercentage,
                   'psd_pass_percentage': scenCovAcc.psdPassPercentage,
+                  'overall_valid_percentage': scenCovAcc.overallValidPercentage,
+                  'overall_valid_count': scenCovAcc.overallValidCount,
+                  'overall_invalid_count': scenCovAcc.overallInvalidCount,
+                  'jacobi_convergence_percentage': scenCovAcc.jacobiConvergencePercentage,
+                  'worst_jacobi_residual': scenCovAcc.worstJacobiResidual,
+                  'ldlt_disagreement_count': scenCovAcc.ldltDisagreementCount,
                   'min_eigenvalue': scenCovAcc.minObservedEigenvalue,
                   'worst_symmetry_residual': scenCovAcc.worstSymmetryResidual,
                   'max_trace': scenCovAcc.maxObservedTrace,
@@ -352,14 +366,32 @@ void main() {
         // Configuration verification assertions
         expect(globalCovAcc.totalScheduledObservations, equals(75600),
             reason: '${cfg.id} total scheduled samples must be 75600');
+        expect(globalCovAcc.initializedObservations + globalCovAcc.uninitializedObservations, equals(75600),
+            reason: '${cfg.id} initialized + uninitialized must equal total scheduled samples');
+        expect(globalCovAcc.initializedObservations, greaterThan(70000),
+            reason: '${cfg.id} initialized observations must dominate benchmark');
         expect(globalCovAcc.finitePercentage, equals(100.0),
             reason: '${cfg.id} all initialized covariance matrices must be finite');
         expect(globalCovAcc.symmetryPassPercentage, equals(100.0),
             reason: '${cfg.id} all initialized covariance matrices must be symmetric within tolerance');
         expect(globalCovAcc.psdPassPercentage, equals(100.0),
             reason: '${cfg.id} all initialized covariance matrices must be positive semi-definite');
+        expect(globalCovAcc.overallValidPercentage, equals(100.0),
+            reason: '${cfg.id} all initialized covariance matrices must have overallValid = true');
+        expect(globalCovAcc.jacobiConvergencePercentage, equals(100.0),
+            reason: '${cfg.id} all Jacobi decompositions must converge');
+        expect(globalCovAcc.jacobiConvergenceFailures, equals(0),
+            reason: '${cfg.id} Jacobi convergence failures must be 0');
+        expect(globalCovAcc.ldltDisagreementCount, equals(0),
+            reason: '${cfg.id} LDLT disagreements must be 0');
+        expect(globalCovAcc.ldltAgreementPercentage, equals(100.0),
+            reason: '${cfg.id} LDLT agreement must be 100%');
         expect(globalCovAcc.minObservedEigenvalue, greaterThan(-1e-6),
             reason: '${cfg.id} minimum eigenvalue must not exceed negative tolerance');
+        expect(globalCovAcc.worstSymmetryResidual, lessThanOrEqualTo(1e-4),
+            reason: '${cfg.id} worst symmetry residual must be within tolerance');
+        expect(globalCovAcc.worstJacobiResidual, lessThanOrEqualTo(1e-10),
+            reason: '${cfg.id} worst Jacobi off-diagonal residual must be near machine precision');
 
         evidenceConfigurations[cfg.id] = {
           'id': cfg.id,
@@ -383,18 +415,32 @@ void main() {
         print('Finite Pass %: ${globalCovAcc.finitePercentage.toStringAsFixed(4)}%');
         print('Symmetry Pass %: ${globalCovAcc.symmetryPassPercentage.toStringAsFixed(4)}%');
         print('PSD Pass %: ${globalCovAcc.psdPassPercentage.toStringAsFixed(4)}%');
+        print('Overall Valid %: ${globalCovAcc.overallValidPercentage.toStringAsFixed(4)}% (${globalCovAcc.overallValidCount}/${globalCovAcc.initializedObservations})');
+        print('Jacobi Converged %: ${globalCovAcc.jacobiConvergencePercentage.toStringAsFixed(4)}% (Failures: ${globalCovAcc.jacobiConvergenceFailures})');
+        print('Worst Jacobi Residual: ${globalCovAcc.worstJacobiResidual}');
+        print('LDLT Agreement %: ${globalCovAcc.ldltAgreementPercentage.toStringAsFixed(4)}% (Disagreements: ${globalCovAcc.ldltDisagreementCount})');
         print('Min Eigenvalue: ${globalCovAcc.minObservedEigenvalue}');
         print('Worst Symmetry Residual: ${globalCovAcc.worstSymmetryResidual}');
         print('Max Trace: ${globalCovAcc.maxObservedTrace}');
-        print('Re-anchor Observations: ${globalCovAcc.reAnchorObservations}');
-        print('Re-anchor PSD Pass %: ${globalCovAcc.toJson()['re_anchor_stability']['psd_pass_percentage']}%');
+        print('Re-anchor Stability:');
+        print('  Reset Events: ${globalCovAcc.resetEventCount}');
+        print('  Re-anchor Observations: ${globalCovAcc.reAnchorObservations}');
+        print('  Re-anchor Overall Valid %: ${globalCovAcc.toJson()['re_anchor_stability']['overall_valid_percentage']}%');
+        print('  Re-anchor PSD Pass %: ${globalCovAcc.toJson()['re_anchor_stability']['psd_pass_percentage']}%');
         print('======================================================');
       }
 
       // Final report generation
       final report = {
-        'schema_version': 'aetron.phase5.task3.covariance_stability.v1',
+        'schema_version': 'aetron.phase5.task3.covariance_stability.v2',
         'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
+        'source_provenance': {
+          'branch': 'EKF+DBSCAN',
+          'base_commit': _getGitCommit(),
+          'working_tree_state': 'task3_hotfix_complete',
+          'generator': 'test/phase5_covariance_stability_audit_test.dart',
+          'note': 'Generated during Task 3 verification prior to commit creation; base_commit indicates parent HEAD.'
+        },
         'git_commit': _getGitCommit(),
         'branch': 'EKF+DBSCAN',
         'matrix_dimensions': [4, 4],
@@ -403,7 +449,8 @@ void main() {
           'finiteness_check': 'All 16 elements must be finite and not NaN',
           'symmetry_check': 'r_sym = max_{i < j} |P_ij - P_ji| <= 1e-6 * max(1.0, max_k |P_kk|)',
           'psd_check': 'Cyclic Jacobi eigenvalue decomposition on sym(P): min_lambda >= -1e-7 * max(1.0, trace(P))',
-          'dual_check': 'LDLT decomposition confirming non-negative pivots D_ii >= -1e-7 * max(1.0, trace)',
+          'dual_check': 'LDLT decomposition confirming non-negative pivots with zero-pivot defect detection',
+          'overall_validity': 'Composite condition: isFinite && isSymmetric && isPositiveSemiDefinite && jacobiConverged',
         },
         'tolerances': {
           'relative_symmetry_tolerance': 1e-6,
