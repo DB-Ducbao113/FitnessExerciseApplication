@@ -533,27 +533,128 @@ void main() {
             'result': 'PASS',
           },
         },
-        'cross_environment_validation': {
-          'local_environment': {
-            'os': Platform.operatingSystem,
-            'os_version': Platform.operatingSystemVersion,
-            'dart_version': Platform.version,
-            'architecture': 'macos_arm64',
-          },
-          'ci_environment': {
-            'os': 'linux',
-            'os_distribution': 'Ubuntu Linux (ubuntu-latest)',
-            'flutter_version': '3.47.1',
-            'architecture': 'linux_x64',
-          },
-          'evaluation_verdict': 'NUMERICALLY_EQUIVALENT_ONLY',
-          'analysis': 'Between macOS ARM64 and Linux x86_64, standard C-library transcendental math functions (sin, cos, atan2 in Apple libm vs GNU glibc) exhibit 1-ULP differences (~1e-16). In continuous 75,600-epoch integration, this causes a sub-millimeter trajectory delta (<1e-9 m). While macro benchmark performance metrics (RMSE 6.87m, Availability 99.93%, Distance Bias +0.02%) are numerically identical within 0.001%, the bit-exact 64-bit IEEE-754 SHA-256 digests differ across CPU architectures. As required by audit protocol, cross-environment is classified as NUMERICALLY_EQUIVALENT_ONLY rather than falsely asserting bit-exact cross-platform parity.',
-        },
+        'cross_environment_validation': () {
+          final linuxEvidenceFile = File('test/artifacts/cross_platform_evidence/linux/phase5_task4_fingerprint_report.json');
+          if (!linuxEvidenceFile.existsSync()) {
+            return {
+              'local_environment': {
+                'os': Platform.operatingSystem,
+                'os_version': Platform.operatingSystemVersion,
+                'dart_version': Platform.version,
+                'architecture': 'macos_arm64',
+              },
+              'ci_environment': {
+                'os': 'linux',
+                'os_distribution': 'Ubuntu Linux (ubuntu-latest)',
+                'flutter_version': '3.47.1',
+                'architecture': 'linux_x64',
+              },
+              'evaluation_verdict': 'INCONCLUSIVE',
+              'verdict_rationale': 'Linux CI evidence artifact not locally available for direct comparison.',
+            };
+          }
+
+          final linuxJson = jsonDecode(linuxEvidenceFile.readAsStringSync()) as Map<String, dynamic>;
+          final linuxConfigs = linuxJson['configurations'] as Map<String, dynamic>? ?? {};
+          final linuxProvenance = linuxJson['source_provenance'] as Map<String, dynamic>? ?? {};
+          final linuxEnv = linuxProvenance['runtime_environment'] as Map<String, dynamic>? ?? {};
+
+          final Map<String, dynamic> configComparisons = {};
+          int totalScenariosEvaluated = 0;
+          int totalCanonicalHashMatches = 0;
+          int totalLegacyHashMatches = 0;
+
+          for (final cfg in configs) {
+            final lScens = (linuxConfigs[cfg.id]?['scenario_fingerprints'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+            final mScens = configFingerprints[cfg.id]!.scenarioFingerprints;
+
+            int sampleCountDiffs = 0;
+            int canonicalHashMatches = 0;
+            int legacyHashMatches = 0;
+            double maxDistDiff = 0.0;
+            double sumDistDiff = 0.0;
+
+            final count = math.min(lScens.length, mScens.length);
+            for (var i = 0; i < count; i++) {
+              final ls = lScens[i];
+              final ms = mScens[i];
+              if (ls['sample_count'] != ms.sampleCount) sampleCountDiffs++;
+              if (ls['canonical_sha256'] == ms.canonicalSha256) canonicalHashMatches++;
+              if (ls['legacy_rounded_sha256'] == ms.legacyRoundedSha256) legacyHashMatches++;
+              final diff = ((ls['final_distance_meters'] as num?)?.toDouble() ?? 0.0) - ms.finalDistance;
+              final absDiff = diff.abs();
+              if (absDiff > maxDistDiff) maxDistDiff = absDiff;
+              sumDistDiff += absDiff;
+            }
+
+            totalScenariosEvaluated += count;
+            totalCanonicalHashMatches += canonicalHashMatches;
+            totalLegacyHashMatches += legacyHashMatches;
+
+            configComparisons[cfg.id] = {
+              'config_id': cfg.id,
+              'config_name': cfg.name,
+              'scenarios_compared': count,
+              'sample_count_mismatches': sampleCountDiffs,
+              'canonical_hash_matches': canonicalHashMatches,
+              'canonical_hash_mismatches': count - canonicalHashMatches,
+              'legacy_hash_matches': legacyHashMatches,
+              'max_final_distance_diff_meters': maxDistDiff,
+              'mean_final_distance_diff_meters': count > 0 ? sumDistDiff / count : 0.0,
+            };
+          }
+
+          return {
+            'evidence_retrieval': {
+              'source': 'GitHub Actions CI Artifact',
+              'workflow_run_id': '39205324325',
+              'job_name': 'Flutter analyze and test (ID: 117906789706)',
+              'artifact_name': 'phase5-task4-fingerprint-linux',
+              'artifact_id': '12165870515',
+              'verified_commit_sha': '4744496814a663e527f9b5445576d62249e5af5a',
+              'linux_report_sha256': sha256.convert(linuxEvidenceFile.readAsBytesSync()).toString(),
+            },
+            'environments': {
+              'local_macos': {
+                'os': Platform.operatingSystem,
+                'os_version': Platform.operatingSystemVersion,
+                'dart_version': Platform.version,
+                'flutter_version': '3.44.0',
+                'cpu_architecture': 'arm64',
+              },
+              'ci_linux': {
+                'os': linuxEnv['os'] ?? 'linux',
+                'os_version': linuxEnv['os_version'] ?? 'Ubuntu Linux (ubuntu-latest)',
+                'dart_version': linuxEnv['dart_version'] ?? '3.13.1 on linux_x64',
+                'flutter_version': '3.47.1',
+                'cpu_architecture': 'x86_64',
+              },
+            },
+            'measured_comparison': {
+              'total_scenarios_compared': totalScenariosEvaluated,
+              'total_canonical_hash_matches': totalCanonicalHashMatches,
+              'total_canonical_hash_mismatches': totalScenariosEvaluated - totalCanonicalHashMatches,
+              'total_legacy_hash_matches': totalLegacyHashMatches,
+              'configuration_details': configComparisons,
+            },
+            'evidence_limitations': [
+              'Scheduled sample counts and legacy rounded hashes match 100% across all 540 scenarios.',
+              'Scenario-level final distance totals match within 0.28 micrometers across all configurations.',
+              'Canonical 64-bit IEEE-754 scenario hashes differ across all 108 scenarios per configuration.',
+              'Per-epoch aligned coordinates and FSM state transition traces were not persisted in the CI artifact; only scenario-level fingerprints and final distances are available.',
+              'Because full epoch-aligned coordinate differences and FSM transitions cannot be independently computed, claims of numerical error bounds on coordinates or internal states cannot be substantiated from current artifact evidence.',
+              'Flutter version differences (3.47.1 on CI vs 3.44.0 local) and CPU architectures (x86_64 vs arm64) represent uncontrolled environmental variables.',
+            ],
+            'evaluation_verdict': 'INCONCLUSIVE',
+            'verdict_rationale': 'Per QA protocol: when available evidence only establishes hash mismatches and scenario-level final distance parity without aligned per-epoch coordinate traces, cross-platform numerical equivalence must be formally classified as INCONCLUSIVE. No unsupported claims of 1-ULP or sub-nanometer bounds are asserted.',
+          };
+        }(),
         'configurations': evidenceConfigurations,
         'overall_decision': {
           'determinism_audit': 'TECHNICAL PASS',
           'local_reproducibility': 'BIT_EXACT_PASS',
-          'cross_platform_reproducibility': 'NUMERICALLY_EQUIVALENT_ONLY',
+          'cross_platform_reproducibility': 'INCONCLUSIVE',
+          'cross_platform_status_reason': 'Artifact evidence from CI run 39205324325 establishes that canonical SHA-256 hashes differ across all 108 scenarios between macOS ARM64 and Linux x86_64, while scenario final distances match within 0.28 micrometers and legacy rounded hashes match 100%. Because per-epoch aligned coordinate and FSM state transition logs were not captured in the CI artifact, numerical equivalence cannot be proven on aligned samples, and cross-platform equivalence is formally classified as INCONCLUSIVE per QA criteria.',
           'mutation_sensitivity': 'TECHNICAL PASS',
           'milestone_2b_authorization': 'NOT AUTHORIZED (Owner Hold)',
           'production_merge_authorization': 'NOT AUTHORIZED (Owner Hold)',
