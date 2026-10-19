@@ -37,6 +37,7 @@ class WorkoutRecordingCoordinator {
     Future<void> Function(LocalStepInterval interval)? saveLocalStepInterval,
     Future<void> Function(LocalGPSPoint point)? saveRecoveryGpsPoint,
     Future<void> Function(String workoutId)? deleteRecoveryGpsJournal,
+    RawGpsRecoveryJournal? recoveryJournal,
   }) : _rawTracking = rawTracking,
        _workoutRemote = workoutRemote,
        _processingRemote = processingRemote,
@@ -47,7 +48,8 @@ class WorkoutRecordingCoordinator {
        _saveRecoveryGpsPoint =
            saveRecoveryGpsPoint ??
            ((point) async {
-             final result = await RawGpsRecoveryJournal.instance.appendPoint(
+             final journal = recoveryJournal ?? RawGpsRecoveryJournal.instance;
+             final result = await journal.appendPoint(
                point,
                userId: currentUserId(),
              );
@@ -59,11 +61,20 @@ class WorkoutRecordingCoordinator {
            }),
        _deleteRecoveryGpsJournal =
            deleteRecoveryGpsJournal ??
-           ((workoutId) => RawGpsRecoveryJournal.instance.delete(
-                 workoutId,
-                 force: true,
-                 authorizedUserId: currentUserId(),
-               ));
+           ((workoutId) {
+             final userId = currentUserId();
+             if (userId == null || userId.trim().isEmpty) {
+               throw StateError(
+                 'Cannot explicitly delete recovery journal: user is not authenticated.',
+               );
+             }
+             final journal = recoveryJournal ?? RawGpsRecoveryJournal.instance;
+             return journal.delete(
+               workoutId,
+               force: true,
+               authorizedUserId: userId,
+             );
+           });
 
   final RawTrackingRemoteDataSource _rawTracking;
   final WorkoutRemoteDataSource _workoutRemote;

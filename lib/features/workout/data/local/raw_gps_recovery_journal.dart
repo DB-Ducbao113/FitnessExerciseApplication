@@ -273,6 +273,7 @@ class RawGpsRecoveryJournal {
     this.checkpointInterval = 25,
     this.maxQueueDepth = 1000,
     this.onIoFaultInject,
+    this.workoutOwnershipVerifier,
   }) : _documentsDirectory =
            documentsDirectory ?? getApplicationDocumentsDirectory;
 
@@ -284,6 +285,10 @@ class RawGpsRecoveryJournal {
 
   /// Optional fault injection hook for testing resilience to I/O failures.
   final Future<void> Function(String phase)? onIoFaultInject;
+
+  /// Optional default verifier for workouts when manifest.userId is missing.
+  final Future<bool> Function(String sessionId, String userId)?
+      workoutOwnershipVerifier;
 
   final Map<String, _SessionJournalWriter> _activeWriters = {};
   final Map<String, Future<_SessionJournalWriter>> _pendingWriters = {};
@@ -405,12 +410,51 @@ class RawGpsRecoveryJournal {
 
     final rawLines = await file.readAsLines();
     if (rawLines.isEmpty) {
-      final isIntact = manifest != null && manifest.sampleCount == 0;
-      final status = isIntact
-          ? RawGpsRecoveryStatus.verifiedIntact
-          : (manifest != null && manifest.sampleCount > 0
-              ? RawGpsRecoveryStatus.corrupted
-              : RawGpsRecoveryStatus.emptyOrNotFound);
+      if (activeUserId != null &&
+          manifest != null &&
+          manifest.userId != null &&
+          manifest.userId != activeUserId) {
+        return RawGpsRecoveryResult.accountMismatch(
+          sessionId: sessionId,
+          accountMismatchUserId: manifest.userId!,
+        );
+      }
+      if (activeUserId != null && manifest != null && manifest.userId == null) {
+        return RawGpsRecoveryResult(
+          sessionId: sessionId,
+          points: const [],
+          manifest: manifest,
+          status: RawGpsRecoveryStatus.emptyOrNotFound,
+          validPointsCount: 0,
+          duplicatePointsCount: 0,
+          corruptedLinesCount: 0,
+          hasTruncatedFinalLine: false,
+          isUnfinalizedCrash: !manifest.isFinalized,
+          warningMessage:
+              'Journal lacks ownership metadata and cannot be safely replayed for active user $activeUserId.',
+        );
+      }
+
+      RawGpsRecoveryStatus status;
+      if (manifest == null) {
+        status = RawGpsRecoveryStatus.emptyOrNotFound;
+      } else if (manifest.sampleCount > 0) {
+        status = RawGpsRecoveryStatus.corrupted;
+      } else {
+        // manifest.sampleCount == 0:
+        // Treat zero-sample empty journals as VERIFIED_INTACT only when
+        // their integrity evidence is actually validated against the file digest.
+        final fileDigest = await _computeFileSha256(file);
+        if (manifest.sha256Digest == null) {
+          status = RawGpsRecoveryStatus.integrityUnverified;
+        } else if (manifest.sha256Digest!.toLowerCase() ==
+            fileDigest?.toLowerCase()) {
+          status = RawGpsRecoveryStatus.verifiedIntact;
+        } else {
+          status = RawGpsRecoveryStatus.corrupted;
+        }
+      }
+
       return RawGpsRecoveryResult(
         sessionId: sessionId,
         points: const [],
@@ -595,8 +639,6 @@ class RawGpsRecoveryJournal {
   static Future<String?> _computeFileSha256(File file) async {
     try {
       if (!await file.exists()) return null;
-      final length = await file.length();
-      if (length == 0) return null;
       final digest = await sha256.bind(file.openRead()).first;
       return digest.toString();
     } catch (_) {
@@ -606,20 +648,27 @@ class RawGpsRecoveryJournal {
 
   /// Safe deletion requiring explicit user authorization.
   ///
-  /// Safe Deletion Semantics (RG-1A.2):
+  /// Safe Deletion Semantics (RG-1A):
   /// - Automatic cleanup is DISABLED until RG-1B implements trusted canonical
   ///   cloud read-back verification. Calling `delete(sessionId)` without options
-  ///   fails closed and throws StateError.
+  ///   or without `force: true` fails closed and throws StateError.
   /// - Caller-provided SHA-256 or row counts are NOT accepted as proof of actual
   ///   Supabase read-back verification.
   /// - Explicit user-authorized workout/account deletion requires [force: true]
-  ///   and verifies ownership if [authorizedUserId] is supplied.
-  /// - Retains legacy and unverified journals against automated deletion.
+  ///   AND a verified non-empty [authorizedUserId]. Forced deletion without
+  ///   trusted authorization fails closed.
+  /// - If [manifest.userId] is present, it MUST match [authorizedUserId].
+  /// - If [manifest.userId] is missing (legacy journals or missing manifest),
+  ///   an independent trusted workout ownership verification is required via
+  ///   [trustedWorkoutOwnershipVerifier] or [workoutOwnershipVerifier].
+  /// - Ensures logout/account switching cannot delete another account's journal.
   Future<void> delete(
     String sessionId, {
     bool force = false,
     bool verifySafe = false,
     String? authorizedUserId,
+    Future<bool> Function(String sessionId, String userId)?
+        trustedWorkoutOwnershipVerifier,
     int? verifiedCloudCount,
     int? verifiedIsarCount,
     String? cloudReadBackSha256,
@@ -633,15 +682,41 @@ class RawGpsRecoveryJournal {
       );
     }
 
-    // 2. Explicit user-authorized deletion: verify ownership if authorizedUserId is provided.
-    if (authorizedUserId != null) {
-      final manifest = await readManifest(sessionId);
-      if (manifest != null &&
-          manifest.userId != null &&
-          manifest.userId != authorizedUserId) {
+    // 2. Reject any forced deletion without trusted authorization.
+    // Do not permit optional authorizedUserId to bypass ownership checking.
+    if (authorizedUserId == null || authorizedUserId.trim().isEmpty) {
+      throw StateError(
+        'Cannot delete raw GPS recovery journal for $sessionId without trusted authorization. '
+        'Forced deletion requires a verified, non-empty authorizedUserId.',
+      );
+    }
+
+    final manifest = await readManifest(sessionId);
+
+    // 3. Ownership verification:
+    if (manifest != null && manifest.userId != null) {
+      if (manifest.userId != authorizedUserId) {
         throw StateError(
           'Cannot delete raw GPS recovery journal for $sessionId: unauthorized. '
           'Authorized user ($authorizedUserId) does not match journal owner (${manifest.userId}).',
+        );
+      }
+    } else {
+      // 4. If manifest.userId is missing, require independent, trusted workout
+      // ownership verification before deletion.
+      final verifier =
+          trustedWorkoutOwnershipVerifier ?? workoutOwnershipVerifier;
+      if (verifier == null) {
+        throw StateError(
+          'Cannot delete raw GPS recovery journal for $sessionId: manifest owner is missing '
+          'and no independent trusted workout ownership verifier was provided.',
+        );
+      }
+      final isVerified = await verifier(sessionId, authorizedUserId);
+      if (!isVerified) {
+        throw StateError(
+          'Cannot delete raw GPS recovery journal for $sessionId: unauthorized. '
+          'Independent workout ownership verification failed for user $authorizedUserId.',
         );
       }
     }

@@ -111,8 +111,72 @@ void main() {
       expect(await file.exists(), isTrue);
     });
 
-    test('Explicit authorized user deletion follows separate semantics', () async {
-      const sessionId = 'test-explicit-user-delete';
+    test('Forced deletion without trusted authorization (null or empty) fails closed', () async {
+      const sessionId = 'test-unauth-forced-delete';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: testUserId,
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
+
+      // 1. force: true without authorizedUserId must throw
+      expect(
+        () => journal.delete(sessionId, force: true),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+
+      // 2. force: true with empty string authorizedUserId must throw
+      expect(
+        () => journal.delete(sessionId, force: true, authorizedUserId: '   '),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+    });
+
+    test('Forced deletion with missing owner requires trusted verification', () async {
+      const sessionId = 'test-missing-owner-delete';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(
+        '{"workout_id":"$sessionId","latitude":10.738,"longitude":106.625,"timestamp":"2026-10-19T08:00:00.000Z"}\n',
+        flush: true,
+      );
+
+      // Create manifest with userId == null (legacy / orphaned journal)
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifest = RawGpsJournalManifest(
+        workoutId: sessionId,
+        userId: null,
+        sampleCount: 1,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+      );
+      await manifestFile.writeAsString(jsonEncode(manifest.toJson()), flush: true);
+
+      // Attempting deletion without trusted verification must throw
+      expect(
+        () => journal.delete(
+          sessionId,
+          force: true,
+          authorizedUserId: 'some-user',
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+    });
+
+    test('Forced deletion with mismatched owner fails closed', () async {
+      const sessionId = 'test-mismatched-owner-delete';
       await journal.appendPoint(
         _syntheticPoint(
           workoutId: sessionId,
@@ -128,7 +192,7 @@ void main() {
       final file = await journal.fileForSession(sessionId);
       expect(await file.exists(), isTrue);
 
-      // Unauthorized user attempting deletion must fail closed
+      // Intruder attempting deletion must fail closed
       expect(
         () => journal.delete(
           sessionId,
@@ -138,6 +202,24 @@ void main() {
         throwsA(isA<StateError>()),
       );
       expect(await file.exists(), isTrue);
+    });
+
+    test('Forced deletion by authorized owner succeeds', () async {
+      const sessionId = 'test-authorized-owner-delete';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: 'athlete-owner-1',
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
 
       // Authorized owner deleting explicitly succeeds
       await journal.delete(
@@ -145,6 +227,104 @@ void main() {
         force: true,
         authorizedUserId: 'athlete-owner-1',
       );
+      expect(await file.exists(), isFalse);
+    });
+
+    test('Legacy journal deletion with trusted workout ownership verification', () async {
+      const sessionId = 'test-legacy-journal-verify-delete';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(
+        '{"workout_id":"$sessionId","latitude":10.738,"longitude":106.625,"timestamp":"2026-10-19T08:00:00.000Z"}\n',
+        flush: true,
+      );
+
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifest = RawGpsJournalManifest(
+        workoutId: sessionId,
+        userId: null, // Legacy journal without userId
+        sampleCount: 1,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+      );
+      await manifestFile.writeAsString(jsonEncode(manifest.toJson()), flush: true);
+
+      // 1. Verifier rejects ownership -> deletion throws StateError, file preserved
+      expect(
+        () => journal.delete(
+          sessionId,
+          force: true,
+          authorizedUserId: 'user-legacy-claimant',
+          trustedWorkoutOwnershipVerifier: (s, u) async => false,
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+
+      // 2. Verifier confirms ownership -> deletion succeeds, file deleted
+      await journal.delete(
+        sessionId,
+        force: true,
+        authorizedUserId: 'user-legacy-claimant',
+        trustedWorkoutOwnershipVerifier: (s, u) async => true,
+      );
+      expect(await file.exists(), isFalse);
+    });
+
+    test('Logout and account switching cannot delete another account journal', () async {
+      const sessionId = 'test-logout-account-switch';
+      await journal.appendPoint(
+        _syntheticPoint(
+          workoutId: sessionId,
+          timestamp: DateTime.utc(2026, 10, 19, 8, 0),
+          lat: 10.738,
+          lng: 106.625,
+        ),
+        userId: 'user-alpha',
+      );
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final file = await journal.fileForSession(sessionId);
+      expect(await file.exists(), isTrue);
+
+      // Simulate Coordinator with unauthenticated user (logout)
+      final coordinatorLoggedOut = WorkoutRecordingCoordinator(
+        rawTracking: _FakeRawTrackingRemoteDataSource(),
+        workoutRemote: _FakeWorkoutRemoteDataSource(),
+        processingRemote: _FakeWorkoutProcessingRemoteDataSource(),
+        currentUserId: () => null,
+        recoveryJournal: journal,
+      );
+      expect(
+        () => coordinatorLoggedOut.deleteRecoveryJournalExplicit(sessionId),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+
+      // Simulate Coordinator with switched user (user-beta logged in)
+      final coordinatorSwitched = WorkoutRecordingCoordinator(
+        rawTracking: _FakeRawTrackingRemoteDataSource(),
+        workoutRemote: _FakeWorkoutRemoteDataSource(),
+        processingRemote: _FakeWorkoutProcessingRemoteDataSource(),
+        currentUserId: () => 'user-beta',
+        recoveryJournal: journal,
+      );
+      expect(
+        () => coordinatorSwitched.deleteRecoveryJournalExplicit(sessionId),
+        throwsA(isA<StateError>()),
+      );
+      expect(await file.exists(), isTrue);
+
+      // Simulate Coordinator with original user (user-alpha)
+      final coordinatorOwner = WorkoutRecordingCoordinator(
+        rawTracking: _FakeRawTrackingRemoteDataSource(),
+        workoutRemote: _FakeWorkoutRemoteDataSource(),
+        processingRemote: _FakeWorkoutProcessingRemoteDataSource(),
+        currentUserId: () => 'user-alpha',
+        recoveryJournal: journal,
+      );
+      await coordinatorOwner.deleteRecoveryJournalExplicit(sessionId);
       expect(await file.exists(), isFalse);
     });
 
@@ -265,6 +445,76 @@ void main() {
         sessionId,
         activeUserId: testUserId,
       );
+      expect(recovery.status, RawGpsRecoveryStatus.corrupted);
+      expect(recovery.status, isNot(RawGpsRecoveryStatus.verifiedIntact));
+      expect(recovery.validPointsCount, 0);
+    });
+
+    test('Zero-sample empty journal with validated digest -> VERIFIED_INTACT', () async {
+      const sessionId = 'test-empty-validated-digest';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+      await file.writeAsString('', flush: true);
+
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifest = RawGpsJournalManifest(
+        workoutId: sessionId,
+        userId: testUserId,
+        sampleCount: 0,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        sha256Digest:
+            'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      );
+      await manifestFile.writeAsString(jsonEncode(manifest.toJson()), flush: true);
+
+      final recovery = await journal.readJournal(sessionId, activeUserId: testUserId);
+      expect(recovery.status, RawGpsRecoveryStatus.verifiedIntact);
+      expect(recovery.validPointsCount, 0);
+    });
+
+    test('Zero-sample empty journal without digest evidence -> INTEGRITY_UNVERIFIED', () async {
+      const sessionId = 'test-empty-no-digest';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+      await file.writeAsString('', flush: true);
+
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifest = RawGpsJournalManifest(
+        workoutId: sessionId,
+        userId: testUserId,
+        sampleCount: 0,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        sha256Digest: null,
+      );
+      await manifestFile.writeAsString(jsonEncode(manifest.toJson()), flush: true);
+
+      final recovery = await journal.readJournal(sessionId, activeUserId: testUserId);
+      expect(recovery.status, RawGpsRecoveryStatus.integrityUnverified);
+      expect(recovery.status, isNot(RawGpsRecoveryStatus.verifiedIntact));
+      expect(recovery.validPointsCount, 0);
+    });
+
+    test('Zero-sample empty journal with tampered digest -> CORRUPTED', () async {
+      const sessionId = 'test-empty-tampered-digest';
+      final file = await journal.fileForSession(sessionId);
+      await file.parent.create(recursive: true);
+      await file.writeAsString('', flush: true);
+
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifest = RawGpsJournalManifest(
+        workoutId: sessionId,
+        userId: testUserId,
+        sampleCount: 0,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        sha256Digest:
+            'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+      );
+      await manifestFile.writeAsString(jsonEncode(manifest.toJson()), flush: true);
+
+      final recovery = await journal.readJournal(sessionId, activeUserId: testUserId);
       expect(recovery.status, RawGpsRecoveryStatus.corrupted);
       expect(recovery.status, isNot(RawGpsRecoveryStatus.verifiedIntact));
       expect(recovery.validPointsCount, 0);

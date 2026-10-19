@@ -27,7 +27,12 @@ void main() {
     expect(first['latitude'], 10.738);
     expect(first['accuracy'], 5.0);
 
-    await journal.delete(_workoutId, force: true);
+    await journal.delete(
+      _workoutId,
+      force: true,
+      authorizedUserId: 'test-user',
+      trustedWorkoutOwnershipVerifier: (sessionId, userId) async => true,
+    );
     expect(await file.exists(), isFalse);
   });
 }
