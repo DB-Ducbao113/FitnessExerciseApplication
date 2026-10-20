@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fitness_exercise_application/core/localization/app_translations.dart';
 import 'package:fitness_exercise_application/core/services/notification_scheduler.dart';
 import 'package:fitness_exercise_application/core/services/notification_service.dart';
@@ -7,7 +9,9 @@ import 'package:fitness_exercise_application/features/profile/presentation/provi
 import 'package:fitness_exercise_application/features/settings/presentation/providers/notification_settings_providers.dart';
 import 'package:fitness_exercise_application/features/settings/presentation/providers/settings_preferences_providers.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/providers/workout_providers.dart';
+import 'package:fitness_exercise_application/features/workout/providers/workout_providers_infra.dart';
 import 'package:fitness_exercise_application/shared/aetron/aetron_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -183,13 +187,19 @@ class NotificationLifecycleObserver extends ConsumerStatefulWidget {
 class _NotificationLifecycleObserverState
     extends ConsumerState<NotificationLifecycleObserver>
     with WidgetsBindingObserver {
+  static const _gpsResumeDebounce = Duration(seconds: 45);
+  bool _gpsResumeInFlight = false;
+  DateTime? _lastGpsResumeAt;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _refreshNotificationSchedules(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshNotificationSchedules();
+      _resumePendingNativeGps();
+    });
   }
 
   @override
@@ -202,7 +212,30 @@ class _NotificationLifecycleObserverState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshNotificationSchedules();
+      _resumePendingNativeGps();
     }
+  }
+
+  // The repository enforces authentication, pending deletions, and owner scope.
+  // iOS does not guarantee Dart execution after force-quit; retry on foreground.
+  void _resumePendingNativeGps() {
+    if (!mounted || kIsWeb || _gpsResumeInFlight) return;
+    final now = DateTime.now().toUtc();
+    if (_lastGpsResumeAt != null &&
+        now.difference(_lastGpsResumeAt!) < _gpsResumeDebounce) {
+      return;
+    }
+    _lastGpsResumeAt = now;
+    _gpsResumeInFlight = true;
+    unawaited(() async {
+      try {
+        await ref.read(workoutRepositoryProvider).syncPendingData();
+      } catch (e) {
+        debugPrint('[RG-F1] Native GPS resume sync failed: ${e.runtimeType}');
+      } finally {
+        _gpsResumeInFlight = false;
+      }
+    }());
   }
 
   void _refreshNotificationSchedules() {

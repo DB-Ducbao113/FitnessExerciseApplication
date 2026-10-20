@@ -285,6 +285,12 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
             (workout) => !sessionsPendingDeletion.contains(workout.sessionId),
           ),
         );
+        // Workout metadata can be synced while raw GPS is still pending.
+        // The native outbox discovers GPS and recovery journals independently,
+        // including sessions that are no longer in unsyncedWorkouts.
+        await _outboxService?.resumePendingUploads(
+          excludedSessionIds: sessionsPendingDeletion,
+        );
         return;
       }
       final unsyncedWorkouts = await LocalDB.getUnsyncedWorkoutsForUser(

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -26,7 +27,8 @@ enum RawGpsRecoveryStatus {
 
 /// Versioned companion manifest tracking raw GPS journal checkpoints.
 class RawGpsJournalManifest {
-  static const String currentSchemaVersion = 'aetron.raw_gps.manifest.v1';
+  static const String schemaVersionV1 = 'aetron.raw_gps.manifest.v1';
+  static const String currentSchemaVersion = 'aetron.raw_gps.manifest.v2';
 
   final String schemaVersion;
   final String workoutId;
@@ -34,13 +36,28 @@ class RawGpsJournalManifest {
   final int sampleCount;
   final DateTime? firstTimestampUtc;
   final DateTime? lastTimestampUtc;
-  final String? sha256Digest;
+  /// SHA-256 digest of the raw JSONL file on disk.
+  final String? fileSha256;
+  /// Versioned canonical capture digest (v1 canonical representation) of durable local points.
+  final String? canonicalCaptureDigest;
   final int checkpointSeq;
   final DateTime checkpointTimestampUtc;
   final bool isFinalized;
   final bool cloudVerified;
   final int cloudVerifiedCount;
+  /// Canonical digest verified by server read-back.
   final String? cloudVerifiedSha256;
+  /// Terminal or evaluated verification state (e.g. 'cloudVerified', 'restoredUnverified').
+  final String? verificationState;
+  /// Number of retry attempts executed for outbox cloud sync.
+  final int retryCount;
+  /// Timestamp of the last retry attempt in UTC.
+  final DateTime? lastRetryTimestampUtc;
+  /// Earliest timestamp in UTC when next retry attempt is permitted (exponential backoff).
+  final DateTime? nextRetryTimestampUtc;
+
+  /// Backward-compatible alias for fileSha256.
+  String? get sha256Digest => fileSha256;
 
   const RawGpsJournalManifest({
     this.schemaVersion = currentSchemaVersion,
@@ -49,42 +66,75 @@ class RawGpsJournalManifest {
     required this.sampleCount,
     this.firstTimestampUtc,
     this.lastTimestampUtc,
-    this.sha256Digest,
+    String? fileSha256,
+    String? sha256Digest,
+    this.canonicalCaptureDigest,
     required this.checkpointSeq,
     required this.checkpointTimestampUtc,
     this.isFinalized = false,
     this.cloudVerified = false,
     this.cloudVerifiedCount = 0,
     this.cloudVerifiedSha256,
-  });
+    this.verificationState,
+    this.retryCount = 0,
+    this.lastRetryTimestampUtc,
+    this.nextRetryTimestampUtc,
+  }) : fileSha256 = fileSha256 ?? sha256Digest;
+
+  static const Object _sentinel = Object();
 
   RawGpsJournalManifest copyWith({
+    String? schemaVersion,
     int? sampleCount,
     DateTime? firstTimestampUtc,
     DateTime? lastTimestampUtc,
+    String? fileSha256,
     String? sha256Digest,
+    Object? canonicalCaptureDigest = _sentinel,
     int? checkpointSeq,
     DateTime? checkpointTimestampUtc,
     bool? isFinalized,
     bool? cloudVerified,
     int? cloudVerifiedCount,
-    String? cloudVerifiedSha256,
+    Object? cloudVerifiedSha256 = _sentinel,
+    Object? verificationState = _sentinel,
+    int? retryCount,
+    Object? lastRetryTimestampUtc = _sentinel,
+    Object? nextRetryTimestampUtc = _sentinel,
+    bool clearNextRetryTimestamp = false,
   }) {
     return RawGpsJournalManifest(
-      schemaVersion: schemaVersion,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
       workoutId: workoutId,
       userId: userId,
       sampleCount: sampleCount ?? this.sampleCount,
       firstTimestampUtc: firstTimestampUtc ?? this.firstTimestampUtc,
       lastTimestampUtc: lastTimestampUtc ?? this.lastTimestampUtc,
-      sha256Digest: sha256Digest ?? this.sha256Digest,
+      fileSha256: fileSha256 ?? sha256Digest ?? this.fileSha256,
+      canonicalCaptureDigest: identical(canonicalCaptureDigest, _sentinel)
+          ? this.canonicalCaptureDigest
+          : (canonicalCaptureDigest as String?),
       checkpointSeq: checkpointSeq ?? this.checkpointSeq,
       checkpointTimestampUtc:
           checkpointTimestampUtc ?? this.checkpointTimestampUtc,
       isFinalized: isFinalized ?? this.isFinalized,
       cloudVerified: cloudVerified ?? this.cloudVerified,
       cloudVerifiedCount: cloudVerifiedCount ?? this.cloudVerifiedCount,
-      cloudVerifiedSha256: cloudVerifiedSha256 ?? this.cloudVerifiedSha256,
+      cloudVerifiedSha256: identical(cloudVerifiedSha256, _sentinel)
+          ? this.cloudVerifiedSha256
+          : (cloudVerifiedSha256 as String?),
+      verificationState: identical(verificationState, _sentinel)
+          ? this.verificationState
+          : (verificationState as String?),
+      retryCount: retryCount ?? this.retryCount,
+      lastRetryTimestampUtc: identical(lastRetryTimestampUtc, _sentinel)
+          ? this.lastRetryTimestampUtc
+          : (lastRetryTimestampUtc as DateTime?),
+      nextRetryTimestampUtc: clearNextRetryTimestamp
+          ? null
+          : (identical(nextRetryTimestampUtc, _sentinel)
+              ? this.nextRetryTimestampUtc
+              : (nextRetryTimestampUtc as DateTime?)),
     );
   }
 
@@ -97,7 +147,10 @@ class RawGpsJournalManifest {
       'first_timestamp_utc': firstTimestampUtc!.toUtc().toIso8601String(),
     if (lastTimestampUtc != null)
       'last_timestamp_utc': lastTimestampUtc!.toUtc().toIso8601String(),
-    if (sha256Digest != null) 'sha256_digest': sha256Digest,
+    if (fileSha256 != null) 'file_sha256': fileSha256,
+    if (fileSha256 != null) 'sha256_digest': fileSha256,
+    if (canonicalCaptureDigest != null)
+      'canonical_capture_digest': canonicalCaptureDigest,
     'checkpoint_seq': checkpointSeq,
     'checkpoint_timestamp_utc': checkpointTimestampUtc.toUtc().toIso8601String(),
     'is_finalized': isFinalized,
@@ -105,9 +158,19 @@ class RawGpsJournalManifest {
     'cloud_verified_count': cloudVerifiedCount,
     if (cloudVerifiedSha256 != null)
       'cloud_verified_sha256': cloudVerifiedSha256,
+    if (verificationState != null) 'verification_state': verificationState,
+    if (retryCount > 0) 'retry_count': retryCount,
+    if (lastRetryTimestampUtc != null)
+      'last_retry_timestamp_utc':
+          lastRetryTimestampUtc!.toUtc().toIso8601String(),
+    if (nextRetryTimestampUtc != null)
+      'next_retry_timestamp_utc':
+          nextRetryTimestampUtc!.toUtc().toIso8601String(),
   };
 
   factory RawGpsJournalManifest.fromJson(Map<String, dynamic> json) {
+    final fileHash = json['file_sha256'] as String? ??
+        json['sha256_digest'] as String?;
     return RawGpsJournalManifest(
       schemaVersion:
           json['schema_version'] as String? ?? currentSchemaVersion,
@@ -120,7 +183,9 @@ class RawGpsJournalManifest {
       lastTimestampUtc: json['last_timestamp_utc'] != null
           ? DateTime.tryParse(json['last_timestamp_utc'] as String)?.toUtc()
           : null,
-      sha256Digest: json['sha256_digest'] as String?,
+      fileSha256: fileHash,
+      canonicalCaptureDigest:
+          json['canonical_capture_digest'] as String?,
       checkpointSeq: (json['checkpoint_seq'] as num?)?.toInt() ?? 0,
       checkpointTimestampUtc: DateTime.tryParse(
             json['checkpoint_timestamp_utc'] as String? ?? '',
@@ -131,6 +196,14 @@ class RawGpsJournalManifest {
       cloudVerifiedCount:
           (json['cloud_verified_count'] as num?)?.toInt() ?? 0,
       cloudVerifiedSha256: json['cloud_verified_sha256'] as String?,
+      verificationState: json['verification_state'] as String?,
+      retryCount: (json['retry_count'] as num?)?.toInt() ?? 0,
+      lastRetryTimestampUtc: json['last_retry_timestamp_utc'] != null
+          ? DateTime.tryParse(json['last_retry_timestamp_utc'] as String)?.toUtc()
+          : null,
+      nextRetryTimestampUtc: json['next_retry_timestamp_utc'] != null
+          ? DateTime.tryParse(json['next_retry_timestamp_utc'] as String)?.toUtc()
+          : null,
     );
   }
 }
@@ -257,6 +330,33 @@ class RawGpsRecoveryResult {
       );
 }
 
+/// Diagnostics information for a retained journal file on disk.
+class RawGpsOrphanJournalInfo {
+  final String workoutId;
+  final String? userId;
+  final int sampleCount;
+  final String? fileSha256;
+  final String? canonicalCaptureDigest;
+  final bool hasLocalWorkout;
+  final bool isOwnerMatch;
+  final bool isCorrupted;
+  final bool isCloudVerified;
+  final String statusMessage;
+
+  const RawGpsOrphanJournalInfo({
+    required this.workoutId,
+    this.userId,
+    required this.sampleCount,
+    this.fileSha256,
+    this.canonicalCaptureDigest,
+    required this.hasLocalWorkout,
+    required this.isOwnerMatch,
+    required this.isCorrupted,
+    required this.isCloudVerified,
+    required this.statusMessage,
+  });
+}
+
 /// Append-only, crash-safe, durable recovery copy of raw GPS samples.
 ///
 /// Implements RG-1A:
@@ -318,6 +418,9 @@ class RawGpsRecoveryJournal {
     bool cloudVerified = false,
     int? cloudVerifiedCount,
     String? cloudVerifiedSha256,
+    String? canonicalCaptureDigest,
+    String? schemaVersion,
+    String? verificationState,
   }) async {
     final writer = _activeWriters[sessionId];
     if (writer != null) {
@@ -326,6 +429,9 @@ class RawGpsRecoveryJournal {
         cloudVerified: cloudVerified,
         cloudVerifiedCount: cloudVerifiedCount,
         cloudVerifiedSha256: cloudVerifiedSha256,
+        canonicalCaptureDigest: canonicalCaptureDigest,
+        schemaVersion: schemaVersion,
+        verificationState: verificationState,
       );
     } else {
       // If writer is not in memory, update manifest file directly if it exists
@@ -335,11 +441,30 @@ class RawGpsRecoveryJournal {
         final existing = RawGpsJournalManifest.fromJson(
           jsonDecode(content) as Map<String, dynamic>,
         );
+        final journalFile = await fileForSession(sessionId);
+        final targetSchemaVersion = schemaVersion ?? existing.schemaVersion;
+        String? canonicalDigest;
+        if (canonicalCaptureDigest != null) {
+          canonicalDigest = canonicalCaptureDigest;
+        } else if (targetSchemaVersion != RawGpsJournalManifest.schemaVersionV1) {
+          canonicalDigest = existing.canonicalCaptureDigest;
+          if (canonicalDigest == null && await journalFile.exists()) {
+            canonicalDigest =
+                await _computeCanonicalDigestFromFile(journalFile);
+          }
+        } else {
+          // Legacy v1 without explicit capture proof must never synthesize a canonical digest
+          canonicalDigest = null;
+        }
+
         final updated = existing.copyWith(
+          schemaVersion: targetSchemaVersion,
           isFinalized: isFinalized,
           cloudVerified: cloudVerified,
           cloudVerifiedCount: cloudVerifiedCount,
           cloudVerifiedSha256: cloudVerifiedSha256,
+          canonicalCaptureDigest: canonicalDigest,
+          verificationState: verificationState ?? existing.verificationState,
           checkpointTimestampUtc: DateTime.now().toUtc(),
           checkpointSeq: existing.checkpointSeq + 1,
         );
@@ -390,11 +515,6 @@ class RawGpsRecoveryJournal {
     String sessionId, {
     String? activeUserId,
   }) async {
-    final file = await fileForSession(sessionId);
-    if (!await file.exists()) {
-      return RawGpsRecoveryResult.empty(sessionId);
-    }
-
     RawGpsJournalManifest? manifest = await readManifest(sessionId);
 
     // Account Isolation Check
@@ -405,6 +525,21 @@ class RawGpsRecoveryJournal {
       return RawGpsRecoveryResult.accountMismatch(
         sessionId: sessionId,
         accountMismatchUserId: manifest.userId!,
+      );
+    }
+
+    final file = await fileForSession(sessionId);
+    if (!await file.exists()) {
+      return RawGpsRecoveryResult(
+        sessionId: sessionId,
+        points: const [],
+        manifest: manifest,
+        status: RawGpsRecoveryStatus.emptyOrNotFound,
+        validPointsCount: 0,
+        duplicatePointsCount: 0,
+        corruptedLinesCount: 0,
+        hasTruncatedFinalLine: false,
+        isUnfinalizedCrash: manifest == null ? false : !manifest.isFinalized,
       );
     }
 
@@ -635,12 +770,260 @@ class RawGpsRecoveryJournal {
     );
   }
 
+  /// Records a retry attempt for [sessionId].
+  /// On failure, increments [retryCount] and sets [nextRetryTimestampUtc] based on exponential backoff.
+  /// On success, resets [retryCount] and clears [nextRetryTimestampUtc].
+  Future<void> recordRetryAttempt(
+    String sessionId, {
+    required bool success,
+    Duration nextBackoff = const Duration(minutes: 5),
+  }) async {
+    final manifest = await readManifest(sessionId);
+    if (manifest == null) return;
+    final manifestFile = await manifestFileForSession(sessionId);
+    final now = DateTime.now().toUtc();
+    final updated = success
+        ? manifest.copyWith(
+            retryCount: 0,
+            lastRetryTimestampUtc: now,
+            nextRetryTimestampUtc: null,
+          )
+        : manifest.copyWith(
+            retryCount: manifest.retryCount + 1,
+            lastRetryTimestampUtc: now,
+            nextRetryTimestampUtc: now.add(nextBackoff),
+          );
+    await _writeManifestAtomic(manifestFile, updated);
+  }
+
+
+  /// Enumerates user-owned journal sessions that may need cloud reconciliation.
+  ///
+  /// Safe Ownership & Orphan Recovery Semantics (RG-F1.2):
+  /// - A journal with `manifest.userId == userId` belongs to that user even if
+  ///   `LocalWorkout` metadata was lost (e.g. wiped SQLite cache / crash).
+  /// - An unannotated or legacy journal with `manifest.userId == null` is NEVER
+  ///   associated with `userId` by assumption. It requires either presence in
+  ///   [ownedSessionIds] or explicit verification via [ownershipVerifier] or
+  ///   [workoutOwnershipVerifier]. Unverified journals remain safely on disk.
+  /// - Foreign-user journals (`manifest.userId != userId`) are strictly isolated.
+  /// - Corrupted journals fail closed and are not enqueued for normal upload.
+  Future<List<String>> listPendingSessionIdsForUser(
+    String userId, {
+    required Set<String> ownedSessionIds,
+    Future<bool> Function(String sessionId, String userId)? ownershipVerifier,
+  }) async {
+    if (userId.trim().isEmpty) return const [];
+    final documents = await _documentsDirectory();
+    final directory = Directory(p.join(documents.path, 'raw_gps_recovery'));
+    if (!await directory.exists()) return const [];
+
+    final pending = <String>{};
+    await for (final entry in directory.list(followLinks: false)) {
+      if (entry is! File || !entry.path.endsWith('.manifest.json')) continue;
+      try {
+        final content = await entry.readAsString();
+        final manifest = RawGpsJournalManifest.fromJson(
+          jsonDecode(content) as Map<String, dynamic>,
+        );
+        final manifestFile = await manifestFileForSession(manifest.workoutId);
+        if (p.normalize(manifestFile.path) != p.normalize(entry.path)) continue;
+        final journalFile = await fileForSession(manifest.workoutId);
+        if (!await journalFile.exists()) continue;
+
+        // Skip if already completed (P0-B / RG-F1.2 / RG-F1 Final Fix)
+        // 1. CLOUD_VERIFIED: completed with trusted independent canonical capture proof
+        final hasTrustedCaptureProof = manifest.canonicalCaptureDigest != null &&
+            manifest.canonicalCaptureDigest!.isNotEmpty &&
+            manifest.schemaVersion != RawGpsJournalManifest.schemaVersionV1 &&
+            manifest.cloudVerifiedSha256 != null &&
+            manifest.cloudVerifiedSha256 == manifest.canonicalCaptureDigest;
+
+        final isCompletedVerified = manifest.cloudVerified &&
+            manifest.cloudVerifiedCount >= manifest.sampleCount &&
+            hasTrustedCaptureProof;
+
+        // 2. RESTORED_UNVERIFIED: completed fail-closed legacy recovery where cloud copy
+        // consistency has been confirmed for all samples, but lacks independent capture proof.
+        final isCompletedRestoredUnverified =
+            (manifest.verificationState ==
+                    RawGpsVerificationState.restoredUnverified.name ||
+                manifest.verificationState == 'restoredUnverified') &&
+            manifest.cloudVerifiedCount >= manifest.sampleCount &&
+            manifest.cloudVerifiedSha256 != null;
+
+        if (isCompletedVerified || isCompletedRestoredUnverified) {
+          continue;
+        }
+
+        // Ownership Verification (RG-F1.2)
+        var isOwner = false;
+        if (manifest.userId != null) {
+          if (manifest.userId == userId) {
+            isOwner = true;
+          } else {
+            // Foreign user journal: strict isolation, never claim or upload
+            continue;
+          }
+        } else {
+          // Unknown owner / legacy journal without manifest.userId:
+          // NEVER associate with userId by assumption!
+          // Only verify if trusted check succeeds.
+          if (ownedSessionIds.contains(manifest.workoutId)) {
+            isOwner = true;
+          } else if (ownershipVerifier != null &&
+              await ownershipVerifier(manifest.workoutId, userId)) {
+            isOwner = true;
+          } else if (workoutOwnershipVerifier != null &&
+              await workoutOwnershipVerifier!(manifest.workoutId, userId)) {
+            isOwner = true;
+          }
+        }
+
+        if (!isOwner) continue;
+
+        // Validate journal integrity before declaring pending for recovery
+        final status = await _verifyJournalFileIntegrity(journalFile, manifest);
+        if (status == RawGpsRecoveryStatus.corrupted) {
+          debugPrint(
+            '[RawGpsRecoveryJournal] Skipping corrupted journal for pending recovery: ${manifest.workoutId}',
+          );
+          continue;
+        }
+
+        pending.add(manifest.workoutId);
+      } on FormatException catch (e) {
+        debugPrint('[RawGpsRecoveryJournal] invalid recovery manifest: $e');
+      } on FileSystemException catch (e) {
+        debugPrint('[RawGpsRecoveryJournal] cannot inspect manifest: $e');
+        rethrow;
+      }
+    }
+    return pending.toList()..sort();
+  }
+
+  /// Verifies file-level integrity against manifest expectations.
+  Future<RawGpsRecoveryStatus> _verifyJournalFileIntegrity(
+    File journalFile,
+    RawGpsJournalManifest manifest,
+  ) async {
+    final length = await journalFile.length();
+    if (length == 0) {
+      return manifest.sampleCount > 0
+          ? RawGpsRecoveryStatus.corrupted
+          : RawGpsRecoveryStatus.verifiedIntact;
+    }
+    final actualFileSha256 = await _computeFileSha256(journalFile);
+    if (manifest.fileSha256 != null &&
+        actualFileSha256 != null &&
+        manifest.fileSha256!.toLowerCase() == actualFileSha256.toLowerCase()) {
+      return RawGpsRecoveryStatus.verifiedIntact;
+    }
+    if (!manifest.isFinalized) {
+      return RawGpsRecoveryStatus.staleCheckpoint;
+    }
+    if (manifest.fileSha256 != null &&
+        actualFileSha256 != null &&
+        manifest.fileSha256!.toLowerCase() != actualFileSha256.toLowerCase()) {
+      return RawGpsRecoveryStatus.corrupted;
+    }
+    return RawGpsRecoveryStatus.integrityUnverified;
+  }
+
+  /// Lists diagnostics information for all retained journals on disk, including
+  /// unannotated, orphaned, or foreign journals.
+  Future<List<RawGpsOrphanJournalInfo>> listOrphanJournals({
+    String? activeUserId,
+    Set<String> ownedSessionIds = const <String>{},
+  }) async {
+    final documents = await _documentsDirectory();
+    final directory = Directory(p.join(documents.path, 'raw_gps_recovery'));
+    if (!await directory.exists()) return const [];
+
+    final list = <RawGpsOrphanJournalInfo>[];
+    await for (final entry in directory.list(followLinks: false)) {
+      if (entry is! File || !entry.path.endsWith('.manifest.json')) continue;
+      try {
+        final content = await entry.readAsString();
+        final manifest = RawGpsJournalManifest.fromJson(
+          jsonDecode(content) as Map<String, dynamic>,
+        );
+        final journalFile = await fileForSession(manifest.workoutId);
+        final exists = await journalFile.exists();
+        final hasLocal = ownedSessionIds.contains(manifest.workoutId);
+        final isOwnerMatch =
+            activeUserId != null && manifest.userId == activeUserId;
+
+        var isCorrupted = false;
+        var statusMsg = 'intact';
+        if (!exists) {
+          isCorrupted = true;
+          statusMsg = 'journal_file_missing';
+        } else {
+          final integrity =
+              await _verifyJournalFileIntegrity(journalFile, manifest);
+          if (integrity == RawGpsRecoveryStatus.corrupted) {
+            isCorrupted = true;
+            statusMsg = 'checksum_mismatch';
+          } else if (!hasLocal) {
+            statusMsg = 'missing_local_workout_metadata';
+          }
+        }
+
+        list.add(
+          RawGpsOrphanJournalInfo(
+            workoutId: manifest.workoutId,
+            userId: manifest.userId,
+            sampleCount: manifest.sampleCount,
+            fileSha256: manifest.fileSha256,
+            canonicalCaptureDigest: manifest.canonicalCaptureDigest,
+            hasLocalWorkout: hasLocal,
+            isOwnerMatch: isOwnerMatch,
+            isCorrupted: isCorrupted,
+            isCloudVerified: manifest.cloudVerified,
+            statusMessage: statusMsg,
+          ),
+        );
+      } catch (e) {
+        debugPrint(
+          '[RawGpsRecoveryJournal] Error reading orphan journal info: $e',
+        );
+      }
+    }
+    return list;
+  }
+
   /// Static helper to compute SHA-256 digest of a file.
   static Future<String?> _computeFileSha256(File file) async {
     try {
       if (!await file.exists()) return null;
       final digest = await sha256.bind(file.openRead()).first;
       return digest.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Computes the versioned canonical capture digest from lines in [file].
+  static Future<String?> _computeCanonicalDigestFromFile(File file) async {
+    try {
+      if (!await file.exists()) return null;
+      final lines = await file.readAsLines();
+      if (lines.isEmpty) return RawGpsCanonicalVerification.emptyDigest;
+      final points = <CanonicalGpsPoint>[];
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) continue;
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is Map<String, dynamic>) {
+            points.add(CanonicalGpsPoint.fromJson(decoded));
+          }
+        } catch (_) {
+          // Exclude truncated/corrupted lines from canonical capture digest
+        }
+      }
+      return RawGpsCanonicalVerification.computeCanonicalDigest(points);
     } catch (_) {
       return null;
     }
@@ -1101,6 +1484,9 @@ class _SessionJournalWriter {
     bool cloudVerified = false,
     int? cloudVerifiedCount,
     String? cloudVerifiedSha256,
+    String? canonicalCaptureDigest,
+    String? schemaVersion,
+    String? verificationState,
   }) {
     final completer = Completer<void>();
     _writeTail = _writeTail.then((_) async {
@@ -1110,6 +1496,9 @@ class _SessionJournalWriter {
           cloudVerified: cloudVerified,
           cloudVerifiedCount: cloudVerifiedCount,
           cloudVerifiedSha256: cloudVerifiedSha256,
+          canonicalCaptureDigest: canonicalCaptureDigest,
+          schemaVersion: schemaVersion,
+          verificationState: verificationState,
         );
         completer.complete();
       } catch (e) {
@@ -1148,6 +1537,9 @@ class _SessionJournalWriter {
     bool? cloudVerified,
     int? cloudVerifiedCount,
     String? cloudVerifiedSha256,
+    String? canonicalCaptureDigest,
+    String? schemaVersion,
+    String? verificationState,
   }) async {
     _checkpointSeq += 1;
     final currentDigest = await _computeFileSha256();
@@ -1157,11 +1549,39 @@ class _SessionJournalWriter {
       );
     }
 
+    final targetSchemaVersion = schemaVersion ?? _manifest.schemaVersion;
+    final canonicalDigest = canonicalCaptureDigest ??
+        (targetSchemaVersion == RawGpsJournalManifest.schemaVersionV1
+            ? null
+            : await RawGpsRecoveryJournal._computeCanonicalDigestFromFile(journalFile));
+
+    // Preserve retry metadata from disk if it was updated during journal lifetime (P1-A)
+    var retryCount = _manifest.retryCount;
+    DateTime? lastRetryTimestampUtc = _manifest.lastRetryTimestampUtc;
+    DateTime? nextRetryTimestampUtc = _manifest.nextRetryTimestampUtc;
+
+    if (await manifestFile.exists()) {
+      try {
+        final content = await manifestFile.readAsString();
+        final diskManifest = RawGpsJournalManifest.fromJson(
+          jsonDecode(content) as Map<String, dynamic>,
+        );
+        retryCount = diskManifest.retryCount;
+        lastRetryTimestampUtc = diskManifest.lastRetryTimestampUtc;
+        nextRetryTimestampUtc = diskManifest.nextRetryTimestampUtc;
+      } catch (_) {
+        // Fall back to memory manifest if reading disk manifest fails
+      }
+    }
+
     _manifest = _manifest.copyWith(
+      schemaVersion: targetSchemaVersion,
       sampleCount: _sampleCount,
       firstTimestampUtc: _firstTimestamp,
       lastTimestampUtc: _lastTimestamp,
-      sha256Digest: currentDigest,
+      fileSha256: currentDigest,
+      canonicalCaptureDigest: canonicalDigest,
+      verificationState: verificationState ?? _manifest.verificationState,
       checkpointSeq: _checkpointSeq,
       checkpointTimestampUtc: DateTime.now().toUtc(),
       isFinalized: isFinalized ?? _manifest.isFinalized,
@@ -1169,6 +1589,9 @@ class _SessionJournalWriter {
       cloudVerifiedCount: cloudVerifiedCount ?? _manifest.cloudVerifiedCount,
       cloudVerifiedSha256:
           cloudVerifiedSha256 ?? _manifest.cloudVerifiedSha256,
+      retryCount: retryCount,
+      lastRetryTimestampUtc: lastRetryTimestampUtc,
+      nextRetryTimestampUtc: nextRetryTimestampUtc,
     );
 
     await RawGpsRecoveryJournal._writeManifestAtomic(
