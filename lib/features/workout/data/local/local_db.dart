@@ -477,6 +477,58 @@ class LocalDB {
         .findAll();
   }
 
+  /// Sessions owned by [userId], regardless of workout metadata sync state.
+  ///
+  /// The owner check is essential: raw GPS rows do not carry a userId and must
+  /// never be assigned to whichever account happens to be signed in.
+  static Future<List<String>> getRawGpsOwnedSessionIdsForUser(
+    String userId,
+  ) async {
+    if (kIsWeb || userId.trim().isEmpty) return const [];
+    await init();
+    final isar = _isar;
+    if (isar == null) return const [];
+    final workouts = await isar.localWorkouts
+        .filter()
+        .userIdEqualTo(userId)
+        .findAll();
+    final ids = workouts
+        .map((w) => w.sessionId)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList()..sort();
+    return ids;
+  }
+
+  /// Finds raw GPS pending work independently from LocalWorkout.isSynced.
+  ///
+  /// A workout may be successfully synced while individual GPS samples are
+  /// still awaiting upload/read-back verification. The result is owner-scoped.
+  static Future<List<String>> getPendingRawGpsSessionIdsForUser(
+    String userId,
+  ) async {
+    if (kIsWeb || userId.trim().isEmpty) return const [];
+    await init();
+    final isar = _isar;
+    if (isar == null) return const [];
+    final owned = (await isar.localWorkouts
+            .filter()
+            .userIdEqualTo(userId)
+            .findAll())
+        .map((w) => w.sessionId)
+        .toSet();
+    if (owned.isEmpty) return const [];
+    final unsynced = await isar.localGPSPoints
+        .filter()
+        .isSyncedEqualTo(false)
+        .findAll();
+    final pending = <String>{};
+    for (final point in unsynced) {
+      if (owned.contains(point.sessionId)) pending.add(point.sessionId);
+    }
+    return pending.toList()..sort();
+  }
+
   /// Assign workouts recorded before sign-in to the user who explicitly signs
   /// in on this device. Raw GPS and step rows are linked by session id and do
   /// not need to be rewritten.
