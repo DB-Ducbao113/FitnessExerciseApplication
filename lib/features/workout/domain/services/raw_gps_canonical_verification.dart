@@ -394,7 +394,25 @@ class RawGpsCanonicalVerification {
       );
     }
 
-    // 4. Independent Capture Proof Check (P0-01)
+    // 4. Sample Count Verification (Fail-closed on partial cloud records)
+    final expectedCount = manifest.sampleCount;
+    if (expectedCount > 0 && cloudPoints.length < expectedCount) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.partial,
+        localCount: expectedCount,
+        cloudCount: cloudPoints.length,
+        localDigest: manifest.canonicalCaptureDigest ?? emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: expectedCount - cloudPoints.length,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: 0,
+        message:
+            'Partial cloud records: ${cloudPoints.length}/$expectedCount confirmed.',
+      );
+    }
+
+    // 5. Independent Capture Proof Check (P0-01)
     // ONLY manifest.canonicalCaptureDigest is valid independent capture proof.
     // cloudVerifiedSha256 is the cloud echo and MUST NEVER substitute for capture proof!
     // Legacy v1 manifests without trusted canonical capture proof must remain RESTORED_UNVERIFIED.
@@ -411,7 +429,9 @@ class RawGpsCanonicalVerification {
         localDigest: emptyDigest,
         cloudDigest: cloudDigest,
         missingCloudSampleCount: 0,
-        extraCloudSampleCount: cloudPoints.length,
+        extraCloudSampleCount: cloudPoints.length > manifest.sampleCount
+            ? cloudPoints.length - manifest.sampleCount
+            : 0,
         mismatchedSampleCount: 0,
         message:
             'Capture manifest lacks independent canonical capture digest (legacy v1 or unverified manifest); '
@@ -419,8 +439,6 @@ class RawGpsCanonicalVerification {
       );
     }
 
-    // 5. Sample Count Verification
-    final expectedCount = manifest.sampleCount;
     if (expectedCount == 0) {
       if (cloudPoints.isEmpty && expectedDigest == emptyDigest) {
         return RawGpsVerificationReport(
@@ -451,22 +469,6 @@ class RawGpsCanonicalVerification {
               'Manifest specifies 0 samples but cloud returned ${cloudPoints.length} points.',
         );
       }
-    }
-
-    if (cloudPoints.length < expectedCount) {
-      return RawGpsVerificationReport(
-        workoutId: workoutId,
-        state: RawGpsVerificationState.partial,
-        localCount: expectedCount,
-        cloudCount: cloudPoints.length,
-        localDigest: expectedDigest,
-        cloudDigest: cloudDigest,
-        missingCloudSampleCount: expectedCount - cloudPoints.length,
-        extraCloudSampleCount: 0,
-        mismatchedSampleCount: 0,
-        message:
-            'Partial cloud records: ${cloudPoints.length}/$expectedCount confirmed.',
-      );
     }
 
     if (cloudPoints.length > expectedCount) {

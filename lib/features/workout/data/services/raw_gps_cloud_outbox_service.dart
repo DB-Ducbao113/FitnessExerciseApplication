@@ -679,6 +679,35 @@ class RawGpsCloudOutboxService {
           cloudPoints.map(CanonicalGpsPoint.fromPayload).toList();
       RawGpsVerificationReport report;
 
+      var manifest = reconciled.manifest;
+
+      // RG-F1: Provenance-based upgrade for legacy v1 manifests.
+      // If upgrading a legacy manifest to v2, require a demonstrably trustworthy original capture source
+      // and validated provenance. Never manufacture proof from cloud read-back.
+      if (manifest != null &&
+          manifest.schemaVersion == RawGpsJournalManifest.schemaVersionV1) {
+        final hasValidatedProvenance =
+            reconciled.journalStatus == RawGpsRecoveryStatus.verifiedIntact &&
+            manifest.fileSha256 != null &&
+            manifest.fileSha256!.isNotEmpty &&
+            !reconciled.hasTruncatedFinalLine &&
+            reconciled.corruptedJournalLines == 0 &&
+            reconciled.journalCount == manifest.sampleCount &&
+            reconciled.canonicalPoints.length == manifest.sampleCount &&
+            !reconciled.isLocalCaptureIncomplete;
+
+        if (hasValidatedProvenance) {
+          final trustedDigest =
+              RawGpsCanonicalVerification.computeCanonicalDigest(
+            reconciled.canonicalPoints,
+          );
+          manifest = manifest.copyWith(
+            schemaVersion: RawGpsJournalManifest.currentSchemaVersion,
+            canonicalCaptureDigest: trustedDigest,
+          );
+        }
+      }
+
       if (reconciled.isLocalCaptureIncomplete) {
         // Enforce journal integrity and sample completeness before marking CLOUD_VERIFIED (P0-A).
         // If local capture was corrupted or truncated without complete Isar backup,
@@ -704,14 +733,11 @@ class RawGpsCloudOutboxService {
           message: reconciled.incompleteReason ??
               'Partial local capture: journal records were corrupted/truncated without complete Isar backup; marked as PARTIAL.',
         );
-      } else if (reconciled.manifest != null &&
-          reconciled.manifest!.canonicalCaptureDigest != null &&
-          reconciled.manifest!.schemaVersion !=
-              RawGpsJournalManifest.schemaVersionV1 &&
+      } else if (manifest != null &&
           reconciled.journalStatus != RawGpsRecoveryStatus.staleCheckpoint) {
         report = RawGpsCanonicalVerification.verifyAgainstManifest(
           workoutId: sessionId,
-          manifest: reconciled.manifest,
+          manifest: manifest,
           cloudPoints: cloudCanon,
         );
       } else {
@@ -749,8 +775,37 @@ class RawGpsCloudOutboxService {
           cloudVerifiedCount: report.cloudCount,
           cloudVerifiedSha256: report.cloudDigest,
           canonicalCaptureDigest: report.localDigest,
+          schemaVersion: RawGpsJournalManifest.currentSchemaVersion,
+          verificationState: RawGpsVerificationState.cloudVerified.name,
         );
         await _recordRetrySuccess(sessionId);
+      } else if (report.state == RawGpsVerificationState.restoredUnverified) {
+        // Fail-closed legacy recovery: cloud copy consistency confirmed, but lacks
+        // independent canonical capture evidence.
+        // Invariants:
+        // 1. Do NOT mark Isar points as synced (no false Isar sync ACK).
+        // 2. Do NOT set cloudVerified to true.
+        // 3. Checkpoint manifest with verificationState = 'restoredUnverified' so
+        //    discovery and upload verification agree it is completed.
+        // 4. Do NOT trigger unnecessary retry loop (clear retry backoff via _recordRetrySuccess).
+        final isCloudCopyConsistent = cloudCanon.length >= localCanon.length &&
+            localCanon.every((lp) =>
+                cloudCanon.any((cp) => cp.identityKey == lp.identityKey));
+
+        if (isCloudCopyConsistent) {
+          await _journal.checkpoint(
+            sessionId,
+            isFinalized: true,
+            cloudVerified: false,
+            cloudVerifiedCount: report.cloudCount,
+            cloudVerifiedSha256: report.cloudDigest,
+            canonicalCaptureDigest: null,
+            verificationState: RawGpsVerificationState.restoredUnverified.name,
+          );
+          await _recordRetrySuccess(sessionId);
+        } else {
+          await _recordRetryFailure(sessionId);
+        }
       } else {
         await _recordRetryFailure(sessionId);
       }
@@ -820,14 +875,38 @@ class RawGpsCloudOutboxService {
           }
         }
 
+        final candidateManifest = await _journal.readManifest(id);
+        if (candidateManifest != null) {
+          final hasTrustedCaptureProof = candidateManifest.canonicalCaptureDigest != null &&
+              candidateManifest.canonicalCaptureDigest!.isNotEmpty &&
+              candidateManifest.schemaVersion != RawGpsJournalManifest.schemaVersionV1 &&
+              candidateManifest.cloudVerifiedSha256 != null &&
+              candidateManifest.cloudVerifiedSha256 == candidateManifest.canonicalCaptureDigest;
+
+          final isCompletedVerified = candidateManifest.cloudVerified &&
+              candidateManifest.cloudVerifiedCount >= candidateManifest.sampleCount &&
+              hasTrustedCaptureProof;
+
+          final isCompletedRestoredUnverified =
+              (candidateManifest.verificationState ==
+                      RawGpsVerificationState.restoredUnverified.name ||
+                  candidateManifest.verificationState == 'restoredUnverified') &&
+              candidateManifest.cloudVerifiedCount >= candidateManifest.sampleCount &&
+              candidateManifest.cloudVerifiedSha256 != null;
+
+          if (isCompletedVerified || isCompletedRestoredUnverified) {
+            continue;
+          }
+        }
+
         var retryState = _retryStates[id];
         if (retryState == null) {
-          final manifest = await _journal.readManifest(id);
-          if (manifest != null && manifest.lastRetryTimestampUtc != null) {
+          if (candidateManifest != null &&
+              candidateManifest.lastRetryTimestampUtc != null) {
             retryState = _SessionRetryState(
-              retryCount: manifest.retryCount,
-              lastRetryUtc: manifest.lastRetryTimestampUtc!,
-              nextRetryUtc: manifest.nextRetryTimestampUtc,
+              retryCount: candidateManifest.retryCount,
+              lastRetryUtc: candidateManifest.lastRetryTimestampUtc!,
+              nextRetryUtc: candidateManifest.nextRetryTimestampUtc,
             );
             _retryStates[id] = retryState;
           }

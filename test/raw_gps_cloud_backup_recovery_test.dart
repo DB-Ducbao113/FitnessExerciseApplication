@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_processing_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_remote_datasource.dart';
@@ -2036,6 +2037,222 @@ void main() {
       expect(mockTracking.getServerPoints(isarSuccessSession), hasLength(1));
 
       mockTracking.failingSessionIds.remove(isarFailSession);
+    });
+
+    group('AETRON RG-F1 Legacy Verification Final Fix Suite', () {
+      test('RG-F1.Final-1: Legacy v1 manifest without validated provenance fails closed to RESTORED_UNVERIFIED, prevents false Isar sync ACK, and clears retry backoff', () async {
+        final sessionId = 'rg-f1-final-legacy-unverified-${DateTime.now().millisecondsSinceEpoch}';
+        final startTime = DateTime.utc(2026, 10, 20, 10, 0, 0);
+
+        final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime);
+        final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime);
+        final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime);
+        final isarPoints = [p0, p1, p2];
+
+        // 1. Setup a legacy v1 manifest without fileSha256 and without canonicalCaptureDigest
+        // Journal file does not exist on disk (points exist only in local Isar storage)
+        final legacyManifest = RawGpsJournalManifest(
+          schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+          workoutId: sessionId,
+          userId: testUserId,
+          sampleCount: 3,
+          checkpointSeq: 1,
+          checkpointTimestampUtc: DateTime.now().toUtc(),
+          isFinalized: true,
+          fileSha256: null,
+          canonicalCaptureDigest: null,
+        );
+
+        final manifestFile = await journal.manifestFileForSession(sessionId);
+        await manifestFile.parent.create(recursive: true);
+        final temp = File('${manifestFile.path}.tmp');
+        await temp.writeAsString(jsonEncode(legacyManifest.toJson()));
+        await temp.rename(manifestFile.path);
+
+        // Preload cloud with matching points
+        final payloads = isarPoints.map((p) => RawGpsPointPayload(
+          workoutId: p.sessionId,
+          timestamp: p.timestamp,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: p.altitude,
+          speed: p.speed,
+          accuracy: p.accuracy,
+          heading: p.heading,
+          deviceSource: p.deviceSource,
+        )).toList();
+        await mockTracking.saveRawGpsPoints(payloads);
+
+        final syncedIds = <int>{};
+        final outbox = RawGpsCloudOutboxService(
+          rawTracking: mockTracking,
+          journal: journal,
+          currentUserId: () => testUserId,
+          getUnsyncedPoints: (_) async => isarPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+          getAllLocalPoints: (_) async => isarPoints,
+          markPointsSynced: (ids) async => syncedIds.addAll(ids),
+        );
+
+        // 2. Upload and verify session
+        final report = await outbox.uploadAndVerifySession(sessionId);
+
+        // 3. Verification: FAILS CLOSED to RESTORED_UNVERIFIED (cannot be promoted to CLOUD_VERIFIED!)
+        expect(report.state, RawGpsVerificationState.restoredUnverified);
+        expect(report.isVerified, isFalse);
+        expect(report.localCount, 3);
+        expect(report.cloudCount, 3);
+
+        // Invariant 1: No false Isar sync ACK
+        expect(syncedIds, isEmpty);
+
+        // Invariant 2: Manifest on disk is checkpointed as restoredUnverified, NOT cloudVerified
+        final diskManifest = await journal.readManifest(sessionId);
+        expect(diskManifest, isNotNull);
+        expect(diskManifest!.cloudVerified, isFalse);
+        expect(diskManifest.verificationState, 'restoredUnverified');
+        expect(diskManifest.canonicalCaptureDigest, isNull);
+        expect(diskManifest.cloudVerifiedCount, 3);
+        expect(diskManifest.cloudVerifiedSha256, isNotNull);
+
+        // Invariant 3: No retry loop (retryCount == 0, nextRetryTimestampUtc == null)
+        expect(diskManifest.retryCount, 0);
+        expect(diskManifest.nextRetryTimestampUtc, isNull);
+
+        // Invariant 4: Discovery and upload verification agree this state is completed
+        final pending = await journal.listPendingSessionIdsForUser(
+          testUserId,
+          ownedSessionIds: {sessionId},
+        );
+        expect(pending, isNot(contains(sessionId)));
+
+        // Invariant 5: resumePendingUploads skips this completed legacy session
+        final resumed = await outbox.resumePendingUploads();
+        expect(resumed, 0);
+      });
+
+      test('RG-F1.Final-2: Legacy v1 manifest with verified-intact original journal is upgraded to v2 and CLOUD_VERIFIED', () async {
+        final sessionId = 'rg-f1-final-legacy-intact-${DateTime.now().millisecondsSinceEpoch}';
+        final startTime = DateTime.utc(2026, 10, 20, 10, 0, 0);
+
+        final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime);
+        final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime);
+        final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime);
+        final isarPoints = [p0, p1, p2];
+
+        // 1. Write points to journal
+        await journal.appendPoint(p0, userId: testUserId);
+        await journal.appendPoint(p1, userId: testUserId);
+        await journal.appendPoint(p2, userId: testUserId);
+        await journal.flushSession(sessionId);
+
+        // 2. Overwrite manifest to simulate an intact legacy v1 manifest with fileSha256 matching the file bytes
+        final journalFile = await journal.fileForSession(sessionId);
+        final journalBytes = await journalFile.readAsBytes();
+        final actualFileSha256 = sha256.convert(journalBytes).toString();
+
+        final legacyManifest = RawGpsJournalManifest(
+          schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+          workoutId: sessionId,
+          userId: testUserId,
+          sampleCount: 3,
+          checkpointSeq: 1,
+          checkpointTimestampUtc: DateTime.now().toUtc(),
+          isFinalized: true,
+          fileSha256: actualFileSha256,
+          canonicalCaptureDigest: null, // Legacy v1 never recorded canonical capture digest
+        );
+        final manifestFile = await journal.manifestFileForSession(sessionId);
+        final temp = File('${manifestFile.path}.tmp');
+        await temp.writeAsString(jsonEncode(legacyManifest.toJson()));
+        await temp.rename(manifestFile.path);
+
+        final syncedIds = <int>{};
+        final outbox = RawGpsCloudOutboxService(
+          rawTracking: mockTracking,
+          journal: journal,
+          currentUserId: () => testUserId,
+          getUnsyncedPoints: (_) async => isarPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+          getAllLocalPoints: (_) async => isarPoints,
+          markPointsSynced: (ids) async => syncedIds.addAll(ids),
+        );
+
+        // 3. Upload and verify session
+        final report = await outbox.uploadAndVerifySession(sessionId);
+
+        // 4. Verification: Provenance validated from authentic intact local journal! Upgraded to v2 and CLOUD_VERIFIED.
+        expect(report.state, RawGpsVerificationState.cloudVerified);
+        expect(report.isVerified, isTrue);
+        expect(report.localCount, 3);
+        expect(report.cloudCount, 3);
+        expect(syncedIds.length, 3); // Isar points marked synced
+
+        final diskManifest = await journal.readManifest(sessionId);
+        expect(diskManifest!.schemaVersion, RawGpsJournalManifest.currentSchemaVersion);
+        expect(diskManifest.cloudVerified, isTrue);
+        expect(diskManifest.canonicalCaptureDigest, isNotNull);
+        expect(diskManifest.cloudVerifiedSha256, diskManifest.canonicalCaptureDigest);
+        expect(diskManifest.verificationState, 'cloudVerified');
+      });
+
+      test('RG-F1.Final-3: Corrupted legacy journal cannot manufacture capture proof or upgrade to v2', () async {
+        final sessionId = 'rg-f1-final-corrupted-legacy-${DateTime.now().millisecondsSinceEpoch}';
+        final startTime = DateTime.utc(2026, 10, 20, 10, 0, 0);
+
+        final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime);
+        final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime);
+        final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime);
+
+        // 1. Write points to journal
+        await journal.appendPoint(p0, userId: testUserId);
+        await journal.appendPoint(p1, userId: testUserId);
+        await journal.appendPoint(p2, userId: testUserId);
+        await journal.flushSession(sessionId);
+
+        // 2. Corrupt line 2
+        final journalFile = await journal.fileForSession(sessionId);
+        final lines = await journalFile.readAsLines();
+        lines[1] = '{corrupted_data_line}';
+        await journalFile.writeAsString('${lines.join('\n')}\n');
+
+        // 3. Create legacy v1 manifest
+        final legacyManifest = RawGpsJournalManifest(
+          schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+          workoutId: sessionId,
+          userId: testUserId,
+          sampleCount: 3,
+          checkpointSeq: 1,
+          checkpointTimestampUtc: DateTime.now().toUtc(),
+          isFinalized: true,
+          fileSha256: 'legacy_hash_mismatch',
+          canonicalCaptureDigest: null,
+        );
+        final manifestFile = await journal.manifestFileForSession(sessionId);
+        final temp = File('${manifestFile.path}.tmp');
+        await temp.writeAsString(jsonEncode(legacyManifest.toJson()));
+        await temp.rename(manifestFile.path);
+
+        final syncedIds = <int>{};
+        final outbox = RawGpsCloudOutboxService(
+          rawTracking: mockTracking,
+          journal: journal,
+          currentUserId: () => testUserId,
+          getUnsyncedPoints: (_) async => const [],
+          getAllLocalPoints: (_) async => const [],
+          markPointsSynced: (ids) async => syncedIds.addAll(ids),
+        );
+
+        // 4. Upload and verify session
+        final report = await outbox.uploadAndVerifySession(sessionId);
+
+        // 5. Must NOT be upgraded to v2 or CLOUD_VERIFIED; fails closed to PARTIAL
+        expect(report.state, RawGpsVerificationState.partial);
+        expect(report.isVerified, isFalse);
+        expect(syncedIds, isEmpty);
+
+        final diskManifest = await journal.readManifest(sessionId);
+        expect(diskManifest!.cloudVerified, isFalse);
+        expect(diskManifest.schemaVersion, RawGpsJournalManifest.schemaVersionV1);
+      });
     });
   });
 }
