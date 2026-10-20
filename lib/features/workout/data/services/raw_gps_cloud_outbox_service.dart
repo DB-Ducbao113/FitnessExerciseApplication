@@ -79,6 +79,8 @@ class RawGpsCloudOutboxService {
   final Future<void> Function(List<int> ids) _markPointsSynced;
   final Future<void> Function(List<LocalGPSPoint> points)? _saveLocalPoints;
   final Future<List<String>> Function(String userId)? _getUnsyncedSessionIds;
+  final Future<List<String>> Function(String userId) _getOwnedSessionIds;
+  final Future<List<String>> Function(String userId) _getPendingGpsSessionIds;
   final String? Function() _currentUserId;
   final int chunkSize;
   final Duration baseRetryDelay;
@@ -99,6 +101,8 @@ class RawGpsCloudOutboxService {
     Future<void> Function(List<int> ids)? markPointsSynced,
     Future<void> Function(List<LocalGPSPoint> points)? saveLocalPoints,
     Future<List<String>> Function(String userId)? getUnsyncedSessionIds,
+    Future<List<String>> Function(String userId)? getOwnedSessionIds,
+    Future<List<String>> Function(String userId)? getPendingGpsSessionIds,
     required String? Function() currentUserId,
     this.chunkSize = 250,
     this.baseRetryDelay = const Duration(milliseconds: 150),
@@ -111,7 +115,11 @@ class RawGpsCloudOutboxService {
        _markPointsSynced = markPointsSynced ?? LocalDB.markGpsPointsAsSynced,
        _saveLocalPoints = saveLocalPoints,
        _getUnsyncedSessionIds = getUnsyncedSessionIds,
-       _currentUserId = currentUserId,
+       _getOwnedSessionIds =
+           getOwnedSessionIds ?? LocalDB.getRawGpsOwnedSessionIdsForUser,
+       _getPendingGpsSessionIds =
+           getPendingGpsSessionIds ?? LocalDB.getPendingRawGpsSessionIdsForUser,
+       _currentUserId = currentUserId;
        _random = random ?? Random();
 
   Stream<RawGpsOutboxEvent> get events => _eventController.stream;
@@ -471,6 +479,12 @@ class RawGpsCloudOutboxService {
         error: report.isVerified ? null : report.message,
       );
 
+      // Account may change while awaiting network. Never ACK another user's GPS.
+      if (_currentUserId() != activeUser) {
+        _updateState(sessionId, RawGpsVerificationState.authRequired, 0, 0);
+        throw StateError('Authentication changed during raw GPS verification');
+      }
+
       // 4. State ACK: ONLY mark Isar points as synced if read-back verification PASSED (P0-01)
       if (report.isVerified) {
         if (reconciled.isarPointIdsToMarkSynced.isNotEmpty) {
@@ -496,38 +510,51 @@ class RawGpsCloudOutboxService {
   ///
   /// Can be safely invoked on app startup, connectivity recovery, or user sign-in.
   /// Bounded to [maxSessions] to avoid battery thrashing.
-  Future<int> resumePendingUploads({int maxSessions = 5}) async {
+  Future<int> resumePendingUploads({
+    int maxSessions = 5,
+    Set<String> excludedSessionIds = const <String>{},
+  }) async {
     final activeUser = _currentUserId();
-    if (activeUser == null || activeUser.trim().isEmpty) return 0;
+    if (activeUser == null || activeUser.trim().isEmpty || maxSessions <= 0) {
+      return 0;
+    }
     if (_isProcessingOutbox) return 0;
 
     _isProcessingOutbox = true;
     var verifiedCount = 0;
 
     try {
-      List<String> sessionsToProcess;
+      List<String> candidates;
       if (_getUnsyncedSessionIds != null) {
-        sessionsToProcess = (await _getUnsyncedSessionIds(activeUser))
-            .take(maxSessions)
-            .toList(growable: false);
+        // Legacy/test injection; production always uses owner-scoped discovery.
+        candidates = await _getUnsyncedSessionIds(activeUser);
       } else {
-        final unsyncedWorkouts = await LocalDB.getUnsyncedWorkoutsForUser(
+        final ownedSessionIds = (await _getOwnedSessionIds(activeUser)).toSet();
+        if (ownedSessionIds.isEmpty) return 0;
+        final gpsPending = await _getPendingGpsSessionIds(activeUser);
+        final journalPending = await _journal.listPendingSessionIdsForUser(
           activeUser,
+          ownedSessionIds: ownedSessionIds,
         );
-        sessionsToProcess = unsyncedWorkouts
-            .take(maxSessions)
-            .map((w) => w.sessionId)
-            .toList(growable: false);
+        candidates = <String>[
+          ...gpsPending.where(ownedSessionIds.contains),
+          ...journalPending,
+        ];
       }
 
-      for (final sessionId in sessionsToProcess) {
+      // Deduplicate before applying the bounded work budget. Never replay
+      // sessions queued for deletion, even when their local journal survives.
+      final sessionsToProcess = candidates
+          .where((id) => id.isNotEmpty && !excludedSessionIds.contains(id))
+          .toSet()
+          .toList()..sort();
+      for (final sessionId in sessionsToProcess.take(maxSessions)) {
+        if (_currentUserId() != activeUser) break; // logout/account switch
         try {
           final report = await uploadAndVerifySession(sessionId);
-          if (report.isVerified) {
-            verifiedCount++;
-          }
+          if (report.isVerified) verifiedCount++;
         } catch (e) {
-          debugPrint('[Outbox] Failed to process session $sessionId: $e');
+          debugPrint('[Outbox] Pending GPS retry failed for $sessionId: $e');
         }
       }
     } finally {
