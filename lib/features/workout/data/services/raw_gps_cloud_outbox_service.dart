@@ -119,7 +119,7 @@ class RawGpsCloudOutboxService {
            getOwnedSessionIds ?? LocalDB.getRawGpsOwnedSessionIdsForUser,
        _getPendingGpsSessionIds =
            getPendingGpsSessionIds ?? LocalDB.getPendingRawGpsSessionIdsForUser,
-       _currentUserId = currentUserId;
+       _currentUserId = currentUserId,
        _random = random ?? Random();
 
   Stream<RawGpsOutboxEvent> get events => _eventController.stream;
