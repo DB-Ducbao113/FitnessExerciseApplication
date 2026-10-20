@@ -78,9 +78,11 @@ class WorkoutRecordingCoordinator {
                force: true,
                authorizedUserId: userId,
              );
-           });
+           }),
+       _recoveryJournal = recoveryJournal ?? RawGpsRecoveryJournal.instance;
 
   final RawTrackingRemoteDataSource _rawTracking;
+  final RawGpsRecoveryJournal _recoveryJournal;
   final WorkoutRemoteDataSource _workoutRemote;
   final WorkoutProcessingRemoteDataSource _processingRemote;
   final String? Function() _currentUserId;
@@ -312,32 +314,28 @@ class WorkoutRecordingCoordinator {
       payload: diagnostics.toJson(),
       logLevel: diagnostics.isComplete ? 'info' : 'warning',
     );
-    if (diagnostics.isComplete) {
-      try {
-        await RawGpsRecoveryJournal.instance.checkpoint(
-          workoutId,
-          isFinalized: true,
-          cloudVerified: false,
-          cloudVerifiedCount: diagnostics.serverConfirmedGpsPoints,
-        );
-      } catch (_) {}
+    // Finalize the durable recovery journal: recording is complete locally regardless
+    // of whether live streaming upload completed or dropped points (RG-F1.3).
+    try {
+      await _recoveryJournal.checkpoint(
+        workoutId,
+        isFinalized: true,
+        cloudVerified: false,
+        cloudVerifiedCount: diagnostics.serverConfirmedGpsPoints,
+      );
+    } catch (_) {}
 
-      // Trigger durable outbox upload and canonical read-back verification (RG-1B / RG-1B.1 P0-03)
-      if (_outboxService != null) {
-        try {
-          await _outboxService.uploadAndVerifySession(workoutId);
-        } catch (e) {
-          debugPrint('[Workout][RawTracking] Post-finalization outbox sync error: $e');
-        }
-      }
-    } else {
+    // Trigger durable outbox upload and canonical read-back verification (RG-1B / RG-F1.3).
+    // The outbox service is responsible for reconciling any points missed by live streaming,
+    // performing chunked upload, and executing canonical read-back verification.
+    if (_outboxService != null) {
       try {
-        await RawGpsRecoveryJournal.instance.checkpoint(
-          workoutId,
-          isFinalized: false,
-          cloudVerified: false,
+        await _outboxService.uploadAndVerifySession(workoutId);
+      } catch (e) {
+        debugPrint(
+          '[Workout][RawTracking] Post-finalization outbox sync error: $e',
         );
-      } catch (_) {}
+      }
     }
     return diagnostics;
   }

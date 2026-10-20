@@ -3,8 +3,10 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:fitness_exercise_application/core/providers/app_providers.dart';
+import 'package:fitness_exercise_application/core/storage/database_helper.dart';
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/pending_workout_sync_store.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
@@ -17,6 +19,16 @@ final rawGpsCloudOutboxServiceProvider =
       return RawGpsCloudOutboxService(
         rawTracking: ref.watch(rawTrackingRemoteDataSourceProvider),
         currentUserId: () => ref.read(currentUserIdProvider),
+        isSessionPendingDeletion: (sessionId, userId) async {
+          try {
+            final store = PendingWorkoutSyncStore(DatabaseHelper.instance);
+            final ops = await store.listForUser(userId);
+            if (PendingWorkoutSyncStore.deletesAll(ops)) return true;
+            return PendingWorkoutSyncStore.hiddenSessionIds(ops).contains(sessionId);
+          } catch (_) {
+            return false;
+          }
+        },
       );
     });
 
@@ -81,6 +93,10 @@ class RawGpsCloudOutboxService {
   final Future<List<String>> Function(String userId)? _getUnsyncedSessionIds;
   final Future<List<String>> Function(String userId) _getOwnedSessionIds;
   final Future<List<String>> Function(String userId) _getPendingGpsSessionIds;
+  final Future<bool> Function(String sessionId, String userId)?
+      _ownershipVerifier;
+  final Future<bool> Function(String sessionId, String userId)?
+      _isSessionPendingDeletion;
   final String? Function() _currentUserId;
   final int chunkSize;
   final Duration baseRetryDelay;
@@ -103,6 +119,9 @@ class RawGpsCloudOutboxService {
     Future<List<String>> Function(String userId)? getUnsyncedSessionIds,
     Future<List<String>> Function(String userId)? getOwnedSessionIds,
     Future<List<String>> Function(String userId)? getPendingGpsSessionIds,
+    Future<bool> Function(String sessionId, String userId)? ownershipVerifier,
+    Future<bool> Function(String sessionId, String userId)?
+        isSessionPendingDeletion,
     required String? Function() currentUserId,
     this.chunkSize = 250,
     this.baseRetryDelay = const Duration(milliseconds: 150),
@@ -119,6 +138,8 @@ class RawGpsCloudOutboxService {
            getOwnedSessionIds ?? LocalDB.getRawGpsOwnedSessionIdsForUser,
        _getPendingGpsSessionIds =
            getPendingGpsSessionIds ?? LocalDB.getPendingRawGpsSessionIdsForUser,
+       _ownershipVerifier = ownershipVerifier,
+       _isSessionPendingDeletion = isSessionPendingDeletion,
        _currentUserId = currentUserId,
        _random = random ?? Random();
 
@@ -274,6 +295,27 @@ class RawGpsCloudOutboxService {
       );
     }
 
+    // Respect sessions pending explicit deletion (RG-F1.3)
+    final pendingDeletionCheck = _isSessionPendingDeletion;
+    if (pendingDeletionCheck != null &&
+        await pendingDeletionCheck(sessionId, activeUser)) {
+      debugPrint(
+        '[Outbox] Skipping upload for session pending deletion: $sessionId',
+      );
+      return RawGpsVerificationReport(
+        workoutId: sessionId,
+        state: RawGpsVerificationState.unknown,
+        localCount: 0,
+        cloudCount: 0,
+        localDigest: RawGpsCanonicalVerification.emptyDigest,
+        cloudDigest: null,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: 0,
+        message: 'Session is pending explicit deletion.',
+      );
+    }
+
     // Prevent duplicate workers for the same session (P0-03)
     if (_inFlightSessions.contains(sessionId)) {
       return RawGpsVerificationReport(
@@ -317,6 +359,12 @@ class RawGpsCloudOutboxService {
         var uploadedCount = 0;
 
         for (var i = 0; i < payloads.length; i += chunkSize) {
+          if (_currentUserId() != activeUser) {
+            _updateState(sessionId, RawGpsVerificationState.authRequired, 0, 0);
+            throw StateError(
+              'Authentication changed during raw GPS verification',
+            );
+          }
           final end = (i + chunkSize < payloads.length)
               ? i + chunkSize
               : payloads.length;
@@ -418,6 +466,11 @@ class RawGpsCloudOutboxService {
           uploadedCount,
           payloads.length,
         );
+      }
+
+      if (_currentUserId() != activeUser) {
+        _updateState(sessionId, RawGpsVerificationState.authRequired, 0, 0);
+        throw StateError('Authentication changed during raw GPS verification');
       }
 
       // 3. Post-Upload Canonical Read-Back Verification (P0-01)
@@ -530,11 +583,11 @@ class RawGpsCloudOutboxService {
         candidates = await _getUnsyncedSessionIds(activeUser);
       } else {
         final ownedSessionIds = (await _getOwnedSessionIds(activeUser)).toSet();
-        if (ownedSessionIds.isEmpty) return 0;
         final gpsPending = await _getPendingGpsSessionIds(activeUser);
         final journalPending = await _journal.listPendingSessionIdsForUser(
           activeUser,
           ownedSessionIds: ownedSessionIds,
+          ownershipVerifier: _ownershipVerifier,
         );
         candidates = <String>[
           ...gpsPending.where(ownedSessionIds.contains),
@@ -544,10 +597,17 @@ class RawGpsCloudOutboxService {
 
       // Deduplicate before applying the bounded work budget. Never replay
       // sessions queued for deletion, even when their local journal survives.
-      final sessionsToProcess = candidates
-          .where((id) => id.isNotEmpty && !excludedSessionIds.contains(id))
-          .toSet()
-          .toList()..sort();
+      final pendingDeletionCheck = _isSessionPendingDeletion;
+      final sessionsToProcess = <String>[];
+      for (final id in candidates.toSet()) {
+        if (id.isEmpty || excludedSessionIds.contains(id)) continue;
+        if (pendingDeletionCheck != null &&
+            await pendingDeletionCheck(id, activeUser)) {
+          continue;
+        }
+        sessionsToProcess.add(id);
+      }
+      sessionsToProcess.sort();
       for (final sessionId in sessionsToProcess.take(maxSessions)) {
         if (_currentUserId() != activeUser) break; // logout/account switch
         try {

@@ -1,12 +1,17 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
+import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_processing_remote_datasource.dart';
+import 'package:fitness_exercise_application/features/workout/data/datasources/remote/workout_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_cloud_outbox_service.dart';
 import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_cloud_recovery_service.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
+import 'package:fitness_exercise_application/features/workout/presentation/screens/record/workout_recording_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// In-memory mock implementing RawTrackingRemoteDataSource with full Postgres/RLS simulation:
@@ -190,6 +195,20 @@ void main() {
       ..confidence = confidence
       ..isSynced = isSynced;
   }
+
+  Map<String, dynamic> localPointMap(LocalGPSPoint p) => {
+    'workout_id': p.sessionId,
+    'user_id': testUserId,
+    'timestamp': p.timestamp.toUtc().toIso8601String(),
+    'latitude': p.latitude,
+    'longitude': p.longitude,
+    if (p.altitude != null) 'altitude': p.altitude,
+    if (p.speed != null) 'speed': p.speed,
+    if (p.accuracy != null) 'accuracy': p.accuracy,
+    if (p.heading != null) 'heading': p.heading,
+    if (p.deviceSource != null) 'device_source': p.deviceSource,
+    'confidence': p.confidence,
+  };
 
   group('AETRON RG-1B Cloud Backup & Recovery Comprehensive QA Suite', () {
     test('1. 3,600+ point upload with bounded batches and canonical verification', () async {
@@ -1026,6 +1045,412 @@ void main() {
       expect(mockTracking.getServerPoints(testWorkoutId).length, 1);
     });
   });
+
+  group('AETRON RG-F1 Hardening & QA Suite (F1-01 to F1-12)', () {
+    test('F1-01: Manifest v2 Checksum Separation separates raw JSONL checksum from canonical digest', () async {
+      const sessionId = 'f1-01-manifest-v2';
+      final p1 = createPoint(sessionId: sessionId, index: 0);
+      final p2 = createPoint(sessionId: sessionId, index: 1);
+      await journal.appendPoint(p1, userId: testUserId);
+      await journal.appendPoint(p2, userId: testUserId);
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final manifest = await journal.readManifest(sessionId);
+      expect(manifest, isNotNull);
+      expect(manifest!.schemaVersion, RawGpsJournalManifest.currentSchemaVersion);
+      expect(manifest.fileSha256, isNotNull);
+      expect(manifest.canonicalCaptureDigest, isNotNull);
+      // Raw file byte SHA-256 and canonical capture digest must have distinct semantics
+      expect(manifest.fileSha256, isNot(equals(manifest.canonicalCaptureDigest)));
+      // Cloud verified digest remains null before cloud read-back verification
+      expect(manifest.cloudVerifiedSha256, isNull);
+      expect(manifest.cloudVerified, isFalse);
+    });
+
+    test('F1-02: Manifest v2 Backward Compatibility preserves legacy v1 manifests', () {
+      final legacyV1Json = {
+        'schema_version': 'aetron.raw_gps.manifest.v1',
+        'workout_id': 'legacy-session-001',
+        'user_id': testUserId,
+        'sample_count': 100,
+        'first_timestamp_utc': '2026-10-19T00:00:00.000Z',
+        'last_timestamp_utc': '2026-10-19T00:01:40.000Z',
+        'sha256_digest': 'c0ffee1234567890abcdef',
+        'checkpoint_seq': 4,
+        'checkpoint_timestamp_utc': '2026-10-19T00:01:41.000Z',
+        'is_finalized': true,
+        'cloud_verified': false,
+        'cloud_verified_count': 0,
+        'cloud_verified_sha256': null,
+      };
+
+      final manifest = RawGpsJournalManifest.fromJson(legacyV1Json);
+      expect(manifest.schemaVersion, 'aetron.raw_gps.manifest.v1');
+      expect(manifest.fileSha256, 'c0ffee1234567890abcdef');
+      expect(manifest.sha256Digest, 'c0ffee1234567890abcdef');
+      expect(manifest.canonicalCaptureDigest, isNull);
+      expect(manifest.isFinalized, isTrue);
+
+      final serialized = manifest.toJson();
+      expect(serialized['schema_version'], 'aetron.raw_gps.manifest.v1');
+      expect(serialized['file_sha256'], 'c0ffee1234567890abcdef');
+      expect(serialized['sha256_digest'], 'c0ffee1234567890abcdef');
+      expect(serialized['canonical_capture_digest'], isNull);
+    });
+
+    test('F1-03: Independent Local Capture Evidence Generation prevents circular verification on legacy manifest', () {
+      final points = [
+        createPoint(sessionId: 'f1-03-session', index: 0),
+        createPoint(sessionId: 'f1-03-session', index: 1),
+      ];
+      final canonPoints = points.map(CanonicalGpsPoint.fromLocal).toList();
+
+      // Legacy manifest without canonical capture digest
+      final legacyManifest = RawGpsJournalManifest(
+        schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+        workoutId: 'f1-03-session',
+        userId: testUserId,
+        sampleCount: 2,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        isFinalized: true,
+        fileSha256: 'some_raw_file_hash',
+        canonicalCaptureDigest: null,
+      );
+
+      final report = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: 'f1-03-session',
+        manifest: legacyManifest,
+        cloudPoints: canonPoints,
+      );
+
+      // Must fail closed to restoredUnverified without fabricating proof from raw file hash!
+      expect(report.state, RawGpsVerificationState.restoredUnverified);
+      expect(report.isVerified, isFalse);
+
+      // But when canonicalCaptureDigest is provided:
+      final correctDigest = RawGpsCanonicalVerification.computeCanonicalDigest(canonPoints);
+      final v2Manifest = legacyManifest.copyWith(
+        schemaVersion: RawGpsJournalManifest.currentSchemaVersion,
+        canonicalCaptureDigest: correctDigest,
+      );
+
+      final verifiedReport = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: 'f1-03-session',
+        manifest: v2Manifest,
+        cloudPoints: canonPoints,
+      );
+      expect(verifiedReport.state, RawGpsVerificationState.cloudVerified);
+      expect(verifiedReport.isVerified, isTrue);
+    });
+
+    test('F1-04: Robust Ingestion & Checkpoint Protection handles truncated tails, corruption, duplicates', () async {
+      const sessionId = 'f1-04-protection';
+      final journalFile = await journal.fileForSession(sessionId);
+      await journalFile.parent.create(recursive: true);
+
+      final p1 = createPoint(sessionId: sessionId, index: 0);
+      final p2 = createPoint(sessionId: sessionId, index: 1);
+
+      // Write valid point, corrupted point, valid duplicate, valid point 2, and truncated final line
+      final validLine1 = jsonEncode(localPointMap(p1));
+      const corruptLine = '{"session_id":"f1-04-protection","lat":BAD_JSON';
+      final validDuplicate = jsonEncode(localPointMap(p1));
+      final validLine2 = jsonEncode(localPointMap(p2));
+      const truncatedFinalLine = '{"session_id":"f1-04-protection","time';
+
+      await journalFile.writeAsString(
+        '$validLine1\n$corruptLine\n$validDuplicate\n$validLine2\n$truncatedFinalLine',
+        flush: true,
+      );
+
+      final recovery = await journal.readJournal(sessionId, activeUserId: testUserId);
+      expect(recovery.hasTruncatedFinalLine, isTrue);
+      expect(recovery.corruptedLinesCount, greaterThanOrEqualTo(1));
+      expect(recovery.duplicatePointsCount, 1);
+      expect(recovery.validPointsCount, 2);
+      expect(recovery.points.length, 2);
+    });
+
+    test('F1-05: Orphan Journal Recovery recovers sessions when LocalWorkout metadata is lost', () async {
+      const orphanSessionId = 'f1-05-orphan';
+      final p = createPoint(sessionId: orphanSessionId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(orphanSessionId);
+      await journal.checkpoint(orphanSessionId, isFinalized: true);
+
+      // Local database has no knowledge of this session (ownedSessionIds is empty)
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => const [], // Local workout metadata missing!
+        getPendingGpsSessionIds: (_) async => const [],
+        getUnsyncedPoints: (_) async => const [],
+        getAllLocalPoints: (_) async => const [],
+        markPointsSynced: (_) async {},
+      );
+
+      final pendingDiscovered = await journal.listPendingSessionIdsForUser(
+        testUserId,
+        ownedSessionIds: const {},
+      );
+      expect(pendingDiscovered, contains(orphanSessionId));
+
+      final recovered = await outbox.resumePendingUploads();
+      expect(recovered, 1);
+      expect(mockTracking.getServerPoints(orphanSessionId), hasLength(1));
+
+      final updatedManifest = await journal.readManifest(orphanSessionId);
+      expect(updatedManifest!.cloudVerified, isTrue);
+    });
+
+    test('F1-06: Orphan Journal Integrity Validation detects file corruption and fails closed', () async {
+      const corruptSessionId = 'f1-06-corrupt';
+      final p = createPoint(sessionId: corruptSessionId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(corruptSessionId);
+      await journal.checkpoint(corruptSessionId, isFinalized: true);
+
+      // Tamper with the raw journal file after checkpoint
+      final journalFile = await journal.fileForSession(corruptSessionId);
+      await journalFile.writeAsString('TAMPERED_BYTES\n', mode: FileMode.append, flush: true);
+
+      // Integrity validation must detect corruption and exclude it from recovery
+      final pendingDiscovered = await journal.listPendingSessionIdsForUser(
+        testUserId,
+        ownedSessionIds: const {},
+      );
+      expect(pendingDiscovered, isNot(contains(corruptSessionId)));
+
+      final orphans = await journal.listOrphanJournals(activeUserId: testUserId);
+      final orphan = orphans.firstWhere((o) => o.workoutId == corruptSessionId);
+      expect(orphan.isCorrupted, isTrue);
+      expect(orphan.statusMessage, 'checksum_mismatch');
+    });
+
+    test('F1-07: Unverifiable / Unknown-Owner Journal is never claimed by assumption', () async {
+      const unknownSessionId = 'f1-07-unknown-owner';
+      final p = createPoint(sessionId: unknownSessionId, index: 0);
+      // Append without userId
+      await journal.appendPoint(p, userId: null);
+      await journal.flushSession(unknownSessionId);
+      await journal.checkpoint(unknownSessionId, isFinalized: true);
+
+      // Without trusted verification, active user CANNOT claim this unknown session
+      final unverifiedPending = await journal.listPendingSessionIdsForUser(
+        testUserId,
+        ownedSessionIds: const {},
+        ownershipVerifier: (s, u) async => false, // RLS/auth rejects
+      );
+      expect(unverifiedPending, isNot(contains(unknownSessionId)));
+
+      // With trusted ownership verification (e.g. server RLS confirms ownership):
+      final verifiedPending = await journal.listPendingSessionIdsForUser(
+        testUserId,
+        ownedSessionIds: const {},
+        ownershipVerifier: (s, u) async => s == unknownSessionId && u == testUserId,
+      );
+      expect(verifiedPending, contains(unknownSessionId));
+    });
+
+    test('F1-08: Journal Retention prevents automatic or unauthorized journal deletion', () async {
+      const safeSessionId = 'f1-08-safe-retention';
+      final p = createPoint(sessionId: safeSessionId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(safeSessionId);
+
+      // 1. Automatic deletion must throw StateError
+      expect(
+        () => journal.delete(safeSessionId, force: false),
+        throwsA(isA<StateError>()),
+      );
+
+      // 2. Forced deletion without authorizedUserId must throw StateError
+      expect(
+        () => journal.delete(safeSessionId, force: true, authorizedUserId: null),
+        throwsA(isA<StateError>()),
+      );
+
+      // 3. Forced deletion with mismatched authorizedUserId must throw StateError
+      expect(
+        () => journal.delete(safeSessionId, force: true, authorizedUserId: 'wrong-user'),
+        throwsA(isA<StateError>()),
+      );
+
+      // Journal file survives all failed attempts
+      final journalFile = await journal.fileForSession(safeSessionId);
+      expect(await journalFile.exists(), isTrue);
+    });
+
+    test('F1-09: Finalize Dependency Decoupling triggers outbox even when live upload is incomplete', () async {
+      const workoutId = 'f1-09-decouple';
+      final rawTracking = _FakeRawTrackingRemoteDataSource(failUploads: true);
+      final processing = _FakeWorkoutProcessingRemoteDataSource();
+      final locallySaved = <LocalGPSPoint>[];
+      final recoverySaved = <LocalGPSPoint>[];
+
+      final mockOutbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getAllLocalPoints: (_) async => recoverySaved,
+        getUnsyncedPoints: (_) async => recoverySaved,
+        markPointsSynced: (_) async {},
+      );
+
+      final coordinator = WorkoutRecordingCoordinator(
+        rawTracking: rawTracking,
+        workoutRemote: _FakeWorkoutRemoteDataSource(),
+        processingRemote: processing,
+        outboxService: mockOutbox,
+        recoveryJournal: journal,
+        currentUserId: () => testUserId,
+        saveLocalGpsPoint: (p) async => locallySaved.add(p),
+        saveRecoveryGpsPoint: (p) async {
+          recoverySaved.add(p);
+          await journal.appendPoint(p, userId: testUserId);
+        },
+        deleteRecoveryGpsJournal: (_) async {},
+      );
+      addTearDown(coordinator.dispose);
+
+      coordinator.bufferRawGpsPoint(_position(0), workoutId: workoutId);
+      coordinator.bufferRawGpsPoint(_position(1), workoutId: workoutId);
+
+      // Live uploads failed, so diagnostics.isComplete is false
+      final diag = await coordinator.finalizeRawTracking(workoutId: workoutId);
+      expect(diag.isComplete, isFalse);
+
+      // Recovery journal must still be checkpointed as finalized
+      final manifest = await journal.readManifest(workoutId);
+      expect(manifest, isNotNull);
+      expect(manifest!.isFinalized, isTrue);
+
+      // And outbox successfully uploaded and verified points
+      expect(mockTracking.getServerPoints(workoutId), hasLength(2));
+    });
+
+    test('F1-10: Pending GPS Discovery Across App Lifecycle respects maxSessions work budget', () async {
+      // Create 5 pending sessions
+      for (var i = 1; i <= 5; i++) {
+        final id = 'f1-10-session-$i';
+        final p = createPoint(sessionId: id, index: 0);
+        await journal.appendPoint(p, userId: testUserId);
+        await journal.flushSession(id);
+        await journal.checkpoint(id, isFinalized: true);
+      }
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => const [],
+        getPendingGpsSessionIds: (_) async => const [],
+        getUnsyncedPoints: (_) async => const [],
+        getAllLocalPoints: (_) async => const [],
+        markPointsSynced: (_) async {},
+      );
+
+      // Bounded taking: maxSessions = 3
+      final processedCount = await outbox.resumePendingUploads(maxSessions: 3);
+      expect(processedCount, 3);
+
+      // Next run processes remaining 2 sessions
+      final remainingCount = await outbox.resumePendingUploads(maxSessions: 3);
+      expect(remainingCount, 2);
+    });
+
+    test('F1-11: Exclusion of Sessions Pending Explicit Deletion never replays queued deletions', () async {
+      const deletedSessionId = 'f1-11-deleted-session';
+      final p = createPoint(sessionId: deletedSessionId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(deletedSessionId);
+      await journal.checkpoint(deletedSessionId, isFinalized: true);
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        isSessionPendingDeletion: (s, u) async => s == deletedSessionId,
+        getOwnedSessionIds: (_) async => [deletedSessionId],
+        getPendingGpsSessionIds: (_) async => [deletedSessionId],
+        getUnsyncedPoints: (_) async => [p],
+        getAllLocalPoints: (_) async => [p],
+        markPointsSynced: (_) async {},
+      );
+
+      // Direct upload refuses to upload session pending deletion
+      final report = await outbox.uploadAndVerifySession(deletedSessionId);
+      expect(report.isVerified, isFalse);
+      expect(mockTracking.getServerPoints(deletedSessionId), isEmpty);
+
+      // Discovery also excludes it
+      final resumed = await outbox.resumePendingUploads();
+      expect(resumed, 0);
+      expect(mockTracking.getServerPoints(deletedSessionId), isEmpty);
+    });
+
+    test('F1-12: Asynchronous Cross-Account Safety & Bounded Retries', () async {
+      // 1. Account switch mid-upload aborts immediately
+      var currentUser = 'user-initial';
+      const sessionA = 'f1-12-switch-account';
+      final points = [
+        createPoint(sessionId: sessionA, index: 0),
+        createPoint(sessionId: sessionA, index: 1),
+      ];
+      final isarSynced = <int>[];
+
+      final switchingTracking = _SwitchingUserTrackingDataSource(
+        mockTracking,
+        onFirstBatchSaved: () {
+          currentUser = 'user-switched';
+        },
+      );
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: switchingTracking,
+        journal: journal,
+        currentUserId: () => currentUser,
+        chunkSize: 1, // force 2 chunks
+        getUnsyncedPoints: (_) async => points,
+        getAllLocalPoints: (_) async => points,
+        markPointsSynced: (ids) async {
+          isarSynced.addAll(ids);
+        },
+      );
+
+      await expectLater(
+        outbox.uploadAndVerifySession(sessionA),
+        throwsA(isA<StateError>()),
+      );
+      expect(isarSynced, isEmpty);
+
+      // 2. Bounded retries: 5xx server error aborts after maxRetries without infinite loop
+      currentUser = testUserId;
+      mockTracking.simulate5xx = true;
+      mockTracking.retryAttemptsRecorded = 0;
+      const sessionB = 'f1-12-bounded-retry';
+      final pointsB = [createPoint(sessionId: sessionB, index: 0)];
+
+      final outboxRetry = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => currentUser,
+        baseRetryDelay: const Duration(milliseconds: 5),
+        getUnsyncedPoints: (_) async => pointsB,
+        getAllLocalPoints: (_) async => pointsB,
+        markPointsSynced: (_) async {},
+      );
+
+      await expectLater(
+        outboxRetry.uploadAndVerifySession(sessionB, maxRetries: 3),
+        throwsA(isA<PostgrestException>()),
+      );
+      expect(mockTracking.retryAttemptsRecorded, 3);
+    });
+  });
 }
 
 class _FailingReadTrackingDataSource implements RawTrackingRemoteDataSource {
@@ -1061,5 +1486,114 @@ class _FailingReadTrackingDataSource implements RawTrackingRemoteDataSource {
   }) async {
     throw const SocketException('Simulated read-back connection dropout');
   }
+}
+
+Position _position(int index) => Position(
+  latitude: 10.7380 + (index * 0.0001),
+  longitude: 106.6250 + (index * 0.0001),
+  timestamp: DateTime.utc(2026, 10, 19, 9, 0, index),
+  altitude: 12.0,
+  altitudeAccuracy: 1.0,
+  accuracy: 3.5,
+  heading: 90.0,
+  headingAccuracy: 1.0,
+  speed: 4.2,
+  speedAccuracy: 0.5,
+);
+
+SupabaseClient _testClient() =>
+    SupabaseClient('https://example.supabase.co', 'test-anon-key');
+
+class _FakeRawTrackingRemoteDataSource extends RawTrackingRemoteDataSource {
+  _FakeRawTrackingRemoteDataSource({this.failUploads = false})
+      : super(_testClient());
+
+  final bool failUploads;
+  final List<RawGpsPointPayload> savedGpsPoints = [];
+
+  @override
+  Future<void> saveRawGpsPoints(List<RawGpsPointPayload> points) async {
+    if (failUploads) throw StateError('network unavailable');
+    savedGpsPoints.addAll(points);
+  }
+
+  @override
+  Future<int> countRawGpsPointsForWorkout(String workoutId) async {
+    return savedGpsPoints.where((point) => point.workoutId == workoutId).length;
+  }
+}
+
+class _FakeWorkoutRemoteDataSource extends WorkoutRemoteDataSource {
+  _FakeWorkoutRemoteDataSource() : super(_testClient());
+}
+
+class _FakeWorkoutProcessingRemoteDataSource
+    extends WorkoutProcessingRemoteDataSource {
+  _FakeWorkoutProcessingRemoteDataSource() : super(_testClient());
+
+  final List<Map<String, dynamic>> logs = [];
+
+  @override
+  Future<String?> enqueueDeterministicJob({
+    required String workoutId,
+    required Map<String, dynamic> payload,
+  }) async {
+    return 'job-1';
+  }
+
+  @override
+  Future<void> insertLog({
+    required String workoutId,
+    String? jobId,
+    required String eventType,
+    required String message,
+    required Map<String, dynamic> payload,
+    String logLevel = 'info',
+  }) async {
+    logs.add({
+      'event_type': eventType,
+      'log_level': logLevel,
+      'message': message,
+      'payload': payload,
+    });
+  }
+}
+
+class _SwitchingUserTrackingDataSource implements RawTrackingRemoteDataSource {
+  final _MockRawTrackingDataSource _inner;
+  final void Function() onFirstBatchSaved;
+  int _batchCount = 0;
+
+  _SwitchingUserTrackingDataSource(this._inner, {required this.onFirstBatchSaved});
+
+  @override
+  Future<void> saveRawGpsPoints(List<RawGpsPointPayload> points) async {
+    await _inner.saveRawGpsPoints(points);
+    _batchCount++;
+    if (_batchCount == 1) {
+      onFirstBatchSaved();
+    }
+  }
+
+  @override
+  Future<void> saveRawStepIntervals(List<RawStepIntervalPayload> intervals) =>
+      _inner.saveRawStepIntervals(intervals);
+
+  @override
+  Future<int> countRawGpsPointsForWorkout(String workoutId) =>
+      _inner.countRawGpsPointsForWorkout(workoutId);
+
+  @override
+  Future<List<RawGpsPointPayload>> fetchRawGpsPointsPaged(
+    String workoutId, {
+    int offset = 0,
+    int limit = 1000,
+  }) => _inner.fetchRawGpsPointsPaged(workoutId, offset: offset, limit: limit);
+
+  @override
+  Future<List<RawGpsPointPayload>> fetchAllRawGpsPoints(
+    String workoutId, {
+    int pageSize = 1000,
+  }) => _inner.fetchAllRawGpsPoints(workoutId, pageSize: pageSize);
 }
 

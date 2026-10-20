@@ -342,7 +342,26 @@ class RawGpsCanonicalVerification {
     final cloudDigest = computeCanonicalDigest(cloudSorted);
     final expectedCount = manifest.sampleCount;
     final expectedDigest =
-        manifest.cloudVerifiedSha256 ?? manifest.sha256Digest;
+        manifest.canonicalCaptureDigest ?? manifest.cloudVerifiedSha256;
+
+    if (expectedDigest == null) {
+      // Legacy capture manifest lacks canonical capture digest (only has raw fileSha256):
+      // Do not fabricate verification by comparing against raw JSONL file checksum.
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.restoredUnverified,
+        localCount: expectedCount,
+        cloudCount: cloudPoints.length,
+        localDigest: emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: cloudPoints.length,
+        mismatchedSampleCount: 0,
+        message:
+            'Capture manifest lacks canonical capture digest (legacy manifest); '
+            'marked RESTORED_UNVERIFIED without fabricating verification.',
+      );
+    }
 
     if (cloudPoints.length < expectedCount) {
       return RawGpsVerificationReport(
@@ -350,7 +369,7 @@ class RawGpsCanonicalVerification {
         state: RawGpsVerificationState.partial,
         localCount: expectedCount,
         cloudCount: cloudPoints.length,
-        localDigest: expectedDigest ?? emptyDigest,
+        localDigest: expectedDigest,
         cloudDigest: cloudDigest,
         missingCloudSampleCount: expectedCount - cloudPoints.length,
         extraCloudSampleCount: 0,
@@ -360,8 +379,7 @@ class RawGpsCanonicalVerification {
       );
     }
 
-    final digestMatches =
-        expectedDigest != null && expectedDigest == cloudDigest;
+    final digestMatches = expectedDigest == cloudDigest;
     if (cloudPoints.length == expectedCount && digestMatches) {
       return RawGpsVerificationReport(
         workoutId: workoutId,
@@ -383,7 +401,7 @@ class RawGpsCanonicalVerification {
       state: RawGpsVerificationState.integrityMismatch,
       localCount: expectedCount,
       cloudCount: cloudPoints.length,
-      localDigest: expectedDigest ?? emptyDigest,
+      localDigest: expectedDigest,
       cloudDigest: cloudDigest,
       missingCloudSampleCount: 0,
       extraCloudSampleCount: 0,
