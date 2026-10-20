@@ -831,6 +831,97 @@ void main() {
       expect(deviceBPoints.first.isSynced, isTrue);
     });
 
+    test('RG-F1 A: metadata synced, GPS pending is still discovered', () async {
+      final points = [
+        createPoint(sessionId: testWorkoutId, index: 0),
+        createPoint(sessionId: testWorkoutId, index: 1),
+      ];
+      final syncedIds = <int>{};
+      // The owner's workout metadata is already synced: discovery is driven
+      // by GPS records, not LocalWorkout.isSynced.
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => [testWorkoutId],
+        getPendingGpsSessionIds: (_) async => [testWorkoutId],
+        getUnsyncedPoints: (_) async =>
+            points.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (_) async => points,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      expect(await outbox.resumePendingUploads(), 1);
+      expect(syncedIds.length, 2);
+      expect(mockTracking.getServerPoints(testWorkoutId), hasLength(2));
+    });
+
+    test('RG-F1 B: owned journal-only session survives Isar loss', () async {
+      final p = createPoint(sessionId: testWorkoutId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(testWorkoutId);
+      await journal.checkpoint(testWorkoutId, isFinalized: true);
+
+      final cached = <LocalGPSPoint>[];
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => [testWorkoutId],
+        getPendingGpsSessionIds: (_) async => const [],
+        getUnsyncedPoints: (_) async => const [],
+        getAllLocalPoints: (_) async => cached,
+        saveLocalPoints: (points) async => cached.addAll(points),
+        markPointsSynced: (_) async {},
+      );
+
+      expect(await outbox.resumePendingUploads(), 1);
+      expect(mockTracking.getServerPoints(testWorkoutId), hasLength(1));
+      expect(await (await journal.fileForSession(testWorkoutId)).exists(), isTrue);
+    });
+
+    test('RG-F1 C: sessions awaiting deletion are never replayed', () async {
+      final points = [createPoint(sessionId: testWorkoutId, index: 0)];
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => [testWorkoutId],
+        getPendingGpsSessionIds: (_) async => [testWorkoutId],
+        getUnsyncedPoints: (_) async => points,
+        getAllLocalPoints: (_) async => points,
+        markPointsSynced: (_) async {},
+      );
+
+      final resumed = await outbox.resumePendingUploads(
+        excludedSessionIds: {testWorkoutId},
+      );
+      expect(resumed, 0);
+      expect(mockTracking.getServerPoints(testWorkoutId), isEmpty);
+      expect(points.single.isSynced, isFalse);
+    });
+
+    test('RG-F1 D: a foreign journal cannot be discovered for this user', () async {
+      final p = createPoint(sessionId: testWorkoutId, index: 0);
+      await journal.appendPoint(p, userId: 'different-owner');
+      await journal.flushSession(testWorkoutId);
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => [testWorkoutId],
+        getPendingGpsSessionIds: (_) async => const [],
+        getUnsyncedPoints: (_) async => const [],
+        getAllLocalPoints: (_) async => const [],
+        markPointsSynced: (_) async {},
+      );
+
+      expect(await outbox.resumePendingUploads(), 0);
+      expect(mockTracking.getServerPoints(testWorkoutId), isEmpty);
+      expect(await (await journal.fileForSession(testWorkoutId)).exists(), isTrue);
+    });
+
     test('H7. App lifecycle startup actually invokes recovery of pending work (P0-03)', () async {
       final localPoints = [createPoint(sessionId: testWorkoutId, index: 0)];
       final syncedIds = <int>{};
