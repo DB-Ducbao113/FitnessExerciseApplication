@@ -345,7 +345,8 @@ class RawGpsCloudOutboxService {
             'Incomplete local capture: found ${canonicalPoints.length} points, but manifest specifies ${manifest.sampleCount} captured samples.';
       } else if (manifest.canonicalCaptureDigest != null &&
           manifest.canonicalCaptureDigest!.isNotEmpty &&
-          manifest.schemaVersion != RawGpsJournalManifest.schemaVersionV1) {
+          manifest.schemaVersion != RawGpsJournalManifest.schemaVersionV1 &&
+          journalResult.status != RawGpsRecoveryStatus.staleCheckpoint) {
         final localDigest =
             RawGpsCanonicalVerification.computeCanonicalDigest(canonicalPoints);
         if (localDigest != manifest.canonicalCaptureDigest) {
@@ -733,8 +734,54 @@ class RawGpsCloudOutboxService {
           message: reconciled.incompleteReason ??
               'Partial local capture: journal records were corrupted/truncated without complete Isar backup; marked as PARTIAL.',
         );
-      } else if (manifest != null &&
-          reconciled.journalStatus != RawGpsRecoveryStatus.staleCheckpoint) {
+      } else if (reconciled.journalStatus ==
+          RawGpsRecoveryStatus.staleCheckpoint) {
+        // QA-2: Stale checkpoint verification.
+        // An existing stale checkpoint covers only a historical subset of local samples.
+        // Fallback verification must NEVER grant CLOUD_VERIFIED without validated capture completeness.
+        // When capture completeness proof is unavailable, preserve all original samples and fail closed
+        // to RESTORED_UNVERIFIED (or PARTIAL if cloud records are incomplete).
+        // Verified completion (CLOUD_VERIFIED) is permitted only after trusted recovery/checkpoint validation.
+        final localDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(localCanon);
+        final cloudDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(cloudCanon);
+        final isCloudComplete = cloudCanon.length >= localCanon.length;
+
+        if (!isCloudComplete) {
+          report = RawGpsVerificationReport(
+            workoutId: sessionId,
+            state: RawGpsVerificationState.partial,
+            localCount: localCanon.length,
+            cloudCount: cloudCanon.length,
+            localDigest: localDigest,
+            cloudDigest: cloudDigest,
+            missingCloudSampleCount: localCanon.length - cloudCanon.length,
+            extraCloudSampleCount: 0,
+            mismatchedSampleCount: 0,
+            message:
+                'Stale checkpoint recovery: partial cloud records (${cloudCanon.length}/${localCanon.length}); marked as PARTIAL.',
+          );
+        } else {
+          report = RawGpsVerificationReport(
+            workoutId: sessionId,
+            state: RawGpsVerificationState.restoredUnverified,
+            localCount: localCanon.length,
+            cloudCount: cloudCanon.length,
+            localDigest: localDigest,
+            cloudDigest: cloudDigest,
+            missingCloudSampleCount: 0,
+            extraCloudSampleCount: cloudCanon.length > localCanon.length
+                ? cloudCanon.length - localCanon.length
+                : 0,
+            mismatchedSampleCount: 0,
+            message:
+                'Capture manifest contains a stale unfinalized checkpoint (${manifest?.sampleCount ?? 0} samples) '
+                'which does not validate full original capture completeness (${localCanon.length} samples); '
+                'failing closed to RESTORED_UNVERIFIED without fabricating verification.',
+          );
+        }
+      } else if (manifest != null) {
         report = RawGpsCanonicalVerification.verifyAgainstManifest(
           workoutId: sessionId,
           manifest: manifest,
@@ -780,17 +827,24 @@ class RawGpsCloudOutboxService {
         );
         await _recordRetrySuccess(sessionId);
       } else if (report.state == RawGpsVerificationState.restoredUnverified) {
-        // Fail-closed legacy recovery: cloud copy consistency confirmed, but lacks
-        // independent canonical capture evidence.
+        // Fail-closed legacy recovery & unverified capture (QA-1 & QA-2):
+        // Cloud copy consistency requires full canonical data equality across all mutually
+        // preserved fields (timestamp, lat, lng, altitude, speed, accuracy, heading, deviceSource),
+        // NOT identityKey equality alone.
         // Invariants:
         // 1. Do NOT mark Isar points as synced (no false Isar sync ACK).
         // 2. Do NOT set cloudVerified to true.
-        // 3. Checkpoint manifest with verificationState = 'restoredUnverified' so
-        //    discovery and upload verification agree it is completed.
-        // 4. Do NOT trigger unnecessary retry loop (clear retry backoff via _recordRetrySuccess).
-        final isCloudCopyConsistent = cloudCanon.length >= localCanon.length &&
-            localCanon.every((lp) =>
-                cloudCanon.any((cp) => cp.identityKey == lp.identityKey));
+        // 3. Checkpoint manifest with verificationState = 'restoredUnverified' ONLY when full canonical
+        //    copy consistency is established, ensuring discovery and outbox agree on completion.
+        // 4. If copy is inconsistent, do NOT mark completed and do NOT suppress necessary retry
+        //    (invoke _recordRetryFailure).
+        final localDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(localCanon);
+        final cloudDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(cloudCanon);
+        final isCloudCopyConsistent = cloudCanon.length == localCanon.length &&
+            localDigest == cloudDigest &&
+            localCanon.every((lp) => cloudCanon.any((cp) => cp == lp));
 
         if (isCloudCopyConsistent) {
           await _journal.checkpoint(

@@ -38,6 +38,10 @@ class _MockRawTrackingDataSource implements RawTrackingRemoteDataSource {
     _serverTables.putIfAbsent(workoutId, () => []).addAll(points);
   }
 
+  void clearWorkout(String workoutId) {
+    _serverTables.remove(workoutId);
+  }
+
   List<RawGpsPointPayload> getServerPoints(String workoutId) {
     return List.unmodifiable(_serverTables[workoutId] ?? []);
   }
@@ -2252,6 +2256,247 @@ void main() {
         final diskManifest = await journal.readManifest(sessionId);
         expect(diskManifest!.cloudVerified, isFalse);
         expect(diskManifest.schemaVersion, RawGpsJournalManifest.schemaVersionV1);
+      });
+
+      test('QA-1: RESTORED_UNVERIFIED copy consistency requires full canonical data equality, not identityKey alone', () async {
+        final sessionId = 'rg-f1-qa-1-copy-consistency-${DateTime.now().millisecondsSinceEpoch}';
+        final startTime = DateTime.utc(2026, 10, 20, 10, 0, 0);
+
+        final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime, alt: 10.0, speed: 5.0, acc: 4.0);
+        final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime, alt: 12.0, speed: 5.5, acc: 4.0);
+        final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime, alt: 14.0, speed: 6.0, acc: 4.0);
+        final isarPoints = [p0, p1, p2];
+
+        // 1. Setup a legacy v1 manifest without validated provenance (no fileSha256, no canonicalCaptureDigest)
+        final journalFile = await journal.fileForSession(sessionId);
+        await journalFile.parent.create(recursive: true);
+        final lines = isarPoints.map((p) => jsonEncode(localPointMap(p))).join('\n');
+        await journalFile.writeAsString('$lines\n');
+
+        final legacyManifest = RawGpsJournalManifest(
+          schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+          workoutId: sessionId,
+          userId: testUserId,
+          sampleCount: 3,
+          checkpointSeq: 1,
+          checkpointTimestampUtc: DateTime.now().toUtc(),
+          isFinalized: true,
+          fileSha256: null,
+          canonicalCaptureDigest: null,
+        );
+
+        final manifestFile = await journal.manifestFileForSession(sessionId);
+        final temp = File('${manifestFile.path}.tmp');
+        await temp.writeAsString(jsonEncode(legacyManifest.toJson()));
+        await temp.rename(manifestFile.path);
+
+        // 2. Preload cloud with matching timestamps & coordinates, BUT different altitude / speed / accuracy (identityKey matches!)
+        final inconsistentCloudPayloads = isarPoints.map((p) => RawGpsPointPayload(
+          workoutId: p.sessionId,
+          timestamp: p.timestamp,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: (p.altitude ?? 0.0) + 100.0, // Inconsistent telemetry: altitude differs!
+          speed: (p.speed ?? 0.0) + 10.0,       // Inconsistent telemetry: speed differs!
+          accuracy: 25.0,                       // Inconsistent telemetry: accuracy differs!
+          heading: p.heading,
+          deviceSource: p.deviceSource,
+        )).toList();
+        await mockTracking.saveRawGpsPoints(inconsistentCloudPayloads);
+
+        final syncedIds = <int>{};
+        final outbox = RawGpsCloudOutboxService(
+          rawTracking: mockTracking,
+          journal: journal,
+          currentUserId: () => testUserId,
+          getUnsyncedPoints: (_) async => isarPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+          getAllLocalPoints: (_) async => isarPoints,
+          markPointsSynced: (ids) async => syncedIds.addAll(ids),
+        );
+
+        // 3. First upload and verify attempt
+        final report1 = await outbox.uploadAndVerifySession(sessionId);
+
+        // Invariant 1: Preserves RESTORED_UNVERIFIED semantics without granting CLOUD_VERIFIED
+        expect(report1.state, RawGpsVerificationState.restoredUnverified);
+        expect(report1.isVerified, isFalse);
+
+        // Invariant 2: No false Isar sync ACK
+        expect(syncedIds, isEmpty);
+
+        // Invariant 3: Copy consistency is NOT established (altitude/speed/accuracy differ).
+        // Manifest must NOT be checkpointed as completed (verificationState is not 'restoredUnverified').
+        final diskManifest1 = await journal.readManifest(sessionId);
+        expect(diskManifest1!.verificationState, isNot('restoredUnverified'));
+        expect(diskManifest1.cloudVerified, isFalse);
+
+        // Invariant 4: Does NOT suppress necessary retry (retryCount is incremented, nextRetryTimestampUtc is set)
+        expect(diskManifest1.retryCount, 1);
+        expect(diskManifest1.nextRetryTimestampUtc, isNotNull);
+
+        // Invariant 5: Discovery still treats session as pending (not completed)
+        final pending1 = await journal.listPendingSessionIdsForUser(
+          testUserId,
+          ownedSessionIds: {sessionId},
+        );
+        expect(pending1, contains(sessionId));
+
+        // 4. Now fix cloud records to have full canonical data equality across all mutual fields
+        mockTracking.clearWorkout(sessionId);
+        final consistentPayloads = isarPoints.map((p) => RawGpsPointPayload(
+          workoutId: p.sessionId,
+          timestamp: p.timestamp,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: p.altitude,
+          speed: p.speed,
+          accuracy: p.accuracy,
+          heading: p.heading,
+          deviceSource: p.deviceSource,
+        )).toList();
+        await mockTracking.saveRawGpsPoints(consistentPayloads);
+
+        // 5. Re-run verification with full canonical equality established
+        final report2 = await outbox.uploadAndVerifySession(sessionId);
+
+        expect(report2.state, RawGpsVerificationState.restoredUnverified);
+        expect(report2.isVerified, isFalse);
+        expect(syncedIds, isEmpty); // Still no false Isar ACK
+
+        // Invariant 6: Now full canonical copy consistency is established
+        final diskManifest2 = await journal.readManifest(sessionId);
+        expect(diskManifest2!.verificationState, 'restoredUnverified');
+        expect(diskManifest2.retryCount, 0);
+        expect(diskManifest2.nextRetryTimestampUtc, isNull);
+
+        // Invariant 7: Discovery now recognizes completed state and skips
+        final pending2 = await journal.listPendingSessionIdsForUser(
+          testUserId,
+          ownedSessionIds: {sessionId},
+        );
+        expect(pending2, isNot(contains(sessionId)));
+      });
+
+      test('QA-2: Stale checkpoint verification prevents fallback CLOUD_VERIFIED, preserves samples, and permits verified completion only after trusted validation', () async {
+        final sessionId = 'rg-f1-qa-2-stale-checkpoint-${DateTime.now().millisecondsSinceEpoch}';
+        final startTime = DateTime.utc(2026, 10, 20, 10, 0, 0);
+
+        final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime);
+        final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime);
+        final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime);
+        final p3 = createPoint(sessionId: sessionId, index: 3, startTime: startTime);
+        final p4 = createPoint(sessionId: sessionId, index: 4, startTime: startTime);
+
+        // 1. Append first 3 points to journal and checkpoint with sampleCount = 3
+        await journal.appendPoint(p0, userId: testUserId);
+        await journal.appendPoint(p1, userId: testUserId);
+        await journal.appendPoint(p2, userId: testUserId);
+        await journal.flushSession(sessionId);
+        await journal.checkpoint(sessionId, isFinalized: false);
+
+        // 2. Directly append points 4 & 5 to the journal file on disk without updating checkpoint
+        // (simulating commits written after checkpoint prior to a crash / unfinalized exit)
+        final journalFile = await journal.fileForSession(sessionId);
+        final line3 = jsonEncode(localPointMap(p3));
+        final line4 = jsonEncode(localPointMap(p4));
+        await journalFile.writeAsString('$line3\n$line4\n', mode: FileMode.append, flush: true);
+
+        // Verify journal reader status is staleCheckpoint (prefix verified intact, but total points = 5 > sampleCount = 3)
+        final recoveryResult = await journal.readJournal(sessionId, activeUserId: testUserId);
+        expect(recoveryResult.status, RawGpsRecoveryStatus.staleCheckpoint);
+        expect(recoveryResult.points.length, 5);
+
+        // 3. Cloud has matching 5 points (matching local subsets)
+        final payloads = recoveryResult.points.map((p) => RawGpsPointPayload(
+          workoutId: p.sessionId,
+          timestamp: p.timestamp,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: p.altitude,
+          speed: p.speed,
+          accuracy: p.accuracy,
+          heading: p.heading,
+          deviceSource: p.deviceSource,
+        )).toList();
+        await mockTracking.saveRawGpsPoints(payloads);
+
+        final syncedIds = <int>{};
+        final isarPoints = [p0, p1, p2, p3, p4];
+        final outbox = RawGpsCloudOutboxService(
+          rawTracking: mockTracking,
+          journal: journal,
+          currentUserId: () => testUserId,
+          getUnsyncedPoints: (_) async => const [],
+          getAllLocalPoints: (_) async => isarPoints,
+          markPointsSynced: (ids) async => syncedIds.addAll(ids),
+        );
+
+        // 4. Verify: Fallback verification must NOT grant CLOUD_VERIFIED without validated capture completeness!
+        final report1 = await outbox.uploadAndVerifySession(sessionId);
+
+        // Invariant 1: Fails closed to RESTORED_UNVERIFIED when capture completeness proof is unavailable
+        expect(report1.state, RawGpsVerificationState.restoredUnverified);
+        expect(report1.isVerified, isFalse);
+
+        // Invariant 2: Preserves all 5 original samples locally and in verification report
+        expect(report1.localCount, 5);
+        expect(report1.cloudCount, 5);
+
+        // Invariant 3: No false Isar sync ACK
+        expect(syncedIds, isEmpty);
+
+        final diskManifest1 = await journal.readManifest(sessionId);
+        expect(diskManifest1!.cloudVerified, isFalse);
+
+        // 5. Now perform trusted recovery / checkpoint validation:
+        // Finalize the manifest with all 5 points and compute valid canonical capture digest
+        final fullDigest = RawGpsCanonicalVerification.computeCanonicalDigest(
+          isarPoints.map(CanonicalGpsPoint.fromLocal),
+        );
+        final fileBytes = await journalFile.readAsBytes();
+        final fullFileSha256 = sha256.convert(fileBytes).toString();
+
+        await journal.checkpoint(
+          sessionId,
+          isFinalized: true,
+          schemaVersion: RawGpsJournalManifest.currentSchemaVersion,
+          canonicalCaptureDigest: fullDigest,
+        );
+
+        // Update the manifest file with verified 5-sample counts & file hash to complete trusted validation
+        final updatedManifest = diskManifest1.copyWith(
+          schemaVersion: RawGpsJournalManifest.currentSchemaVersion,
+          sampleCount: 5,
+          fileSha256: fullFileSha256,
+          canonicalCaptureDigest: fullDigest,
+          isFinalized: true,
+          cloudVerified: false,
+        );
+        final manifestFile = await journal.manifestFileForSession(sessionId);
+        final temp = File('${manifestFile.path}.tmp');
+        await temp.writeAsString(jsonEncode(updatedManifest.toJson()));
+        await temp.rename(manifestFile.path);
+
+        // Verify status is now verifiedIntact after trusted validation
+        final validatedRecovery = await journal.readJournal(sessionId, activeUserId: testUserId);
+        expect(validatedRecovery.status, RawGpsRecoveryStatus.verifiedIntact);
+        expect(validatedRecovery.manifest!.sampleCount, 5);
+
+        // 6. Second verification after trusted recovery/checkpoint validation:
+        // Verified completion (CLOUD_VERIFIED) is now permitted!
+        final report2 = await outbox.uploadAndVerifySession(sessionId);
+
+        expect(report2.state, RawGpsVerificationState.cloudVerified);
+        expect(report2.isVerified, isTrue);
+        expect(report2.localCount, 5);
+        expect(report2.cloudCount, 5);
+        expect(syncedIds.length, 5); // Isar points marked synced!
+
+        final diskManifest2 = await journal.readManifest(sessionId);
+        expect(diskManifest2!.cloudVerified, isTrue);
+        expect(diskManifest2.verificationState, 'cloudVerified');
+        expect(diskManifest2.canonicalCaptureDigest, fullDigest);
+        expect(diskManifest2.cloudVerifiedSha256, fullDigest);
       });
     });
   });
