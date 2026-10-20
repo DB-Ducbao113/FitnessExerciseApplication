@@ -635,6 +635,53 @@ class RawGpsRecoveryJournal {
     );
   }
 
+  /// Enumerates user-owned journal sessions that may need cloud reconciliation.
+  ///
+  /// A journal alone is not ownership proof: only sessions also present in the
+  /// authenticated user's local workout index are eligible. Orphans stay on
+  /// disk for explicit/manual recovery rather than being uploaded as another
+  /// user's data. Never enumerate arbitrary session IDs from filenames.
+  Future<List<String>> listPendingSessionIdsForUser(
+    String userId, {
+    required Set<String> ownedSessionIds,
+  }) async {
+    if (userId.trim().isEmpty || ownedSessionIds.isEmpty) return const [];
+    final documents = await _documentsDirectory();
+    final directory = Directory(p.join(documents.path, 'raw_gps_recovery'));
+    if (!await directory.exists()) return const [];
+
+    final pending = <String>{};
+    await for (final entry in directory.list(followLinks: false)) {
+      if (entry is! File || !entry.path.endsWith('.manifest.json')) continue;
+      try {
+        final content = await entry.readAsString();
+        final manifest = RawGpsJournalManifest.fromJson(
+          jsonDecode(content) as Map<String, dynamic>,
+        );
+        if (manifest.userId != userId ||
+            !ownedSessionIds.contains(manifest.workoutId)) {
+          continue;
+        }
+        final manifestFile = await manifestFileForSession(manifest.workoutId);
+        if (p.normalize(manifestFile.path) != p.normalize(entry.path)) continue;
+        final journalFile = await fileForSession(manifest.workoutId);
+        if (!await journalFile.exists()) continue;
+        if (manifest.cloudVerified &&
+            manifest.cloudVerifiedCount == manifest.sampleCount &&
+            manifest.cloudVerifiedSha256 != null) {
+          continue;
+        }
+        pending.add(manifest.workoutId);
+      } on FormatException catch (e) {
+        debugPrint('[RawGpsRecoveryJournal] invalid recovery manifest: $e');
+      } on FileSystemException catch (e) {
+        debugPrint('[RawGpsRecoveryJournal] cannot inspect manifest: $e');
+        rethrow;
+      }
+    }
+    return pending.toList()..sort();
+  }
+
   /// Static helper to compute SHA-256 digest of a file.
   static Future<String?> _computeFileSha256(File file) async {
     try {
