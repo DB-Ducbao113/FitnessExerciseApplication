@@ -340,17 +340,73 @@ class RawGpsCanonicalVerification {
 
     final cloudSorted = cloudPoints.toList()..sort();
     final cloudDigest = computeCanonicalDigest(cloudSorted);
-    final expectedCount = manifest.sampleCount;
-    final expectedDigest =
-        manifest.canonicalCaptureDigest ?? manifest.cloudVerifiedSha256;
 
-    if (expectedDigest == null) {
-      // Legacy capture manifest lacks canonical capture digest (only has raw fileSha256):
-      // Do not fabricate verification by comparing against raw JSONL file checksum.
+    // 1. Manifest Identity Check: manifest workoutId must match requested workoutId
+    if (manifest.workoutId != workoutId) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.integrityMismatch,
+        localCount: manifest.sampleCount,
+        cloudCount: cloudPoints.length,
+        localDigest: manifest.canonicalCaptureDigest ?? emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: cloudPoints.length,
+        message:
+            'Manifest workoutId (${manifest.workoutId}) does not match requested workoutId ($workoutId).',
+      );
+    }
+
+    // 2. Point Identity Check: verify all cloud points belong to this workout
+    final foreignPointsCount =
+        cloudPoints.where((p) => p.workoutId != workoutId).length;
+    if (foreignPointsCount > 0) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.integrityMismatch,
+        localCount: manifest.sampleCount,
+        cloudCount: cloudPoints.length,
+        localDigest: manifest.canonicalCaptureDigest ?? emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: foreignPointsCount,
+        message:
+            'Point identity mismatch: cloud points contain $foreignPointsCount records for another workout.',
+      );
+    }
+
+    // 3. Manifest Integrity Check: sample count sanity
+    if (manifest.sampleCount < 0) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.integrityMismatch,
+        localCount: manifest.sampleCount,
+        cloudCount: cloudPoints.length,
+        localDigest: manifest.canonicalCaptureDigest ?? emptyDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: 0,
+        mismatchedSampleCount: cloudPoints.length,
+        message:
+            'Manifest integrity error: negative sample count (${manifest.sampleCount}).',
+      );
+    }
+
+    // 4. Independent Capture Proof Check (P0-01)
+    // ONLY manifest.canonicalCaptureDigest is valid independent capture proof.
+    // cloudVerifiedSha256 is the cloud echo and MUST NEVER substitute for capture proof!
+    // Legacy v1 manifests without trusted canonical capture proof must remain RESTORED_UNVERIFIED.
+    final expectedDigest = manifest.canonicalCaptureDigest;
+    final isLegacyV1 =
+        manifest.schemaVersion == RawGpsJournalManifest.schemaVersionV1;
+
+    if (expectedDigest == null || expectedDigest.isEmpty || isLegacyV1) {
       return RawGpsVerificationReport(
         workoutId: workoutId,
         state: RawGpsVerificationState.restoredUnverified,
-        localCount: expectedCount,
+        localCount: manifest.sampleCount,
         cloudCount: cloudPoints.length,
         localDigest: emptyDigest,
         cloudDigest: cloudDigest,
@@ -358,9 +414,43 @@ class RawGpsCanonicalVerification {
         extraCloudSampleCount: cloudPoints.length,
         mismatchedSampleCount: 0,
         message:
-            'Capture manifest lacks canonical capture digest (legacy manifest); '
+            'Capture manifest lacks independent canonical capture digest (legacy v1 or unverified manifest); '
             'marked RESTORED_UNVERIFIED without fabricating verification.',
       );
+    }
+
+    // 5. Sample Count Verification
+    final expectedCount = manifest.sampleCount;
+    if (expectedCount == 0) {
+      if (cloudPoints.isEmpty && expectedDigest == emptyDigest) {
+        return RawGpsVerificationReport(
+          workoutId: workoutId,
+          state: RawGpsVerificationState.cloudVerified,
+          localCount: 0,
+          cloudCount: 0,
+          localDigest: expectedDigest,
+          cloudDigest: cloudDigest,
+          missingCloudSampleCount: 0,
+          extraCloudSampleCount: 0,
+          mismatchedSampleCount: 0,
+          message:
+              'Zero-sample manifest canonically verified against empty cloud records.',
+        );
+      } else {
+        return RawGpsVerificationReport(
+          workoutId: workoutId,
+          state: RawGpsVerificationState.integrityMismatch,
+          localCount: 0,
+          cloudCount: cloudPoints.length,
+          localDigest: expectedDigest,
+          cloudDigest: cloudDigest,
+          missingCloudSampleCount: 0,
+          extraCloudSampleCount: cloudPoints.length,
+          mismatchedSampleCount: cloudPoints.length,
+          message:
+              'Manifest specifies 0 samples but cloud returned ${cloudPoints.length} points.',
+        );
+      }
     }
 
     if (cloudPoints.length < expectedCount) {
@@ -379,8 +469,25 @@ class RawGpsCanonicalVerification {
       );
     }
 
+    if (cloudPoints.length > expectedCount) {
+      return RawGpsVerificationReport(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.integrityMismatch,
+        localCount: expectedCount,
+        cloudCount: cloudPoints.length,
+        localDigest: expectedDigest,
+        cloudDigest: cloudDigest,
+        missingCloudSampleCount: 0,
+        extraCloudSampleCount: cloudPoints.length - expectedCount,
+        mismatchedSampleCount: cloudPoints.length - expectedCount,
+        message:
+            'Integrity mismatch: cloud records count (${cloudPoints.length}) exceeds manifest sample count ($expectedCount).',
+      );
+    }
+
+    // 6. Canonical Digest Verification
     final digestMatches = expectedDigest == cloudDigest;
-    if (cloudPoints.length == expectedCount && digestMatches) {
+    if (digestMatches) {
       return RawGpsVerificationReport(
         workoutId: workoutId,
         state: RawGpsVerificationState.cloudVerified,

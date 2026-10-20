@@ -47,6 +47,12 @@ class RawGpsJournalManifest {
   final int cloudVerifiedCount;
   /// Canonical digest verified by server read-back.
   final String? cloudVerifiedSha256;
+  /// Number of retry attempts executed for outbox cloud sync.
+  final int retryCount;
+  /// Timestamp of the last retry attempt in UTC.
+  final DateTime? lastRetryTimestampUtc;
+  /// Earliest timestamp in UTC when next retry attempt is permitted (exponential backoff).
+  final DateTime? nextRetryTimestampUtc;
 
   /// Backward-compatible alias for fileSha256.
   String? get sha256Digest => fileSha256;
@@ -67,6 +73,9 @@ class RawGpsJournalManifest {
     this.cloudVerified = false,
     this.cloudVerifiedCount = 0,
     this.cloudVerifiedSha256,
+    this.retryCount = 0,
+    this.lastRetryTimestampUtc,
+    this.nextRetryTimestampUtc,
   }) : fileSha256 = fileSha256 ?? sha256Digest;
 
   RawGpsJournalManifest copyWith({
@@ -83,6 +92,9 @@ class RawGpsJournalManifest {
     bool? cloudVerified,
     int? cloudVerifiedCount,
     String? cloudVerifiedSha256,
+    int? retryCount,
+    DateTime? lastRetryTimestampUtc,
+    DateTime? nextRetryTimestampUtc,
   }) {
     return RawGpsJournalManifest(
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -101,6 +113,11 @@ class RawGpsJournalManifest {
       cloudVerified: cloudVerified ?? this.cloudVerified,
       cloudVerifiedCount: cloudVerifiedCount ?? this.cloudVerifiedCount,
       cloudVerifiedSha256: cloudVerifiedSha256 ?? this.cloudVerifiedSha256,
+      retryCount: retryCount ?? this.retryCount,
+      lastRetryTimestampUtc:
+          lastRetryTimestampUtc ?? this.lastRetryTimestampUtc,
+      nextRetryTimestampUtc:
+          nextRetryTimestampUtc ?? this.nextRetryTimestampUtc,
     );
   }
 
@@ -124,6 +141,13 @@ class RawGpsJournalManifest {
     'cloud_verified_count': cloudVerifiedCount,
     if (cloudVerifiedSha256 != null)
       'cloud_verified_sha256': cloudVerifiedSha256,
+    if (retryCount > 0) 'retry_count': retryCount,
+    if (lastRetryTimestampUtc != null)
+      'last_retry_timestamp_utc':
+          lastRetryTimestampUtc!.toUtc().toIso8601String(),
+    if (nextRetryTimestampUtc != null)
+      'next_retry_timestamp_utc':
+          nextRetryTimestampUtc!.toUtc().toIso8601String(),
   };
 
   factory RawGpsJournalManifest.fromJson(Map<String, dynamic> json) {
@@ -154,6 +178,13 @@ class RawGpsJournalManifest {
       cloudVerifiedCount:
           (json['cloud_verified_count'] as num?)?.toInt() ?? 0,
       cloudVerifiedSha256: json['cloud_verified_sha256'] as String?,
+      retryCount: (json['retry_count'] as num?)?.toInt() ?? 0,
+      lastRetryTimestampUtc: json['last_retry_timestamp_utc'] != null
+          ? DateTime.tryParse(json['last_retry_timestamp_utc'] as String)?.toUtc()
+          : null,
+      nextRetryTimestampUtc: json['next_retry_timestamp_utc'] != null
+          ? DateTime.tryParse(json['next_retry_timestamp_utc'] as String)?.toUtc()
+          : null,
     );
   }
 }
@@ -693,6 +724,32 @@ class RawGpsRecoveryJournal {
         'raw-gps-$safeSessionId.manifest.json',
       ),
     );
+  }
+
+  /// Records a retry attempt for [sessionId].
+  /// On failure, increments [retryCount] and sets [nextRetryTimestampUtc] based on exponential backoff.
+  /// On success, resets [retryCount] and clears [nextRetryTimestampUtc].
+  Future<void> recordRetryAttempt(
+    String sessionId, {
+    required bool success,
+    Duration nextBackoff = const Duration(minutes: 5),
+  }) async {
+    final manifest = await readManifest(sessionId);
+    if (manifest == null) return;
+    final manifestFile = await manifestFileForSession(sessionId);
+    final now = DateTime.now().toUtc();
+    final updated = success
+        ? manifest.copyWith(
+            retryCount: 0,
+            lastRetryTimestampUtc: now,
+            nextRetryTimestampUtc: null,
+          )
+        : manifest.copyWith(
+            retryCount: manifest.retryCount + 1,
+            lastRetryTimestampUtc: now,
+            nextRetryTimestampUtc: now.add(nextBackoff),
+          );
+    await _writeManifestAtomic(manifestFile, updated);
   }
 
 

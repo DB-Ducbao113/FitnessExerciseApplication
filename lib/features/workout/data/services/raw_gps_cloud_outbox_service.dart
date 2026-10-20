@@ -20,14 +20,12 @@ final rawGpsCloudOutboxServiceProvider =
         rawTracking: ref.watch(rawTrackingRemoteDataSourceProvider),
         currentUserId: () => ref.read(currentUserIdProvider),
         isSessionPendingDeletion: (sessionId, userId) async {
-          try {
-            final store = PendingWorkoutSyncStore(DatabaseHelper.instance);
-            final ops = await store.listForUser(userId);
-            if (PendingWorkoutSyncStore.deletesAll(ops)) return true;
-            return PendingWorkoutSyncStore.hiddenSessionIds(ops).contains(sessionId);
-          } catch (_) {
-            return false;
-          }
+          // FAIL CLOSED (P0-02): Store read exceptions propagate so the outbox
+          // never assumes upload is permitted on database failure.
+          final store = PendingWorkoutSyncStore(DatabaseHelper.instance);
+          final ops = await store.listForUser(userId);
+          if (PendingWorkoutSyncStore.deletesAll(ops)) return true;
+          return PendingWorkoutSyncStore.hiddenSessionIds(ops).contains(sessionId);
         },
       );
     });
@@ -46,6 +44,19 @@ class RawGpsOutboxEvent {
     required this.pointsProcessed,
     required this.totalPoints,
     this.error,
+  });
+}
+
+/// Internal retry state tracking attempts and backoff for outbox fairness (P1-01).
+class _SessionRetryState {
+  final int retryCount;
+  final DateTime lastRetryUtc;
+  final DateTime? nextRetryUtc;
+
+  const _SessionRetryState({
+    required this.retryCount,
+    required this.lastRetryUtc,
+    this.nextRetryUtc,
   });
 }
 
@@ -100,10 +111,12 @@ class RawGpsCloudOutboxService {
   final String? Function() _currentUserId;
   final int chunkSize;
   final Duration baseRetryDelay;
+  final Duration Function(int attempt)? _retryBackoffCalculator;
   final Random _random;
 
   final Map<String, RawGpsVerificationState> _sessionStates = {};
   final Set<String> _inFlightSessions = {};
+  final Map<String, _SessionRetryState> _retryStates = {};
   bool _isProcessingOutbox = false;
 
   final StreamController<RawGpsOutboxEvent> _eventController =
@@ -125,6 +138,7 @@ class RawGpsCloudOutboxService {
     required String? Function() currentUserId,
     this.chunkSize = 250,
     this.baseRetryDelay = const Duration(milliseconds: 150),
+    Duration Function(int attempt)? retryBackoffCalculator,
     Random? random,
   }) : _rawTracking = rawTracking,
        _journal = journal ?? RawGpsRecoveryJournal.instance,
@@ -141,12 +155,61 @@ class RawGpsCloudOutboxService {
        _ownershipVerifier = ownershipVerifier,
        _isSessionPendingDeletion = isSessionPendingDeletion,
        _currentUserId = currentUserId,
+       _retryBackoffCalculator = retryBackoffCalculator,
        _random = random ?? Random();
 
   Stream<RawGpsOutboxEvent> get events => _eventController.stream;
 
   RawGpsVerificationState stateForSession(String sessionId) {
     return _sessionStates[sessionId] ?? RawGpsVerificationState.unknown;
+  }
+
+  int getRetryCount(String sessionId) =>
+      _retryStates[sessionId]?.retryCount ?? 0;
+
+  DateTime? getNextRetryUtc(String sessionId) =>
+      _retryStates[sessionId]?.nextRetryUtc;
+
+  Duration computeBackoff(int attempt) {
+    final calc = _retryBackoffCalculator;
+    if (calc != null) {
+      return calc(attempt);
+    }
+    // Exponential backoff: 15s * 2^(attempt - 1), capped at 300s (5m), plus 0..5s jitter
+    final factor = pow(2, min(attempt - 1, 5)).toInt();
+    final baseSecs = min(15 * factor, 300);
+    final jitterSecs = _random.nextInt(5);
+    return Duration(seconds: baseSecs + jitterSecs);
+  }
+
+  Future<void> _recordRetrySuccess(String sessionId) async {
+    _retryStates.remove(sessionId);
+    try {
+      await _journal.recordRetryAttempt(sessionId, success: true);
+    } catch (_) {}
+  }
+
+  Future<void> _recordRetryFailure(
+    String sessionId, {
+    Duration? overrideBackoff,
+  }) async {
+    final current = _retryStates[sessionId];
+    final newCount = (current?.retryCount ?? 0) + 1;
+    final backoff = overrideBackoff ?? computeBackoff(newCount);
+    final now = DateTime.now().toUtc();
+    final nextRetry = now.add(backoff);
+    _retryStates[sessionId] = _SessionRetryState(
+      retryCount: newCount,
+      lastRetryUtc: now,
+      nextRetryUtc: nextRetry,
+    );
+    try {
+      await _journal.recordRetryAttempt(
+        sessionId,
+        success: false,
+        nextBackoff: backoff,
+      );
+    } catch (_) {}
   }
 
   void dispose() {
@@ -295,25 +358,57 @@ class RawGpsCloudOutboxService {
       );
     }
 
-    // Respect sessions pending explicit deletion (RG-F1.3)
+    // Respect sessions pending explicit deletion (RG-F1.3 / P0-02)
     final pendingDeletionCheck = _isSessionPendingDeletion;
-    if (pendingDeletionCheck != null &&
-        await pendingDeletionCheck(sessionId, activeUser)) {
-      debugPrint(
-        '[Outbox] Skipping upload for session pending deletion: $sessionId',
-      );
-      return RawGpsVerificationReport(
-        workoutId: sessionId,
-        state: RawGpsVerificationState.unknown,
-        localCount: 0,
-        cloudCount: 0,
-        localDigest: RawGpsCanonicalVerification.emptyDigest,
-        cloudDigest: null,
-        missingCloudSampleCount: 0,
-        extraCloudSampleCount: 0,
-        mismatchedSampleCount: 0,
-        message: 'Session is pending explicit deletion.',
-      );
+    if (pendingDeletionCheck != null) {
+      bool isPending;
+      try {
+        isPending = await pendingDeletionCheck(sessionId, activeUser);
+      } catch (e) {
+        // FAIL CLOSED (P0-02): If deletion store cannot be verified, NEVER assume upload is permitted.
+        // Preserve raw GPS safely locally without uploading to cloud.
+        debugPrint(
+          '[Outbox] Failed to verify deletion state for session $sessionId: $e. Preserving raw GPS locally.',
+        );
+        _updateState(
+          sessionId,
+          RawGpsVerificationState.pendingUpload,
+          0,
+          0,
+          error: 'Deletion state indeterminate: $e',
+        );
+        return RawGpsVerificationReport(
+          workoutId: sessionId,
+          state: RawGpsVerificationState.pendingUpload,
+          localCount: 0,
+          cloudCount: 0,
+          localDigest: RawGpsCanonicalVerification.emptyDigest,
+          cloudDigest: null,
+          missingCloudSampleCount: 0,
+          extraCloudSampleCount: 0,
+          mismatchedSampleCount: 0,
+          message:
+              'Deletion state cannot be determined safely ($e); preserving raw GPS locally without cloud upload.',
+        );
+      }
+
+      if (isPending) {
+        debugPrint(
+          '[Outbox] Skipping upload for session pending deletion: $sessionId',
+        );
+        return RawGpsVerificationReport(
+          workoutId: sessionId,
+          state: RawGpsVerificationState.unknown,
+          localCount: 0,
+          cloudCount: 0,
+          localDigest: RawGpsCanonicalVerification.emptyDigest,
+          cloudDigest: null,
+          missingCloudSampleCount: 0,
+          extraCloudSampleCount: 0,
+          mismatchedSampleCount: 0,
+          message: 'Session is pending explicit deletion.',
+        );
+      }
     }
 
     // Prevent duplicate workers for the same session (P0-03)
@@ -412,6 +507,7 @@ class RawGpsCloudOutboxService {
               }
 
               if (_isOfflineError(e)) {
+                await _recordRetryFailure(sessionId);
                 _updateState(
                   sessionId,
                   RawGpsVerificationState.pendingUpload,
@@ -438,6 +534,7 @@ class RawGpsCloudOutboxService {
               }
 
               if (attempt >= maxRetries) {
+                await _recordRetryFailure(sessionId);
                 _updateState(
                   sessionId,
                   RawGpsVerificationState.partial,
@@ -493,6 +590,7 @@ class RawGpsCloudOutboxService {
           );
         }
         // Cloud read-back failed: local points stay retryable (NOT marked synced)
+        await _recordRetryFailure(sessionId);
         _updateState(
           sessionId,
           RawGpsVerificationState.partial,
@@ -551,6 +649,9 @@ class RawGpsCloudOutboxService {
           cloudVerifiedCount: report.cloudCount,
           cloudVerifiedSha256: report.cloudDigest,
         );
+        await _recordRetrySuccess(sessionId);
+      } else {
+        await _recordRetryFailure(sessionId);
       }
 
       return report;
@@ -598,17 +699,64 @@ class RawGpsCloudOutboxService {
       // Deduplicate before applying the bounded work budget. Never replay
       // sessions queued for deletion, even when their local journal survives.
       final pendingDeletionCheck = _isSessionPendingDeletion;
-      final sessionsToProcess = <String>[];
+      final eligibleSessions = <String>[];
+      final now = DateTime.now().toUtc();
+
       for (final id in candidates.toSet()) {
         if (id.isEmpty || excludedSessionIds.contains(id)) continue;
-        if (pendingDeletionCheck != null &&
-            await pendingDeletionCheck(id, activeUser)) {
+
+        if (pendingDeletionCheck != null) {
+          try {
+            final isPending = await pendingDeletionCheck(id, activeUser);
+            if (isPending) continue;
+          } catch (e) {
+            // FAIL CLOSED (P0-02): If deletion status cannot be determined due to DB failure,
+            // DO NOT upload this session! Preserve it locally and skip from current upload run.
+            debugPrint(
+              '[Outbox] Cannot determine deletion status for candidate $id ($e); skipping upload.',
+            );
+            continue;
+          }
+        }
+
+        var retryState = _retryStates[id];
+        if (retryState == null) {
+          final manifest = await _journal.readManifest(id);
+          if (manifest != null && manifest.lastRetryTimestampUtc != null) {
+            retryState = _SessionRetryState(
+              retryCount: manifest.retryCount,
+              lastRetryUtc: manifest.lastRetryTimestampUtc!,
+              nextRetryUtc: manifest.nextRetryTimestampUtc,
+            );
+            _retryStates[id] = retryState;
+          }
+        }
+
+        if (retryState?.nextRetryUtc != null &&
+            now.isBefore(retryState!.nextRetryUtc!)) {
+          debugPrint(
+            '[Outbox] Candidate $id is in retry backoff until ${retryState.nextRetryUtc} (attempt #${retryState.retryCount}); skipping to prevent starvation.',
+          );
           continue;
         }
-        sessionsToProcess.add(id);
+
+        eligibleSessions.add(id);
       }
-      sessionsToProcess.sort();
-      for (final sessionId in sessionsToProcess.take(maxSessions)) {
+
+      // Fair scheduling (P1-01): Sort by least-recently-attempted to prevent starvation
+      eligibleSessions.sort((a, b) {
+        final aTime = _retryStates[a]?.lastRetryUtc;
+        final bTime = _retryStates[b]?.lastRetryUtc;
+        if (aTime == null && bTime != null) return -1;
+        if (aTime != null && bTime == null) return 1;
+        if (aTime != null && bTime != null) {
+          final cmp = aTime.compareTo(bTime);
+          if (cmp != 0) return cmp;
+        }
+        return a.compareTo(b);
+      });
+
+      for (final sessionId in eligibleSessions.take(maxSessions)) {
         if (_currentUserId() != activeUser) break; // logout/account switch
         try {
           final report = await uploadAndVerifySession(sessionId);

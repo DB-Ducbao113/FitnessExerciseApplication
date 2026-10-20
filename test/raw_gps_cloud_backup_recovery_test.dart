@@ -27,6 +27,7 @@ class _MockRawTrackingDataSource implements RawTrackingRemoteDataSource {
   bool simulate429 = false;
   bool simulate5xx = false;
   int retryAttemptsRecorded = 0;
+  final Set<String> failingSessionIds = {};
 
   void registerWorkoutOwner(String workoutId, String userId) {
     _workoutOwners.add('$workoutId:$userId');
@@ -67,6 +68,16 @@ class _MockRawTrackingDataSource implements RawTrackingRemoteDataSource {
     }
 
     for (final p in points) {
+      if (failingSessionIds.contains(p.workoutId)) {
+        retryAttemptsRecorded++;
+        throw const PostgrestException(
+          message: 'Internal Server Error for session',
+          code: '500',
+        );
+      }
+    }
+
+    for (final p in points) {
       final list = _serverTables.putIfAbsent(p.workoutId, () => []);
       // Idempotent upsert check on (workout_id, timestamp, lat, lng)
       final existingIndex = list.indexWhere(
@@ -96,6 +107,12 @@ class _MockRawTrackingDataSource implements RawTrackingRemoteDataSource {
       throw const PostgrestException(
         message: 'JWT expired or unauthorized',
         code: 'PGRST301',
+      );
+    }
+    if (failingSessionIds.contains(workoutId)) {
+      throw const PostgrestException(
+        message: 'Internal Server Error for session fetch',
+        code: '500',
       );
     }
 
@@ -1449,6 +1466,320 @@ void main() {
         throwsA(isA<PostgrestException>()),
       );
       expect(mockTracking.retryAttemptsRecorded, 3);
+    });
+  });
+
+  group('AETRON RG-F1 Independent QA Remediation Suite (P0-01, P0-02, P1-01, QA-01)', () {
+    test('P0-01.1: Legacy manifest with populated cloud_verified_sha256 cannot self-verify (P0-01)', () {
+      final points = [
+        createPoint(sessionId: 'p0-01-legacy', index: 0),
+        createPoint(sessionId: 'p0-01-legacy', index: 1),
+      ];
+      final canonPoints = points.map(CanonicalGpsPoint.fromLocal).toList();
+      final canonicalDigest = RawGpsCanonicalVerification.computeCanonicalDigest(canonPoints);
+
+      // Legacy v1 manifest that has cloud_verified_sha256 populated, but lacks canonicalCaptureDigest
+      final legacyManifest = RawGpsJournalManifest(
+        schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+        workoutId: 'p0-01-legacy',
+        userId: testUserId,
+        sampleCount: 2,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        isFinalized: true,
+        fileSha256: 'legacy_file_hash',
+        canonicalCaptureDigest: null,
+        cloudVerified: true,
+        cloudVerifiedCount: 2,
+        cloudVerifiedSha256: canonicalDigest, // Server echo present!
+      );
+
+      final report = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: 'p0-01-legacy',
+        manifest: legacyManifest,
+        cloudPoints: canonPoints,
+      );
+
+      // Must remain RESTORED_UNVERIFIED! cloud_verified_sha256 cannot replace independent capture proof.
+      expect(report.state, RawGpsVerificationState.restoredUnverified);
+      expect(report.isVerified, isFalse);
+      expect(report.message, contains('RESTORED_UNVERIFIED'));
+
+      // Also v2 manifest without canonicalCaptureDigest but with cloudVerifiedSha256 must remain unverified
+      final unverifiedV2Manifest = legacyManifest.copyWith(
+        schemaVersion: RawGpsJournalManifest.currentSchemaVersion,
+        canonicalCaptureDigest: null,
+      );
+      final reportV2 = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: 'p0-01-legacy',
+        manifest: unverifiedV2Manifest,
+        cloudPoints: canonPoints,
+      );
+      expect(reportV2.state, RawGpsVerificationState.restoredUnverified);
+      expect(reportV2.isVerified, isFalse);
+    });
+
+    test('P0-01.2: Manifest and point identity verification fails closed on foreign workouts (P0-01)', () {
+      final points = [createPoint(sessionId: 'workout-A', index: 0)];
+      final canonA = points.map(CanonicalGpsPoint.fromLocal).toList();
+      final digestA = RawGpsCanonicalVerification.computeCanonicalDigest(canonA);
+
+      final manifestA = RawGpsJournalManifest(
+        workoutId: 'workout-A',
+        userId: testUserId,
+        sampleCount: 1,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        isFinalized: true,
+        canonicalCaptureDigest: digestA,
+      );
+
+      // 1. Manifest workoutId mismatch
+      final reportMismatchWorkout = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: 'workout-B', // requesting verification for workout B
+        manifest: manifestA,    // but provided manifest is for workout A
+        cloudPoints: canonA,
+      );
+      expect(reportMismatchWorkout.state, RawGpsVerificationState.integrityMismatch);
+      expect(reportMismatchWorkout.message, contains('Manifest workoutId (workout-A) does not match'));
+
+      // 2. Cloud point workoutId mismatch
+      final foreignPoints = [
+        CanonicalGpsPoint(
+          workoutId: 'foreign-workout',
+          timestamp: DateTime.utc(2026, 10, 20, 10, 0),
+          latitude: 10.7380,
+          longitude: 106.6250,
+        ),
+      ];
+      final reportMismatchPoint = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: 'workout-A',
+        manifest: manifestA,
+        cloudPoints: foreignPoints,
+      );
+      expect(reportMismatchPoint.state, RawGpsVerificationState.integrityMismatch);
+      expect(reportMismatchPoint.message, contains('Point identity mismatch'));
+    });
+
+    test('P0-01.3: Tampered or corrupted coordinates fail closed with INTEGRITY_MISMATCH (P0-01)', () async {
+      const sessionId = 'p0-01-tampered';
+      final p1 = createPoint(sessionId: sessionId, index: 0);
+      final p2 = createPoint(sessionId: sessionId, index: 1);
+      await journal.appendPoint(p1, userId: testUserId);
+      await journal.appendPoint(p2, userId: testUserId);
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final manifest = await journal.readManifest(sessionId);
+      expect(manifest, isNotNull);
+
+      // Simulate cloud points where coordinates were tampered with (e.g. latitude modified)
+      final tamperedCloud = [
+        CanonicalGpsPoint.fromLocal(p1),
+        CanonicalGpsPoint(
+          workoutId: sessionId,
+          timestamp: p2.timestamp,
+          latitude: p2.latitude + 0.005, // tampered!
+          longitude: p2.longitude,
+          altitude: p2.altitude,
+          speed: p2.speed,
+          accuracy: p2.accuracy,
+          heading: p2.heading,
+          deviceSource: p2.deviceSource,
+        ),
+      ];
+
+      final report = RawGpsCanonicalVerification.verifyAgainstManifest(
+        workoutId: sessionId,
+        manifest: manifest,
+        cloudPoints: tamperedCloud,
+      );
+
+      expect(report.state, RawGpsVerificationState.integrityMismatch);
+      expect(report.isVerified, isFalse);
+      expect(report.message, contains('Integrity mismatch'));
+    });
+
+    test('P0-02.1: Deletion store failure fails closed and preserves raw GPS safely locally (P0-02)', () async {
+      const sessionId = 'p0-02-db-failure';
+      final p = createPoint(sessionId: sessionId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        isSessionPendingDeletion: (s, u) async {
+          // Simulate SQLite failure (disk error, locked db, table corrupted)
+          throw StateError('SQLite Database locked or corrupted');
+        },
+        getOwnedSessionIds: (_) async => [sessionId],
+        getPendingGpsSessionIds: (_) async => [sessionId],
+        getUnsyncedPoints: (_) async => [p],
+        getAllLocalPoints: (_) async => [p],
+        markPointsSynced: (_) async {},
+      );
+
+      // 1. Direct upload fails closed to pendingUpload (never uploads or deletes)
+      final report = await outbox.uploadAndVerifySession(sessionId);
+      expect(report.state, RawGpsVerificationState.pendingUpload);
+      expect(report.isVerified, isFalse);
+      expect(report.message, contains('Deletion state cannot be determined safely'));
+      expect(mockTracking.getServerPoints(sessionId), isEmpty);
+
+      // Journal file remains untouched and preserved
+      final journalFile = await journal.fileForSession(sessionId);
+      expect(await journalFile.exists(), isTrue);
+
+      // 2. resumePendingUploads also fails closed (skips candidate rather than uploading)
+      final resumedCount = await outbox.resumePendingUploads();
+      expect(resumedCount, 0);
+      expect(mockTracking.getServerPoints(sessionId), isEmpty);
+    });
+
+    test('P0-02.2: Queued deletions during account switch are excluded safely (P0-02)', () async {
+      const sessionUserA = 'p0-02-user-a-del';
+      final p = createPoint(sessionId: sessionUserA, index: 0);
+      await journal.appendPoint(p, userId: 'user-a');
+      await journal.flushSession(sessionUserA);
+      await journal.checkpoint(sessionUserA, isFinalized: true);
+
+      var activeUser = 'user-a';
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => activeUser,
+        isSessionPendingDeletion: (s, u) async {
+          return u == 'user-a' && s == sessionUserA;
+        },
+        getOwnedSessionIds: (u) async => u == 'user-a' ? [sessionUserA] : [],
+        getPendingGpsSessionIds: (u) async => u == 'user-a' ? [sessionUserA] : [],
+        getUnsyncedPoints: (_) async => [p],
+        getAllLocalPoints: (_) async => [p],
+        markPointsSynced: (_) async {},
+      );
+
+      // Under user-a, session is excluded due to deletion
+      final aResumed = await outbox.resumePendingUploads();
+      expect(aResumed, 0);
+      expect(mockTracking.getServerPoints(sessionUserA), isEmpty);
+
+      // Switch to user-b: user-b does not own sessionUserA
+      activeUser = 'user-b';
+      final bResumed = await outbox.resumePendingUploads();
+      expect(bResumed, 0);
+      expect(mockTracking.getServerPoints(sessionUserA), isEmpty);
+    });
+
+    test('P1-01.1: Pending upload fairness: failing session does not starve later sessions (P1-01)', () async {
+      const failSession = 'p1-01-fail-session';
+      const successSession = 'p1-01-success-session';
+
+      final pFail = createPoint(sessionId: failSession, index: 0);
+      final pSuccess = createPoint(sessionId: successSession, index: 0);
+
+      await journal.appendPoint(pFail, userId: testUserId);
+      await journal.flushSession(failSession);
+      await journal.checkpoint(failSession, isFinalized: true);
+
+      await journal.appendPoint(pSuccess, userId: testUserId);
+      await journal.flushSession(successSession);
+      await journal.checkpoint(successSession, isFinalized: true);
+
+      // Configure mockTracking so failSession fails, but successSession succeeds
+      mockTracking.failingSessionIds.add(failSession);
+
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        retryBackoffCalculator: (attempt) => Duration(seconds: attempt * 60),
+        getOwnedSessionIds: (_) async => [failSession, successSession],
+        getPendingGpsSessionIds: (_) async => [failSession, successSession],
+        getUnsyncedPoints: (s) async => [s == failSession ? pFail : pSuccess],
+        getAllLocalPoints: (s) async => [s == failSession ? pFail : pSuccess],
+        markPointsSynced: (_) async {},
+      );
+
+      // Pass 1: maxSessions = 1. Takes failSession. Fails and enters 60s backoff.
+      final pass1Count = await outbox.resumePendingUploads(maxSessions: 1);
+      expect(pass1Count, 0);
+      expect(outbox.getRetryCount(failSession), 1);
+      expect(outbox.getNextRetryUtc(failSession), isNotNull);
+
+      // Pass 2: immediately invoke with maxSessions = 1.
+      // failSession is in backoff, so it MUST NOT starve successSession!
+      final pass2Count = await outbox.resumePendingUploads(maxSessions: 1);
+      expect(pass2Count, 1);
+      expect(mockTracking.getServerPoints(successSession), hasLength(1));
+
+      final successManifest = await journal.readManifest(successSession);
+      expect(successManifest!.cloudVerified, isTrue);
+
+      // Clean up mockTracking
+      mockTracking.failingSessionIds.remove(failSession);
+    });
+
+    test('P1-01.2: Backlog fairness and exponential backoff persist across outbox restart (P1-01)', () async {
+      const failSession = 'p1-01-restart-fail';
+      const successSession = 'p1-01-restart-success';
+
+      final pFail = createPoint(sessionId: failSession, index: 0);
+      final pSuccess = createPoint(sessionId: successSession, index: 0);
+
+      await journal.appendPoint(pFail, userId: testUserId);
+      await journal.flushSession(failSession);
+      await journal.checkpoint(failSession, isFinalized: true);
+
+      await journal.appendPoint(pSuccess, userId: testUserId);
+      await journal.flushSession(successSession);
+      await journal.checkpoint(successSession, isFinalized: true);
+
+      mockTracking.failingSessionIds.add(failSession);
+
+      // Outbox 1 attempts failSession and fails
+      final outbox1 = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        retryBackoffCalculator: (attempt) => Duration(seconds: attempt * 60),
+        getOwnedSessionIds: (_) async => [failSession, successSession],
+        getPendingGpsSessionIds: (_) async => [failSession, successSession],
+        getUnsyncedPoints: (s) async => [s == failSession ? pFail : pSuccess],
+        getAllLocalPoints: (s) async => [s == failSession ? pFail : pSuccess],
+        markPointsSynced: (_) async {},
+      );
+
+      await outbox1.resumePendingUploads(maxSessions: 1);
+
+      // Verify manifest on disk recorded backoff and retry count
+      final failManifest = await journal.readManifest(failSession);
+      expect(failManifest, isNotNull);
+      expect(failManifest!.retryCount, 1);
+      expect(failManifest.nextRetryTimestampUtc, isNotNull);
+      expect(DateTime.now().toUtc().isBefore(failManifest.nextRetryTimestampUtc!), isTrue);
+
+      // Outbox 2 simulates app restart: fresh outbox instance with empty in-memory retry state!
+      final outbox2 = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getOwnedSessionIds: (_) async => [failSession, successSession],
+        getPendingGpsSessionIds: (_) async => [failSession, successSession],
+        getUnsyncedPoints: (s) async => [s == failSession ? pFail : pSuccess],
+        getAllLocalPoints: (s) async => [s == failSession ? pFail : pSuccess],
+        markPointsSynced: (_) async {},
+      );
+
+      // Outbox 2 must read disk manifest, detect active backoff for failSession,
+      // and fairly execute successSession instead!
+      final pass2Count = await outbox2.resumePendingUploads(maxSessions: 1);
+      expect(pass2Count, 1);
+      expect(mockTracking.getServerPoints(successSession), hasLength(1));
+
+      mockTracking.failingSessionIds.remove(failSession);
     });
   });
 }
