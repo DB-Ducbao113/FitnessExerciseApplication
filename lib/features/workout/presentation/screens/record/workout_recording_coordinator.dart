@@ -305,36 +305,42 @@ class WorkoutRecordingCoordinator {
     final diagnostics = rawTrackingDiagnostics;
     await logProcessingEvent(
       workoutId: workoutId,
-      eventType: diagnostics.isComplete
-          ? 'client_raw_gps_complete'
-          : 'client_raw_gps_incomplete',
-      message: diagnostics.isComplete
-          ? 'Client confirmed durable raw GPS capture.'
-          : 'Client detected incomplete raw GPS capture.',
+      eventType: kIsWeb
+          ? 'client_raw_gps_unsupported_web'
+          : (diagnostics.isComplete
+              ? 'client_raw_gps_complete'
+              : 'client_raw_gps_incomplete'),
+      message: kIsWeb
+          ? 'Research-grade raw GPS persistence is unsupported on Flutter Web.'
+          : (diagnostics.isComplete
+              ? 'Client confirmed durable raw GPS capture.'
+              : 'Client detected incomplete raw GPS capture.'),
       payload: diagnostics.toJson(),
-      logLevel: diagnostics.isComplete ? 'info' : 'warning',
+      logLevel: (kIsWeb || !diagnostics.isComplete) ? 'warning' : 'info',
     );
-    // Finalize the durable recovery journal: recording is complete locally regardless
-    // of whether live streaming upload completed or dropped points (RG-F1.3).
-    try {
-      await _recoveryJournal.checkpoint(
-        workoutId,
-        isFinalized: true,
-        cloudVerified: false,
-        cloudVerifiedCount: diagnostics.serverConfirmedGpsPoints,
-      );
-    } catch (_) {}
-
-    // Trigger durable outbox upload and canonical read-back verification (RG-1B / RG-F1.3).
-    // The outbox service is responsible for reconciling any points missed by live streaming,
-    // performing chunked upload, and executing canonical read-back verification.
-    if (_outboxService != null) {
+    if (!kIsWeb) {
+      // Finalize the durable recovery journal: recording is complete locally regardless
+      // of whether live streaming upload completed or dropped points (RG-F1.3).
       try {
-        await _outboxService.uploadAndVerifySession(workoutId);
-      } catch (e) {
-        debugPrint(
-          '[Workout][RawTracking] Post-finalization outbox sync error: $e',
+        await _recoveryJournal.checkpoint(
+          workoutId,
+          isFinalized: true,
+          cloudVerified: false,
+          cloudVerifiedCount: diagnostics.serverConfirmedGpsPoints,
         );
+      } catch (_) {}
+
+      // Trigger durable outbox upload and canonical read-back verification (RG-1B / RG-F1.3).
+      // The outbox service is responsible for reconciling any points missed by live streaming,
+      // performing chunked upload, and executing canonical read-back verification.
+      if (_outboxService != null) {
+        try {
+          await _outboxService.uploadAndVerifySession(workoutId);
+        } catch (e) {
+          debugPrint(
+            '[Workout][RawTracking] Post-finalization outbox sync error: $e',
+          );
+        }
       }
     }
     return diagnostics;
@@ -616,6 +622,7 @@ class WorkoutRecordingCoordinator {
   }
 
   void _queueLocalGpsWrite(LocalGPSPoint point, String workoutId) {
+    if (kIsWeb) return;
     final generation = _trackingGeneration;
     _localWriteTail = _localWriteTail.then((_) async {
       var hasDurableLocalCopy = false;
@@ -762,7 +769,10 @@ class RawTrackingDiagnostics {
   final int pendingGpsPoints;
   final int? serverConfirmedGpsPoints;
 
+  bool get isPlatformSupported => !kIsWeb;
+
   bool get isComplete =>
+      !kIsWeb &&
       capturedGpsPoints > 0 &&
       localSavedGpsPoints == capturedGpsPoints &&
       localFailedGpsPoints == 0 &&
@@ -771,6 +781,7 @@ class RawTrackingDiagnostics {
       serverConfirmedGpsPoints! >= expectedUniqueGpsPoints;
 
   Map<String, dynamic> toJson() => {
+    'platform_supported': !kIsWeb,
     'raw_gps_captured_points': capturedGpsPoints,
     'raw_gps_expected_unique_points': expectedUniqueGpsPoints,
     'raw_gps_local_saved_points': localSavedGpsPoints,
@@ -783,7 +794,7 @@ class RawTrackingDiagnostics {
     'raw_gps_pending_points': pendingGpsPoints,
     'raw_gps_server_confirmed_points': serverConfirmedGpsPoints,
     'raw_gps_complete': isComplete,
-    'raw_gps_recovery_journal_retained': !isComplete,
+    'raw_gps_recovery_journal_retained': !kIsWeb && !isComplete,
   };
 }
 

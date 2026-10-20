@@ -4,6 +4,7 @@ import 'package:fitness_exercise_application/features/workout/data/local/local_d
 import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final rawGpsCloudRecoveryServiceProvider =
@@ -80,6 +81,17 @@ class RawGpsCloudRecoveryService {
     String workoutId, {
     int pageSize = 1000,
   }) async {
+    if (kIsWeb) {
+      return RawGpsCloudRecoveryResult(
+        workoutId: workoutId,
+        state: RawGpsVerificationState.unsupported,
+        restoredPointsCount: 0,
+        preservedLocalPointsCount: 0,
+        totalPointsCount: 0,
+        message:
+            'Research-grade raw GPS recovery and local persistence are supported only on native mobile platforms (iOS/Android). Unsupported on web.',
+      );
+    }
     final userId = _currentUserId();
     if (userId == null || userId.trim().isEmpty) {
       return RawGpsCloudRecoveryResult(

@@ -407,6 +407,15 @@ class RawGpsRecoveryJournal {
     LocalGPSPoint point, {
     String? userId,
   }) async {
+    if (kIsWeb) {
+      return const RawGpsAppendResult(
+        success: false,
+        sampleIndex: -1,
+        latencyMicros: 0,
+        error:
+            'Raw GPS recovery journal is supported on native mobile only (iOS/Android). Unsupported on web.',
+      );
+    }
     final writer = await _getOrCreateWriter(point.sessionId, userId: userId);
     return writer.append(point, userId: userId);
   }
@@ -422,6 +431,7 @@ class RawGpsRecoveryJournal {
     String? schemaVersion,
     String? verificationState,
   }) async {
+    if (kIsWeb) return;
     final writer = _activeWriters[sessionId];
     if (writer != null) {
       await writer.checkpoint(
@@ -479,6 +489,7 @@ class RawGpsRecoveryJournal {
 
   /// Flushes all queued appends and checkpoints the session.
   Future<void> flushSession(String sessionId) async {
+    if (kIsWeb) return;
     final writer = _activeWriters[sessionId];
     if (writer != null) {
       await writer.waitForInFlightWrites();
@@ -488,6 +499,20 @@ class RawGpsRecoveryJournal {
 
   /// Returns diagnostic metrics for the session writer.
   RawGpsJournalDiagnostics getDiagnostics(String sessionId) {
+    if (kIsWeb) {
+      return RawGpsJournalDiagnostics(
+        sessionId: sessionId,
+        acceptedSamples: 0,
+        queuedAppends: 0,
+        committedSamples: 0,
+        durableSamples: 0,
+        failedSamples: 0,
+        droppedSamples: 0,
+        totalLatencyMicros: 0,
+        minLatencyMicros: 0,
+        maxLatencyMicros: 0,
+      );
+    }
     final writer = _activeWriters[sessionId];
     if (writer == null) {
       return RawGpsJournalDiagnostics(
@@ -515,6 +540,9 @@ class RawGpsRecoveryJournal {
     String sessionId, {
     String? activeUserId,
   }) async {
+    if (kIsWeb) {
+      return RawGpsRecoveryResult.empty(sessionId);
+    }
     RawGpsJournalManifest? manifest = await readManifest(sessionId);
 
     // Account Isolation Check
@@ -730,6 +758,7 @@ class RawGpsRecoveryJournal {
 
   /// Reads the companion manifest for [sessionId], if present.
   Future<RawGpsJournalManifest?> readManifest(String sessionId) async {
+    if (kIsWeb) return null;
     final file = await manifestFileForSession(sessionId);
     if (!await file.exists()) return null;
     try {
@@ -778,6 +807,7 @@ class RawGpsRecoveryJournal {
     required bool success,
     Duration nextBackoff = const Duration(minutes: 5),
   }) async {
+    if (kIsWeb) return;
     final manifest = await readManifest(sessionId);
     if (manifest == null) return;
     final manifestFile = await manifestFileForSession(sessionId);
@@ -813,7 +843,7 @@ class RawGpsRecoveryJournal {
     required Set<String> ownedSessionIds,
     Future<bool> Function(String sessionId, String userId)? ownershipVerifier,
   }) async {
-    if (userId.trim().isEmpty) return const [];
+    if (kIsWeb || userId.trim().isEmpty) return const [];
     final documents = await _documentsDirectory();
     final directory = Directory(p.join(documents.path, 'raw_gps_recovery'));
     if (!await directory.exists()) return const [];
@@ -1056,6 +1086,7 @@ class RawGpsRecoveryJournal {
     int? verifiedIsarCount,
     String? cloudReadBackSha256,
   }) async {
+    if (kIsWeb) return;
     // 1. Any automatic or non-forced deletion MUST fail closed.
     if (!force) {
       throw StateError(
@@ -1392,7 +1423,7 @@ class _SessionJournalWriter {
   int _failedCount = 0;
   int _droppedCount = 0;
   int _totalLatencyMicros = 0;
-  int _minLatencyMicros = 0x7fffffffffffffff;
+  int? _minLatencyMicros;
   int _maxLatencyMicros = 0;
 
   DateTime? _firstTimestamp;
@@ -1442,7 +1473,7 @@ class _SessionJournalWriter {
         sw.stop();
         final latencyMicros = sw.elapsedMicroseconds;
         _totalLatencyMicros += latencyMicros;
-        if (latencyMicros < _minLatencyMicros) {
+        if (_minLatencyMicros == null || latencyMicros < _minLatencyMicros!) {
           _minLatencyMicros = latencyMicros;
         }
         if (latencyMicros > _maxLatencyMicros) {
@@ -1522,8 +1553,7 @@ class _SessionJournalWriter {
       failedSamples: _failedCount,
       droppedSamples: _droppedCount,
       totalLatencyMicros: _totalLatencyMicros,
-      minLatencyMicros:
-          _minLatencyMicros == 0x7fffffffffffffff ? 0 : _minLatencyMicros,
+      minLatencyMicros: _minLatencyMicros ?? 0,
       maxLatencyMicros: _maxLatencyMicros,
     );
   }

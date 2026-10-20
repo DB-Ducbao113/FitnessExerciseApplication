@@ -15,7 +15,8 @@ enum RawGpsVerificationState {
   integrityMismatch,
   restoredUnverified,
   unknown,
-  authRequired;
+  authRequired,
+  unsupported;
 
   String get label => switch (this) {
     RawGpsVerificationState.pendingUpload => 'PENDING_UPLOAD',
@@ -27,6 +28,7 @@ enum RawGpsVerificationState {
     RawGpsVerificationState.restoredUnverified => 'RESTORED_UNVERIFIED',
     RawGpsVerificationState.unknown => 'UNKNOWN',
     RawGpsVerificationState.authRequired => 'AUTH_REQUIRED',
+    RawGpsVerificationState.unsupported => 'UNSUPPORTED',
   };
 }
 
@@ -195,6 +197,26 @@ class RawGpsCanonicalVerification {
       buffer.write(sorted[i].toCanonicalLine());
     }
     return sha256.convert(utf8.encode(buffer.toString())).toString();
+  }
+
+  /// Returns a fail-closed verification report explicitly designating an unsupported platform (RG-F2).
+  static RawGpsVerificationReport unsupportedPlatform({
+    required String workoutId,
+    String platform = 'web',
+  }) {
+    return RawGpsVerificationReport(
+      workoutId: workoutId,
+      state: RawGpsVerificationState.unsupported,
+      localCount: 0,
+      cloudCount: 0,
+      localDigest: emptyDigest,
+      cloudDigest: null,
+      missingCloudSampleCount: 0,
+      extraCloudSampleCount: 0,
+      mismatchedSampleCount: 0,
+      message:
+          'Research-grade raw GPS capture and cloud outbox verification are supported only on native mobile platforms (iOS/Android). Unsupported on $platform.',
+    );
   }
 
   /// Verifies server-retrieved records against local ground truth.

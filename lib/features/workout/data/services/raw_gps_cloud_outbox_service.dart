@@ -93,6 +93,17 @@ class ReconciledLocalCapture {
     this.expectedDigest,
     this.incompleteReason,
   });
+
+  factory ReconciledLocalCapture.empty() => const ReconciledLocalCapture(
+    canonicalPoints: [],
+    payloadsToUpload: [],
+    isarPointIdsToMarkSynced: [],
+    hasCorruptedJournal: false,
+    corruptedJournalLines: 0,
+    isarCount: 0,
+    journalCount: 0,
+    journalStatus: RawGpsRecoveryStatus.emptyOrNotFound,
+  );
 }
 
 /// Durable Cloud Upload Outbox service implementing RG-1B & RG-1B.1:
@@ -239,6 +250,9 @@ class RawGpsCloudOutboxService {
     String sessionId, {
     required String activeUserId,
   }) async {
+    if (kIsWeb) {
+      return ReconciledLocalCapture.empty();
+    }
     final isarAll = await _getAllLocalPoints(sessionId);
     final isarUnsynced = await _getUnsyncedPoints(sessionId);
     final journalResult = await _journal.readJournal(
@@ -403,6 +417,13 @@ class RawGpsCloudOutboxService {
     String sessionId, {
     int maxRetries = 3,
   }) async {
+    if (kIsWeb) {
+      _updateState(sessionId, RawGpsVerificationState.unsupported, 0, 0);
+      return RawGpsCanonicalVerification.unsupportedPlatform(
+        workoutId: sessionId,
+        platform: 'web',
+      );
+    }
     final activeUser = _currentUserId();
     if (activeUser == null || activeUser.trim().isEmpty) {
       _updateState(sessionId, RawGpsVerificationState.authRequired, 0, 0);
@@ -878,6 +899,7 @@ class RawGpsCloudOutboxService {
     int maxSessions = 5,
     Set<String> excludedSessionIds = const <String>{},
   }) async {
+    if (kIsWeb) return 0;
     final activeUser = _currentUserId();
     if (activeUser == null || activeUser.trim().isEmpty || maxSessions <= 0) {
       return 0;
