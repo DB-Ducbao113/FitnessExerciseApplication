@@ -1782,6 +1782,262 @@ void main() {
       mockTracking.failingSessionIds.remove(failSession);
     });
   });
+
+  group('AETRON RG-F1 Final Independent QA Hardening Suite (P0-A, P0-B, P1-A, QA-B)', () {
+    test('P0-A.1: Incomplete capture: 3 captured, 1 corrupted, Isar empty -> returns PARTIAL, never CLOUD_VERIFIED', () async {
+      final sessionId = 'p0-a-incomplete-${DateTime.now().millisecondsSinceEpoch}';
+      final startTime = DateTime.utc(2026, 10, 19, 10, 0, 0);
+
+      // 1. Write 3 original samples to journal and checkpoint
+      final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime);
+      final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime);
+      final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime);
+
+      await journal.appendPoint(p0, userId: testUserId);
+      await journal.appendPoint(p1, userId: testUserId);
+      await journal.appendPoint(p2, userId: testUserId);
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      final initialManifest = await journal.readManifest(sessionId);
+      expect(initialManifest!.sampleCount, 3);
+      expect(initialManifest.canonicalCaptureDigest, isNotNull);
+
+      // 2. Corrupt line 2 in journal file
+      final journalFile = await journal.fileForSession(sessionId);
+      final lines = await journalFile.readAsLines();
+      expect(lines.length, 3);
+      lines[1] = '{"corrupted": true, broken json...';
+      await journalFile.writeAsString('${lines.join('\n')}\n');
+
+      // 3. Isar is completely empty (write failure during workout)
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (_) async => const [],
+        getAllLocalPoints: (_) async => const [],
+        markPointsSynced: (_) async {},
+      );
+
+      // 4. Upload and verify session
+      final report = await outbox.uploadAndVerifySession(sessionId);
+
+      // 5. Verification: CANNOT become CLOUD_VERIFIED! Must fail closed to PARTIAL!
+      expect(report.state, RawGpsVerificationState.partial);
+      expect(report.isVerified, isFalse);
+      expect(report.localCount, 3); // Expected original 3 samples from manifest
+      expect(report.cloudCount, 2); // Cloud only confirmed 2 recovered samples
+      expect(report.missingCloudSampleCount, 1);
+      expect(report.state.label, 'PARTIAL');
+
+      // Assert journal manifest on disk is NOT cloud-verified
+      final diskManifest = await journal.readManifest(sessionId);
+      expect(diskManifest!.cloudVerified, isFalse);
+    });
+
+    test('P0-A.2: Complete Isar records are NOT rejected solely because redundant journal copy is damaged', () async {
+      final sessionId = 'p0-a-complete-isar-${DateTime.now().millisecondsSinceEpoch}';
+      final startTime = DateTime.utc(2026, 10, 19, 10, 0, 0);
+
+      final p0 = createPoint(sessionId: sessionId, index: 0, startTime: startTime);
+      final p1 = createPoint(sessionId: sessionId, index: 1, startTime: startTime);
+      final p2 = createPoint(sessionId: sessionId, index: 2, startTime: startTime);
+      final isarPoints = [p0, p1, p2];
+
+      // 1. Write 3 samples to journal and checkpoint
+      await journal.appendPoint(p0, userId: testUserId);
+      await journal.appendPoint(p1, userId: testUserId);
+      await journal.appendPoint(p2, userId: testUserId);
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      // 2. Corrupt line 2 in journal file
+      final journalFile = await journal.fileForSession(sessionId);
+      final lines = await journalFile.readAsLines();
+      lines[1] = '{corrupted_data_line}';
+      await journalFile.writeAsString('${lines.join('\n')}\n');
+
+      final syncedIds = <int>{};
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        getUnsyncedPoints: (_) async => isarPoints.where((p) => !syncedIds.contains(p.id)).toList(),
+        getAllLocalPoints: (_) async => isarPoints,
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      // 3. Upload and verify session: complete Isar points heal the corrupted journal copy
+      final report = await outbox.uploadAndVerifySession(sessionId);
+
+      expect(report.state, RawGpsVerificationState.cloudVerified);
+      expect(report.isVerified, isTrue);
+      expect(report.localCount, 3);
+      expect(report.cloudCount, 3);
+      expect(report.missingCloudSampleCount, 0);
+      expect(syncedIds.length, 3);
+    });
+
+    test('P0-B.1: Legacy v1 manifest without canonicalCaptureDigest remains visible in listPendingSessionIdsForUser', () async {
+      final legacySession = 'p0-b-legacy-${DateTime.now().millisecondsSinceEpoch}';
+      final modernSession = 'p0-b-modern-${DateTime.now().millisecondsSinceEpoch}';
+      final pLegacy = createPoint(sessionId: legacySession, index: 0);
+      final pModern = createPoint(sessionId: modernSession, index: 0);
+
+      // 1. Write journals
+      await journal.appendPoint(pLegacy, userId: testUserId);
+      await journal.flushSession(legacySession);
+      await journal.appendPoint(pModern, userId: testUserId);
+      await journal.flushSession(modernSession);
+      await journal.checkpoint(modernSession, isFinalized: true);
+
+      // 2. Modern manifest has genuine canonicalCaptureDigest and cloudVerified
+      final modernManifestFile = await journal.manifestFileForSession(modernSession);
+      final modernContent = await modernManifestFile.readAsString();
+      final modernManifest = RawGpsJournalManifest.fromJson(
+        jsonDecode(modernContent) as Map<String, dynamic>,
+      );
+      final modernVerified = modernManifest.copyWith(
+        cloudVerified: true,
+        cloudVerifiedCount: 1,
+        cloudVerifiedSha256: modernManifest.canonicalCaptureDigest,
+      );
+      final tempModern = File('${modernManifestFile.path}.tmp');
+      await tempModern.writeAsString(jsonEncode(modernVerified.toJson()));
+      await tempModern.rename(modernManifestFile.path);
+
+      // 3. Create legacy v1 manifest for legacySession (has cloudVerified: true, but schemaVersionV1 and NO canonicalCaptureDigest)
+      final legacyManifest = RawGpsJournalManifest(
+        schemaVersion: RawGpsJournalManifest.schemaVersionV1,
+        workoutId: legacySession,
+        userId: testUserId,
+        sampleCount: 1,
+        checkpointSeq: 1,
+        checkpointTimestampUtc: DateTime.now().toUtc(),
+        isFinalized: true,
+        cloudVerified: true,
+        cloudVerifiedCount: 1,
+        cloudVerifiedSha256: 'server_sha_echo_without_capture_digest',
+        canonicalCaptureDigest: null,
+      );
+      final legacyManifestFile = await journal.manifestFileForSession(legacySession);
+      final tempLegacy = File('${legacyManifestFile.path}.tmp');
+      await tempLegacy.writeAsString(jsonEncode(legacyManifest.toJson()));
+      await tempLegacy.rename(legacyManifestFile.path);
+
+      // 4. Query pending sessions
+      final pending = await journal.listPendingSessionIdsForUser(
+        testUserId,
+        ownedSessionIds: {legacySession, modernSession},
+      );
+
+      // Assert legacySession remains visible for reconciliation, while modern verified session is safely skipped!
+      expect(pending, contains(legacySession));
+      expect(pending, isNot(contains(modernSession)));
+    });
+
+    test('P1-A.1: copyWith clears nextRetryTimestampUtc on disk on successful retry', () async {
+      final sessionId = 'p1-a-clear-${DateTime.now().millisecondsSinceEpoch}';
+      final p = createPoint(sessionId: sessionId, index: 0);
+      await journal.appendPoint(p, userId: testUserId);
+      await journal.flushSession(sessionId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      // Record failure with 15-minute backoff
+      await journal.recordRetryAttempt(
+        sessionId,
+        success: false,
+        nextBackoff: const Duration(minutes: 15),
+      );
+
+      final failedManifest = await journal.readManifest(sessionId);
+      expect(failedManifest!.retryCount, 1);
+      expect(failedManifest.nextRetryTimestampUtc, isNotNull);
+
+      // Record success: must clear nextRetryTimestampUtc on disk
+      await journal.recordRetryAttempt(sessionId, success: true);
+
+      final successManifest = await journal.readManifest(sessionId);
+      expect(successManifest!.retryCount, 0);
+      expect(successManifest.nextRetryTimestampUtc, isNull);
+    });
+
+    test('P1-A.2: Writer checkpoint preserves disk retry metadata without overwriting with stale writer state', () async {
+      final sessionId = 'p1-a-preserve-${DateTime.now().millisecondsSinceEpoch}';
+      final p0 = createPoint(sessionId: sessionId, index: 0);
+      final p1 = createPoint(sessionId: sessionId, index: 1);
+
+      // Start session, append p0
+      await journal.appendPoint(p0, userId: testUserId);
+      await journal.checkpoint(sessionId);
+
+      // External retry failure writes retry metadata to disk
+      final backoffTime = DateTime.utc(2026, 10, 20, 22, 0, 0);
+      final manifestFile = await journal.manifestFileForSession(sessionId);
+      final manifestOnDisk = await journal.readManifest(sessionId);
+      final updatedOnDisk = manifestOnDisk!.copyWith(
+        retryCount: 4,
+        lastRetryTimestampUtc: DateTime.utc(2026, 10, 20, 21, 50, 0),
+        nextRetryTimestampUtc: backoffTime,
+      );
+      final temp = File('${manifestFile.path}.tmp');
+      await temp.writeAsString(jsonEncode(updatedOnDisk.toJson()));
+      await temp.rename(manifestFile.path);
+
+      // Active writer appends p1 and executes internal checkpoint
+      await journal.appendPoint(p1, userId: testUserId);
+      await journal.checkpoint(sessionId, isFinalized: true);
+
+      // Assert disk manifest preserved retryCount and nextRetryTimestampUtc
+      final checkpointedManifest = await journal.readManifest(sessionId);
+      expect(checkpointedManifest!.retryCount, 4);
+      expect(checkpointedManifest.nextRetryTimestampUtc, backoffTime);
+      expect(checkpointedManifest.sampleCount, 2);
+    });
+
+    test('P1-A.3: Backlog fairness and backoff protect Isar-only sessions without a recovery manifest', () async {
+      final isarFailSession = 'p1-a-isar-fail-${DateTime.now().millisecondsSinceEpoch}';
+      final isarSuccessSession = 'p1-a-isar-success-${DateTime.now().millisecondsSinceEpoch}';
+
+      final pFail = createPoint(sessionId: isarFailSession, index: 0);
+      final pSuccess = createPoint(sessionId: isarSuccessSession, index: 0);
+
+      // Neither session has a journal or manifest on disk
+      expect(await journal.readManifest(isarFailSession), isNull);
+      expect(await journal.readManifest(isarSuccessSession), isNull);
+
+      mockTracking.failingSessionIds.add(isarFailSession);
+
+      final syncedIds = <int>{};
+      final outbox = RawGpsCloudOutboxService(
+        rawTracking: mockTracking,
+        journal: journal,
+        currentUserId: () => testUserId,
+        retryBackoffCalculator: (attempt) => Duration(seconds: attempt * 60),
+        getOwnedSessionIds: (_) async => [isarFailSession, isarSuccessSession],
+        getPendingGpsSessionIds: (_) async => [isarFailSession, isarSuccessSession],
+        getUnsyncedPoints: (s) async => [s == isarFailSession ? pFail : pSuccess],
+        getAllLocalPoints: (s) async => [s == isarFailSession ? pFail : pSuccess],
+        markPointsSynced: (ids) async => syncedIds.addAll(ids),
+      );
+
+      // Pass 1: maxSessions: 1 picks isarFailSession. Fails and enters 60s backoff in memory.
+      final pass1Count = await outbox.resumePendingUploads(maxSessions: 1);
+      expect(pass1Count, 0);
+      expect(outbox.getRetryCount(isarFailSession), 1);
+      expect(outbox.getNextRetryUtc(isarFailSession), isNotNull);
+
+      // Pass 2: maxSessions: 1 immediately invoked.
+      // isarFailSession is in backoff, so it must not starve isarSuccessSession!
+      final pass2Count = await outbox.resumePendingUploads(maxSessions: 1);
+      expect(pass2Count, 1);
+      expect(syncedIds, contains(pSuccess.id));
+      expect(mockTracking.getServerPoints(isarSuccessSession), hasLength(1));
+
+      mockTracking.failingSessionIds.remove(isarFailSession);
+    });
+  });
 }
 
 class _FailingReadTrackingDataSource implements RawTrackingRemoteDataSource {

@@ -69,6 +69,13 @@ class ReconciledLocalCapture {
   final int corruptedJournalLines;
   final int isarCount;
   final int journalCount;
+  final RawGpsJournalManifest? manifest;
+  final RawGpsRecoveryStatus journalStatus;
+  final bool hasTruncatedFinalLine;
+  final bool isLocalCaptureIncomplete;
+  final int? expectedSampleCount;
+  final String? expectedDigest;
+  final String? incompleteReason;
 
   const ReconciledLocalCapture({
     required this.canonicalPoints,
@@ -78,6 +85,13 @@ class ReconciledLocalCapture {
     required this.corruptedJournalLines,
     required this.isarCount,
     required this.journalCount,
+    this.manifest,
+    this.journalStatus = RawGpsRecoveryStatus.emptyOrNotFound,
+    this.hasTruncatedFinalLine = false,
+    this.isLocalCaptureIncomplete = false,
+    this.expectedSampleCount,
+    this.expectedDigest,
+    this.incompleteReason,
   });
 }
 
@@ -315,6 +329,46 @@ class RawGpsCloudOutboxService {
       }
     }
 
+    final manifest = journalResult.manifest;
+    bool isLocalCaptureIncomplete = false;
+    int? expectedSampleCount;
+    String? expectedDigest;
+    String? incompleteReason;
+
+    if (manifest != null && manifest.sampleCount > 0) {
+      expectedSampleCount = manifest.sampleCount;
+      expectedDigest = manifest.canonicalCaptureDigest;
+
+      if (canonicalPoints.length < manifest.sampleCount) {
+        isLocalCaptureIncomplete = true;
+        incompleteReason =
+            'Incomplete local capture: found ${canonicalPoints.length} points, but manifest specifies ${manifest.sampleCount} captured samples.';
+      } else if (manifest.canonicalCaptureDigest != null &&
+          manifest.canonicalCaptureDigest!.isNotEmpty &&
+          manifest.schemaVersion != RawGpsJournalManifest.schemaVersionV1) {
+        final localDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(canonicalPoints);
+        if (localDigest != manifest.canonicalCaptureDigest) {
+          isLocalCaptureIncomplete = true;
+          incompleteReason =
+              'Incomplete local capture: local canonical digest ($localDigest) does not match manifest capture digest (${manifest.canonicalCaptureDigest}).';
+        }
+      }
+    } else if (manifest == null) {
+      final lostLines = journalResult.corruptedLinesCount +
+          (journalResult.hasTruncatedFinalLine ? 1 : 0);
+      if (lostLines > 0) {
+        final totalRecovered = canonicalPoints.length;
+        final minExpected = journalResult.points.length + lostLines;
+        if (totalRecovered < minExpected) {
+          isLocalCaptureIncomplete = true;
+          expectedSampleCount = minExpected;
+          incompleteReason =
+              'Incomplete local capture: journal suffered data loss ($lostLines corrupted/truncated lines) and Isar only supplied $totalRecovered/$minExpected samples.';
+        }
+      }
+    }
+
     final isJournalCorrupted =
         journalResult.corruptedLinesCount > 0 ||
         journalResult.status == RawGpsRecoveryStatus.corrupted;
@@ -327,6 +381,13 @@ class RawGpsCloudOutboxService {
       corruptedJournalLines: journalResult.corruptedLinesCount,
       isarCount: isarAll.length,
       journalCount: journalResult.points.length,
+      manifest: manifest,
+      journalStatus: journalResult.status,
+      hasTruncatedFinalLine: journalResult.hasTruncatedFinalLine,
+      isLocalCaptureIncomplete: isLocalCaptureIncomplete,
+      expectedSampleCount: expectedSampleCount,
+      expectedDigest: expectedDigest,
+      incompleteReason: incompleteReason,
     );
   }
 
@@ -616,11 +677,50 @@ class RawGpsCloudOutboxService {
 
       final cloudCanon =
           cloudPoints.map(CanonicalGpsPoint.fromPayload).toList();
-      final report = RawGpsCanonicalVerification.verify(
-        workoutId: sessionId,
-        localPoints: localCanon,
-        cloudPoints: cloudCanon,
-      );
+      RawGpsVerificationReport report;
+
+      if (reconciled.isLocalCaptureIncomplete) {
+        // Enforce journal integrity and sample completeness before marking CLOUD_VERIFIED (P0-A).
+        // If local capture was corrupted or truncated without complete Isar backup,
+        // it can NEVER be CLOUD_VERIFIED, even if cloud matches the partial local subset.
+        final localDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(localCanon);
+        final cloudDigest =
+            RawGpsCanonicalVerification.computeCanonicalDigest(cloudCanon);
+        final expectedCount = reconciled.expectedSampleCount ??
+            (localCanon.length + reconciled.corruptedJournalLines);
+        report = RawGpsVerificationReport(
+          workoutId: sessionId,
+          state: RawGpsVerificationState.partial,
+          localCount: expectedCount,
+          cloudCount: cloudCanon.length,
+          localDigest: reconciled.expectedDigest ?? localDigest,
+          cloudDigest: cloudDigest,
+          missingCloudSampleCount: expectedCount > cloudCanon.length
+              ? expectedCount - cloudCanon.length
+              : 1,
+          extraCloudSampleCount: 0,
+          mismatchedSampleCount: 0,
+          message: reconciled.incompleteReason ??
+              'Partial local capture: journal records were corrupted/truncated without complete Isar backup; marked as PARTIAL.',
+        );
+      } else if (reconciled.manifest != null &&
+          reconciled.manifest!.canonicalCaptureDigest != null &&
+          reconciled.manifest!.schemaVersion !=
+              RawGpsJournalManifest.schemaVersionV1 &&
+          reconciled.journalStatus != RawGpsRecoveryStatus.staleCheckpoint) {
+        report = RawGpsCanonicalVerification.verifyAgainstManifest(
+          workoutId: sessionId,
+          manifest: reconciled.manifest,
+          cloudPoints: cloudCanon,
+        );
+      } else {
+        report = RawGpsCanonicalVerification.verify(
+          workoutId: sessionId,
+          localPoints: localCanon,
+          cloudPoints: cloudCanon,
+        );
+      }
 
       _updateState(
         sessionId,
@@ -648,6 +748,7 @@ class RawGpsCloudOutboxService {
           cloudVerified: true,
           cloudVerifiedCount: report.cloudCount,
           cloudVerifiedSha256: report.cloudDigest,
+          canonicalCaptureDigest: report.localDigest,
         );
         await _recordRetrySuccess(sessionId);
       } else {
