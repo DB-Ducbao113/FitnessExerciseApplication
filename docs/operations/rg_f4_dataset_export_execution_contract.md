@@ -2,7 +2,7 @@
 Date: 2026-10-21
 Branch: `feat/rg-f4-dataset-export`
 Base: `feat/rg-f3-real-device-e2e@4e741a32d3718cf8e0a9a60b41d4b6679130dab4`
-Status: IMPLEMENTATION NOT YET COMPLETE — DRAFT SPECIFICATION. RG-F overall HOLD.
+Status: CODE/INTEGRATION VERIFIED — PENDING PHYSICAL SHARE SHEET EXECUTION & QA. RG-F overall HOLD.
 
 ## Purpose and sequencing
 Owner-directed priority: implement RG-F4 export code now; perform physical RG-F3 tests after RG-F4 code/integration acceptance. No production deployment, merge to main, or research baseline tag while RG-F3 physical verification remains HOLD. After F4 + physical F3, use the owner's authentic historical route recordings (only with verified ownership and consent) for algorithm suitability research, not fabricated/benchmark simulation tracks.
