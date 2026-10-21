@@ -171,6 +171,7 @@ void main() {
         expect(json['platform'], entry.key.name);
         expect(json['label'], isNotEmpty);
         expect(json['description'], isNotEmpty);
+        expect(json['background_execution_contract'], isNotEmpty);
       }
     });
   });
@@ -468,17 +469,21 @@ void main() {
     test('RG-F2.3-5: Unsupported background execution is not represented as guaranteed', () {
       final web = RawGpsPlatformCapability.forPlatform(RawGpsTargetPlatform.web);
       expect(web.supportsBackgroundLocation, isFalse);
+      expect(web.backgroundExecutionContract, contains('Flutter Web does not support'));
 
       final other = RawGpsPlatformCapability.forPlatform(RawGpsTargetPlatform.other);
       expect(other.supportsBackgroundLocation, isFalse);
+      expect(other.backgroundExecutionContract, contains('Desktop platforms'));
 
       final ios = RawGpsPlatformCapability.forPlatform(RawGpsTargetPlatform.ios);
       expect(ios.supportsBackgroundLocation, isTrue);
       expect(ios.description, contains('AppleSettings background tracking'));
+      expect(ios.backgroundExecutionContract, contains('NOT guaranteed'));
 
       final android = RawGpsPlatformCapability.forPlatform(RawGpsTargetPlatform.android);
       expect(android.supportsBackgroundLocation, isTrue);
       expect(android.description, contains('foreground notification wakelock'));
+      expect(android.backgroundExecutionContract, contains('NOT guaranteed'));
     });
   });
 }

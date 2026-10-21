@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
 /// Target platforms evaluated for research-grade raw GPS capture and recovery.
@@ -35,6 +34,7 @@ class RawGpsPlatformCapability {
   final bool supportsCloudOutbox;
   final bool supportsLocalRecovery;
   final String description;
+  final String backgroundExecutionContract;
 
   const RawGpsPlatformCapability({
     required this.platform,
@@ -45,6 +45,7 @@ class RawGpsPlatformCapability {
     required this.supportsCloudOutbox,
     required this.supportsLocalRecovery,
     required this.description,
+    required this.backgroundExecutionContract,
   });
 
   /// Current platform capabilities determined at runtime.
@@ -52,10 +53,10 @@ class RawGpsPlatformCapability {
     if (kIsWeb) {
       return forPlatform(RawGpsTargetPlatform.web);
     }
-    if (Platform.isIOS) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       return forPlatform(RawGpsTargetPlatform.ios);
     }
-    if (Platform.isAndroid) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
       return forPlatform(RawGpsTargetPlatform.android);
     }
     return forPlatform(RawGpsTargetPlatform.other);
@@ -74,6 +75,8 @@ class RawGpsPlatformCapability {
         supportsLocalRecovery: true,
         description:
             'iOS: Primary target. Full research-grade raw GPS pipeline with dual local persistence (Isar + JSONL), AppleSettings background tracking, outbox sync, and canonical verification.',
+        backgroundExecutionContract:
+            'CoreLocation background mode with AppleSettings. Background execution is platform-dependent and is NOT guaranteed if the user force-quits the app from the app switcher or the OS terminates the process under severe memory pressure.',
       ),
       RawGpsTargetPlatform.android => const RawGpsPlatformCapability(
         platform: RawGpsTargetPlatform.android,
@@ -85,6 +88,8 @@ class RawGpsPlatformCapability {
         supportsLocalRecovery: true,
         description:
             'Android: Secondary native target. Full raw GPS pipeline with Isar + JSONL persistence, foreground notification wakelock, outbox sync, and canonical verification.',
+        backgroundExecutionContract:
+            'Foreground Service notification and partial wakelock. Background execution is platform-dependent and is NOT guaranteed if the app is swiped away from recents or terminated by aggressive OEM battery optimization.',
       ),
       RawGpsTargetPlatform.web => const RawGpsPlatformCapability(
         platform: RawGpsTargetPlatform.web,
@@ -96,6 +101,8 @@ class RawGpsPlatformCapability {
         supportsLocalRecovery: false,
         description:
             'Flutter Web: Explicitly descoped. Local Isar, file system journals, and background tracking are unavailable. Standard workout recording continues via lightweight route snapshots without claiming raw GPS durability.',
+        backgroundExecutionContract:
+            'Flutter Web does not support background location execution. Browser tabs are aggressively throttled or suspended when minimized or hidden, and no OS background service capability exists.',
       ),
       RawGpsTargetPlatform.other => const RawGpsPlatformCapability(
         platform: RawGpsTargetPlatform.other,
@@ -107,6 +114,8 @@ class RawGpsPlatformCapability {
         supportsLocalRecovery: false,
         description:
             'Desktop / Other: Fallback platform. Research-grade raw GPS capture is disabled.',
+        backgroundExecutionContract:
+            'Desktop platforms do not provide mobile background location services.',
       ),
     };
   }
@@ -126,5 +135,6 @@ class RawGpsPlatformCapability {
     'cloud_outbox': supportsCloudOutbox,
     'local_recovery': supportsLocalRecovery,
     'description': description,
+    'background_execution_contract': backgroundExecutionContract,
   };
 }
