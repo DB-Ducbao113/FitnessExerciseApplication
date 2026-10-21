@@ -40,10 +40,7 @@ ios/build/
 dist/
 package/
 build_web/
-/exports/*
-!/exports/historical/
-/exports/historical/*
-!/exports/historical/aetron_raw_gps_combined.csv
+/exports/
 
 
 # Android Studio / Release Keystores
