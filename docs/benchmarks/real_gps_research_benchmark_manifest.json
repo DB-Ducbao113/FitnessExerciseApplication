@@ -1,24 +1,27 @@
 {
   "schema_version": "1.0.0",
-  "generated_at_utc": "2026-10-21T08:55:33.254064Z",
+  "generated_at_utc": "2026-10-21T09:13:51.465312Z",
+  "execution_mode": "OPT_IN_LOCAL_AUTHORIZED_BENCHMARK",
+  "public_ci_behavior": "SKIPPED_GRACEFULLY_WHEN_PRIVATE_CSV_ABSENT",
   "dataset_evidence": {
     "source_file": "exports/historical/aetron_raw_gps_combined.csv",
     "file_sha256": "4352aaf43356ab1e7b5e0f4acd3ca8f20259417bde2b3f5bfbabf9c956d2a9c5",
     "total_raw_points": 10779,
     "deduped_points": 10730,
-    "session_count": 7,
-    "opt_in_execution_mode": "local_authorized_research"
+    "session_count": 7
   },
   "benchmark_results_file": "docs/benchmarks/real_gps_research_benchmark.json",
-  "benchmark_results_sha256": "617a756f75fb78b9749e0d85eda03682c6a2a12b4e89bdd47f80b49ebc8c67a8",
+  "benchmark_results_sha256": "3bc82946e89c067042aa5d6775817cb3007783099cfa2a7638d276427cfd18ab",
   "privacy_policy": {
     "coordinates_scrubbed": true,
     "personal_data_retained": false,
-    "public_git_exposure_prohibited": true
+    "public_git_exposure_prohibited": true,
+    "error_messages_contain_no_raw_coordinates": true
   },
   "scientific_governance": {
     "ground_truth_reference_present": false,
     "metric_nature": "relative_algorithm_deviation_only",
+    "causal_claims_policy": "HYPOTHESIS_BASED_REQUIRING_ABLATION_STUDY",
     "production_decision": "HOLD_EXISTING_PRODUCTION_ALGORITHM"
   }
 }

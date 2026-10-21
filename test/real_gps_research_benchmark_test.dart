@@ -12,14 +12,73 @@ import 'package:latlong2/latlong.dart';
 
 import 'helpers/experimental_gps_recovery_state_machine.dart';
 
-/// Proper, fail-closed CSV parser for Aetron raw GPS recordings.
+/// RFC 4180-compliant CSV row parser.
+/// Handles quoted fields, escaped double quotes (""), commas within quotes,
+/// and strips line endings without leaking coordinates or raw row content on error.
+List<String> parseRfc4180CsvLine(String line, int lineNumber) {
+  final fields = <String>[];
+  final buffer = StringBuffer();
+  var inQuotes = false;
+  var i = 0;
+
+  while (i < line.length) {
+    final char = line[i];
+
+    if (inQuotes) {
+      if (char == '"') {
+        if (i + 1 < line.length && line[i + 1] == '"') {
+          buffer.write('"');
+          i += 2;
+          continue;
+        } else {
+          inQuotes = false;
+          i++;
+          continue;
+        }
+      } else {
+        buffer.write(char);
+        i++;
+        continue;
+      }
+    } else {
+      if (char == '"') {
+        inQuotes = true;
+        i++;
+        continue;
+      } else if (char == ',') {
+        fields.add(buffer.toString());
+        buffer.clear();
+        i++;
+        continue;
+      } else if (char == '\r' || char == '\n') {
+        break;
+      } else {
+        buffer.write(char);
+        i++;
+        continue;
+      }
+    }
+  }
+
+  if (inQuotes) {
+    throw FormatException(
+      'RFC 4180 syntax error: unclosed quoted field at line $lineNumber',
+    );
+  }
+
+  fields.add(buffer.toString());
+  return fields;
+}
+
+/// Strict, fail-closed CSV parser for Aetron raw GPS recordings.
+/// Guarantees that neither raw coordinates nor full row contents appear in error messages.
 List<FieldGpsSample> parseGpsCsvFile(File file) {
   final lines = file.readAsLinesSync();
   if (lines.isEmpty) {
     throw const FormatException('GPS CSV file is empty');
   }
 
-  final header = lines.first.split(',').map((c) => c.trim()).toList();
+  final header = parseRfc4180CsvLine(lines.first, 1).map((c) => c.trim()).toList();
   const expectedHeader = [
     'workout_id',
     'timestamp',
@@ -48,54 +107,60 @@ List<FieldGpsSample> parseGpsCsvFile(File file) {
 
   final samples = <FieldGpsSample>[];
   for (var i = 1; i < lines.length; i++) {
-    final line = lines[i].trim();
+    final rawLine = lines[i];
+    final line = rawLine.trim();
     if (line.isEmpty) continue;
 
-    final cols = line.split(',');
+    final lineNumber = i + 1;
+    final cols = parseRfc4180CsvLine(line, lineNumber);
     if (cols.length != 10) {
       throw FormatException(
-        'Line ${i + 1} has ${cols.length} columns, expected 10: "$line"',
+        'Line $lineNumber: expected 10 columns, but parsed ${cols.length}',
       );
     }
 
     final workoutId = cols[0].trim();
     if (workoutId.isEmpty) {
-      throw FormatException('Line ${i + 1} has empty workout_id');
+      throw FormatException('Line $lineNumber, column 1: empty workout_id');
     }
 
     final timestamp = DateTime.tryParse(cols[1].trim())?.toUtc();
     if (timestamp == null) {
-      throw FormatException('Line ${i + 1} has invalid timestamp: "${cols[1]}"');
+      throw FormatException('Line $lineNumber, column 2: invalid timestamp format');
     }
 
     final lat = double.tryParse(cols[2].trim());
     if (lat == null || !lat.isFinite || lat < -90.0 || lat > 90.0) {
-      throw FormatException('Line ${i + 1} has invalid latitude: "${cols[2]}"');
+      throw FormatException('Line $lineNumber, column 3: invalid latitude value');
     }
 
     final lng = double.tryParse(cols[3].trim());
     if (lng == null || !lng.isFinite || lng < -180.0 || lng > 180.0) {
-      throw FormatException('Line ${i + 1} has invalid longitude: "${cols[3]}"');
+      throw FormatException('Line $lineNumber, column 4: invalid longitude value');
     }
 
-    final alt = cols[4].trim().isNotEmpty ? double.tryParse(cols[4].trim()) : null;
-    if (cols[4].trim().isNotEmpty && (alt == null || !alt.isFinite)) {
-      throw FormatException('Line ${i + 1} has invalid altitude: "${cols[4]}"');
+    final altStr = cols[4].trim();
+    final alt = altStr.isNotEmpty ? double.tryParse(altStr) : null;
+    if (altStr.isNotEmpty && (alt == null || !alt.isFinite)) {
+      throw FormatException('Line $lineNumber, column 5: invalid altitude value');
     }
 
-    final spd = cols[5].trim().isNotEmpty ? double.tryParse(cols[5].trim()) : 0.0;
+    final spdStr = cols[5].trim();
+    final spd = spdStr.isNotEmpty ? double.tryParse(spdStr) : 0.0;
     if (spd == null || !spd.isFinite || spd < 0.0) {
-      throw FormatException('Line ${i + 1} has invalid speed: "${cols[5]}"');
+      throw FormatException('Line $lineNumber, column 6: invalid speed value');
     }
 
-    final acc = cols[6].trim().isNotEmpty ? double.tryParse(cols[6].trim()) : 10.0;
+    final accStr = cols[6].trim();
+    final acc = accStr.isNotEmpty ? double.tryParse(accStr) : 10.0;
     if (acc == null || !acc.isFinite || acc < 0.0) {
-      throw FormatException('Line ${i + 1} has invalid accuracy: "${cols[6]}"');
+      throw FormatException('Line $lineNumber, column 7: invalid accuracy value');
     }
 
-    final hdg = cols[7].trim().isNotEmpty ? double.tryParse(cols[7].trim()) : null;
-    if (cols[7].trim().isNotEmpty && (hdg == null || !hdg.isFinite || hdg < 0.0 || hdg > 360.0)) {
-      throw FormatException('Line ${i + 1} has invalid heading: "${cols[7]}"');
+    final hdgStr = cols[7].trim();
+    final hdg = hdgStr.isNotEmpty ? double.tryParse(hdgStr) : null;
+    if (hdgStr.isNotEmpty && (hdg == null || !hdg.isFinite || hdg < 0.0 || hdg > 360.0)) {
+      throw FormatException('Line $lineNumber, column 8: invalid heading value');
     }
 
     final src = cols[8].trim().isNotEmpty ? cols[8].trim() : null;
@@ -153,25 +218,33 @@ void main() {
       }
     });
 
-    test('BENCH-01: Discovered CSV contains 7 sessions and 10,779 points with valid schema', () {
-      expect(rawSessions.length, equals(7));
-      final totalParsed = rawSessions.values.fold<int>(0, (sum, list) => sum + list.length);
-      expect(totalParsed, equals(10779));
+    test(
+      'BENCH-01: Discovered CSV contains 7 sessions and 10,779 points with valid schema',
+      () {
+        expect(rawSessions.length, equals(7));
+        final totalParsed = rawSessions.values.fold<int>(0, (sum, list) => sum + list.length);
+        expect(totalParsed, equals(10779));
 
-      for (final entry in rawSessions.entries) {
-        expect(entry.value.length, greaterThan(0));
-        for (final s in entry.value) {
-          expect(s.workoutId, equals(entry.key));
-          expect(s.position.latitude.isFinite, isTrue);
-          expect(s.position.longitude.isFinite, isTrue);
-          expect(s.reportedAccuracyMeters, greaterThan(0));
-          expect(s.speedMetersPerSecond, greaterThanOrEqualTo(0));
-          expect(s.altitudeMeters, isNotNull);
+        for (final entry in rawSessions.entries) {
+          expect(entry.value.length, greaterThan(0));
+          for (final s in entry.value) {
+            expect(s.workoutId, equals(entry.key));
+            expect(s.position.latitude.isFinite, isTrue);
+            expect(s.position.longitude.isFinite, isTrue);
+            expect(s.reportedAccuracyMeters, greaterThan(0));
+            expect(s.speedMetersPerSecond, greaterThanOrEqualTo(0));
+            expect(s.altitudeMeters, isNotNull);
+          }
         }
-      }
-    });
+      },
+      skip: hasPrivateDataset
+          ? null
+          : 'Private dataset not present (public CI environment); skipping real data benchmark test',
+    );
 
-    test('BENCH-02: Dataset audit verifies original timestamp ordering before sorting, nominal 1Hz rate, and outage counts', () {
+    test(
+      'BENCH-02: Dataset audit verifies original timestamp ordering before sorting, nominal 1Hz rate, and outage counts',
+      () {
       var totalOriginalInversions = 0;
       var totalDups = 0;
       var totalGapsOver2s = 0;
@@ -214,29 +287,121 @@ void main() {
       expect(totalGapsOver30s, equals(0)); // 0 severe outages >30s
       expect(totalGapsOver5s, equals(89));
       expect(totalGapsOver2s, equals(149));
-    });
+    },
+    skip: hasPrivateDataset
+        ? null
+        : 'Private dataset not present (public CI environment); skipping real data benchmark test',
+    );
 
-    test('BENCH-03: Production-baseline replay equivalence test against GpsSmoothingService', () {
+    test('BENCH-03: Comprehensive production-baseline equivalence across high, medium, low confidence, turn-boost, stationary freeze, and gap recovery', () {
       const smoothingService = GpsSmoothingService();
-      final p1 = LatLng(10.7700, 106.6900);
-      final p2 = LatLng(10.7705, 106.6905);
 
-      final update = smoothingService.smoothAcceptedPoint(
+      final origin = LatLng(10.770000, 106.690000);
+      final straightStep = LatLng(10.770045, 106.690045); // ~7.0m displacement
+
+      // Case 1: High Confidence Smoothing (alpha = 0.72)
+      final highUpdate = smoothingService.smoothAcceptedPoint(
         activityType: 'cycling',
-        acceptedPoint: p2,
-        previousAcceptedPoint: p1,
-        previousSmoothedPoint: p1,
-        lastSmoothedRoutePoint: p1,
-        accuracyMeters: 5.0,
+        acceptedPoint: straightStep,
+        previousAcceptedPoint: origin,
+        previousSmoothedPoint: origin,
+        lastSmoothedRoutePoint: origin,
+        accuracyMeters: 8.0,
         speedMs: 5.0,
         timeDeltaSec: 1.0,
         gpsGapDurationSec: 0.0,
       );
+      expect(highUpdate.confidence, GpsConfidence.high);
+      expect(highUpdate.smoothedPoint.latitude, closeTo(origin.latitude * 0.28 + straightStep.latitude * 0.72, 1e-6));
+      expect(highUpdate.smoothedPoint.longitude, closeTo(origin.longitude * 0.28 + straightStep.longitude * 0.72, 1e-6));
+      expect(highUpdate.isStationary, isFalse);
+      expect(highUpdate.shouldAppendRoutePoint, isTrue);
 
-      // High confidence alpha is 0.72 in production GpsSmoothingService
-      expect(update.confidence, GpsConfidence.high);
-      expect(update.smoothedPoint.latitude, closeTo(p1.latitude * 0.28 + p2.latitude * 0.72, 1e-6));
-      expect(update.smoothedPoint.longitude, closeTo(p1.longitude * 0.28 + p2.longitude * 0.72, 1e-6));
+      // Case 2: Medium Confidence Smoothing (accuracy > 15m -> alpha = 0.52)
+      final medUpdate = smoothingService.smoothAcceptedPoint(
+        activityType: 'cycling',
+        acceptedPoint: straightStep,
+        previousAcceptedPoint: origin,
+        previousSmoothedPoint: origin,
+        lastSmoothedRoutePoint: origin,
+        accuracyMeters: 20.0,
+        speedMs: 5.0,
+        timeDeltaSec: 1.0,
+        gpsGapDurationSec: 0.0,
+      );
+      expect(medUpdate.confidence, GpsConfidence.medium);
+      expect(medUpdate.smoothedPoint.latitude, closeTo(origin.latitude * 0.48 + straightStep.latitude * 0.52, 1e-6));
+      expect(medUpdate.smoothedPoint.longitude, closeTo(origin.longitude * 0.48 + straightStep.longitude * 0.52, 1e-6));
+
+      // Case 3: Low Confidence Smoothing (accuracy > 30m -> alpha = 0.34)
+      final lowUpdate = smoothingService.smoothAcceptedPoint(
+        activityType: 'cycling',
+        acceptedPoint: straightStep,
+        previousAcceptedPoint: origin,
+        previousSmoothedPoint: origin,
+        lastSmoothedRoutePoint: origin,
+        accuracyMeters: 32.0,
+        speedMs: 5.0,
+        timeDeltaSec: 1.0,
+        gpsGapDurationSec: 0.0,
+      );
+      expect(lowUpdate.confidence, GpsConfidence.low);
+      expect(lowUpdate.smoothedPoint.latitude, closeTo(origin.latitude * 0.66 + straightStep.latitude * 0.34, 1e-6));
+      expect(lowUpdate.smoothedPoint.longitude, closeTo(origin.longitude * 0.66 + straightStep.longitude * 0.34, 1e-6));
+
+      // Case 4: Turn-Boost Activation (turnDelta > 28° and acceptedDelta > 4.0m -> alpha boosted to max(alpha, 0.82))
+      // Bearing from previousAcceptedPoint to acceptedPoint is 0° (North)
+      // Bearing from previousSmoothedPoint to acceptedPoint is 45° (North-East) -> turnDelta = 45° > 28°
+      final prevFix = LatLng(10.770000, 106.690000);
+      final currentHeadingFix = LatLng(10.770000, 106.690060); // East (~6.5m from prevFix)
+      final sharpTurnFix = LatLng(10.770060, 106.690060); // North (~6.6m from currentHeadingFix)
+      final turnUpdate = smoothingService.smoothAcceptedPoint(
+        activityType: 'cycling',
+        acceptedPoint: sharpTurnFix,
+        previousAcceptedPoint: currentHeadingFix,
+        previousSmoothedPoint: prevFix,
+        lastSmoothedRoutePoint: prevFix,
+        accuracyMeters: 8.0,
+        speedMs: 5.0,
+        timeDeltaSec: 1.0,
+        gpsGapDurationSec: 0.0,
+      );
+      expect(turnUpdate.smoothedPoint.latitude, closeTo(prevFix.latitude * 0.18 + sharpTurnFix.latitude * 0.82, 1e-6));
+      expect(turnUpdate.smoothedPoint.longitude, closeTo(prevFix.longitude * 0.18 + sharpTurnFix.longitude * 0.82, 1e-6));
+
+      // Case 5: Stationary Freeze (speed <= 0.8 m/s, delta < 2.5m stationary radius for cycling)
+      final tinyJitterFix = LatLng(10.770005, 106.690005); // ~0.78m
+      final freezeUpdate = smoothingService.smoothAcceptedPoint(
+        activityType: 'cycling',
+        acceptedPoint: tinyJitterFix,
+        previousAcceptedPoint: origin,
+        previousSmoothedPoint: origin,
+        lastSmoothedRoutePoint: origin,
+        accuracyMeters: 8.0,
+        speedMs: 0.2, // stationary speed
+        timeDeltaSec: 1.0,
+        gpsGapDurationSec: 0.0,
+      );
+      expect(freezeUpdate.isStationary, isTrue);
+      // Under stationary freeze (< 2.5m freeze distance), smoothed point is held frozen to previous smoothed point
+      expect(freezeUpdate.smoothedPoint, equals(origin));
+      expect(freezeUpdate.shouldAppendRoutePoint, isFalse);
+
+      // Case 6: Gap Segment Recovery (gpsGapDurationSec > 5.0s forces shouldAppendRoutePoint)
+      final gapFix = LatLng(10.770500, 106.690500); // 75m jump after 8s outage
+      final gapUpdate = smoothingService.smoothAcceptedPoint(
+        activityType: 'cycling',
+        acceptedPoint: gapFix,
+        previousAcceptedPoint: origin,
+        previousSmoothedPoint: origin,
+        lastSmoothedRoutePoint: origin,
+        accuracyMeters: 8.0,
+        speedMs: 6.0,
+        timeDeltaSec: 8.0,
+        gpsGapDurationSec: 8.0,
+      );
+      expect(gapUpdate.shouldAppendRoutePoint, isTrue);
+      expect(gapUpdate.confidence, GpsConfidence.low); // outage > 5s yields low confidence
     });
 
     test('BENCH-04: Replays all 5 pipelines deterministically and produces sanitized, coordinate-free benchmark & manifest', () async {
@@ -433,13 +598,14 @@ void main() {
       final manifestJson = {
         'schema_version': '1.0.0',
         'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
+        'execution_mode': 'OPT_IN_LOCAL_AUTHORIZED_BENCHMARK',
+        'public_ci_behavior': 'SKIPPED_GRACEFULLY_WHEN_PRIVATE_CSV_ABSENT',
         'dataset_evidence': {
           'source_file': 'exports/historical/aetron_raw_gps_combined.csv',
           'file_sha256': expectedSha256,
           'total_raw_points': 10779,
           'deduped_points': 10730,
           'session_count': 7,
-          'opt_in_execution_mode': 'local_authorized_research',
         },
         'benchmark_results_file': 'docs/benchmarks/real_gps_research_benchmark.json',
         'benchmark_results_sha256': sha256.convert(utf8.encode(jsonEncode(benchmarkResults))).toString(),
@@ -447,10 +613,12 @@ void main() {
           'coordinates_scrubbed': true,
           'personal_data_retained': false,
           'public_git_exposure_prohibited': true,
+          'error_messages_contain_no_raw_coordinates': true,
         },
         'scientific_governance': {
           'ground_truth_reference_present': false,
           'metric_nature': 'relative_algorithm_deviation_only',
+          'causal_claims_policy': 'HYPOTHESIS_BASED_REQUIRING_ABLATION_STUDY',
           'production_decision': 'HOLD_EXISTING_PRODUCTION_ALGORITHM',
         },
       };
@@ -462,6 +630,10 @@ void main() {
       expect(totalEkfDisplayDistance, closeTo(57662.6, 1.0));
       expect(totalDbscanDisplayDistance, closeTo(57883.6, 1.0));
       expect(totalDOptDistance, closeTo(58689.6, 1.0));
-    });
-  }, skip: !hasPrivateDataset ? 'Private real-device GPS dataset not present in public checkout (opt-in research benchmark)' : null);
+    },
+    skip: hasPrivateDataset
+        ? null
+        : 'Private dataset not present (public CI environment); skipping real data benchmark test',
+    );
+  });
 }

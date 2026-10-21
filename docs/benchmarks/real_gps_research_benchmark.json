@@ -74,11 +74,11 @@
       },
       "dopt_escrow_m": 19.8,
       "latencies_us_per_point": {
-        "current": 3.81,
-        "ekf": 8.6,
-        "dbscan": 1.54,
-        "ekf_dbscan": 3.21,
-        "dopt": 19.26
+        "current": 6.64,
+        "ekf": 15.55,
+        "dbscan": 1.89,
+        "ekf_dbscan": 4.19,
+        "dopt": 25.44
       }
     },
     {
@@ -122,11 +122,11 @@
       },
       "dopt_escrow_m": 0.0,
       "latencies_us_per_point": {
-        "current": 1.2,
-        "ekf": 2.11,
-        "dbscan": 0.75,
-        "ekf_dbscan": 2.9,
-        "dopt": 5.96
+        "current": 1.59,
+        "ekf": 2.16,
+        "dbscan": 0.94,
+        "ekf_dbscan": 4.75,
+        "dopt": 8.53
       }
     },
     {
@@ -168,11 +168,11 @@
       },
       "dopt_escrow_m": 0.0,
       "latencies_us_per_point": {
-        "current": 1.04,
-        "ekf": 1.35,
-        "dbscan": 0.78,
-        "ekf_dbscan": 1.55,
-        "dopt": 3.61
+        "current": 1.66,
+        "ekf": 1.65,
+        "dbscan": 0.89,
+        "ekf_dbscan": 2.14,
+        "dopt": 4.28
       }
     },
     {
@@ -217,11 +217,11 @@
       },
       "dopt_escrow_m": 0.0,
       "latencies_us_per_point": {
-        "current": 1.01,
-        "ekf": 2.38,
-        "dbscan": 0.66,
-        "ekf_dbscan": 2.31,
-        "dopt": 6.57
+        "current": 1.12,
+        "ekf": 3.34,
+        "dbscan": 1.15,
+        "ekf_dbscan": 3.54,
+        "dopt": 10.5
       }
     },
     {
@@ -264,11 +264,11 @@
       },
       "dopt_escrow_m": 0.0,
       "latencies_us_per_point": {
-        "current": 0.69,
-        "ekf": 1.52,
-        "dbscan": 0.5,
-        "ekf_dbscan": 1.88,
-        "dopt": 5.07
+        "current": 0.75,
+        "ekf": 2.0,
+        "dbscan": 0.67,
+        "ekf_dbscan": 2.94,
+        "dopt": 9.08
       }
     },
     {
@@ -312,11 +312,11 @@
       },
       "dopt_escrow_m": 0.0,
       "latencies_us_per_point": {
-        "current": 0.61,
-        "ekf": 1.29,
-        "dbscan": 0.48,
-        "ekf_dbscan": 1.65,
-        "dopt": 3.93
+        "current": 0.9,
+        "ekf": 2.02,
+        "dbscan": 0.63,
+        "ekf_dbscan": 2.39,
+        "dopt": 5.42
       }
     },
     {
@@ -360,11 +360,11 @@
       },
       "dopt_escrow_m": 0.0,
       "latencies_us_per_point": {
-        "current": 0.54,
-        "ekf": 1.4,
-        "dbscan": 0.38,
-        "ekf_dbscan": 1.61,
-        "dopt": 4.76
+        "current": 0.64,
+        "ekf": 1.96,
+        "dbscan": 0.53,
+        "ekf_dbscan": 2.06,
+        "dopt": 6.67
       }
     }
   ]
