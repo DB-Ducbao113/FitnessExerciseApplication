@@ -1,9 +1,11 @@
 # AETRON — RG-F3 Real-Device GPS & Supabase E2E Verification Report
 
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0  
 **Date:** 2026-10-21  
 **Branch:** `feat/rg-f3-real-device-e2e`  
-**Base Commit:** `d8cf5d1b61f1849aba4208c5761b22f5b9b0e8ca`  
+**Base Commit:** `fa08471f723f1e44b0796a508f705e770265919b`  
+**Runbook Document:** [rg_f3_field_test_runbook.md](file:///Users/baobungbu/Aetron/docs/operations/rg_f3_field_test_runbook.md)  
+**Verification Tooling:** [verify_field_evidence.dart](file:///Users/baobungbu/Aetron/tooling/verify_field_evidence.dart)  
 **Governance:** RG-F1 & RG-F2 Code/Integration GO. Overall RG-F HOLD.
 
 ---
@@ -12,11 +14,11 @@
 
 Phase RG-F3 establishes end-to-end real-device operational readiness, native platform lifecycle contracts, and Supabase cloud integrity reconciliation for research-grade raw GPS tracking in Aetron.
 
-### Integrity & Ground-Truth Principle
-In accordance with engineering governance rules:
-- **No device evidence is fabricated.**
-- Automated unit and integration tests do not substitute for physical device execution.
-- Where physical devices or simulators are unavailable on the automation host, tests are strictly reported as **NOT TESTED on Physical Hardware**, accompanied by complete audit findings, platform contracts, and deterministic software invariant test coverage.
+### Ground-Truth & Anti-Fabrication Principles
+1. **No Simulated Data as Field Evidence:** Simulated in-memory mock runs verify software invariants and state machine transitions, but must NEVER be claimed as physical device proof.
+2. **Explicit Separation of Results:** Every scenario strictly separates automated simulated test results from physical-device field measurements.
+3. **Hardware Availability:** Physical iPhone and Android hardware are not connected to this automated workstation. Physical execution is explicitly reported as **NOT TESTED on Physical Hardware (Pending Field Execution)**.
+4. **Independent Cryptographic Proofs:** The raw JSONL file checksum (`file_sha256`) and the versioned canonical capture digest (`canonical_capture_digest`) are kept strictly separate.
 
 ---
 
@@ -60,7 +62,7 @@ In accordance with engineering governance rules:
   - User A authenticated query sees 0 rows from User B.
   - User A attempt to insert raw GPS point into User B's workout session is rejected with `insufficient_privilege`.
   - User A attempt to delete User B's raw GPS points affects 0 rows.
-- Verified in Flutter outbox service (`test/raw_gps_real_device_scenarios_test.dart`):
+- Verified in Flutter outbox service ([test/raw_gps_real_device_scenarios_test.dart](file:///Users/baobungbu/Aetron/test/raw_gps_real_device_scenarios_test.dart)):
   - Outbox session discovery explicitly checks `manifest.userId == currentUserId`.
   - If a journal belongs to a foreign user, it is rejected and excluded from the upload queue.
   - Foreign sessions cannot be claimed, replayed, or acknowledged.
@@ -110,51 +112,56 @@ Xcode: 27.1 (Build 27A9275)
 
 ## 3. Phase 2 — Real-Device Test Matrix
 
-| ID | Test Scenario | Expected Outcome | Software Invariant Status | Physical Device Status | Notes & Failure Risk Analysis |
+| ID | Test Scenario | Expected Outcome | Simulated Invariant Test (CI) | Physical Device Field Execution | Notes & Failure Risk Analysis |
 | :---: | :--- | :--- | :---: | :---: | :--- |
-| **RG-F3-01** | Foreground outdoor recording & complete | 1 Hz continuous capture, Isar + journal flush, outbox verify returns `CLOUD_VERIFIED`, canonical digests match | **PASS** | **NOT TESTED** *(No device connected)* | Risk: GPS satellite multipath in urban canyons. Cold-start TTFF up to 15s. |
-| **RG-F3-02** | Network drop during recording & reconnect recovery | Offline capture remains in local journal/Isar; outbox returns `pendingUpload`; reconnect triggers resume and verify | **PASS** | **NOT TESTED** *(No device connected)* | Risk: Cellular-to-WiFi handover latency; connection timeout handling. |
-| **RG-F3-03** | App termination & restart with persisted data | App restart reloads journal, outbox discovers unsynced workout, completes verification without data loss | **PASS** | **NOT TESTED** *(No device connected)* | Risk: OS kills process before SQLite transaction commit if battery drops. |
-| **RG-F3-04** | Background recording with locked screen | Location tracking continues via Foreground Service / CoreLocation blue indicator; OS lifecycle limits respected | **PASS** | **NOT TESTED** *(No device connected)* | Risk: OEM aggressive battery killers (Android); background throttling if app lacks Always authorization. |
-| **RG-F3-05** | Supabase multi-page read-back verification | Read-back paginates 1,000+ rows across multiple chunks; canonical SHA-256 computed and matched | **PASS** | **NOT TESTED** *(No device connected)* | Risk: Postgrest paged response ordering; memory spikes during large JSON decoding. |
-| **RG-F3-06** | Partial cloud upload simulation & retry | Partial batch fails closed (never `CLOUD_VERIFIED`); retry completes remainder idempotently with 0 duplicates | **PASS** | **NOT TESTED** *(No device connected)* | Risk: DB constraint violation if server lacks composite unique index. |
-| **RG-F3-07** | Logout / account switch with pending uploads | User B cannot discover, upload, or ACK User A's pending sessions; zero cross-account leakage | **PASS** | **NOT TESTED** *(No device connected)* | Risk: Shared cache leaks if directory is not keyed by user ID. |
-| **RG-F3-08** | Orphan journal recovery without local workout metadata | Recovery journal discovered from disk via `manifest.userId`; points recovered and verified in cloud | **PASS** | **NOT TESTED** *(No device connected)* | Risk: Metadata corruption if file system runs out of space. |
-| **RG-F3-09** | Explicit-deletion safeguards & retention | Sessions queued for explicit deletion are never replayed or uploaded; unverified journals retained | **PASS** | **NOT TESTED** *(No device connected)* | Risk: Race condition between user tapping Delete and background outbox worker. |
-| **RG-F3-10** | App restart + offline recovery + outbox rediscovery | End-to-end lifecycle preserves all retryable data across crash, offline restart, and reconnection | **PASS** | **NOT TESTED** *(No device connected)* | Risk: Exponential backoff exhaustion if network remains offline > 24 hours. |
+| **RG-F3-01** | Foreground outdoor recording & complete | 1 Hz continuous capture, Isar + journal flush, outbox verify returns `CLOUD_VERIFIED`, canonical digests match | **PASS** *(60/60 points)* | **NOT TESTED** *(Pending Field Run)* | Risk: GPS satellite multipath in urban canyons. Cold-start TTFF up to 15s. |
+| **RG-F3-02** | Network drop during recording & reconnect recovery | Offline capture remains in local journal/Isar; outbox returns `pendingUpload`; reconnect triggers resume and verify | **PASS** *(30/30 points)* | **NOT TESTED** *(Pending Field Run)* | Risk: Cellular-to-WiFi handover latency; connection timeout handling. |
+| **RG-F3-03** | App termination & restart with persisted data | App restart reloads journal, outbox discovers unsynced workout, completes verification without data loss | **PASS** *(20/20 points)* | **NOT TESTED** *(Pending Field Run)* | Risk: OS kills process before SQLite transaction commit if battery drops. |
+| **RG-F3-04** | Background recording with locked screen | Location tracking continues via Foreground Service / CoreLocation blue indicator; OS lifecycle limits respected | **PASS** *(Contract verified)* | **NOT TESTED** *(Pending Field Run)* | Risk: OEM aggressive battery killers (Android); background throttling if app lacks Always authorization. |
+| **RG-F3-05** | Supabase multi-page read-back verification | Read-back paginates 1,200 rows across multiple chunks; canonical SHA-256 computed and matched | **PASS** *(1,200/1,200 points)* | **NOT TESTED** *(Pending Field Run)* | Risk: Postgrest paged response ordering; memory spikes during large JSON decoding. |
+| **RG-F3-06** | Partial cloud upload simulation & retry | Partial batch fails closed (never `CLOUD_VERIFIED`); retry completes remainder idempotently with 0 duplicates | **PASS** *(50/50 points, 0 dupes)* | **NOT TESTED** *(Pending Field Run)* | Risk: DB constraint violation if server lacks composite unique index. |
+| **RG-F3-07** | Logout / account switch with pending uploads | User B cannot discover, upload, or ACK User A's pending sessions; zero cross-account leakage | **PASS** *(0 leaked sessions)* | **NOT TESTED** *(Pending Field Run)* | Risk: Shared cache leaks if directory is not keyed by user ID. |
+| **RG-F3-08** | Orphan journal recovery without local workout metadata | Recovery journal discovered from disk via `manifest.userId`; points recovered and verified in cloud | **PASS** *(25/25 points)* | **NOT TESTED** *(Pending Field Run)* | Risk: Metadata corruption if file system runs out of space. |
+| **RG-F3-09** | Explicit-deletion safeguards & retention | Sessions queued for explicit deletion are never replayed or uploaded; unverified journals retained | **PASS** *(0 replayed deletions)* | **NOT TESTED** *(Pending Field Run)* | Risk: Race condition between user tapping Delete and background outbox worker. |
+| **RG-F3-10** | App restart + offline recovery + outbox rediscovery | End-to-end lifecycle preserves all retryable data across crash, offline restart, and reconnection | **PASS** *(40/40 points)* | **NOT TESTED** *(Pending Field Run)* | Risk: Exponential backoff exhaustion if network remains offline > 24 hours. |
 
 ---
 
-## 4. Phase 3 — Sanitized Evidence Template
+## 4. Phase 3 — Sanitized Field Evidence Template
 
-When conducting field recording with physical hardware, records must be captured according to this template:
+When conducting field recording with physical hardware, records must be captured according to this template using explicit placeholders (populated via `tooling/verify_field_evidence.dart`):
 
 ```json
 {
-  "session_id": "00000000-0000-4000-8000-000000000001",
-  "test_case_id": "RG-F3-01",
+  "session_id": "<SESSION_UUID>",
+  "test_case_id": "<RG-F3-01..10>",
   "device": {
-    "model": "iPhone 15 Pro (A3102) / Pixel 8 (GKWS6)",
-    "os_version": "iOS 18.2 / Android 15 (AP2A.240905.003)",
-    "app_commit_sha": "d8cf5d1b61f1849aba4208c5761b22f5b9b0e8ca"
+    "model": "<PHYSICAL_DEVICE_MODEL>",
+    "os_version": "<DEVICE_OS_VERSION>",
+    "app_commit_sha": "<APP_COMMIT_SHA>"
   },
   "timestamps_utc": {
-    "start": "2026-10-21T06:00:00.000Z",
-    "end": "2026-10-21T06:30:00.000Z"
+    "start": "<START_TIMESTAMP_UTC_ISO8601>",
+    "end": "<END_TIMESTAMP_UTC_ISO8601>"
   },
   "counts": {
-    "captured_sensor_points": 1800,
-    "isar_stored_points": 1800,
-    "journal_lines_written": 1800,
-    "cloud_rows_persisted": 1800,
+    "captured_sensor_points": "<ACTUAL_CAPTURED_POINT_COUNT>",
+    "isar_stored_points": "<ACTUAL_ISAR_STORED_COUNT>",
+    "journal_lines_written": "<ACTUAL_JOURNAL_LINE_COUNT>",
+    "cloud_rows_persisted": "<ACTUAL_SUPABASE_ROW_COUNT>",
     "missing_cloud_points": 0,
-    "duplicate_points": 0,
+    "duplicate_cloud_points": 0,
     "mismatched_points": 0
   },
   "integrity": {
-    "journal_manifest_sha256": "4b6807498c0b5f135e69e469e3820ffca927d3c0130db9d5e381b1613cb00259",
-    "canonical_capture_digest": "4b6807498c0b5f135e69e469e3820ffca927d3c0130db9d5e381b1613cb00259",
-    "cloud_readback_digest": "4b6807498c0b5f135e69e469e3820ffca927d3c0130db9d5e381b1613cb00259",
+    "raw_jsonl_file_sha256": "<RAW_JSONL_FILE_BYTE_SHA256_HEX>",
+    "manifest_file_sha256": "<MANIFEST_FILE_SHA256_HEX>",
+    "raw_file_sha_matches_manifest": true,
+    "canonical_capture_digest": "<CANONICAL_CAPTURE_DIGEST_SHA256_HEX>",
+    "manifest_capture_digest": "<MANIFEST_CANONICAL_CAPTURE_DIGEST_HEX>",
+    "manifest_capture_digest_valid": true,
+    "cloud_readback_digest": "<CLOUD_READBACK_CANONICAL_DIGEST_HEX>",
+    "cloud_digest_matches_capture": true,
     "verification_state": "CLOUD_VERIFIED"
   },
   "redaction": {
@@ -164,19 +171,31 @@ When conducting field recording with physical hardware, records must be captured
 }
 ```
 
+> [!NOTE]
+> **Integrity Separation Note:**
+> `raw_jsonl_file_sha256` represents the cryptographic SHA-256 byte checksum of the physical `.jsonl` file on local flash storage.
+> `canonical_capture_digest` represents the versioned canonical SHA-256 digest of the sorted canonical telemetry lines (`v1|workout_id|timestamp|lat|lng|alt|speed|acc|head|src`).
+> These two hashes are distinct and must never be conflated.
+
 ---
 
 ## 5. Phase 4 — Quality Gates Summary
 
 1. `flutter analyze`: **0 issues found**
-2. RG-F3 Scenario Test Suite: `flutter test test/raw_gps_real_device_scenarios_test.dart` -> **10/10 passed**
-3. RG-F2 Boundary Test Suite: `flutter test test/raw_gps_platform_boundary_test.dart test/raw_gps_web_boundary_test.dart` -> **19/19 passed**
-4. RG-F1 Regression Test Suite: `flutter test test/raw_gps_cloud_backup_recovery_test.dart test/raw_gps_durable_capture_test.dart test/raw_gps_recovery_journal_test.dart` -> **89/89 passed**
+2. RG-F3 Scenario Test Suite: [test/raw_gps_real_device_scenarios_test.dart](file:///Users/baobungbu/Aetron/test/raw_gps_real_device_scenarios_test.dart) -> **10/10 passed**
+3. RG-F2 Boundary Test Suite: `test/raw_gps_platform_boundary_test.dart test/raw_gps_web_boundary_test.dart` -> **19/19 passed**
+4. RG-F1 Regression Test Suite: `test/raw_gps_cloud_backup_recovery_test.dart test/raw_gps_durable_capture_test.dart test/raw_gps_recovery_journal_test.dart` -> **89/89 passed**
 5. Full Flutter Test Suite: `flutter test` -> **599/599 passed**
 6. Deno Edge Functions Suite: `cd backend && deno test --allow-env --allow-net supabase/functions/deterministic-finalize-worker/index_test.ts` -> **7/7 passed**
 7. Flutter Web Release Build: `flutter build web --release` -> **PASS**
 8. Android & iOS Config Builds: `flutter build apk --config-only` & `flutter build ios --config-only` -> **PASS**
-9. Phase 5 Frozen Benchmarks: Unmodified (`3e9cf84cbfae61817457ca6b86df6e95cefafe1ecbc4be0e0e09fe2df93f6608` untouched)
+9. Standalone Verification CLI Tool: [tooling/verify_field_evidence.dart](file:///Users/baobungbu/Aetron/tooling/verify_field_evidence.dart) -> **PASS**
+10. GitHub Actions CI Run: [39531710480](https://github.com/DB-Ducbao113/FitnessExerciseApplication/actions/runs/39531710480) on exact commit `fa08471f723f1e44b0796a508f705e770265919b`:
+    - `Database migrations, lint and RLS tests`: **success** 🟢
+    - `Flutter analyze and test`: **success** 🟢
+    - `Deno lint, type-check and test`: **success** 🟢
+    - `Dependency, secret and config scan`: **success** 🟢
+11. Phase 5 Frozen Benchmarks: Unmodified (`3e9cf84cbfae61817457ca6b86df6e95cefafe1ecbc4be0e0e09fe2df93f6608` untouched).
 
 ---
 
@@ -184,6 +203,6 @@ When conducting field recording with physical hardware, records must be captured
 
 ### Recommendation: **RG-F3 CODE / INTEGRATION GO — REAL-DEVICE OPERATIONAL HOLD**
 
-- **Code & Test Invariants:** **GO** (10/10 automated scenarios green, 599/599 full suite green, 0 analyzer issues, RLS policies validated, clean native config builds).
-- **Physical Device Deployment:** **HOLD** (Physical iPhone and Android hardware not attached to this automated workstation; physical field trials required before algorithm baseline branching).
-- **Branch Action:** Retain `feat/rg-f3-real-device-e2e` as DRAFT. Do not merge into `main` or deploy to production.
+- **Code & Test Invariants:** **GO** (10/10 automated scenarios green, 599/599 full suite green, 0 analyzer issues, RLS policies validated, clean native config builds, CLI verification tool available).
+- **Physical Device Deployment:** **HOLD** (Physical iPhone and Android hardware not attached to this automated workstation; physical field trials required following [rg_f3_field_test_runbook.md](file:///Users/baobungbu/Aetron/docs/operations/rg_f3_field_test_runbook.md) before lifting the RG-F HOLD or proceeding with algorithm baseline branching).
+- **Branch Action:** Retain `feat/rg-f3-real-device-e2e` and stacked [PR #10](https://github.com/DB-Ducbao113/FitnessExerciseApplication/pull/10) as DRAFT. Do not merge into `main` or deploy to production.
