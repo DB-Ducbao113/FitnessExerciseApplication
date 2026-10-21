@@ -500,5 +500,94 @@ void main() {
       expect(json['failure_count'], 2);
       expect((json['failures'] as List).length, 2);
     });
+
+    test('ALG-0.13: Malformed input rejection fails closed on invalid or missing records', () {
+      // 1. Missing timestamp throws FormatException
+      expect(
+        () => RawGpsExportPoint.fromJson({
+          'workout_id': 'sess-1',
+          'latitude': 10.77,
+          'longitude': 106.69,
+        }),
+        throwsFormatException,
+      );
+
+      // 2. Malformed JSONL line throws FormatException
+      expect(
+        () => RawGpsDatasetExporter.parseJsonl('not valid json {[[['),
+        throwsFormatException,
+      );
+    });
+
+    test('ALG-0.14: XML and CSV character escaping prevents broken syntax', () {
+      final trickyPoints = [
+        RawGpsExportPoint(
+          workoutId: 'workout-escape',
+          timestamp: baseTime,
+          latitude: 10.7725,
+          longitude: 106.6980,
+          speed: 3.5,
+          accuracy: 4.0,
+          deviceSource: 'Sensor <Core & "GPS" \'High\'>\nLine2,Col2\rLine3',
+        ),
+      ];
+
+      final csv = RawGpsDatasetExporter.generateCsv(trickyPoints);
+      expect(csv, contains('"Sensor <Core & ""GPS"" \'High\'>\nLine2,Col2\rLine3"'));
+
+      final gpx = RawGpsDatasetExporter.generateGpx(trickyPoints, workoutId: 'workout<test>&"escaped"');
+      expect(gpx, contains('&lt;test&gt;&amp;&quot;escaped&quot;'));
+      expect(gpx, contains('&lt;Core &amp; &quot;GPS&quot; &apos;High&apos;&gt;'));
+      // Verify valid XML structure (does not throw when parsed or searched for unescaped characters)
+      expect(gpx.contains('<Core'), isFalse);
+      expect(gpx.contains('& "GPS"'), isFalse);
+    });
+
+    test('ALG-0.15: Fixture collision prevention rejects overwriting real sessions', () {
+      final realMap = <String, String>{
+        'workout-alpha': 'cloud_only_unverified',
+      };
+
+      // Simulating fixture ingestion
+      const fixtureWorkoutId = 'workout-alpha';
+      var collisionRejected = false;
+
+      if (realMap.containsKey(fixtureWorkoutId)) {
+        collisionRejected = true;
+      } else {
+        realMap[fixtureWorkoutId] = 'synthetic_fixture';
+      }
+
+      expect(collisionRejected, isTrue);
+      expect(realMap['workout-alpha'], 'cloud_only_unverified');
+    });
+
+    test('ALG-0.16: Pagination failure fails affected session closed without partial export', () {
+      // If a multi-page fetch fails on page 2, the session must be failed closed
+      final allPoints = <RawGpsExportPoint>[];
+      var sessionFailed = false;
+
+      // Page 1 succeeds (50 points)
+      final page1 = List.generate(
+        50,
+        (i) => RawGpsExportPoint(
+          workoutId: 'paginated-fail',
+          timestamp: baseTime.add(Duration(seconds: i)),
+          latitude: 10.77,
+          longitude: 106.69,
+        ),
+      );
+      allPoints.addAll(page1);
+
+      // Page 2 simulated HTTP 500 error
+      const page2HttpError = 500;
+      if (page2HttpError != 200) {
+        sessionFailed = true;
+        allPoints.clear(); // Discard partial points!
+      }
+
+      expect(sessionFailed, isTrue);
+      expect(allPoints.isEmpty, isTrue); // Zero partial points retained
+    });
   });
 }

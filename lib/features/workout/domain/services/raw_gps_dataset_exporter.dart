@@ -382,7 +382,10 @@ class RawGpsDatasetExporter {
   }
 
   static String _escapeCsv(String input) {
-    if (input.contains(',') || input.contains('"') || input.contains('\n')) {
+    if (input.contains(',') ||
+        input.contains('"') ||
+        input.contains('\n') ||
+        input.contains('\r')) {
       return '"${input.replaceAll('"', '""')}"';
     }
     return input;

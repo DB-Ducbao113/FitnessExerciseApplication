@@ -1,8 +1,8 @@
 # AETRON — ALG-0 Real Historical Raw GPS Dataset Inventory & Quality Baseline
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Date:** 2026-10-21  
-**Target:** Algorithm Research Common Baseline (Phase ALG-0 Closeout)  
+**Target:** Algorithm Research Common Baseline (Phase ALG-0 Final Closeout)  
 **Branch:** `feat/rg-f4-dataset-export`  
 **Tooling:** [`tooling/inventory_historical_datasets.dart`](file:///Users/baobungbu/Aetron/tooling/inventory_historical_datasets.dart)  
 **Governance:** RG-F4 Code/Integration GO. Overall RG-F HOLD (Pending physical multi-device GPS validation). PR #11 remains DRAFT.
@@ -19,18 +19,24 @@ A database-level project aggregate has confirmed that the Aetron Supabase databa
 1. **Zero Unfounded Error Claims (Anti-Fabrication):**
    > [!IMPORTANT]
    > Ground-truth positional error (RMSE and P95) is **STRICTLY REFUSED** and marked `groundTruthErrorDisallowed: true`. Without an independent survey-grade reference track (e.g., dual-frequency RTK-GNSS rover or known surveyed geometry), raw smartphone GPS cannot be treated as its own ground truth.
-2. **Authenticated Discovery & Row Level Security (ALG-0.1):**
+2. **Authenticated Discovery & Row Level Security (ALG-0.1, Task 3):**
    - Discovery is strictly scoped to the authenticated user via Supabase Auth and RLS (`auth.uid() = user_id`).
    - Admin/service-role credentials must **never** be used to fabricate an allegedly user-scoped dataset.
+   - Access tokens are read securely from the local environment (`AETRON_USER_TOKEN`); passing tokens via CLI arguments is strictly prohibited to prevent exposure in process tables (`ps`) and shell history.
    - Comprehensive discovery auditing tracks discovered, GPS-bearing, exported, missing, and denied sessions without silent error suppression.
-3. **Rigorous Provenance Verification (ALG-0.2):**
-   - Sessions are labeled `device_journal_verified` **only** when accompanied by a signed manifest containing matching owner ID, matching byte SHA-256, and canonical capture digest.
+3. **Rigorous Provenance Verification (ALG-0.2, Task 1):**
+   - Sessions are labeled `device_journal_verified` **only** when accompanied by a cryptographically verified manifest containing matching workout ID, matching authorized owner ID, matching raw byte SHA-256, matching record count, and matching canonical capture digest. Hash-only manifests are never described as digitally signed.
    - Sessions without full local cryptographic proof are labeled conservatively (`device_recovered_unverified` or `cloud_only_unverified`).
-   - Synthetic test fixtures (`synthetic_fixture`) and algorithm-filtered tracks (`algorithm_filtered`) are explicitly identified and **strictly excluded from field-research aggregate statistics**.
-4. **Lossless Master Export & Parity Replay (ALG-0.3):**
+   - Synthetic test fixtures (`synthetic_fixture`) and algorithm-filtered tracks (`algorithm_filtered`) are explicitly identified, disabled by default, and **strictly excluded from field-research aggregate statistics**.
+4. **Complete-Data Export Enforcement (Task 2):**
+   - Never silently ignore malformed GPS records; any schema violation fails the session closed.
+   - Detect HTTP failures on every paginated request. If any page fails, discard partial points immediately and record failure diagnostics.
+   - Clean closeout strictly requires `failure_count == 0`.
+5. **Lossless Master Export & Parity Replay (ALG-0.3, Task 4):**
    - Master exports are deterministic JSONL with companion CSV, GPX 1.1, and JSON manifests.
+   - CSV fields and XML values are properly escaped (quotes, commas, newlines, and XML entities).
    - Every export bundle automatically verifies 100% field parity through lossless round-trip replay ([`RawGpsDatasetExporter.verifyJsonlLosslessReplay`](file:///Users/baobungbu/Aetron/lib/features/workout/domain/services/raw_gps_dataset_exporter.dart)).
-5. **Path Traversal & Secrets Hardening:**
+6. **Path Traversal & Secrets Hardening:**
    - All session IDs are validated against strict alphanumeric/hyphen/underscore patterns (`^[a-zA-Z0-9_\-]+$`) before being used in output file paths.
    - Hardcoded commit fallbacks are eliminated; raw coordinates and JWT authentication tokens are prevented from entering CI logs.
 
@@ -59,16 +65,23 @@ The automated analyzer ([`RawGpsQualityAnalyzer`](file:///Users/baobungbu/Aetron
 
 ---
 
-## 3. Dataset Inventory & Authentication Status
+## 3. Dataset Inventory & Authentication Status (Task 5)
 
-### 3.1 Authenticated Discovery Audit (ALG-0.1)
+### Authenticated Discovery Audit Status
 
 ```
 ========================================================================
  🛰️  AETRON ALG-0 AUTHENTICATED DISCOVERY AUDIT & INVENTORY
 ========================================================================
-Total Sessions Discovered:     0 (Developer workstation has no active end-user session)
-Sessions with Raw GPS:         0
+Inventory Status:              AUTH_REQUIRED
+Total Sessions Inventoried:    0 (Synthetic fixtures disabled by default)
+Real-World Field Sessions:     0
+Synthetic Fixture Sessions:    0
+Algorithm-Filtered Sessions:   0
+------------------------------------------------------------------------
+DISCOVERY AUDIT (Task 2):
+Total Discovered:              0
+Sessions with GPS:             0
 Successfully Exported:         0
 Missing Sessions:              0
 Denied Sessions:               0
@@ -78,8 +91,9 @@ AUTHENTICATION STATE & RLS STATUS:
 • Supabase database contains 10,907 raw GPS samples across 11 sessions globally,
   partitioned between 2 distinct user accounts.
 • Row Level Security (RLS) restricts row access strictly to auth.uid() == user_id.
-• No active end-user JWT token exists in workstation developer environment.
+• No active end-user JWT token is present in the developer workstation environment.
 • Admin/service-role credentials are NOT used (violates ALG-0.1 security gate).
+• Synthetic fixtures are disabled by default and NEVER substituted for real field data.
 ========================================================================
 ```
 
@@ -88,42 +102,38 @@ AUTHENTICATION STATE & RLS STATUS:
 
 ---
 
-## 4. Owner-Side Export Procedure
+## 4. Owner-Side Export Procedure (Task 3 & Task 5)
 
 To export the authenticated user's real historical sessions for algorithm research:
 
-### Option A: In-App Native Share Sheet (Recommended for End-Users)
+### Option A: In-App Native Share Sheet (End-Users on Real Hardware)
 1. Open the Aetron mobile application (iOS or Android) logged in as the account owner.
 2. Navigate to **Workout History** -> Select a completed workout.
 3. Tap **Export Research Dataset**.
-4. The system prepares the 4-file bundle in temporary app storage:
-   - `<workout_id>.raw.jsonl` (application/x-ndjson)
-   - `<workout_id>.raw.csv` (text/csv)
-   - `<workout_id>.raw.gpx` (application/gpx+xml)
-   - `<workout_id>.manifest.json` (application/json)
-5. The native system Share Sheet opens, allowing direct transfer to AirDrop, Google Drive, Files, or Mail. Pre-flight file hash validation and deferred cleanup ensure attachments are received intact without race conditions.
+4. The app validates ownership, asserts lossless JSONL replay, builds the 4-file bundle in temporary app storage, verifies disk byte SHA-256 hashes, and displays the native system Share Sheet for AirDrop, Google Drive, or Mail transfer.
 
 ### Option B: Authenticated CLI Tooling (Automated Research Ingestion)
 To discover and export all user-owned sessions directly from Supabase:
 ```bash
-# 1. Obtain authenticated user JWT (e.g. from app auth session or Supabase Auth OTP)
-export AETRON_USER_TOKEN="<user_session_jwt>"
+# 1. Export user JWT securely in environment (do NOT pass as command-line argument)
+export AETRON_USER_TOKEN="<active_user_jwt>"
 export SUPABASE_URL="https://<project-ref>.supabase.co"
 export SUPABASE_ANON_KEY="<anon_public_key>"
 
+# Optional: specify expected user ID for journal ownership verification
+export AETRON_USER_ID="<auth_user_uuid>"
+
 # 2. Run authenticated discovery and export under RLS
-dart run tooling/inventory_historical_datasets.dart \
-  --user-token "$AETRON_USER_TOKEN" \
-  --supabase-url "$SUPABASE_URL" \
-  --supabase-anon-key "$SUPABASE_ANON_KEY" \
-  --output-dir exports/historical
+dart run tooling/inventory_historical_datasets.dart --output-dir exports/historical
 ```
+
 The script will:
 - Query `/rest/v1/workout_sessions` with `Authorization: Bearer $AETRON_USER_TOKEN` (RLS enforced).
 - Query and page all `/rest/v1/raw_gps_points` with pagination over 1,000 points.
+- Fail closed if any page or record fails.
 - Verify lossless round-trip JSONL replay.
 - Calculate telemetry metrics, outage intervals (>15s and >30s), missing telemetry counts, and cumulative track distance.
-- Export lossless JSONL, CSV, GPX 1.1, and manifests into `exports/historical/`.
+- Export lossless JSONL, properly escaped CSV, GPX 1.1, and manifests into `exports/historical/`.
 - Record full discovery audit metrics into `exports/historical/inventory_report.json`.
 
 ---
@@ -137,6 +147,7 @@ The script will:
 | **Path Traversal Session ID Validation** | 🟢 PASS | Security Guard Tests |
 | **Export Bundle File Hash Verification** | 🟢 PASS | Local Disk & Pre-Flight Hash Verification |
 | **Discovery Audit Error Tracking** | 🟢 PASS | Test Suite Mock & RLS Gates |
+| **Regression Tests (Malformed, Pagination, Escaping)** | 🟢 PASS | `test/raw_gps_dataset_inventory_test.dart` |
 | **Physical iPhone Foreground Capture** | 🟡 **NOT TESTED** | Pending Physical iPhone Field Test |
 | **Physical iPhone Offline Disconnect / Reconnect** | 🟡 **NOT TESTED** | Pending Physical iPhone Field Test |
 | **Physical iPhone Kill & Restart Recovery** | 🟡 **NOT TESTED** | Pending Physical iPhone Field Test |
@@ -148,8 +159,8 @@ The script will:
 ## 6. Verification & Quality Gates Summary
 
 - `flutter analyze`: **0 issues found** (Clean).
-- `flutter test test/raw_gps_dataset_inventory_test.dart test/raw_gps_dataset_export_test.dart`: **26/26 passed**.
-- `flutter test`: **617/617 passed** (full suite green).
-- Standalone CLI Tool: `dart run tooling/inventory_historical_datasets.dart` **SUCCEEDED**.
+- `flutter test test/raw_gps_dataset_inventory_test.dart test/raw_gps_dataset_export_test.dart`: **30/30 passed**.
+- `flutter test`: **629/629 passed** (full suite green).
+- Standalone CLI Tool: `dart run tooling/inventory_historical_datasets.dart` **SUCCEEDED** (Reports `AUTH_REQUIRED`, zero errors).
 - Phase 5 Frozen Benchmarks: **100% byte & hash parity, 0 diff churn**.
 - PR #11 remains in **DRAFT** status; no algorithm modifications or merge allowed.
