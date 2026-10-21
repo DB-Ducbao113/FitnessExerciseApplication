@@ -8,7 +8,9 @@ import 'package:fitness_exercise_application/features/workout/presentation/widge
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_splits_card.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_telemetry_list_card.dart';
 import 'package:fitness_exercise_application/features/workout/presentation/widgets/details/kinetic_details_top_bar.dart';
+import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_export_service.dart';
 import 'package:fitness_exercise_application/shared/kinetic/kinetic.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -58,6 +60,57 @@ class WorkoutDetailsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _exportDataset(BuildContext context, WidgetRef ref) async {
+    final lang = ref.read(appLanguageProvider);
+    final colors = context.kinetic;
+
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppTranslations.get('export_dataset_unsupported_web', lang),
+            style: KineticTypography.label.copyWith(color: Colors.white),
+          ),
+          backgroundColor: colors.tertiary,
+        ),
+      );
+      return;
+    }
+
+    final box = context.findRenderObject() as RenderBox?;
+    final rect =
+        box != null ? box.localToGlobal(Offset.zero) & box.size : null;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppTranslations.get('exporting_dataset', lang),
+          style: KineticTypography.label.copyWith(color: colors.background),
+        ),
+        backgroundColor: colors.primary,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final exportService = ref.read(rawGpsExportServiceProvider);
+      final bundle = await exportService.exportSession(workoutId: workoutId);
+      await exportService.shareExportBundle(bundle, sharePositionOrigin: rect);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${AppTranslations.get('export_dataset_error', lang)}: $e',
+              style: KineticTypography.label.copyWith(color: Colors.white),
+            ),
+            backgroundColor: colors.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.kinetic;
@@ -76,6 +129,7 @@ class WorkoutDetailsScreen extends ConsumerWidget {
               currentLang: currentLang,
               onBack: () => Navigator.of(context).pop(),
               onDelete: () => _showDeleteDialog(context, ref),
+              onExport: () => _exportDataset(context, ref),
             ),
 
             // Content

@@ -33,8 +33,8 @@ Benchmark phải tách rõ:
 ## Development dataset hiện tại
 
 - Tổng cộng: 7 workout đạp xe, 10.779 dòng journal và 10.730 timestamp duy nhất sau khi khử trùng lặp.
-- Workout mới `8674084e-a189-42da-b769-4bab1d9aaa45`: 1.680 dòng, 1.674 timestamp duy nhất, span 1.781 giây, reported-accuracy P95 14,25 m, max gap 9 giây.
-- Workout mới `8a554aec-f0d8-4780-b82f-5cdf34848eaf`: 2.346 dòng, 2.322 timestamp duy nhất, span 2.664 giây, reported-accuracy P95 21,52 m sau khử trùng lặp, max 302,40 m, 61 gap trên 5 giây.
+- Workout mới `session_6`: 1.680 dòng, 1.674 timestamp duy nhất, span 1.781 giây, reported-accuracy P95 14,25 m, max gap 9 giây.
+- Workout mới `session_7`: 2.346 dòng, 2.322 timestamp duy nhất, span 2.664 giây, reported-accuracy P95 21,52 m sau khử trùng lặp, max 302,40 m, 61 gap trên 5 giây.
 - Raw files nằm ngoài Git tại `/Users/baobungbu/Downloads/AetronRecovery-20261015/latest-journals/`.
 
 Hai file mới là dữ liệu development tốt vì một phiên tương đối ổn định và một phiên có signal degradation/outlier rõ rệt.

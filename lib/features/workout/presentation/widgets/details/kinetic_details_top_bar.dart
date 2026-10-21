@@ -7,12 +7,14 @@ class KineticDetailsTopBar extends StatelessWidget {
   final AppLanguage currentLang;
   final VoidCallback onBack;
   final VoidCallback onDelete;
+  final VoidCallback? onExport;
 
   const KineticDetailsTopBar({
     super.key,
     required this.currentLang,
     required this.onBack,
     required this.onDelete,
+    this.onExport,
   });
 
   @override
@@ -60,6 +62,35 @@ class KineticDetailsTopBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+
+          // Export Dataset Button
+          if (onExport != null) ...[
+            Semantics(
+              button: true,
+              label: AppTranslations.get('export_dataset', currentLang),
+              child: InkWell(
+                onTap: onExport,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colors.primary.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.ios_share_rounded,
+                    color: colors.primary,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
 
           // Delete Button
           Semantics(

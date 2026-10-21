@@ -1,0 +1,322 @@
+{
+  "dataset_summary": {
+    "csv_path": "exports/historical/aetron_raw_gps_combined.csv",
+    "csv_sha256": "4352aaf43356ab1e7b5e0f4acd3ca8f20259417bde2b3f5bfbabf9c956d2a9c5",
+    "total_raw_points": 10779,
+    "total_sessions": 7,
+    "total_validated_points": 8137,
+    "overall_acceptance_rate_pct": 75.83
+  },
+  "aggregate_totals": {
+    "current_app_baseline_distance_m": 58036.58,
+    "current_display_distance_m": 57068.79,
+    "ekf_display_distance_m": 57662.43,
+    "dbscan_display_distance_m": 57881.95,
+    "ekf_dbscan_display_distance_m": 57655.22,
+    "dopt_distance_m": 58695.91,
+    "deviations_vs_current_app_baseline": {
+      "current_display_pct": -1.67,
+      "ekf_pct": -0.64,
+      "dbscan_pct": -0.27,
+      "ekf_dbscan_pct": -0.66,
+      "dopt_pct": 1.14
+    },
+    "deviations_vs_current_display_distance": {
+      "ekf_pct": 1.04,
+      "dbscan_pct": 1.42,
+      "ekf_dbscan_pct": 1.03,
+      "dopt_pct": 2.85
+    }
+  },
+  "ground_truth_policy": {
+    "ground_truth_available": false,
+    "claim_prohibition": "Never describe distance deviation from baseline as ground-truth error without survey-grade reference measurements."
+  },
+  "sessions": [
+    {
+      "session_label": "session_1",
+      "raw_points": 1186,
+      "deduped_points": 1186,
+      "duplicate_timestamps": 0,
+      "validated_points": 722,
+      "acceptance_rate_pct": 60.88,
+      "rejection_counts": {
+        "tinySegment": 413,
+        "lowAccuracy": 46,
+        "headingSpike": 5
+      },
+      "current_app_baseline_distance_m": 5168.26,
+      "current_display_distance_m": 5081.85,
+      "ekf_display_distance_m": 5142.93,
+      "dbscan_display_distance_m": 5157.92,
+      "ekf_dbscan_display_distance_m": 5142.93,
+      "dopt_distance_m": 5087.57,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -86.41,
+        "current_display_pct": -1.67,
+        "ekf_m": -25.33,
+        "ekf_pct": -0.49,
+        "dbscan_m": -10.34,
+        "dbscan_pct": -0.2,
+        "ekf_dbscan_m": -25.33,
+        "ekf_dbscan_pct": -0.49,
+        "dopt_m": -80.69,
+        "dopt_pct": -1.56
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 632,
+        "s1SuspectedDegraded": 13,
+        "s2LossOfLock": 20,
+        "s3CandidateReacquisition": 28,
+        "s5SafeReset": 29
+      },
+      "dopt_escrow_m": 19.8
+    },
+    {
+      "session_label": "session_2",
+      "raw_points": 1173,
+      "deduped_points": 1160,
+      "duplicate_timestamps": 13,
+      "validated_points": 812,
+      "acceptance_rate_pct": 70.0,
+      "rejection_counts": {
+        "tinySegment": 323,
+        "headingSpike": 21,
+        "lowAccuracy": 4
+      },
+      "current_app_baseline_distance_m": 5686.56,
+      "current_display_distance_m": 5597.13,
+      "ekf_display_distance_m": 5666.27,
+      "dbscan_display_distance_m": 5671.2,
+      "ekf_dbscan_display_distance_m": 5666.27,
+      "dopt_distance_m": 5682.51,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -89.42,
+        "current_display_pct": -1.57,
+        "ekf_m": -20.29,
+        "ekf_pct": -0.36,
+        "dbscan_m": -15.36,
+        "dbscan_pct": -0.27,
+        "ekf_dbscan_m": -20.29,
+        "ekf_dbscan_pct": -0.36,
+        "dopt_m": -4.04,
+        "dopt_pct": -0.07
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 725,
+        "s2LossOfLock": 23,
+        "s3CandidateReacquisition": 25,
+        "s5SafeReset": 24,
+        "s1SuspectedDegraded": 15
+      },
+      "dopt_escrow_m": 0.0
+    },
+    {
+      "session_label": "session_3",
+      "raw_points": 101,
+      "deduped_points": 101,
+      "duplicate_timestamps": 0,
+      "validated_points": 54,
+      "acceptance_rate_pct": 53.47,
+      "rejection_counts": {
+        "headingSpike": 5,
+        "tinySegment": 42
+      },
+      "current_app_baseline_distance_m": 242.9,
+      "current_display_distance_m": 233.87,
+      "ekf_display_distance_m": 235.09,
+      "dbscan_display_distance_m": 241.83,
+      "ekf_dbscan_display_distance_m": 235.09,
+      "dopt_distance_m": 226.96,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -9.03,
+        "current_display_pct": -3.72,
+        "ekf_m": -7.81,
+        "ekf_pct": -3.22,
+        "dbscan_m": -1.07,
+        "dbscan_pct": -0.44,
+        "ekf_dbscan_m": -7.81,
+        "ekf_dbscan_pct": -3.22,
+        "dopt_m": -15.95,
+        "dopt_pct": -6.57
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 47,
+        "s2LossOfLock": 2,
+        "s3CandidateReacquisition": 2,
+        "s5SafeReset": 3
+      },
+      "dopt_escrow_m": 0.0
+    },
+    {
+      "session_label": "session_4",
+      "raw_points": 2336,
+      "deduped_points": 2330,
+      "duplicate_timestamps": 6,
+      "validated_points": 1943,
+      "acceptance_rate_pct": 83.39,
+      "rejection_counts": {
+        "waitingForBetterFirstFix": 2,
+        "tinySegment": 375,
+        "lowAccuracy": 3,
+        "headingSpike": 7
+      },
+      "current_app_baseline_distance_m": 14880.3,
+      "current_display_distance_m": 14689.91,
+      "ekf_display_distance_m": 14853.38,
+      "dbscan_display_distance_m": 14849.01,
+      "ekf_dbscan_display_distance_m": 14853.38,
+      "dopt_distance_m": 14784.38,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -190.39,
+        "current_display_pct": -1.28,
+        "ekf_m": -26.93,
+        "ekf_pct": -0.18,
+        "dbscan_m": -31.29,
+        "dbscan_pct": -0.21,
+        "ekf_dbscan_m": -26.93,
+        "ekf_dbscan_pct": -0.18,
+        "dopt_m": -95.92,
+        "dopt_pct": -0.64
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1821,
+        "s2LossOfLock": 22,
+        "s3CandidateReacquisition": 39,
+        "s5SafeReset": 48,
+        "s1SuspectedDegraded": 13
+      },
+      "dopt_escrow_m": 0.0
+    },
+    {
+      "session_label": "session_5",
+      "raw_points": 1957,
+      "deduped_points": 1957,
+      "duplicate_timestamps": 0,
+      "validated_points": 1648,
+      "acceptance_rate_pct": 84.21,
+      "rejection_counts": {
+        "tinySegment": 299,
+        "headingSpike": 10
+      },
+      "current_app_baseline_distance_m": 11086.59,
+      "current_display_distance_m": 10899.15,
+      "ekf_display_distance_m": 11043.31,
+      "dbscan_display_distance_m": 11035.69,
+      "ekf_dbscan_display_distance_m": 11037.37,
+      "dopt_distance_m": 10938.19,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -187.44,
+        "current_display_pct": -1.69,
+        "ekf_m": -43.29,
+        "ekf_pct": -0.39,
+        "dbscan_m": -50.9,
+        "dbscan_pct": -0.46,
+        "ekf_dbscan_m": -49.22,
+        "ekf_dbscan_pct": -0.44,
+        "dopt_m": -148.4,
+        "dopt_pct": -1.34
+      },
+      "dbscan_dwell_clusters": 2,
+      "dbscan_phantom_drift_removed_m": 24.01,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1534,
+        "s2LossOfLock": 20,
+        "s3CandidateReacquisition": 33,
+        "s5SafeReset": 39,
+        "s1SuspectedDegraded": 22
+      },
+      "dopt_escrow_m": 0.0
+    },
+    {
+      "session_label": "session_6",
+      "raw_points": 1680,
+      "deduped_points": 1674,
+      "duplicate_timestamps": 6,
+      "validated_points": 1196,
+      "acceptance_rate_pct": 71.45,
+      "rejection_counts": {
+        "headingSpike": 13,
+        "tinySegment": 465
+      },
+      "current_app_baseline_distance_m": 8738.45,
+      "current_display_distance_m": 8624.47,
+      "ekf_display_distance_m": 8664.81,
+      "dbscan_display_distance_m": 8719.64,
+      "ekf_dbscan_display_distance_m": 8664.81,
+      "dopt_distance_m": 8578.17,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -113.98,
+        "current_display_pct": -1.3,
+        "ekf_m": -73.64,
+        "ekf_pct": -0.84,
+        "dbscan_m": -18.81,
+        "dbscan_pct": -0.22,
+        "ekf_dbscan_m": -73.64,
+        "ekf_dbscan_pct": -0.84,
+        "dopt_m": -160.28,
+        "dopt_pct": -1.83
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1102,
+        "s1SuspectedDegraded": 15,
+        "s2LossOfLock": 18,
+        "s3CandidateReacquisition": 26,
+        "s5SafeReset": 30,
+        "s0Provisional": 5
+      },
+      "dopt_escrow_m": 0.0
+    },
+    {
+      "session_label": "session_7",
+      "raw_points": 2346,
+      "deduped_points": 2322,
+      "duplicate_timestamps": 24,
+      "validated_points": 1762,
+      "acceptance_rate_pct": 75.88,
+      "rejection_counts": {
+        "tinySegment": 449,
+        "lowAccuracy": 75,
+        "headingSpike": 36
+      },
+      "current_app_baseline_distance_m": 12233.51,
+      "current_display_distance_m": 11942.4,
+      "ekf_display_distance_m": 12056.65,
+      "dbscan_display_distance_m": 12206.65,
+      "ekf_dbscan_display_distance_m": 12055.38,
+      "dopt_distance_m": 13398.13,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -291.11,
+        "current_display_pct": -2.38,
+        "ekf_m": -176.86,
+        "ekf_pct": -1.45,
+        "dbscan_m": -26.86,
+        "dbscan_pct": -0.22,
+        "ekf_dbscan_m": -178.13,
+        "ekf_dbscan_pct": -1.46,
+        "dopt_m": 1164.62,
+        "dopt_pct": 9.52
+      },
+      "dbscan_dwell_clusters": 1,
+      "dbscan_phantom_drift_removed_m": 4.72,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1612,
+        "s2LossOfLock": 43,
+        "s3CandidateReacquisition": 43,
+        "s5SafeReset": 48,
+        "s1SuspectedDegraded": 16
+      },
+      "dopt_escrow_m": 0.0
+    }
+  ]
+}

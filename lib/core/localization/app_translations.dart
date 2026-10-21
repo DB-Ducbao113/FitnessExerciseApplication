@@ -455,6 +455,30 @@ class AppTranslations {
       AppLanguage.vi: 'Lưu buổi tập',
       AppLanguage.en: 'Save Workout',
     },
+    'export_dataset': {
+      AppLanguage.vi: 'Xuất dữ liệu GPS nghiên cứu',
+      AppLanguage.en: 'Export Research GPS Dataset',
+    },
+    'export_dataset_subtitle': {
+      AppLanguage.vi: 'Xuất gói JSONL, CSV, GPX và Manifest',
+      AppLanguage.en: 'Export JSONL, CSV, GPX and Manifest bundle',
+    },
+    'exporting_dataset': {
+      AppLanguage.vi: 'Đang chuẩn bị tệp dữ liệu...',
+      AppLanguage.en: 'Preparing dataset files...',
+    },
+    'export_dataset_success': {
+      AppLanguage.vi: 'Đã sẵn sàng chia sẻ gói dữ liệu',
+      AppLanguage.en: 'Dataset package ready to share',
+    },
+    'export_dataset_error': {
+      AppLanguage.vi: 'Không thể xuất dữ liệu',
+      AppLanguage.en: 'Failed to export dataset',
+    },
+    'export_dataset_unsupported_web': {
+      AppLanguage.vi: 'Tính năng xuất GPS nghiên cứu không hỗ trợ trên Web',
+      AppLanguage.en: 'Research GPS dataset export is not supported on Web',
+    },
 
     // History & Calendar
     'calendar': {AppLanguage.vi: 'Lịch tập luyện', AppLanguage.en: 'Workout Calendar'},
