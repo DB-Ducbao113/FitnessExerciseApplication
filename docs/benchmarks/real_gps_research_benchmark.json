@@ -1,0 +1,371 @@
+{
+  "dataset_summary": {
+    "csv_path": "exports/historical/aetron_raw_gps_combined.csv",
+    "csv_sha256": "4352aaf43356ab1e7b5e0f4acd3ca8f20259417bde2b3f5bfbabf9c956d2a9c5",
+    "total_raw_points": 10779,
+    "total_sessions": 7,
+    "total_validated_points": 8135,
+    "overall_acceptance_rate_pct": 75.82
+  },
+  "aggregate_totals": {
+    "current_app_baseline_distance_m": 57892.15,
+    "current_display_distance_m": 57069.05,
+    "ekf_display_distance_m": 57662.58,
+    "dbscan_display_distance_m": 57883.75,
+    "ekf_dbscan_display_distance_m": 57656.64,
+    "dopt_distance_m": 58689.42,
+    "deviations_vs_current_app_baseline": {
+      "current_display_pct": -1.42,
+      "ekf_pct": -0.4,
+      "dbscan_pct": -0.01,
+      "ekf_dbscan_pct": -0.41,
+      "dopt_pct": 1.38
+    },
+    "deviations_vs_current_display_distance": {
+      "ekf_pct": 1.04,
+      "dbscan_pct": 1.43,
+      "ekf_dbscan_pct": 1.03,
+      "dopt_pct": 2.84
+    }
+  },
+  "ground_truth_policy": {
+    "ground_truth_available": false,
+    "claim_prohibition": "Never describe distance deviation from baseline as ground-truth error without survey-grade reference measurements."
+  },
+  "sessions": [
+    {
+      "workout_id": "6903b3e0-0fa7-4858-9ff2-77169f3ef2fa",
+      "raw_points": 1186,
+      "deduped_points": 1186,
+      "duplicate_timestamps": 0,
+      "validated_points": 722,
+      "acceptance_rate_pct": 60.88,
+      "rejection_counts": {
+        "tinySegment": 413,
+        "lowAccuracy": 46,
+        "headingSpike": 5
+      },
+      "current_app_baseline_distance_m": 5157.92,
+      "current_display_distance_m": 5081.85,
+      "ekf_display_distance_m": 5142.93,
+      "dbscan_display_distance_m": 5157.92,
+      "ekf_dbscan_display_distance_m": 5142.93,
+      "dopt_distance_m": 5087.57,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -76.07,
+        "current_display_pct": -1.47,
+        "ekf_m": -14.99,
+        "ekf_pct": -0.29,
+        "dbscan_m": 0.0,
+        "dbscan_pct": 0.0,
+        "ekf_dbscan_m": -14.99,
+        "ekf_dbscan_pct": -0.29,
+        "dopt_m": -70.35,
+        "dopt_pct": -1.36
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 632,
+        "s1SuspectedDegraded": 13,
+        "s2LossOfLock": 20,
+        "s3CandidateReacquisition": 28,
+        "s5SafeReset": 29
+      },
+      "dopt_escrow_m": 19.8,
+      "latencies_us_per_point": {
+        "current": 4.4,
+        "ekf": 8.54,
+        "dbscan": 1.55,
+        "ekf_dbscan": 3.28,
+        "dopt": 20.64
+      }
+    },
+    {
+      "workout_id": "f808e88a-01df-41c6-9f12-28a48bed8a69",
+      "raw_points": 1173,
+      "deduped_points": 1160,
+      "duplicate_timestamps": 13,
+      "validated_points": 812,
+      "acceptance_rate_pct": 70.0,
+      "rejection_counts": {
+        "tinySegment": 323,
+        "headingSpike": 21,
+        "lowAccuracy": 4
+      },
+      "current_app_baseline_distance_m": 5671.2,
+      "current_display_distance_m": 5597.13,
+      "ekf_display_distance_m": 5666.27,
+      "dbscan_display_distance_m": 5671.2,
+      "ekf_dbscan_display_distance_m": 5666.27,
+      "dopt_distance_m": 5682.51,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -74.07,
+        "current_display_pct": -1.31,
+        "ekf_m": -4.93,
+        "ekf_pct": -0.09,
+        "dbscan_m": 0.0,
+        "dbscan_pct": 0.0,
+        "ekf_dbscan_m": -4.93,
+        "ekf_dbscan_pct": -0.09,
+        "dopt_m": 11.31,
+        "dopt_pct": 0.2
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 725,
+        "s2LossOfLock": 23,
+        "s3CandidateReacquisition": 25,
+        "s5SafeReset": 24,
+        "s1SuspectedDegraded": 15
+      },
+      "dopt_escrow_m": 0.0,
+      "latencies_us_per_point": {
+        "current": 1.02,
+        "ekf": 1.93,
+        "dbscan": 0.75,
+        "ekf_dbscan": 6.25,
+        "dopt": 5.24
+      }
+    },
+    {
+      "workout_id": "9b9d3c3f-8a41-42f3-971c-72096a0fe013",
+      "raw_points": 101,
+      "deduped_points": 101,
+      "duplicate_timestamps": 0,
+      "validated_points": 54,
+      "acceptance_rate_pct": 53.47,
+      "rejection_counts": {
+        "headingSpike": 5,
+        "tinySegment": 42
+      },
+      "current_app_baseline_distance_m": 241.83,
+      "current_display_distance_m": 233.87,
+      "ekf_display_distance_m": 235.09,
+      "dbscan_display_distance_m": 241.83,
+      "ekf_dbscan_display_distance_m": 235.09,
+      "dopt_distance_m": 226.96,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -7.96,
+        "current_display_pct": -3.29,
+        "ekf_m": -6.74,
+        "ekf_pct": -2.79,
+        "dbscan_m": 0.0,
+        "dbscan_pct": 0.0,
+        "ekf_dbscan_m": -6.74,
+        "ekf_dbscan_pct": -2.79,
+        "dopt_m": -14.87,
+        "dopt_pct": -6.15
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 47,
+        "s2LossOfLock": 2,
+        "s3CandidateReacquisition": 2,
+        "s5SafeReset": 3
+      },
+      "dopt_escrow_m": 0.0,
+      "latencies_us_per_point": {
+        "current": 1.59,
+        "ekf": 1.88,
+        "dbscan": 1.43,
+        "ekf_dbscan": 2.53,
+        "dopt": 3.06
+      }
+    },
+    {
+      "workout_id": "bc34d070-6a7d-4b81-b560-26f0dd4c18bc",
+      "raw_points": 2336,
+      "deduped_points": 2330,
+      "duplicate_timestamps": 6,
+      "validated_points": 1943,
+      "acceptance_rate_pct": 83.39,
+      "rejection_counts": {
+        "waitingForBetterFirstFix": 2,
+        "tinySegment": 375,
+        "lowAccuracy": 3,
+        "headingSpike": 7
+      },
+      "current_app_baseline_distance_m": 14849.02,
+      "current_display_distance_m": 14689.91,
+      "ekf_display_distance_m": 14853.86,
+      "dbscan_display_distance_m": 14849.02,
+      "ekf_dbscan_display_distance_m": 14853.86,
+      "dopt_distance_m": 14773.69,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -159.11,
+        "current_display_pct": -1.07,
+        "ekf_m": 4.84,
+        "ekf_pct": 0.03,
+        "dbscan_m": 0.0,
+        "dbscan_pct": 0.0,
+        "ekf_dbscan_m": 4.84,
+        "ekf_dbscan_pct": 0.03,
+        "dopt_m": -75.33,
+        "dopt_pct": -0.51
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1820,
+        "s2LossOfLock": 22,
+        "s3CandidateReacquisition": 39,
+        "s5SafeReset": 48,
+        "s1SuspectedDegraded": 14
+      },
+      "dopt_escrow_m": 0.0,
+      "latencies_us_per_point": {
+        "current": 0.7,
+        "ekf": 2.18,
+        "dbscan": 0.51,
+        "ekf_dbscan": 2.22,
+        "dopt": 6.62
+      }
+    },
+    {
+      "workout_id": "8fd0afa4-0753-454d-97b2-ce9c0faab6a4",
+      "raw_points": 1957,
+      "deduped_points": 1957,
+      "duplicate_timestamps": 0,
+      "validated_points": 1647,
+      "acceptance_rate_pct": 84.16,
+      "rejection_counts": {
+        "tinySegment": 300,
+        "headingSpike": 10
+      },
+      "current_app_baseline_distance_m": 11044.01,
+      "current_display_distance_m": 10899.27,
+      "ekf_display_distance_m": 11043.26,
+      "dbscan_display_distance_m": 11035.61,
+      "ekf_dbscan_display_distance_m": 11037.32,
+      "dopt_distance_m": 10936.95,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -144.75,
+        "current_display_pct": -1.31,
+        "ekf_m": -0.75,
+        "ekf_pct": -0.01,
+        "dbscan_m": -8.4,
+        "dbscan_pct": -0.08,
+        "ekf_dbscan_m": -6.69,
+        "ekf_dbscan_pct": -0.06,
+        "dopt_m": -107.06,
+        "dopt_pct": -0.97
+      },
+      "dbscan_dwell_clusters": 2,
+      "dbscan_phantom_drift_removed_m": 24.01,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1533,
+        "s2LossOfLock": 20,
+        "s3CandidateReacquisition": 33,
+        "s5SafeReset": 39,
+        "s1SuspectedDegraded": 22
+      },
+      "dopt_escrow_m": 0.0,
+      "latencies_us_per_point": {
+        "current": 0.69,
+        "ekf": 1.52,
+        "dbscan": 0.49,
+        "ekf_dbscan": 1.83,
+        "dopt": 4.97
+      }
+    },
+    {
+      "workout_id": "8674084e-a189-42da-b769-4bab1d9aaa45",
+      "raw_points": 1680,
+      "deduped_points": 1674,
+      "duplicate_timestamps": 6,
+      "validated_points": 1196,
+      "acceptance_rate_pct": 71.45,
+      "rejection_counts": {
+        "headingSpike": 13,
+        "tinySegment": 465
+      },
+      "current_app_baseline_distance_m": 8719.64,
+      "current_display_distance_m": 8624.47,
+      "ekf_display_distance_m": 8664.81,
+      "dbscan_display_distance_m": 8719.64,
+      "ekf_dbscan_display_distance_m": 8664.81,
+      "dopt_distance_m": 8578.17,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -95.17,
+        "current_display_pct": -1.09,
+        "ekf_m": -54.83,
+        "ekf_pct": -0.63,
+        "dbscan_m": 0.0,
+        "dbscan_pct": 0.0,
+        "ekf_dbscan_m": -54.83,
+        "ekf_dbscan_pct": -0.63,
+        "dopt_m": -141.47,
+        "dopt_pct": -1.62
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1102,
+        "s1SuspectedDegraded": 15,
+        "s2LossOfLock": 18,
+        "s3CandidateReacquisition": 26,
+        "s5SafeReset": 30,
+        "s0Provisional": 5
+      },
+      "dopt_escrow_m": 0.0,
+      "latencies_us_per_point": {
+        "current": 0.64,
+        "ekf": 1.41,
+        "dbscan": 0.43,
+        "ekf_dbscan": 1.66,
+        "dopt": 3.89
+      }
+    },
+    {
+      "workout_id": "8a554aec-f0d8-4780-b82f-5cdf34848eaf",
+      "raw_points": 2346,
+      "deduped_points": 2322,
+      "duplicate_timestamps": 24,
+      "validated_points": 1761,
+      "acceptance_rate_pct": 75.84,
+      "rejection_counts": {
+        "tinySegment": 451,
+        "lowAccuracy": 75,
+        "headingSpike": 35
+      },
+      "current_app_baseline_distance_m": 12208.52,
+      "current_display_distance_m": 11942.55,
+      "ekf_display_distance_m": 12056.35,
+      "dbscan_display_distance_m": 12208.52,
+      "ekf_dbscan_display_distance_m": 12056.35,
+      "dopt_distance_m": 13403.57,
+      "deviations_vs_app_baseline": {
+        "current_display_m": -265.97,
+        "current_display_pct": -2.18,
+        "ekf_m": -152.17,
+        "ekf_pct": -1.25,
+        "dbscan_m": 0.0,
+        "dbscan_pct": 0.0,
+        "ekf_dbscan_m": -152.17,
+        "ekf_dbscan_pct": -1.25,
+        "dopt_m": 1195.05,
+        "dopt_pct": 9.79
+      },
+      "dbscan_dwell_clusters": 0,
+      "dbscan_phantom_drift_removed_m": 0.0,
+      "dopt_state_counts": {
+        "s0NormalTracking": 1610,
+        "s2LossOfLock": 44,
+        "s3CandidateReacquisition": 44,
+        "s5SafeReset": 48,
+        "s1SuspectedDegraded": 15
+      },
+      "dopt_escrow_m": 0.0,
+      "latencies_us_per_point": {
+        "current": 0.54,
+        "ekf": 1.43,
+        "dbscan": 0.38,
+        "ekf_dbscan": 1.62,
+        "dopt": 4.73
+      }
+    }
+  ]
+}
