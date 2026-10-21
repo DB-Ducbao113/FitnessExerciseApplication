@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_export_service.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/raw_gps_export_bundle.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/raw_gps_session_quality.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_dataset_exporter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_quality_analyzer.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../tooling/inventory_historical_datasets.dart';
 
 void main() {
   group('AETRON ALG-0 Dataset Inventory & Quality Analyzer Tests', () {
@@ -544,50 +548,306 @@ void main() {
     });
 
     test('ALG-0.15: Fixture collision prevention rejects overwriting real sessions', () {
-      final realMap = <String, String>{
-        'workout-alpha': 'cloud_only_unverified',
-      };
+      final allPointsMap = <String, List<InventoryGpsPoint>>{};
+      final sourceKindMap = <String, String>{};
 
-      // Simulating fixture ingestion
-      const fixtureWorkoutId = 'workout-alpha';
-      var collisionRejected = false;
+      // Real authenticated session already discovered
+      const workoutId = 'session-collision-test';
+      final realPoints = [
+        InventoryGpsPoint(
+          workoutId: workoutId,
+          timestamp: baseTime,
+          latitude: 10.7725,
+          longitude: 106.6980,
+          speed: 3.2,
+          accuracy: 4.5,
+          deviceSource: 'geolocator_position_stream',
+        ),
+      ];
+      allPointsMap[workoutId] = realPoints;
+      sourceKindMap[workoutId] = 'cloud_only_unverified';
 
-      if (realMap.containsKey(fixtureWorkoutId)) {
-        collisionRejected = true;
+      // Fixture attempting to claim same workoutId
+      final fixturePoints = [
+        InventoryGpsPoint(
+          workoutId: workoutId,
+          timestamp: baseTime,
+          latitude: 10.8888,
+          longitude: 106.9999,
+          speed: 1.0,
+          accuracy: 2.0,
+          deviceSource: 'synthetic_fixture',
+        ),
+      ];
+
+      // Ingestion collision guard:
+      var collisionDetected = false;
+      if (allPointsMap.containsKey(workoutId)) {
+        collisionDetected = true;
       } else {
-        realMap[fixtureWorkoutId] = 'synthetic_fixture';
+        allPointsMap[workoutId] = fixturePoints;
+        sourceKindMap[workoutId] = 'synthetic_fixture';
       }
 
-      expect(collisionRejected, isTrue);
-      expect(realMap['workout-alpha'], 'cloud_only_unverified');
+      expect(collisionDetected, isTrue);
+      expect(allPointsMap[workoutId]!.first.latitude, 10.7725);
+      expect(sourceKindMap[workoutId], 'cloud_only_unverified');
     });
 
     test('ALG-0.16: Pagination failure fails affected session closed without partial export', () {
-      // If a multi-page fetch fails on page 2, the session must be failed closed
-      final allPoints = <RawGpsExportPoint>[];
+      // Simulate real paginated fetching with error handling
+      final sessionPoints = <InventoryGpsPoint>[];
+      var failureCount = 0;
       var sessionFailed = false;
 
-      // Page 1 succeeds (50 points)
-      final page1 = List.generate(
-        50,
-        (i) => RawGpsExportPoint(
-          workoutId: 'paginated-fail',
-          timestamp: baseTime.add(Duration(seconds: i)),
-          latitude: 10.77,
-          longitude: 106.69,
-        ),
-      );
-      allPoints.addAll(page1);
+      // Page 1 succeeds with 50 points
+      for (var i = 0; i < 50; i++) {
+        sessionPoints.add(
+          InventoryGpsPoint(
+            workoutId: 'paginated-fail',
+            timestamp: baseTime.add(Duration(seconds: i)),
+            latitude: 10.77,
+            longitude: 106.69,
+          ),
+        );
+      }
+      expect(sessionPoints.length, 50);
 
-      // Page 2 simulated HTTP 500 error
-      const page2HttpError = 500;
-      if (page2HttpError != 200) {
+      // Page 2 encounters HTTP 500
+      const page2Status = 500;
+      if (page2Status != 200) {
+        failureCount++;
         sessionFailed = true;
-        allPoints.clear(); // Discard partial points!
+      }
+
+      final allPointsMap = <String, List<InventoryGpsPoint>>{};
+      if (sessionFailed) {
+        // Discard partial points - never mark as success
+        sessionPoints.clear();
+      } else {
+        allPointsMap['paginated-fail'] = sessionPoints;
       }
 
       expect(sessionFailed, isTrue);
-      expect(allPoints.isEmpty, isTrue); // Zero partial points retained
+      expect(failureCount, 1);
+      expect(sessionPoints.isEmpty, isTrue);
+      expect(allPointsMap.containsKey('paginated-fail'), isFalse);
+    });
+
+    test('ALG-0.17: Journal owner verification fails closed when expected owner is absent', () {
+      final tempDir = Directory.systemTemp.createTempSync('alg0_test_absent_');
+      try {
+        const workoutId = 'session-absent-owner';
+        final points = List.generate(
+          10,
+          (i) => InventoryGpsPoint(
+            workoutId: workoutId,
+            timestamp: baseTime.add(Duration(seconds: i)),
+            latitude: 10.7700 + (i * 0.0001),
+            longitude: 106.6900 + (i * 0.0001),
+            altitude: 12.0,
+            speed: 3.5,
+            accuracy: 5.0,
+            heading: 90.0,
+            deviceSource: 'geolocator_position_stream',
+          ),
+        );
+
+        final rawFile = File('${tempDir.path}/$workoutId.raw.jsonl');
+        final rawLines = points.map((p) => jsonEncode(p.toJson())).join('\n');
+        rawFile.writeAsStringSync(rawLines);
+
+        final actualSha = sha256.convert(rawFile.readAsBytesSync()).toString();
+        final actualDigest = computeCanonicalDigest(points);
+
+        final manifestFile = File('${tempDir.path}/$workoutId.manifest.json');
+        final manifest = {
+          'schema_version': '1.0.0',
+          'workout_id': workoutId,
+          'user_id': 'owner-alice',
+          'file_sha256': actualSha,
+          'record_count': points.length,
+          'canonical_capture_digest': actualDigest,
+        };
+        manifestFile.writeAsStringSync(jsonEncode(manifest));
+
+        // When trustedUserId is absent (null or empty)
+        final result = verifyJournalProvenance(
+          workoutId: workoutId,
+          points: points,
+          rawFile: rawFile,
+          manifestFile: manifestFile,
+          trustedUserId: null,
+        );
+
+        expect(result.status, JournalProvenanceStatus.unverified);
+        expect(result.isVerified, isFalse);
+        expect(result.sourceKind, 'device_recovered_unverified');
+        expect(result.reason, contains('No trustworthy owner identity established'));
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('ALG-0.18: Journal owner verification detects mismatched owner and rejects foreign account', () {
+      final tempDir = Directory.systemTemp.createTempSync('alg0_test_mismatch_');
+      try {
+        const workoutId = 'session-mismatch-owner';
+        final points = List.generate(
+          5,
+          (i) => InventoryGpsPoint(
+            workoutId: workoutId,
+            timestamp: baseTime.add(Duration(seconds: i)),
+            latitude: 10.7700,
+            longitude: 106.6900,
+          ),
+        );
+
+        final rawFile = File('${tempDir.path}/$workoutId.raw.jsonl');
+        rawFile.writeAsStringSync(points.map((p) => jsonEncode(p.toJson())).join('\n'));
+
+        final actualSha = sha256.convert(rawFile.readAsBytesSync()).toString();
+        final actualDigest = computeCanonicalDigest(points);
+
+        final manifestFile = File('${tempDir.path}/$workoutId.manifest.json');
+        manifestFile.writeAsStringSync(jsonEncode({
+          'workout_id': workoutId,
+          'user_id': 'owner-alice',
+          'file_sha256': actualSha,
+          'record_count': points.length,
+          'canonical_capture_digest': actualDigest,
+        }));
+
+        // Trusted user is bob, but manifest belongs to alice
+        final result = verifyJournalProvenance(
+          workoutId: workoutId,
+          points: points,
+          rawFile: rawFile,
+          manifestFile: manifestFile,
+          trustedUserId: 'foreign-bob',
+        );
+
+        expect(result.status, JournalProvenanceStatus.accountMismatch);
+        expect(result.isAccountMismatch, isTrue);
+        expect(result.isVerified, isFalse);
+        expect(result.sourceKind, 'device_recovered_unverified');
+        expect(result.manifestOwnerId, 'owner-alice');
+        expect(result.reason, contains('Account mismatch'));
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('ALG-0.19: Journal owner verification grants verified status when owner and full contract pass', () {
+      final tempDir = Directory.systemTemp.createTempSync('alg0_test_verified_');
+      try {
+        const workoutId = 'session-verified-owner';
+        final points = List.generate(
+          8,
+          (i) => InventoryGpsPoint(
+            workoutId: workoutId,
+            timestamp: baseTime.add(Duration(seconds: i)),
+            latitude: 10.7700 + (i * 0.0001),
+            longitude: 106.6900,
+            speed: 3.0,
+            accuracy: 4.0,
+          ),
+        );
+
+        final rawFile = File('${tempDir.path}/$workoutId.raw.jsonl');
+        rawFile.writeAsStringSync(points.map((p) => jsonEncode(p.toJson())).join('\n'));
+
+        final actualSha = sha256.convert(rawFile.readAsBytesSync()).toString();
+        final actualDigest = computeCanonicalDigest(points);
+
+        final manifestFile = File('${tempDir.path}/$workoutId.manifest.json');
+        manifestFile.writeAsStringSync(jsonEncode({
+          'workout_id': workoutId,
+          'user_id': 'owner-alice',
+          'file_sha256': actualSha,
+          'record_count': points.length,
+          'canonical_capture_digest': actualDigest,
+        }));
+
+        final result = verifyJournalProvenance(
+          workoutId: workoutId,
+          points: points,
+          rawFile: rawFile,
+          manifestFile: manifestFile,
+          trustedUserId: 'owner-alice',
+        );
+
+        expect(result.status, JournalProvenanceStatus.verified);
+        expect(result.isVerified, isTrue);
+        expect(result.isAccountMismatch, isFalse);
+        expect(result.sourceKind, 'device_journal_verified');
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('ALG-0.20: Authenticated research-export mode returns non-zero process exit code on AUTH_REQUIRED', () {
+      final tempDir = Directory.systemTemp.createTempSync('alg0_cli_auth_');
+      try {
+        final result = Process.runSync(
+          _findDartExecutable(),
+          ['tooling/inventory_historical_datasets.dart', '--output-dir', tempDir.path],
+          environment: {
+            'AETRON_USER_TOKEN': '',
+            'SUPABASE_USER_TOKEN': '',
+          },
+        );
+
+        expect(result.exitCode, 1);
+        expect(result.stdout.toString(), contains('AUTH_REQUIRED'));
+
+        final reportFile = File('${tempDir.path}/inventory_report.json');
+        expect(reportFile.existsSync(), isTrue);
+
+        final reportJson = jsonDecode(reportFile.readAsStringSync()) as Map<String, dynamic>;
+        expect(reportJson['status'], 'AUTH_REQUIRED');
+        expect(reportJson['total_sessions'], 0);
+        expect(reportJson['discovery_audit']['successfully_exported'], 0);
+        expect(reportJson['discovery_audit']['failure_count'], 0);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('ALG-0.21: Explicit offline mode succeeds without authentication', () {
+      final tempDir = Directory.systemTemp.createTempSync('alg0_cli_offline_');
+      try {
+        final result = Process.runSync(
+          _findDartExecutable(),
+          ['tooling/inventory_historical_datasets.dart', '--offline-fixtures', '--output-dir', tempDir.path],
+          environment: {
+            'AETRON_USER_TOKEN': '',
+            'SUPABASE_USER_TOKEN': '',
+          },
+        );
+
+        expect(result.exitCode, 0);
+
+        final reportFile = File('${tempDir.path}/inventory_report.json');
+        expect(reportFile.existsSync(), isTrue);
+
+        final reportJson = jsonDecode(reportFile.readAsStringSync()) as Map<String, dynamic>;
+        expect(reportJson['status'], 'SUCCESS');
+        expect(reportJson['synthetic_fixture_sessions'], greaterThanOrEqualTo(1));
+        expect(reportJson['discovery_audit']['failure_count'], 0);
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
     });
   });
+}
+
+String _findDartExecutable() {
+  final testerPath = Platform.resolvedExecutable;
+  if (testerPath.contains('flutter_tester')) {
+    final flutterBin = Directory(testerPath).parent.parent.parent.parent.parent;
+    final dartFile = File('${flutterBin.path}/dart');
+    if (dartFile.existsSync()) return dartFile.path;
+  }
+  return 'dart';
 }

@@ -90,17 +90,17 @@ class InventoryGpsPoint implements Comparable<InventoryGpsPoint> {
   }
 }
 
-final RegExp _safeSessionIdRegex = RegExp(r'^[a-zA-Z0-9_\-]+$');
+final RegExp safeSessionIdRegex = RegExp(r'^[a-zA-Z0-9_\-]+$');
 
-void _validateSessionId(String workoutId) {
-  if (workoutId.isEmpty || !_safeSessionIdRegex.hasMatch(workoutId)) {
+void validateSessionId(String workoutId) {
+  if (workoutId.isEmpty || !safeSessionIdRegex.hasMatch(workoutId)) {
     throw ArgumentError(
       'Invalid session ID format: potentially unsafe characters or empty: "$workoutId"',
     );
   }
 }
 
-String _escapeCsv(dynamic value) {
+String escapeCsv(dynamic value) {
   if (value == null) return '';
   final str = value.toString();
   if (str.contains(',') || str.contains('"') || str.contains('\n') || str.contains('\r')) {
@@ -109,7 +109,7 @@ String _escapeCsv(dynamic value) {
   return str;
 }
 
-String _escapeXml(dynamic value) {
+String escapeXml(dynamic value) {
   if (value == null) return '';
   return value
       .toString()
@@ -134,7 +134,7 @@ double _haversineMeters(double lat1, double lon1, double lat2, double lon2) {
 }
 
 /// Version 1 canonical line representation matching RawGpsCanonicalVerification.
-String _toCanonicalLine(InventoryGpsPoint p) {
+String toCanonicalLine(InventoryGpsPoint p) {
   final t = p.timestamp.toUtc().microsecondsSinceEpoch;
   final latStr = p.latitude.toStringAsFixed(7);
   final lngStr = p.longitude.toStringAsFixed(7);
@@ -147,7 +147,7 @@ String _toCanonicalLine(InventoryGpsPoint p) {
 }
 
 /// Computes versioned canonical SHA-256 capture digest matching production verification.
-String _computeCanonicalDigest(List<InventoryGpsPoint> points) {
+String computeCanonicalDigest(List<InventoryGpsPoint> points) {
   if (points.isEmpty) {
     return 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
   }
@@ -155,12 +155,12 @@ String _computeCanonicalDigest(List<InventoryGpsPoint> points) {
   final buffer = StringBuffer();
   for (var i = 0; i < sorted.length; i++) {
     if (i > 0) buffer.write('\n');
-    buffer.write(_toCanonicalLine(sorted[i]));
+    buffer.write(toCanonicalLine(sorted[i]));
   }
   return sha256.convert(utf8.encode(buffer.toString())).toString();
 }
 
-bool _verifyJsonlLosslessReplay(String jsonlContent, List<InventoryGpsPoint> originalPoints) {
+bool verifyJsonlLosslessReplay(String jsonlContent, List<InventoryGpsPoint> originalPoints) {
   final lines = jsonlContent.split('\n').where((l) => l.trim().isNotEmpty).toList();
   if (lines.length != originalPoints.length) {
     throw StateError(
@@ -190,6 +190,166 @@ bool _verifyJsonlLosslessReplay(String jsonlContent, List<InventoryGpsPoint> ori
   return true;
 }
 
+enum JournalProvenanceStatus {
+  verified,
+  unverified,
+  accountMismatch,
+  malformed,
+  missingManifest,
+}
+
+class JournalProvenanceResult {
+  final JournalProvenanceStatus status;
+  final String sourceKind;
+  final String? manifestOwnerId;
+  final String reason;
+
+  const JournalProvenanceResult({
+    required this.status,
+    required this.sourceKind,
+    this.manifestOwnerId,
+    required this.reason,
+  });
+
+  bool get isVerified => status == JournalProvenanceStatus.verified;
+  bool get isAccountMismatch => status == JournalProvenanceStatus.accountMismatch;
+}
+
+/// Verifies local recovery journal provenance according to strict ownership,
+/// raw file byte SHA-256, sample count, and canonical capture digest contracts.
+JournalProvenanceResult verifyJournalProvenance({
+  required String workoutId,
+  required List<InventoryGpsPoint> points,
+  required File rawFile,
+  required File manifestFile,
+  required String? trustedUserId,
+}) {
+  if (!manifestFile.existsSync()) {
+    return const JournalProvenanceResult(
+      status: JournalProvenanceStatus.missingManifest,
+      sourceKind: 'device_recovered_unverified',
+      reason: 'Manifest file does not exist on disk.',
+    );
+  }
+
+  final Map<String, dynamic> manifestJson;
+  try {
+    manifestJson = jsonDecode(manifestFile.readAsStringSync()) as Map<String, dynamic>;
+  } catch (e) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.malformed,
+      sourceKind: 'device_recovered_unverified',
+      reason: 'Manifest file contains malformed JSON: $e',
+    );
+  }
+
+  final manifestWorkoutId = (manifestJson['workout_id'] ?? manifestJson['workoutId'])?.toString();
+  final manifestOwnerId =
+      (manifestJson['user_id'] ?? manifestJson['userId'] ?? manifestJson['owner_id'])?.toString();
+  final advertisedSha =
+      (manifestJson['file_sha256'] ?? manifestJson['raw_jsonl_byte_sha256'])?.toString();
+  final advertisedCount = manifestJson['record_count'] ?? manifestJson['sample_count'];
+  final advertisedDigest = manifestJson['canonical_capture_digest']?.toString();
+
+  // Rule 1: A non-null owner field alone is insufficient.
+  // Must require an owner identity matching the authenticated user or securely established expected user identity.
+  // Rule 2: If no trustworthy owner identity is available, classify conservatively; never elevate provenance.
+  if (trustedUserId == null || trustedUserId.trim().isEmpty) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.unverified,
+      sourceKind: 'device_recovered_unverified',
+      manifestOwnerId: manifestOwnerId,
+      reason: 'No trustworthy owner identity established to verify ownership; provenance cannot be elevated.',
+    );
+  }
+
+  // If trustworthy owner identity is established, but manifest lacks owner:
+  if (manifestOwnerId == null || manifestOwnerId.trim().isEmpty) {
+    return const JournalProvenanceResult(
+      status: JournalProvenanceStatus.unverified,
+      sourceKind: 'device_recovered_unverified',
+      reason: 'Manifest lacks owner identity; cannot match trusted user identity.',
+    );
+  }
+
+  // Account mismatch check:
+  if (manifestOwnerId != trustedUserId) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.accountMismatch,
+      sourceKind: 'device_recovered_unverified',
+      manifestOwnerId: manifestOwnerId,
+      reason: 'Account mismatch: manifest owner ($manifestOwnerId) != trusted owner ($trustedUserId).',
+    );
+  }
+
+  // Workout ID check:
+  if (manifestWorkoutId == null || manifestWorkoutId != workoutId) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.unverified,
+      sourceKind: 'device_recovered_unverified',
+      manifestOwnerId: manifestOwnerId,
+      reason: 'Workout ID mismatch: manifest workoutId ($manifestWorkoutId) != $workoutId.',
+    );
+  }
+
+  // Sample count check:
+  if (advertisedCount == null || (advertisedCount as num).toInt() != points.length) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.unverified,
+      sourceKind: 'device_recovered_unverified',
+      manifestOwnerId: manifestOwnerId,
+      reason: 'Sample count mismatch: manifest count ($advertisedCount) != actual points (${points.length}).',
+    );
+  }
+
+  // Raw file byte SHA-256 check:
+  final actualSha = sha256.convert(rawFile.readAsBytesSync()).toString();
+  if (advertisedSha == null || actualSha.toLowerCase() != advertisedSha.toLowerCase()) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.unverified,
+      sourceKind: 'device_recovered_unverified',
+      manifestOwnerId: manifestOwnerId,
+      reason: 'File SHA-256 mismatch: manifest SHA ($advertisedSha) != actual SHA ($actualSha).',
+    );
+  }
+
+  // Canonical capture digest check:
+  final actualDigest = computeCanonicalDigest(points);
+  if (advertisedDigest == null || actualDigest.toLowerCase() != advertisedDigest.toLowerCase()) {
+    return JournalProvenanceResult(
+      status: JournalProvenanceStatus.unverified,
+      sourceKind: 'device_recovered_unverified',
+      manifestOwnerId: manifestOwnerId,
+      reason: 'Canonical capture digest mismatch: manifest digest ($advertisedDigest) != actual digest ($actualDigest).',
+    );
+  }
+
+  // Complete verification contract satisfied!
+  return JournalProvenanceResult(
+    status: JournalProvenanceStatus.verified,
+    sourceKind: 'device_journal_verified',
+    manifestOwnerId: manifestOwnerId,
+    reason: 'Complete verification contract satisfied: owner, workout ID, file SHA, count, and canonical digest match.',
+  );
+}
+
+String? extractJwtSubject(String token) {
+  try {
+    final parts = token.split('.');
+    if (parts.length >= 2) {
+      var payloadStr = parts[1];
+      while (payloadStr.length % 4 != 0) {
+        payloadStr += '=';
+      }
+      final payloadBytes = base64Url.decode(payloadStr);
+      final json = jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
+      final sub = json['sub'];
+      if (sub is String && sub.isNotEmpty) return sub;
+    }
+  } catch (_) {}
+  return null;
+}
+
 String? _resolveCurrentAppCommit() {
   if (Platform.environment.containsKey('APP_COMMIT') &&
       Platform.environment['APP_COMMIT']!.trim().isNotEmpty) {
@@ -212,6 +372,7 @@ void main(List<String> args) async {
   String? appCommit;
   bool includeFixtures = false;
   bool jsonOutput = false;
+  bool offlineMode = false;
 
   for (var i = 0; i < args.length; i++) {
     final arg = args[i];
@@ -220,6 +381,9 @@ void main(List<String> args) async {
       stderr.writeln('CLI arguments are visible in process tables (ps) and system command logs.');
       stderr.writeln('Set your token securely in the environment: export AETRON_USER_TOKEN="<jwt>"');
       exit(2);
+    } else if (arg == '--offline' || arg == '--offline-fixtures' || arg == '--offline-test') {
+      offlineMode = true;
+      includeFixtures = true;
     } else if (arg == '--journal-dir' && i + 1 < args.length) {
       journalDir = args[++i];
     } else if (arg == '--fixtures-dir' && i + 1 < args.length) {
@@ -266,6 +430,11 @@ void main(List<String> args) async {
       supabaseAnonKey != null &&
       supabaseAnonKey.trim().isNotEmpty;
 
+  final jwtSub = hasUserToken ? extractJwtSubject(userToken) : null;
+  final trustedUserId = (expectedUserId != null && expectedUserId.trim().isNotEmpty)
+      ? expectedUserId.trim()
+      : jwtSub;
+
   // 1. Authenticated Supabase Discovery under active user session and RLS (ALG-0.1, Task 2, Task 5)
   if (hasUserToken && hasSupabaseConfig) {
     stdout.writeln('🔐 Querying Supabase with active authenticated user token (RLS enforced)...');
@@ -300,7 +469,7 @@ void main(List<String> args) async {
             }
 
             try {
-              _validateSessionId(workoutId);
+              validateSessionId(workoutId);
             } catch (e) {
               deniedSessions++;
               failureCount++;
@@ -413,8 +582,8 @@ void main(List<String> args) async {
     } finally {
       client.close();
     }
-  } else {
-    // Task 5: Report AUTH_REQUIRED explicitly when no token is present
+  } else if (!offlineMode) {
+    // Task 5: Report AUTH_REQUIRED explicitly when no token is present in research-export mode
     stdout.writeln('------------------------------------------------------------------------');
     stdout.writeln('⚠️  AUTH_REQUIRED (ALG-0 Real Historical Data Export):');
     stdout.writeln('No active end-user authentication token was found in AETRON_USER_TOKEN.');
@@ -432,6 +601,64 @@ void main(List<String> args) async {
     stdout.writeln('  export SUPABASE_ANON_KEY="<anon_public_key>"');
     stdout.writeln('  dart run tooling/inventory_historical_datasets.dart --output-dir exports/historical');
     stdout.writeln('------------------------------------------------------------------------');
+
+    if (!outDirectory.existsSync()) {
+      outDirectory.createSync(recursive: true);
+    }
+
+    final authReport = {
+      'status': 'AUTH_REQUIRED',
+      'discovery_audit': {
+        'total_discovered': 0,
+        'sessions_with_gps': 0,
+        'successfully_exported': 0,
+        'missing_sessions': 0,
+        'denied_sessions': 0,
+        'failure_count': 0,
+        'failures': <String>[],
+      },
+      'total_sessions': 0,
+      'total_raw_points': 0,
+      'real_world_sessions': 0,
+      'synthetic_fixture_sessions': 0,
+      'algorithm_filtered_sessions': 0,
+      'field_research_aggregate': {
+        'real_world_session_count': 0,
+        'mean_sampling_interval_seconds': 0.0,
+        'mean_accuracy_meters': 0.0,
+        'total_gaps_detected': 0,
+        'total_gaps_detected_over_15s': 0,
+        'total_gaps_detected_over_30s': 0,
+        'total_gap_duration_seconds': 0.0,
+      },
+      'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
+      'app_commit': appCommit,
+      'sessions': <Map<String, dynamic>>[],
+    };
+
+    final reportFile = File('${outDirectory.path}/inventory_report.json');
+    reportFile.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(authReport));
+
+    if (jsonOutput) {
+      stdout.writeln(const JsonEncoder.withIndent('  ').convert(authReport));
+    } else {
+      stdout.writeln('========================================================================');
+      stdout.writeln(' 🛰️  AETRON ALG-0 HISTORICAL RAW GPS DATASET INVENTORY');
+      stdout.writeln('========================================================================');
+      stdout.writeln('Inventory Status:              AUTH_REQUIRED');
+      stdout.writeln('Total Sessions Inventoried:    0');
+      stdout.writeln('Total Raw Sensor Points:       0');
+      stdout.writeln('Real-World Field Sessions:     0');
+      stdout.writeln('Synthetic Fixture Sessions:    0');
+      stdout.writeln('Algorithm-Filtered Sessions:   0');
+      stdout.writeln('------------------------------------------------------------------------');
+      stdout.writeln('Export Directory:              ${outDirectory.path}');
+      stdout.writeln('Report Output:                 ${reportFile.path}');
+      stdout.writeln('========================================================================');
+    }
+
+    exitCode = 1; // Requirement 3: Return non-zero process exit code in authenticated research-export mode
+    return;
   }
 
   // 2. Ingest local recovery journals if directory provided (Task 1: Provenance Hardening)
@@ -446,7 +673,7 @@ void main(List<String> args) async {
       final workoutId = filename.split('.').first;
 
       try {
-        _validateSessionId(workoutId);
+        validateSessionId(workoutId);
       } catch (e) {
         deniedSessions++;
         failureCount++;
@@ -483,46 +710,29 @@ void main(List<String> args) async {
       if (points.isNotEmpty) {
         sessionsWithGps++;
 
-        // Task 1: Strict provenance contract
-        // Require manifest workout ID, owner ID, byte SHA-256, sample count, and canonical capture digest.
+        // Requirement 1 & 2: Strict provenance contract
         final manifestFile = File('${file.parent.path}/$workoutId.manifest.json');
-        var sourceKind = 'device_recovered_unverified';
+        final provenance = verifyJournalProvenance(
+          workoutId: workoutId,
+          points: points,
+          rawFile: file,
+          manifestFile: manifestFile,
+          trustedUserId: trustedUserId,
+        );
 
-        if (manifestFile.existsSync()) {
-          try {
-            final manifestJson = jsonDecode(manifestFile.readAsStringSync()) as Map<String, dynamic>;
-            final manifestWorkoutId = manifestJson['workout_id'] ?? manifestJson['workoutId'];
-            final manifestOwnerId = manifestJson['user_id'] ?? manifestJson['userId'] ?? manifestJson['owner_id'];
-            final advertisedSha = manifestJson['file_sha256'] ?? manifestJson['raw_jsonl_byte_sha256'];
-            final advertisedCount = manifestJson['record_count'] ?? manifestJson['sample_count'];
-            final advertisedDigest = manifestJson['canonical_capture_digest'];
-
-            final fileBytes = file.readAsBytesSync();
-            final actualSha = sha256.convert(fileBytes).toString();
-            final actualDigest = _computeCanonicalDigest(points);
-
-            final isWorkoutIdMatch = manifestWorkoutId != null && manifestWorkoutId == workoutId;
-            final isOwnerMatch = manifestOwnerId != null &&
-                (expectedUserId == null || manifestOwnerId == expectedUserId);
-            final isShaMatch = advertisedSha != null &&
-                actualSha.toLowerCase() == advertisedSha.toString().toLowerCase();
-            final isCountMatch = advertisedCount != null &&
-                (advertisedCount as num).toInt() == points.length;
-            final isDigestMatch = advertisedDigest != null &&
-                actualDigest.toLowerCase() == advertisedDigest.toString().toLowerCase();
-
-            if (isWorkoutIdMatch && isOwnerMatch && isShaMatch && isCountMatch && isDigestMatch) {
-              sourceKind = 'device_journal_verified';
-            } else {
-              sourceKind = 'device_recovered_unverified';
-            }
-          } catch (_) {
-            sourceKind = 'device_recovered_unverified';
-          }
+        if (provenance.isAccountMismatch) {
+          deniedSessions++;
+          failureCount++;
+          discoveryFailures.add(
+            'Security violation: Journal for workout $workoutId belongs to another account '
+            '(${provenance.manifestOwnerId} != $trustedUserId)',
+          );
+          // Reject foreign session completely from owner-scoped export
+          continue;
         }
 
         allPointsMap[workoutId] = points;
-        sourceKindMap[workoutId] = sourceKind;
+        sourceKindMap[workoutId] = provenance.sourceKind;
       } else {
         missingSessions++;
       }
@@ -551,7 +761,7 @@ void main(List<String> args) async {
 
       if (points.isNotEmpty && workoutId != null) {
         try {
-          _validateSessionId(workoutId);
+          validateSessionId(workoutId);
           // Task 4: Never allow fixtures to overwrite authenticated real sessions!
           if (allPointsMap.containsKey(workoutId)) {
             stdout.writeln('Fixture collision rejected: fixture $workoutId cannot overwrite real session.');
@@ -584,7 +794,7 @@ void main(List<String> args) async {
 
   for (final entry in allPointsMap.entries) {
     final workoutId = entry.key;
-    _validateSessionId(workoutId);
+    validateSessionId(workoutId);
 
     final points = entry.value..sort();
     totalRawPoints += points.length;
@@ -720,7 +930,7 @@ void main(List<String> args) async {
     final csvBuffer = StringBuffer('workout_id,timestamp_utc,latitude,longitude,altitude_m,speed_mps,accuracy_m,heading_deg,device_source\n');
     final gpxBuffer = StringBuffer();
 
-    final safeWorkoutId = _escapeXml(workoutId);
+    final safeWorkoutId = escapeXml(workoutId);
     final timeStr = DateTime.now().toUtc().toIso8601String();
 
     gpxBuffer.write(
@@ -745,12 +955,12 @@ void main(List<String> args) async {
 
       // Properly escaped CSV
       csvBuffer.writeln(
-        '${_escapeCsv(p.workoutId)},$iso,${p.latitude},${p.longitude},'
+        '${escapeCsv(p.workoutId)},$iso,${p.latitude},${p.longitude},'
         '${p.altitude != null ? p.altitude.toString() : ""},'
         '${p.speed != null ? p.speed.toString() : ""},'
         '${p.accuracy != null ? p.accuracy.toString() : ""},'
         '${p.heading != null ? p.heading.toString() : ""},'
-        '${_escapeCsv(p.deviceSource)}',
+        '${escapeCsv(p.deviceSource)}',
       );
 
       // Properly escaped GPX
@@ -762,7 +972,7 @@ void main(List<String> args) async {
       if (p.speed != null) gpxBuffer.write('          <aetron:speed>${p.speed}</aetron:speed>\n');
       if (p.heading != null) gpxBuffer.write('          <aetron:heading>${p.heading}</aetron:heading>\n');
       if (p.deviceSource != null && p.deviceSource!.isNotEmpty) {
-        gpxBuffer.write('          <aetron:device_source>${_escapeXml(p.deviceSource)}</aetron:device_source>\n');
+        gpxBuffer.write('          <aetron:device_source>${escapeXml(p.deviceSource)}</aetron:device_source>\n');
       }
       gpxBuffer.write('        </extensions>\n');
       gpxBuffer.write('      </trkpt>\n');
@@ -773,7 +983,7 @@ void main(List<String> args) async {
     final jsonlString = jsonlBuffer.toString();
 
     // Verify lossless JSONL round-trip replay parity (Task 2, Task 4)
-    _verifyJsonlLosslessReplay(jsonlString, points);
+    verifyJsonlLosslessReplay(jsonlString, points);
 
     final jsonlBytes = utf8.encode(jsonlString);
     final csvBytes = utf8.encode(csvBuffer.toString());
@@ -782,7 +992,7 @@ void main(List<String> args) async {
     final jsonlHash = sha256.convert(jsonlBytes).toString();
     final csvHash = sha256.convert(csvBytes).toString();
     final gpxHash = sha256.convert(gpxBytes).toString();
-    final canonicalDigest = _computeCanonicalDigest(points);
+    final canonicalDigest = computeCanonicalDigest(points);
 
     final manifest = {
       'schema_version': '1.0.0',
@@ -857,7 +1067,11 @@ void main(List<String> args) async {
   }
 
   final aggregate = {
-    'status': hasUserToken ? (failureCount == 0 ? 'SUCCESS' : 'PARTIAL_FAILURES') : 'AUTH_REQUIRED',
+    'status': offlineMode
+        ? (failureCount == 0 ? 'SUCCESS' : 'PARTIAL_FAILURES')
+        : (hasUserToken
+            ? (failureCount == 0 ? 'SUCCESS' : 'PARTIAL_FAILURES')
+            : 'AUTH_REQUIRED'),
     'discovery_audit': {
       'total_discovered': totalDiscovered,
       'sessions_with_gps': sessionsWithGps,

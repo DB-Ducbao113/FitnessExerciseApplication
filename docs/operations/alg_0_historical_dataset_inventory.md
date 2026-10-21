@@ -1,6 +1,6 @@
 # AETRON — ALG-0 Real Historical Raw GPS Dataset Inventory & Quality Baseline
 
-**Document Version:** 1.2.0  
+**Document Version:** 1.3.0  
 **Date:** 2026-10-21  
 **Target:** Algorithm Research Common Baseline (Phase ALG-0 Final Closeout)  
 **Branch:** `feat/rg-f4-dataset-export`  
@@ -24,19 +24,22 @@ A database-level project aggregate has confirmed that the Aetron Supabase databa
    - Admin/service-role credentials must **never** be used to fabricate an allegedly user-scoped dataset.
    - Access tokens are read securely from the local environment (`AETRON_USER_TOKEN`); passing tokens via CLI arguments is strictly prohibited to prevent exposure in process tables (`ps`) and shell history.
    - Comprehensive discovery auditing tracks discovered, GPS-bearing, exported, missing, and denied sessions without silent error suppression.
-3. **Rigorous Provenance Verification (ALG-0.2, Task 1):**
-   - Sessions are labeled `device_journal_verified` **only** when accompanied by a cryptographically verified manifest containing matching workout ID, matching authorized owner ID, matching raw byte SHA-256, matching record count, and matching canonical capture digest. Hash-only manifests are never described as digitally signed.
-   - Sessions without full local cryptographic proof are labeled conservatively (`device_recovered_unverified` or `cloud_only_unverified`).
+3. **Rigorous Provenance & Owner Verification (ALG-0.2, Task 1):**
+   - Sessions are labeled `device_journal_verified` **only** when accompanied by a cryptographically verified manifest containing matching workout ID, matching verified owner ID (matching the authenticated user JWT or securely established expected user identity), matching raw byte SHA-256, matching record count, and matching canonical capture digest. A non-null owner field alone is insufficient; if no trustworthy owner identity is established, provenance is never elevated.
+   - Sessions without full local cryptographic proof are labeled conservatively (`device_recovered_unverified` or `cloud_only_unverified`). Foreign journals with mismatched owner IDs are rejected from owner-scoped exports.
    - Synthetic test fixtures (`synthetic_fixture`) and algorithm-filtered tracks (`algorithm_filtered`) are explicitly identified, disabled by default, and **strictly excluded from field-research aggregate statistics**.
 4. **Complete-Data Export Enforcement (Task 2):**
    - Never silently ignore malformed GPS records; any schema violation fails the session closed.
    - Detect HTTP failures on every paginated request. If any page fails, discard partial points immediately and record failure diagnostics.
    - Clean closeout strictly requires `failure_count == 0`.
-5. **Lossless Master Export & Parity Replay (ALG-0.3, Task 4):**
+5. **Authenticated Research-Export Mode & Non-Zero Exit (Task 3):**
+   - Authenticated research-export mode strictly requires an active user token; if unavailable, it reports `AUTH_REQUIRED` and terminates with a non-zero process exit code (`1`).
+   - An explicit separate mode (`--offline-fixtures` / `--offline`) is provided for automated offline test suites and fixture inspection without authentication failure.
+6. **Lossless Master Export & Parity Replay (ALG-0.3, Task 4):**
    - Master exports are deterministic JSONL with companion CSV, GPX 1.1, and JSON manifests.
    - CSV fields and XML values are properly escaped (quotes, commas, newlines, and XML entities).
    - Every export bundle automatically verifies 100% field parity through lossless round-trip replay ([`RawGpsDatasetExporter.verifyJsonlLosslessReplay`](file:///Users/baobungbu/Aetron/lib/features/workout/domain/services/raw_gps_dataset_exporter.dart)).
-6. **Path Traversal & Secrets Hardening:**
+7. **Path Traversal & Secrets Hardening:**
    - All session IDs are validated against strict alphanumeric/hyphen/underscore patterns (`^[a-zA-Z0-9_\-]+$`) before being used in output file paths.
    - Hardcoded commit fallbacks are eliminated; raw coordinates and JWT authentication tokens are prevented from entering CI logs.
 
@@ -147,7 +150,8 @@ The script will:
 | **Path Traversal Session ID Validation** | 🟢 PASS | Security Guard Tests |
 | **Export Bundle File Hash Verification** | 🟢 PASS | Local Disk & Pre-Flight Hash Verification |
 | **Discovery Audit Error Tracking** | 🟢 PASS | Test Suite Mock & RLS Gates |
-| **Regression Tests (Malformed, Pagination, Escaping)** | 🟢 PASS | `test/raw_gps_dataset_inventory_test.dart` |
+| **Journal Provenance & Owner Verification** | 🟢 PASS | Absent/Mismatched Owner Rejection Tests |
+| **Regression Tests (Malformed, Pagination, Escaping, CLI)** | 🟢 PASS | `test/raw_gps_dataset_inventory_test.dart` (21 tests) |
 | **Physical iPhone Foreground Capture** | 🟡 **NOT TESTED** | Pending Physical iPhone Field Test |
 | **Physical iPhone Offline Disconnect / Reconnect** | 🟡 **NOT TESTED** | Pending Physical iPhone Field Test |
 | **Physical iPhone Kill & Restart Recovery** | 🟡 **NOT TESTED** | Pending Physical iPhone Field Test |
@@ -159,8 +163,8 @@ The script will:
 ## 6. Verification & Quality Gates Summary
 
 - `flutter analyze`: **0 issues found** (Clean).
-- `flutter test test/raw_gps_dataset_inventory_test.dart test/raw_gps_dataset_export_test.dart`: **30/30 passed**.
-- `flutter test`: **629/629 passed** (full suite green).
-- Standalone CLI Tool: `dart run tooling/inventory_historical_datasets.dart` **SUCCEEDED** (Reports `AUTH_REQUIRED`, zero errors).
+- `flutter test test/raw_gps_dataset_inventory_test.dart test/raw_gps_dataset_export_test.dart`: **35/35 passed**.
+- `flutter test`: full suite green.
+- Standalone CLI Tool: `dart run tooling/inventory_historical_datasets.dart` **SUCCEEDED** (Enforces exit code 1 on `AUTH_REQUIRED`; exit code 0 on `--offline-fixtures`).
 - Phase 5 Frozen Benchmarks: **100% byte & hash parity, 0 diff churn**.
 - PR #11 remains in **DRAFT** status; no algorithm modifications or merge allowed.
