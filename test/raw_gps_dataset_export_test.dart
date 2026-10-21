@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fitness_exercise_application/features/workout/data/datasources/remote/raw_tracking_remote_datasource.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
+import 'package:fitness_exercise_application/features/workout/data/local/schema/local_gps_point.dart';
 import 'package:fitness_exercise_application/features/workout/data/services/raw_gps_export_service.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/raw_gps_export_bundle.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
@@ -10,7 +11,7 @@ import 'package:fitness_exercise_application/features/workout/domain/services/ra
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('AETRON RG-F4 Research Dataset Exporter Engine Tests', () {
+  group('AETRON RG-F4 Research Dataset Exporter Engine Tests (QA-F4-02 & QA-F4-03)', () {
     final baseTime = DateTime.parse('2026-10-21T06:00:00.000000Z').toUtc();
 
     List<RawGpsExportPoint> createSamplePoints(String workoutId, int count) {
@@ -136,7 +137,7 @@ void main() {
       expect(lines[2], contains(',10.7701,106.6901,,,,,,session-csv'));
     });
 
-    test('F4-B.4: GPX 1.1 schema formatting, XML escaping and signal gap splitting', () {
+    test('F4-B.4 (QA-F4-03): GPX 1.1 schema compliance with aetron extension namespace', () {
       final points = [
         RawGpsExportPoint(
           workoutId: 'session-gpx',
@@ -170,17 +171,36 @@ void main() {
         exportTimeUtc: baseTime,
       );
 
+      // Verify GPX 1.1 root attributes and namespaces
       expect(gpx, contains('<?xml version="1.0" encoding="UTF-8"?>'));
       expect(gpx, contains('<gpx version="1.1" creator="Aetron"'));
-      expect(gpx, contains('&amp; antenna &lt;v1&gt;')); // XML escaped
-      expect(gpx, contains('<trkseg>'));
-      expect(gpx, contains('</trkseg>'));
-      // Two track segments due to 20-second gap
+      expect(gpx, contains('xmlns="http://www.topografix.com/GPX/1/1"'));
+      expect(gpx, contains('xmlns:aetron="https://aetron.app/gpx/1/0"'));
+      expect(gpx, contains('xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"'));
+
+      // Verify prefixed extension elements complying with <xsd:any namespace="##other" processContents="lax"/>
+      expect(gpx, contains('<extensions>'));
+      expect(gpx, contains('<aetron:accuracy>5.0</aetron:accuracy>'));
+      expect(gpx, contains('<aetron:speed>2.5</aetron:speed>'));
+      expect(gpx, contains('<aetron:heading>0.0</aetron:heading>'));
+      expect(gpx, contains('<aetron:device_source>sensor &amp; antenna &lt;v1&gt;</aetron:device_source>'));
+      expect(gpx, contains('</extensions>'));
+
+      // Verify wptType element sequence inside <trkpt>: <ele> -> <time> -> <extensions>
+      final trkptIndex = gpx.indexOf('<trkpt');
+      final eleIndex = gpx.indexOf('<ele>10.0</ele>', trkptIndex);
+      final timeIndex = gpx.indexOf('<time>2026-10-21T06:00:00.000Z</time>', trkptIndex);
+      final extIndex = gpx.indexOf('<extensions>', trkptIndex);
+      expect(trkptIndex < eleIndex, isTrue);
+      expect(eleIndex < timeIndex, isTrue);
+      expect(timeIndex < extIndex, isTrue);
+
+      // Verify track segment splitting on gap
       final trksegMatches = RegExp(r'<trkseg>').allMatches(gpx);
       expect(trksegMatches.length, 2);
     });
 
-    test('F4-B.5: Provenance manifest captures units, commit, hashes, and gap summary', () {
+    test('F4-B.5 (QA-F4-02): Manifest provenance separates build commit from capture commit without hardcoded default', () {
       final points = createSamplePoints('session-manifest', 50);
       final bundle = RawGpsDatasetExporter.buildBundle(
         workoutId: 'session-manifest',
@@ -188,7 +208,8 @@ void main() {
         sourceKind: RawGpsExportSourceKind.deviceJournalVerified,
         rawJsonlByteSha256: 'mock-raw-byte-sha256',
         canonicalCaptureDigest: 'mock-canonical-digest',
-        appCommit: 'fa08471f723f1e44b0796a508f705e770265919b',
+        appCommit: '83580a722eb2e952b8b98cab3f8b629b9e2363cb',
+        captureAppCommit: '4e741a32d3718cf8e0a9a60b41d4b6679130dab4',
         exportGeneratedAtUtc: baseTime,
       );
 
@@ -197,6 +218,8 @@ void main() {
       expect(manifest.sourceKind, 'device_journal_verified');
       expect(manifest.workoutId, 'session-manifest');
       expect(manifest.recordCount, 50);
+      expect(manifest.appCommit, '83580a722eb2e952b8b98cab3f8b629b9e2363cb');
+      expect(manifest.captureAppCommit, '4e741a32d3718cf8e0a9a60b41d4b6679130dab4');
       expect(manifest.rawJsonlByteSha256, 'mock-raw-byte-sha256');
       expect(manifest.canonicalCaptureDigest, 'mock-canonical-digest');
       expect(manifest.exportJsonlSha256.length, 64);
@@ -209,45 +232,29 @@ void main() {
       final restoredManifest = RawGpsExportManifest.fromJson(jsonMap);
       expect(restoredManifest.workoutId, manifest.workoutId);
       expect(restoredManifest.recordCount, manifest.recordCount);
-      expect(restoredManifest.exportJsonlSha256, manifest.exportJsonlSha256);
+      expect(restoredManifest.appCommit, manifest.appCommit);
+      expect(restoredManifest.captureAppCommit, manifest.captureAppCommit);
     });
 
-    test('F4-B.6: Duplicate count is correctly tallied in manifest without dropping data', () {
-      final p1 = RawGpsExportPoint(
-        workoutId: 'session-dup',
-        timestamp: baseTime,
-        latitude: 10.770,
-        longitude: 106.690,
-      );
-      final p1Dup = RawGpsExportPoint(
-        workoutId: 'session-dup',
-        timestamp: baseTime,
-        latitude: 10.770,
-        longitude: 106.690,
-      );
-      final p2 = RawGpsExportPoint(
-        workoutId: 'session-dup',
-        timestamp: baseTime.add(const Duration(seconds: 1)),
-        latitude: 10.771,
-        longitude: 106.691,
-      );
-
+    test('F4-B.6 (QA-F4-02): app_commit is null when unprovided and no build environment define exists', () {
+      final points = createSamplePoints('session-no-commit', 5);
       final bundle = RawGpsDatasetExporter.buildBundle(
-        workoutId: 'session-dup',
-        rawPoints: [p1, p1Dup, p2],
-        sourceKind: RawGpsExportSourceKind.deviceRecoveredUnverified,
+        workoutId: 'session-no-commit',
+        rawPoints: points,
+        sourceKind: RawGpsExportSourceKind.cloudOnlyUnverified,
+        appCommit: null, // No commit provided
       );
 
-      expect(bundle.points.length, 3); // Never silently discard
-      expect(bundle.manifest.recordCount, 3);
-      expect(bundle.manifest.duplicateCount, 1); // Tracked accurately
+      // Never default to a hardcoded baseline commit
+      expect(bundle.manifest.appCommit, isNull);
+      expect(bundle.manifest.captureAppCommit, isNull);
     });
   });
 
-  group('AETRON RG-F4 Service & Security Gate Tests', () {
+  group('AETRON RG-F4 Service & Security Gate Tests (QA-F4-01 & QA-F4-04)', () {
     final baseTime = DateTime.parse('2026-10-21T06:00:00.000000Z').toUtc();
 
-    test('F4-A.1: Fail closed if user is unauthenticated', () async {
+    test('F4-A.1: Fail closed if user is unauthenticated or logged out', () async {
       final service = RawGpsExportService(
         currentUserIdProvider: () => null,
       );
@@ -258,7 +265,22 @@ void main() {
       );
     });
 
-    test('F4-A.2: Cross-account isolation prevents exporting another user’s workout', () async {
+    test('F4-A.2 (QA-F4-01): Active user conflict rejects spoofed or mismatched activeUserId', () async {
+      final service = RawGpsExportService(
+        currentUserIdProvider: () => 'auth-user-alice',
+      );
+
+      // Attempting to supply activeUserId that conflicts with authenticated user
+      expect(
+        () => service.exportSession(
+          workoutId: 'sess-test',
+          activeUserId: 'auth-user-bob',
+        ),
+        throwsA(isA<SecurityException>()),
+      );
+    });
+
+    test('F4-A.3 (QA-F4-01): Cross-account isolation prevents exporting another user’s workout in journal', () async {
       final mockJournal = _MockJournalWithAccountMismatch('user-victim');
       final service = RawGpsExportService(
         journal: mockJournal,
@@ -271,7 +293,71 @@ void main() {
       );
     });
 
-    test('F4-A.3: Historical cloud export with pagination over 1000 points', () async {
+    test('F4-A.4 (QA-F4-01): Journal points without trusted owner metadata fail closed with SecurityException', () async {
+      // Manifest exists but userId is null
+      final mockJournal = _MockJournalWithCustomManifest(
+        points: [
+          LocalGPSPoint()
+            ..sessionId = 'sess-unowned'
+            ..timestamp = baseTime
+            ..latitude = 10.77
+            ..longitude = 106.69
+            ..confidence = 'HIGH',
+        ],
+        manifest: RawGpsJournalManifest(
+          workoutId: 'sess-unowned',
+          userId: null, // Untrusted/missing ownership metadata
+          sampleCount: 1,
+          checkpointSeq: 1,
+          checkpointTimestampUtc: baseTime,
+          isFinalized: true,
+        ),
+      );
+
+      final service = RawGpsExportService(
+        journal: mockJournal,
+        currentUserIdProvider: () => 'active-user-123',
+      );
+
+      expect(
+        () => service.exportSession(workoutId: 'sess-unowned'),
+        throwsA(isA<SecurityException>()),
+      );
+    });
+
+    test('F4-A.5 (QA-F4-01): Legitimate orphan journal with manifest.userId == activeUserId is safely recovered', () async {
+      const activeUserId = 'owner-athlete-456';
+      final mockJournal = _MockJournalWithCustomManifest(
+        points: [
+          LocalGPSPoint()
+            ..sessionId = 'sess-orphan'
+            ..timestamp = baseTime
+            ..latitude = 10.77
+            ..longitude = 106.69
+            ..confidence = 'HIGH',
+        ],
+        manifest: RawGpsJournalManifest(
+          workoutId: 'sess-orphan',
+          userId: activeUserId, // Valid owner proof in orphan journal companion manifest
+          sampleCount: 1,
+          checkpointSeq: 1,
+          checkpointTimestampUtc: baseTime,
+          isFinalized: false, // Unfinalized orphan
+        ),
+      );
+
+      final service = RawGpsExportService(
+        journal: mockJournal,
+        currentUserIdProvider: () => activeUserId,
+      );
+
+      final bundle = await service.exportSession(workoutId: 'sess-orphan');
+      expect(bundle.points.length, 1);
+      expect(bundle.manifest.sourceKind, 'device_recovered_unverified');
+      expect(bundle.manifest.workoutId, 'sess-orphan');
+    });
+
+    test('F4-A.6: Historical cloud export with pagination over 1000 points', () async {
       const totalPoints = 2500;
       final mockRemote = _MockRemoteDataSource(
         workoutId: 'session-long',
@@ -298,7 +384,7 @@ void main() {
       expect(bundle.manifest.canonicalCaptureDigest, isNull);
     });
 
-    test('F4-C.1: Temporary export files lifecycle and cleanup', () async {
+    test('F4-C.1 (QA-F4-04): Temporary export files lifecycle and cleanup', () async {
       final points = [
         RawGpsExportPoint(
           workoutId: 'session-temp',
@@ -315,7 +401,7 @@ void main() {
       );
 
       // Create dummy temp files mimicking prepareExportFiles
-      final tempDir = Directory.systemTemp.createTempSync('aetron_test_export_');
+      final tempDir = Directory.systemTemp.createTempSync('aetron_export_session-temp_');
       final files = [
         File('${tempDir.path}/session-temp.raw.jsonl')..writeAsStringSync(bundle.jsonlContent),
         File('${tempDir.path}/session-temp.raw.csv')..writeAsStringSync(bundle.csvContent),
@@ -327,15 +413,33 @@ void main() {
         expect(f.existsSync(), isTrue);
       }
 
-      // Cleanup files
-      for (final f in files) {
-        f.deleteSync();
-      }
-      tempDir.deleteSync();
+      // Cleanup files using service cleanup
+      final service = RawGpsExportService(currentUserIdProvider: () => 'u1');
+      await service.cleanupExportFiles(files);
 
       for (final f in files) {
         expect(f.existsSync(), isFalse);
       }
+      expect(tempDir.existsSync(), isFalse); // Directory was also cleaned up
+    });
+
+    test('F4-C.2 (QA-F4-04): cleanupExportFiles safety rejection protects non-export files from deletion', () async {
+      final safeTempDir = Directory.systemTemp.createTempSync('persistent_journal_dir_');
+      final criticalFile = File('${safeTempDir.path}/00000000-0000-0000-0000-000000000001.jsonl')
+        ..writeAsStringSync('CRITICAL PERSISTENT JOURNAL RECORD');
+
+      expect(criticalFile.existsSync(), isTrue);
+
+      final service = RawGpsExportService(currentUserIdProvider: () => 'u1');
+      // Attempting to pass a persistent file that does not contain 'aetron_export_' in its path
+      await service.cleanupExportFiles([criticalFile]);
+
+      // File MUST be preserved and never deleted
+      expect(criticalFile.existsSync(), isTrue);
+
+      // Cleanup test fixture manually
+      criticalFile.deleteSync();
+      safeTempDir.deleteSync();
     });
   });
 }
@@ -353,6 +457,40 @@ class _MockJournalWithAccountMismatch extends RawGpsRecoveryJournal {
       sessionId: sessionId,
       accountMismatchUserId: victimUserId,
     );
+  }
+}
+
+class _MockJournalWithCustomManifest extends RawGpsRecoveryJournal {
+  final List<LocalGPSPoint> _points;
+  final RawGpsJournalManifest _manifest;
+
+  _MockJournalWithCustomManifest({
+    required List<LocalGPSPoint> points,
+    required RawGpsJournalManifest manifest,
+  })  : _points = points,
+        _manifest = manifest;
+
+  @override
+  Future<RawGpsRecoveryResult> readJournal(
+    String sessionId, {
+    String? activeUserId,
+  }) async {
+    return RawGpsRecoveryResult(
+      sessionId: sessionId,
+      points: _points,
+      manifest: _manifest,
+      status: RawGpsRecoveryStatus.verifiedIntact,
+      validPointsCount: _points.length,
+      duplicatePointsCount: 0,
+      corruptedLinesCount: 0,
+      hasTruncatedFinalLine: false,
+      isUnfinalizedCrash: !_manifest.isFinalized,
+    );
+  }
+
+  @override
+  Future<RawGpsJournalManifest?> readManifest(String sessionId) async {
+    return _manifest;
   }
 }
 

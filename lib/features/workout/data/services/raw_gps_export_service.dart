@@ -86,6 +86,19 @@ class RawGpsExportService {
 
     if (journalResult.points.isNotEmpty) {
       final manifest = journalResult.manifest;
+
+      // Ensure trusted ownership metadata exists and matches active user
+      if (manifest == null || manifest.userId == null || manifest.userId!.isEmpty) {
+        throw SecurityException(
+          'Owner authorization failure: Journal for workout $workoutId lacks trusted owner metadata.',
+        );
+      }
+      if (manifest.userId != userId) {
+        throw SecurityException(
+          'Session $workoutId belongs to another user account (${manifest.userId} != $userId).',
+        );
+      }
+
       final rawPoints = journalResult.points
           .map((p) => RawGpsExportPoint.fromLocal(p))
           .toList(growable: false);
@@ -105,9 +118,9 @@ class RawGpsExportService {
         workoutId: workoutId,
         rawPoints: rawPoints,
         sourceKind: sourceKind,
-        rawJsonlByteSha256: isVerified ? manifest?.fileSha256 : null,
+        rawJsonlByteSha256: isVerified ? manifest.fileSha256 : null,
         canonicalCaptureDigest:
-            isVerified ? manifest?.canonicalCaptureDigest : null,
+            isVerified ? manifest.canonicalCaptureDigest : null,
         appCommit: appCommit,
       );
     }
@@ -116,9 +129,29 @@ class RawGpsExportService {
     final isarPoints = await LocalDB.getPointsForSession(workoutId);
     if (isarPoints.isNotEmpty) {
       final localWorkout = await LocalDB.getSessionById(workoutId);
-      if (localWorkout != null && localWorkout.userId != userId) {
+      final manifest = await _journal.readManifest(workoutId);
+
+      // Check trusted owner metadata:
+      // Must be proven either by LocalWorkout.userId or an orphan journal manifest.userId
+      final String? ownerId;
+      if (localWorkout != null && localWorkout.userId.isNotEmpty) {
+        ownerId = localWorkout.userId;
+      } else if (manifest != null && manifest.userId != null && manifest.userId!.isNotEmpty) {
+        // Legitimate orphan journal recovery pathway
+        ownerId = manifest.userId;
+      } else {
+        ownerId = null;
+      }
+
+      if (ownerId == null) {
         throw SecurityException(
-          'Local workout $workoutId belongs to another user.',
+          'Owner authorization failure: Isar points exist for workout $workoutId but no trusted owner metadata was found. Never infer ownership from session ID.',
+        );
+      }
+
+      if (ownerId != userId) {
+        throw SecurityException(
+          'Local workout $workoutId belongs to another user ($ownerId != $userId).',
         );
       }
 
@@ -220,9 +253,14 @@ class RawGpsExportService {
   }
 
   /// Triggers the native iOS/Android Share Sheet to share the research dataset bundle.
+  ///
+  /// Safely manages temporary file lifecycle, ensuring temporary export files
+  /// are automatically cleaned up after sharing completes without touching
+  /// original raw journals, Isar records, or cloud storage.
   Future<void> shareExportBundle(
     RawGpsExportBundle bundle, {
     Rect? sharePositionOrigin,
+    bool autoCleanup = true,
   }) async {
     if (kIsWeb) {
       throw UnsupportedError(
@@ -231,20 +269,37 @@ class RawGpsExportService {
     }
 
     final files = await prepareExportFiles(bundle);
-    final xFiles = files.map((f) => XFile(f.path)).toList(growable: false);
+    try {
+      final xFiles = files.map((f) => XFile(f.path)).toList(growable: false);
 
-    await Share.shareXFiles(
-      xFiles,
-      text: 'Aetron Research GPS Dataset (${bundle.workoutId})',
-      subject: 'Aetron GPS Dataset - ${bundle.workoutId}',
-      sharePositionOrigin: sharePositionOrigin,
-    );
+      await Share.shareXFiles(
+        xFiles,
+        text: 'Aetron Research GPS Dataset (${bundle.workoutId})',
+        subject: 'Aetron GPS Dataset - ${bundle.workoutId}',
+        sharePositionOrigin: sharePositionOrigin,
+      );
+    } finally {
+      if (autoCleanup) {
+        await cleanupExportFiles(files);
+      }
+    }
   }
 
   /// Safely cleans up temporary export files without touching original local data.
+  ///
+  /// Strictly verifies that each file is located within an `aetron_export_*` directory.
+  /// Original journals, Isar databases, and persistent files are strictly protected.
   Future<void> cleanupExportFiles(List<File> files) async {
     for (final file in files) {
       try {
+        final path = file.path;
+        // Strictly ensure we ONLY delete files inside temporary aetron_export_* folders
+        if (!path.contains('aetron_export_')) {
+          debugPrint(
+            '[RawGpsExportService] safety rejection: cannot delete non-export file: $path',
+          );
+          continue;
+        }
         if (await file.exists()) {
           final parent = file.parent;
           await file.delete();
@@ -263,16 +318,23 @@ class RawGpsExportService {
   }
 
   String _resolveUserId(String? activeUserId) {
-    final resolved = activeUserId ??
-        _currentUserIdProvider?.call() ??
-        _supabaseClient?.auth.currentUser?.id;
+    final authenticatedUserId =
+        _currentUserIdProvider?.call() ?? _supabaseClient?.auth.currentUser?.id;
 
-    if (resolved == null || resolved.isEmpty) {
+    if (authenticatedUserId == null || authenticatedUserId.isEmpty) {
       throw StateError(
         'User must be authenticated to perform raw GPS dataset export.',
       );
     }
-    return resolved;
+
+    if (activeUserId != null &&
+        activeUserId.isNotEmpty &&
+        activeUserId != authenticatedUserId) {
+      throw SecurityException(
+        'Active user conflict: provided activeUserId ($activeUserId) does not match authenticated user ($authenticatedUserId).',
+      );
+    }
+    return authenticatedUserId;
   }
 
   Future<bool> _isJournalIntactAndVerified(

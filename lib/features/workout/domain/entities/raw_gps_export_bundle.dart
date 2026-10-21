@@ -213,6 +213,7 @@ class RawGpsExportManifest {
   final String workoutId;
   final DateTime exportGeneratedAtUtc;
   final String? appCommit;
+  final String? captureAppCommit;
   final int recordCount;
   final DateTime? firstSampleUtc;
   final DateTime? lastSampleUtc;
@@ -235,6 +236,7 @@ class RawGpsExportManifest {
     required this.workoutId,
     required this.exportGeneratedAtUtc,
     this.appCommit,
+    this.captureAppCommit,
     required this.recordCount,
     this.firstSampleUtc,
     this.lastSampleUtc,
@@ -265,7 +267,8 @@ class RawGpsExportManifest {
         'user_scoped': userScoped,
         'workout_id': workoutId,
         'export_generated_at_utc': exportGeneratedAtUtc.toUtc().toIso8601String(),
-        if (appCommit != null) 'app_commit': appCommit,
+        'app_commit': appCommit,
+        'capture_app_commit': captureAppCommit,
         'record_count': recordCount,
         if (firstSampleUtc != null)
           'first_sample_utc': firstSampleUtc!.toUtc().toIso8601String(),
@@ -296,6 +299,7 @@ class RawGpsExportManifest {
         json['export_generated_at_utc'] as String,
       ).toUtc(),
       appCommit: json['app_commit'] as String?,
+      captureAppCommit: json['capture_app_commit'] as String?,
       recordCount: (json['record_count'] as num?)?.toInt() ?? 0,
       firstSampleUtc: json['first_sample_utc'] != null
           ? DateTime.tryParse(json['first_sample_utc'] as String)?.toUtc()

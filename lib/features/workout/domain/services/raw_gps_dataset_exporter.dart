@@ -8,8 +8,12 @@ class RawGpsDatasetExporter {
   /// Default threshold for splitting GPX track segments on GPS signal outages.
   static const double defaultGapThresholdSeconds = 15.0;
 
-  /// Default commit SHA placeholder when running in development environments.
-  static const String defaultAppCommit = '5386d1cb2b000efdc2b10c78ef88b46cc44012ae';
+  /// Optional build-injected commit SHA (supplied via --dart-define=APP_COMMIT=...).
+  static const String buildInjectedCommit =
+      String.fromEnvironment('APP_COMMIT', defaultValue: '');
+
+  /// XML namespace for Aetron proprietary telemetry extensions in GPX 1.1.
+  static const String gpxExtensionNamespace = 'https://aetron.app/gpx/1/0';
 
   /// Serializes points into deterministic lossless JSONL (research master).
   ///
@@ -81,7 +85,8 @@ class RawGpsDatasetExporter {
   /// Serializes points into standard GPX 1.1 for mapping applications.
   ///
   /// Track segments (`<trkseg>`) are split on signal gaps exceeding [gapThresholdSeconds].
-  /// Extended telemetry (accuracy, speed, heading, source) is stored in `<extensions>`.
+  /// Extended telemetry (accuracy, speed, heading, source) is stored in `<extensions>`
+  /// qualified with the Aetron extension namespace (`xmlns:aetron="https://aetron.app/gpx/1/0"`).
   static String generateGpx(
     List<RawGpsExportPoint> points, {
     String workoutId = '',
@@ -97,6 +102,7 @@ class RawGpsDatasetExporter {
     buffer.write(
       '<gpx version="1.1" creator="Aetron" '
       'xmlns="http://www.topografix.com/GPX/1/1" '
+      'xmlns:aetron="$gpxExtensionNamespace" '
       'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
       'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n',
     );
@@ -147,17 +153,17 @@ class RawGpsDatasetExporter {
       if (hasExtensions) {
         buffer.write('        <extensions>\n');
         if (p.accuracy != null) {
-          buffer.write('          <accuracy>${p.accuracy}</accuracy>\n');
+          buffer.write('          <aetron:accuracy>${p.accuracy}</aetron:accuracy>\n');
         }
         if (p.speed != null) {
-          buffer.write('          <speed>${p.speed}</speed>\n');
+          buffer.write('          <aetron:speed>${p.speed}</aetron:speed>\n');
         }
         if (p.heading != null) {
-          buffer.write('          <heading>${p.heading}</heading>\n');
+          buffer.write('          <aetron:heading>${p.heading}</aetron:heading>\n');
         }
         if (p.deviceSource != null && p.deviceSource!.isNotEmpty) {
           buffer.write(
-            '          <device_source>${_escapeXml(p.deviceSource!)}</device_source>\n',
+            '          <aetron:device_source>${_escapeXml(p.deviceSource!)}</aetron:device_source>\n',
           );
         }
         buffer.write('        </extensions>\n');
@@ -219,6 +225,7 @@ class RawGpsDatasetExporter {
     String? rawJsonlByteSha256,
     String? canonicalCaptureDigest,
     String? appCommit,
+    String? captureAppCommit,
     DateTime? exportGeneratedAtUtc,
     double gapThresholdSeconds = defaultGapThresholdSeconds,
   }) {
@@ -252,12 +259,22 @@ class RawGpsDatasetExporter {
       gapThresholdSeconds: gapThresholdSeconds,
     );
 
+    String? resolvedAppCommit;
+    if (appCommit != null && appCommit.isNotEmpty) {
+      resolvedAppCommit = appCommit;
+    } else if (buildInjectedCommit.isNotEmpty) {
+      resolvedAppCommit = buildInjectedCommit;
+    } else {
+      resolvedAppCommit = null;
+    }
+
     final manifest = RawGpsExportManifest(
       sourceKind: sourceKind.value,
       userScoped: true,
       workoutId: workoutId,
       exportGeneratedAtUtc: exportTime,
-      appCommit: appCommit ?? defaultAppCommit,
+      appCommit: resolvedAppCommit,
+      captureAppCommit: captureAppCommit,
       recordCount: sorted.length,
       firstSampleUtc: sorted.isNotEmpty ? sorted.first.timestamp.toUtc() : null,
       lastSampleUtc: sorted.isNotEmpty ? sorted.last.timestamp.toUtc() : null,
