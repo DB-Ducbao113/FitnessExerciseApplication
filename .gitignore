@@ -40,6 +40,7 @@ ios/build/
 dist/
 package/
 build_web/
+/exports/
 
 # Android Studio / Release Keystores
 /android/app/debug

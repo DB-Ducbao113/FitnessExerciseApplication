@@ -8,8 +8,10 @@ import 'package:fitness_exercise_application/features/workout/data/datasources/r
 import 'package:fitness_exercise_application/features/workout/data/local/local_db.dart';
 import 'package:fitness_exercise_application/features/workout/data/local/raw_gps_recovery_journal.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/raw_gps_export_bundle.dart';
+import 'package:fitness_exercise_application/features/workout/domain/entities/raw_gps_session_quality.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_canonical_verification.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_dataset_exporter.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/raw_gps_quality_analyzer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -228,8 +230,89 @@ class RawGpsExportService {
     );
   }
 
+  /// Verifies that all prepared export files exist on disk and strictly match
+  /// the cryptographic SHA-256 hashes advertised in the companion manifest.
+  static bool verifyExportFiles(
+    List<File> files,
+    RawGpsExportManifest manifest,
+  ) {
+    if (files.length < 4) {
+      throw StateError('Expected 4 export files, found ${files.length}');
+    }
+
+    final jsonlFile = files[0];
+    final csvFile = files[1];
+    final gpxFile = files[2];
+    final manifestFile = files[3];
+
+    if (!jsonlFile.existsSync() ||
+        !csvFile.existsSync() ||
+        !gpxFile.existsSync() ||
+        !manifestFile.existsSync()) {
+      throw StateError('One or more export files are missing on disk.');
+    }
+
+    final jsonlBytes = jsonlFile.readAsBytesSync();
+    final jsonlHash = sha256.convert(jsonlBytes).toString();
+    if (jsonlHash.toLowerCase() != manifest.exportJsonlSha256.toLowerCase()) {
+      throw StateError(
+        'JSONL file SHA-256 mismatch ($jsonlHash != ${manifest.exportJsonlSha256}).',
+      );
+    }
+
+    final csvBytes = csvFile.readAsBytesSync();
+    final csvHash = sha256.convert(csvBytes).toString();
+    if (csvHash.toLowerCase() != manifest.exportCsvSha256.toLowerCase()) {
+      throw StateError(
+        'CSV file SHA-256 mismatch ($csvHash != ${manifest.exportCsvSha256}).',
+      );
+    }
+
+    final gpxBytes = gpxFile.readAsBytesSync();
+    final gpxHash = sha256.convert(gpxBytes).toString();
+    if (gpxHash.toLowerCase() != manifest.exportGpxSha256.toLowerCase()) {
+      throw StateError(
+        'GPX file SHA-256 mismatch ($gpxHash != ${manifest.exportGpxSha256}).',
+      );
+    }
+
+    return true;
+  }
+
+  /// Purges stale temporary export directories (`aetron_export_*`) older than [olderThan].
+  ///
+  /// Prevents accumulation of temporary sharing files while ensuring active shares
+  /// are never prematurely deleted before external applications finish copying them.
+  Future<void> purgeStaleExportDirectories({
+    Duration olderThan = const Duration(minutes: 15),
+  }) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final thresholdTime = DateTime.now().subtract(olderThan);
+
+      final entities = tempDir.listSync();
+      for (final entity in entities) {
+        if (entity is Directory && entity.path.contains('aetron_export_')) {
+          try {
+            final stat = entity.statSync();
+            if (stat.modified.isBefore(thresholdTime)) {
+              entity.deleteSync(recursive: true);
+            }
+          } catch (e) {
+            debugPrint('[RawGpsExportService] error deleting stale export dir: $e');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[RawGpsExportService] purgeStaleExportDirectories error: $e');
+    }
+  }
+
   /// Prepares the export bundle files in an isolated app-owned temporary directory.
   Future<List<File>> prepareExportFiles(RawGpsExportBundle bundle) async {
+    // Purge older exports first to avoid unbounded storage growth
+    await purgeStaleExportDirectories();
+
     final tempDir = await getTemporaryDirectory();
     final exportDirPath =
         '${tempDir.path}/aetron_export_${bundle.workoutId}_${DateTime.now().millisecondsSinceEpoch}';
@@ -249,14 +332,19 @@ class RawGpsExportService {
       flush: true,
     );
 
-    return [jsonlFile, csvFile, gpxFile, manifestFile];
+    final files = [jsonlFile, csvFile, gpxFile, manifestFile];
+
+    // Pre-flight validation: verify files exist and match advertised manifest hashes
+    verifyExportFiles(files, bundle.manifest);
+
+    return files;
   }
 
   /// Triggers the native iOS/Android Share Sheet to share the research dataset bundle.
   ///
-  /// Safely manages temporary file lifecycle, ensuring temporary export files
-  /// are automatically cleaned up after sharing completes without touching
-  /// original raw journals, Isar records, or cloud storage.
+  /// Safely manages temporary file lifecycle with explicit MIME types, ensuring
+  /// temporary export files match advertised hashes without race-condition cleanup
+  /// deleting attachments before external applications finish reading them.
   Future<void> shareExportBundle(
     RawGpsExportBundle bundle, {
     Rect? sharePositionOrigin,
@@ -270,7 +358,28 @@ class RawGpsExportService {
 
     final files = await prepareExportFiles(bundle);
     try {
-      final xFiles = files.map((f) => XFile(f.path)).toList(growable: false);
+      final xFiles = [
+        XFile(
+          files[0].path,
+          mimeType: 'application/x-ndjson',
+          name: '${bundle.workoutId}.raw.jsonl',
+        ),
+        XFile(
+          files[1].path,
+          mimeType: 'text/csv',
+          name: '${bundle.workoutId}.raw.csv',
+        ),
+        XFile(
+          files[2].path,
+          mimeType: 'application/gpx+xml',
+          name: '${bundle.workoutId}.raw.gpx',
+        ),
+        XFile(
+          files[3].path,
+          mimeType: 'application/json',
+          name: '${bundle.workoutId}.manifest.json',
+        ),
+      ];
 
       await Share.shareXFiles(
         xFiles,
@@ -280,7 +389,12 @@ class RawGpsExportService {
       );
     } finally {
       if (autoCleanup) {
-        await cleanupExportFiles(files);
+        // Defer immediate deletion by a safe completion window (5 min) to prevent
+        // race conditions where native receivers (AirDrop, Files, Mail) lose files.
+        // Also automatically cleaned up on next export or app startup.
+        Future.delayed(const Duration(minutes: 5), () async {
+          await cleanupExportFiles(files);
+        });
       }
     }
   }
@@ -315,6 +429,91 @@ class RawGpsExportService {
         debugPrint('[RawGpsExportService] cleanup error: $e');
       }
     }
+  }
+
+  /// Discovers all workout sessions owned by the authenticated user across
+  /// local journals, local database, and cloud records.
+  Future<List<String>> listAvailableSessionIdsForUser({
+    String? activeUserId,
+  }) async {
+    final userId = _resolveUserId(activeUserId);
+    final sessionIds = <String>{};
+
+    // 1 & 2. Local recovery journals and Isar database
+    try {
+      final ownedSessionIds =
+          (await LocalDB.getRawGpsOwnedSessionIdsForUser(userId)).toSet();
+      sessionIds.addAll(ownedSessionIds);
+
+      final journalSessions = await _journal.listPendingSessionIdsForUser(
+        userId,
+        ownedSessionIds: ownedSessionIds,
+      );
+      sessionIds.addAll(journalSessions);
+    } catch (e) {
+      debugPrint('[RawGpsExportService] error listing local sessions: $e');
+    }
+
+    // 3. Cloud Supabase workout sessions
+    if (_supabaseClient != null) {
+      try {
+        final cloudRows = await _supabaseClient
+            .from(DbTables.workoutSessions)
+            .select('id')
+            .eq('user_id', userId);
+        for (final row in cloudRows as List) {
+          final id = row['id'] as String?;
+          if (id != null && id.isNotEmpty) {
+            sessionIds.add(id);
+          }
+        }
+      } catch (e) {
+        debugPrint('[RawGpsExportService] error querying cloud sessions: $e');
+      }
+    }
+
+    final sorted = sessionIds.toList()..sort();
+    return sorted;
+  }
+
+  /// Performs an automated ALG-0 inventory across all sessions owned by the authenticated user.
+  ///
+  /// Extracts available raw GPS points, labels provenance, analyzes sampling and telemetry quality,
+  /// and compiles a comprehensive research inventory report.
+  Future<RawGpsAggregateInventoryReport> inventoryUserSessions({
+    String? activeUserId,
+    String? appCommit,
+  }) async {
+    final userId = _resolveUserId(activeUserId);
+    final sessionIds = await listAvailableSessionIdsForUser(activeUserId: userId);
+    final sessionReports = <RawGpsSessionQualityReport>[];
+
+    for (final sessionId in sessionIds) {
+      try {
+        final bundle = await exportSession(
+          workoutId: sessionId,
+          activeUserId: userId,
+          appCommit: appCommit,
+        );
+
+        final report = RawGpsQualityAnalyzer.analyzeSession(
+          workoutId: sessionId,
+          points: bundle.points,
+          sourceKind: RawGpsExportSourceKind.values.firstWhere(
+            (k) => k.value == bundle.manifest.sourceKind,
+            orElse: () => RawGpsExportSourceKind.cloudOnlyUnverified,
+          ),
+        );
+        sessionReports.add(report);
+      } catch (e) {
+        debugPrint('[RawGpsExportService] skipping session $sessionId during inventory: $e');
+      }
+    }
+
+    return RawGpsQualityAnalyzer.aggregateReports(
+      sessionReports,
+      appCommit: appCommit,
+    );
   }
 
   String _resolveUserId(String? activeUserId) {
