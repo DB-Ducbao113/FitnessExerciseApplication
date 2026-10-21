@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at_utc": "2026-10-21T09:13:51.465312Z",
+  "generated_at_utc": "2026-10-21T09:50:16.505289Z",
   "execution_mode": "OPT_IN_LOCAL_AUTHORIZED_BENCHMARK",
   "public_ci_behavior": "SKIPPED_GRACEFULLY_WHEN_PRIVATE_CSV_ABSENT",
   "dataset_evidence": {
@@ -11,10 +11,12 @@
     "session_count": 7
   },
   "benchmark_results_file": "docs/benchmarks/real_gps_research_benchmark.json",
-  "benchmark_results_sha256": "3bc82946e89c067042aa5d6775817cb3007783099cfa2a7638d276427cfd18ab",
+  "benchmark_results_sha256": "ca94343f4fafc8a3049419c264c9e9fea1c079ac90bb0532872b8e5861f7609d",
+  "timing_policy": "Processing latency is diagnostic only and excluded from this reproducible results artifact.",
   "privacy_policy": {
     "coordinates_scrubbed": true,
-    "personal_data_retained": false,
+    "direct_workout_ids_retained": false,
+    "historical_report_identifiers_remain_reachable": true,
     "public_git_exposure_prohibited": true,
     "error_messages_contain_no_raw_coordinates": true
   },

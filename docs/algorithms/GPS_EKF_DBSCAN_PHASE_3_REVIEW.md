@@ -52,7 +52,7 @@ Trong quá trình chạy replay 7 tệp thực địa (tổng cộng 10.730 đi�
 | **EKF Decision: Rejected** | **0** | 0.00% | $NIS > 13.816$: Không có điểm nào trong 8.135 điểm liên tục |
 
 ### 2.2. Làm rõ cú nhảy 2.495 m (Teleport Reconciliation)
-- **Truy vết gốc (Source Trace Forensics):** Tệp `raw-gps-8a554aec-f0d8-4780-b82f-5cdf34848eaf.jsonl`, mẫu tại dòng 2299 (timestamp `2026-10-15T11:15:56.642Z`).
+- **Truy vết gốc (Source Trace Forensics):** Tệp `raw-gps-session_7.jsonl`, mẫu tại dòng 2299 (timestamp withheld from public report).
 - **Bản chất sự việc:** Điểm này có reported accuracy lên tới $45.25\text{ m} > 32.0\text{ m}$, do đó đã bị **Giai đoạn 1 Pre-validation loại bỏ trực tiếp với lý do `lowAccuracy`**.
 - **Nguồn gốc con số "2.495 m":** Trong quá trình thăm dò ban đầu (unsegmented scratch script), bộ lọc EKF được chạy liên tục mà không có cơ chế phân đoạn (segmentation) vượt qua khoảng mất tín hiệu (outage gap), dẫn đến dead-reckoning trôi dạt 2.495 m so với điểm raw tiếp theo.
 - **Cơ chế phòng thủ đa tầng trong Pipeline chuẩn:**
@@ -118,13 +118,13 @@ Chạy trên bộ sinh dữ liệu chuẩn xác định rõ Ground Truth:
 
 | Workout Journal ID | Quãng đường P2 | Quãng đường P3 | Delta Dist | Điểm Accepted | Quyết định NIS (Normal / DownWeighted / Rejected) |
 |---|---:|---:|---:|---:|---|
-| `6903b3e0` | 5,157.92 m | 5,157.92 m | 0.00 m | 722 | 721 normal, 1 downWeighted, 0 rejected |
-| `8674084e` | 8,719.64 m | 8,719.64 m | 0.00 m | 1,196 | 1,196 normal, 0 downWeighted, 0 rejected |
-| `8a554aec` | 12,208.52 m | 12,208.52 m | 0.00 m | 1,761 | 1,759 normal, 2 downWeighted, 0 rejected |
-| `8fd0afa4` | 11,044.01 m | 11,044.01 m | 0.00 m | 1,647 | 1,647 normal, 0 downWeighted, 0 rejected |
-| `9b9d3c3f` | 241.83 m | 241.83 m | 0.00 m | 54 | 54 normal, 0 downWeighted, 0 rejected |
-| `bc34d070` | 14,849.02 m | 14,849.02 m | 0.00 m | 1,943 | 1,942 normal, 1 downWeighted, 0 rejected |
-| `f808e88a` | 5,671.20 m | 5,671.20 m | 0.00 m | 812 | 810 normal, 2 downWeighted, 0 rejected |
+| `session_1` | 5,157.92 m | 5,157.92 m | 0.00 m | 722 | 721 normal, 1 downWeighted, 0 rejected |
+| `session_6` | 8,719.64 m | 8,719.64 m | 0.00 m | 1,196 | 1,196 normal, 0 downWeighted, 0 rejected |
+| `session_7` | 12,208.52 m | 12,208.52 m | 0.00 m | 1,761 | 1,759 normal, 2 downWeighted, 0 rejected |
+| `session_5` | 11,044.01 m | 11,044.01 m | 0.00 m | 1,647 | 1,647 normal, 0 downWeighted, 0 rejected |
+| `session_3` | 241.83 m | 241.83 m | 0.00 m | 54 | 54 normal, 0 downWeighted, 0 rejected |
+| `session_4` | 14,849.02 m | 14,849.02 m | 0.00 m | 1,943 | 1,942 normal, 1 downWeighted, 0 rejected |
+| `session_2` | 5,671.20 m | 5,671.20 m | 0.00 m | 812 | 810 normal, 2 downWeighted, 0 rejected |
 | **Tổng cộng (Aggregate)** | **57,892.15 m** | **57,892.15 m** | **0.00 m** | **8,135** | **8,129 normal (99.93%), 6 downWeighted (0.07%), 0 rejected (0.00%)** |
 
 - **Độ trễ đo đạc thực tế (Latency Profile):**
@@ -190,13 +190,13 @@ Toàn bộ 7 lệnh replay thực địa đều được thực thi độc lập
 
 | Tệp Nhật ký (Journal File) | Lệnh thực thi (Command Line) | Exit Code | Input Points | Accepted Points | NIS Decisions (N / DW / R) | App Distance (m) |
 |---|---|:---:|---:|---:|---|---:|
-| `raw-gps-6903b3e0` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-6903b3e0... --output ...` | `0` | 1.186 | 722 | 721 normal, 1 downWeighted, 0 rejected | 5,157.92 m |
-| `raw-gps-8674084e` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-8674084e... --output ...` | `0` | 1.674 | 1.196 | 1.196 normal, 0 downWeighted, 0 rejected | 8,719.64 m |
-| `raw-gps-8a554aec` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-8a554aec... --output ...` | `0` | 2.322 | 1.761 | 1.759 normal, 2 downWeighted, 0 rejected | 12,208.52 m |
-| `raw-gps-8fd0afa4` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-8fd0afa4... --output ...` | `0` | 1.957 | 1.647 | 1.647 normal, 0 downWeighted, 0 rejected | 11,044.01 m |
-| `raw-gps-9b9d3c3f` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-9b9d3c3f... --output ...` | `0` | 101 | 54 | 54 normal, 0 downWeighted, 0 rejected | 241.83 m |
-| `raw-gps-bc34d070` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-bc34d070... --output ...` | `0` | 2.330 | 1.943 | 1.942 normal, 1 downWeighted, 0 rejected | 14,849.02 m |
-| `raw-gps-f808e88a` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-f808e88a... --output ...` | `0` | 1.160 | 812 | 810 normal, 2 downWeighted, 0 rejected | 5,671.20 m |
+| `raw-gps-session_1` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_1... --output ...` | `0` | 1.186 | 722 | 721 normal, 1 downWeighted, 0 rejected | 5,157.92 m |
+| `raw-gps-session_6` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_6... --output ...` | `0` | 1.674 | 1.196 | 1.196 normal, 0 downWeighted, 0 rejected | 8,719.64 m |
+| `raw-gps-session_7` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_7... --output ...` | `0` | 2.322 | 1.761 | 1.759 normal, 2 downWeighted, 0 rejected | 12,208.52 m |
+| `raw-gps-session_5` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_5... --output ...` | `0` | 1.957 | 1.647 | 1.647 normal, 0 downWeighted, 0 rejected | 11,044.01 m |
+| `raw-gps-session_3` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_3... --output ...` | `0` | 101 | 54 | 54 normal, 0 downWeighted, 0 rejected | 241.83 m |
+| `raw-gps-session_4` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_4... --output ...` | `0` | 2.330 | 1.943 | 1.942 normal, 1 downWeighted, 0 rejected | 14,849.02 m |
+| `raw-gps-session_2` | `dart run tool/gps_benchmark.dart --activity cycling --input .../raw-gps-session_2... --output ...` | `0` | 1.160 | 812 | 810 normal, 2 downWeighted, 0 rejected | 5,671.20 m |
 | **TỔNG HỢP (AGGREGATE)** | **Tất cả 7 lệnh hoàn tất thành công** | **0** | **10.730** | **8.135** | **8.129 normal, 6 downWeighted, 0 rejected** | **57,892.15 m** |
 
 ---

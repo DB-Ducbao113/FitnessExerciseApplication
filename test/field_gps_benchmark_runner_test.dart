@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fitness_exercise_application/features/workout/domain/services/benchmark/field_gps_benchmark_runner.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/benchmark/field_gps_trace.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/gps_smoothing_service.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_tracking_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -172,6 +173,55 @@ void main() {
     }, live.acceptedSegmentStarts);
   });
 
+  test(
+    'full cycling trace matches production validation, smoothing and distance',
+    () {
+      final start = DateTime.utc(2026, 10, 15);
+      final samples = <FieldGpsSample>[];
+      for (var i = 0; i < 100; i++) {
+        final north = i < 50 ? i : 50;
+        final east = i < 50 ? 0 : i - 50;
+        samples.add(
+          _sampleAt(
+            start.add(Duration(seconds: i + (i >= 70 ? 8 : 0))),
+            LatLng(10 + north * 0.00005, 106 + east * 0.00005),
+            accuracyMeters: i == 20 ? 40 : 8,
+          ),
+        );
+      }
+      final trace = FieldGpsTrace(
+        workoutId: 'full-trace',
+        sourceLineCount: samples.length,
+        duplicateTimestampCount: 0,
+        samples: samples,
+      );
+      final current = runner.run(trace).results[GpsPipelineVariant.current]!;
+      final live = _replayLivePipeline(trace);
+
+      expect(current.rejectionReasonByTimestamp, live.rejections);
+      expect(current.acceptedPointCount, live.outputs.length);
+      expect(current.displayPointCount, live.displayPointCount);
+      expect(current.appDistanceMeters, closeTo(live.appDistanceMeters, 0.5));
+      expect(
+        current.displayDistanceMeters,
+        closeTo(live.displayDistanceMeters, 0.5),
+      );
+      for (var i = 0; i < live.outputs.length; i++) {
+        expect(
+          current.outputPoints[i].startsNewSegment,
+          live.outputs[i].startsNewSegment,
+        );
+        expect(
+          const Distance(roundResult: false).distance(
+            current.outputPoints[i].position,
+            live.outputs[i].position,
+          ),
+          lessThan(0.01),
+        );
+      }
+    },
+  );
+
   test('runs DBSCAN only and EKF then DBSCAN after the same validation', () {
     final trace = parser.parseLines(
       File(
@@ -268,4 +318,101 @@ _replayLiveValidation(FieldGpsTrace trace) {
     wasWeak = false;
   }
   return (rejections: rejections, acceptedSegmentStarts: acceptedSegmentStarts);
+}
+
+({
+  Map<DateTime, String> rejections,
+  List<BenchmarkGpsPoint> outputs,
+  int displayPointCount,
+  double appDistanceMeters,
+  double displayDistanceMeters,
+})
+_replayLivePipeline(FieldGpsTrace trace) {
+  const engine = WorkoutTrackingEngine();
+  const smoother = GpsSmoothingService();
+  const distance = Distance(roundResult: false);
+  final route = <LatLng>[];
+  final outputs = <BenchmarkGpsPoint>[];
+  final rejections = <DateTime, String>{};
+  LatLng? anchor;
+  LatLng? previousAccepted;
+  LatLng? previousSmoothed;
+  LatLng? lastDisplayed;
+  DateTime? lastAcceptedTime;
+  var wasWeak = false;
+  var displayPointCount = 0;
+  var appDistanceMeters = 0.0;
+  var displayDistanceMeters = 0.0;
+  for (final sample in trace.samples) {
+    final decision = engine.evaluateGpsUpdate(
+      position: _asPosition(sample),
+      activityType: 'cycling',
+      routePoints: route,
+      currentLatLng: route.isEmpty ? null : route.last,
+      distanceAnchorPoint: anchor,
+      lastAcceptedPositionTime: lastAcceptedTime,
+      shouldResetAnchorOnResume: false,
+      wasGpsSignalWeak: wasWeak,
+    );
+    if (decision.type == TrackingGpsDecisionType.skip) {
+      rejections[sample.timestamp] = decision.reason.name;
+      if (decision.reason.name == 'lowAccuracy') wasWeak = true;
+      continue;
+    }
+    final startsSegment =
+        route.isEmpty ||
+        decision.shouldBreakRouteForDisplay ||
+        decision.type == TrackingGpsDecisionType.resetAnchor;
+    if (decision.shouldAddDistance) appDistanceMeters += decision.segmentMeters;
+    final elapsed = lastAcceptedTime == null
+        ? 0.0
+        : sample.timestamp.difference(lastAcceptedTime).inMilliseconds / 1000.0;
+    final update = route.isEmpty
+        ? null
+        : smoother.smoothAcceptedPoint(
+            activityType: 'cycling',
+            acceptedPoint: sample.position,
+            previousAcceptedPoint: previousAccepted,
+            previousSmoothedPoint: previousSmoothed,
+            lastSmoothedRoutePoint: lastDisplayed,
+            accuracyMeters: sample.reportedAccuracyMeters,
+            speedMs: sample.speedMetersPerSecond,
+            timeDeltaSec: elapsed,
+            gpsGapDurationSec: startsSegment ? elapsed : 0,
+          );
+    final display = startsSegment ? sample.position : update!.smoothedPoint;
+    if (!startsSegment && outputs.isNotEmpty) {
+      displayDistanceMeters += distance.distance(
+        outputs.last.position,
+        display,
+      );
+    }
+    if (startsSegment || update!.shouldAppendRoutePoint) {
+      lastDisplayed = display;
+      displayPointCount++;
+    }
+    outputs.add(
+      BenchmarkGpsPoint(
+        timestamp: sample.timestamp,
+        position: display,
+        speedMetersPerSecond: sample.speedMetersPerSecond,
+        reportedAccuracyMeters: sample.reportedAccuracyMeters,
+        headingDegrees: sample.headingDegrees,
+        startsNewSegment: startsSegment,
+      ),
+    );
+    route.add(sample.position);
+    anchor = sample.position;
+    previousAccepted = sample.position;
+    previousSmoothed = display;
+    lastAcceptedTime = sample.timestamp;
+    wasWeak = false;
+  }
+  return (
+    rejections: rejections,
+    outputs: outputs,
+    displayPointCount: displayPointCount,
+    appDistanceMeters: appDistanceMeters,
+    displayDistanceMeters: displayDistanceMeters,
+  );
 }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:fitness_exercise_application/features/workout/domain/services/benchmark/field_gps_trace.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/dbscan/gps_dbscan_service.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 enum GpsPipelineVariant { current, ekf, dbscan, ekfThenDbscan }
@@ -448,11 +449,19 @@ class FieldGpsBenchmarkRunner {
         continue;
       }
       final last = route.last;
-      final rawSegment = _distance.distance(
-        distanceAnchor ?? last,
-        sample.position,
+      final rawAnchor = distanceAnchor ?? last;
+      final rawSegment = Geolocator.distanceBetween(
+        rawAnchor.latitude,
+        rawAnchor.longitude,
+        sample.position.latitude,
+        sample.position.longitude,
       );
-      final routeSegment = _distance.distance(last, sample.position);
+      final routeSegment = Geolocator.distanceBetween(
+        last.latitude,
+        last.longitude,
+        sample.position.latitude,
+        sample.position.longitude,
+      );
       if (rawSegment < 1.5) {
         _reject(rejections, rejectionReasons, sample.timestamp, 'tinySegment');
         continue;
@@ -554,9 +563,9 @@ class FieldGpsBenchmarkRunner {
       validatedInputPoints: validated.benchmarkPoints,
       positionDecisionCounts:
           variant == GpsPipelineVariant.ekf ||
-                  variant == GpsPipelineVariant.ekfThenDbscan
-              ? _extractPositionDecisionCounts(output)
-              : const {},
+              variant == GpsPipelineVariant.ekfThenDbscan
+          ? _extractPositionDecisionCounts(output)
+          : const {},
     );
   }
 
