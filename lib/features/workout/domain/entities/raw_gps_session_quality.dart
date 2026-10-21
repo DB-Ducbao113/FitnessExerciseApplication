@@ -118,21 +118,83 @@ class StationaryDriftStats {
 /// Outage gap statistics for a raw GPS session.
 class RawGpsGapSummary {
   final int gapCount;
+  final int gapCountOver15s;
+  final int gapCountOver30s;
   final double totalGapDurationSeconds;
   final double maxGapDurationSeconds;
 
   const RawGpsGapSummary({
     required this.gapCount,
+    required this.gapCountOver15s,
+    required this.gapCountOver30s,
     required this.totalGapDurationSeconds,
     required this.maxGapDurationSeconds,
   });
 
   Map<String, dynamic> toJson() => {
         'gap_count': gapCount,
+        'gap_count_over_15s': gapCountOver15s,
+        'gap_count_over_30s': gapCountOver30s,
         'total_gap_duration_seconds':
             double.parse(totalGapDurationSeconds.toStringAsFixed(2)),
         'max_gap_duration_seconds':
             double.parse(maxGapDurationSeconds.toStringAsFixed(2)),
+      };
+}
+
+/// Detailed counts of missing optional/extended telemetry values across points.
+class MissingTelemetryCounts {
+  final int missingAltitudeCount;
+  final int missingSpeedCount;
+  final int missingAccuracyCount;
+  final int missingHeadingCount;
+  final int missingDeviceSourceCount;
+
+  const MissingTelemetryCounts({
+    required this.missingAltitudeCount,
+    required this.missingSpeedCount,
+    required this.missingAccuracyCount,
+    required this.missingHeadingCount,
+    required this.missingDeviceSourceCount,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'missing_altitude_count': missingAltitudeCount,
+        'missing_speed_count': missingSpeedCount,
+        'missing_accuracy_count': missingAccuracyCount,
+        'missing_heading_count': missingHeadingCount,
+        'missing_device_source_count': missingDeviceSourceCount,
+      };
+}
+
+/// Audit tracking for authenticated historical discovery (ALG-0.1).
+class RawGpsDiscoveryAudit {
+  final int totalDiscovered;
+  final int sessionsWithGps;
+  final int successfullyExported;
+  final int missingSessions;
+  final int deniedSessions;
+  final int failureCount;
+  final List<String> failures;
+
+  const RawGpsDiscoveryAudit({
+    required this.totalDiscovered,
+    required this.sessionsWithGps,
+    required this.successfullyExported,
+    required this.missingSessions,
+    required this.deniedSessions,
+    required this.failureCount,
+    required this.failures,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'total_discovered': totalDiscovered,
+        'sessions_with_gps': sessionsWithGps,
+        'successfully_exported': successfullyExported,
+        'missing_sessions': missingSessions,
+        'denied_sessions': deniedSessions,
+        'failure_count': failureCount,
+        'failures': failures,
       };
 }
 
@@ -154,6 +216,8 @@ class RawGpsSessionQualityReport {
   final SpeedProfileStats speedStats;
   final AccuracyProfileStats accuracyStats;
   final StationaryDriftStats stationaryStats;
+  final double rawCumulativeDistanceMeters;
+  final MissingTelemetryCounts missingTelemetry;
   final SessionQualityClassification classification;
   final List<String> qualityIssues;
 
@@ -179,6 +243,8 @@ class RawGpsSessionQualityReport {
     required this.speedStats,
     required this.accuracyStats,
     required this.stationaryStats,
+    required this.rawCumulativeDistanceMeters,
+    required this.missingTelemetry,
     required this.classification,
     required this.qualityIssues,
     this.groundTruthErrorDisallowed = true,
@@ -199,16 +265,13 @@ class RawGpsSessionQualityReport {
         'sampling_stats': samplingStats.toJson(),
         'duplicate_identities_count': duplicateIdentitiesCount,
         'non_monotonic_timestamps_count': nonMonotonicTimestampsCount,
-        'gap_summary': {
-          'gap_count': gapSummary.gapCount,
-          'total_gap_duration_seconds':
-              double.parse(gapSummary.totalGapDurationSeconds.toStringAsFixed(2)),
-          'max_gap_duration_seconds':
-              double.parse(gapSummary.maxGapDurationSeconds.toStringAsFixed(2)),
-        },
+        'gap_summary': gapSummary.toJson(),
         'speed_stats': speedStats.toJson(),
         'accuracy_stats': accuracyStats.toJson(),
         'stationary_stats': stationaryStats.toJson(),
+        'raw_cumulative_distance_meters':
+            double.parse(rawCumulativeDistanceMeters.toStringAsFixed(2)),
+        'missing_telemetry': missingTelemetry.toJson(),
         'classification': classification.value,
         'quality_issues': qualityIssues,
         'ground_truth_error_disallowed': groundTruthErrorDisallowed,
@@ -230,6 +293,7 @@ class RawGpsAggregateInventoryReport {
   final double aggregateMeanAccuracyMeters;
   final int totalGapsDetected;
   final double aggregateTotalGapDurationSeconds;
+  final RawGpsDiscoveryAudit discoveryAudit;
   final List<RawGpsSessionQualityReport> sessionReports;
   final DateTime generatedAtUtc;
   final String? appCommit;
@@ -247,6 +311,7 @@ class RawGpsAggregateInventoryReport {
     required this.aggregateMeanAccuracyMeters,
     required this.totalGapsDetected,
     required this.aggregateTotalGapDurationSeconds,
+    required this.discoveryAudit,
     required this.sessionReports,
     required this.generatedAtUtc,
     this.appCommit,
@@ -268,6 +333,7 @@ class RawGpsAggregateInventoryReport {
         'total_gaps_detected': totalGapsDetected,
         'aggregate_total_gap_duration_seconds':
             double.parse(aggregateTotalGapDurationSeconds.toStringAsFixed(2)),
+        'discovery_audit': discoveryAudit.toJson(),
         'session_reports': sessionReports.map((r) => r.toJson()).toList(),
         'generated_at_utc': generatedAtUtc.toIso8601String(),
         if (appCommit != null) 'app_commit': appCommit,

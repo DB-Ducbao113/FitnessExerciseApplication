@@ -72,6 +72,7 @@ class RawGpsExportService {
       );
     }
 
+    RawGpsDatasetExporter.validateSessionId(workoutId);
     final userId = _resolveUserId(activeUserId);
 
     // 1. Check local write-ahead recovery journal
@@ -186,6 +187,7 @@ class RawGpsExportService {
     String? activeUserId,
     String? appCommit,
   }) async {
+    RawGpsDatasetExporter.validateSessionId(workoutId);
     final userId = _resolveUserId(activeUserId);
 
     if (_supabaseClient == null || _remoteDataSource == null) {
@@ -310,6 +312,12 @@ class RawGpsExportService {
 
   /// Prepares the export bundle files in an isolated app-owned temporary directory.
   Future<List<File>> prepareExportFiles(RawGpsExportBundle bundle) async {
+    RawGpsDatasetExporter.validateSessionId(bundle.workoutId);
+    RawGpsDatasetExporter.verifyJsonlLosslessReplay(
+      bundle.jsonlContent,
+      bundle.points,
+    );
+
     // Purge older exports first to avoid unbounded storage growth
     await purgeStaleExportDirectories();
 
@@ -479,7 +487,7 @@ class RawGpsExportService {
   /// Performs an automated ALG-0 inventory across all sessions owned by the authenticated user.
   ///
   /// Extracts available raw GPS points, labels provenance, analyzes sampling and telemetry quality,
-  /// and compiles a comprehensive research inventory report.
+  /// and compiles a comprehensive research inventory report with full discovery audit (ALG-0.1).
   Future<RawGpsAggregateInventoryReport> inventoryUserSessions({
     String? activeUserId,
     String? appCommit,
@@ -488,13 +496,25 @@ class RawGpsExportService {
     final sessionIds = await listAvailableSessionIdsForUser(activeUserId: userId);
     final sessionReports = <RawGpsSessionQualityReport>[];
 
+    var sessionsWithGps = 0;
+    var successfullyExported = 0;
+    var missingSessions = 0;
+    var deniedSessions = 0;
+    var failureCount = 0;
+    final failures = <String>[];
+
     for (final sessionId in sessionIds) {
       try {
+        RawGpsDatasetExporter.validateSessionId(sessionId);
         final bundle = await exportSession(
           workoutId: sessionId,
           activeUserId: userId,
           appCommit: appCommit,
         );
+
+        if (bundle.points.isNotEmpty) {
+          sessionsWithGps++;
+        }
 
         final report = RawGpsQualityAnalyzer.analyzeSession(
           workoutId: sessionId,
@@ -505,14 +525,35 @@ class RawGpsExportService {
           ),
         );
         sessionReports.add(report);
+        successfullyExported++;
+      } on SecurityException catch (e) {
+        deniedSessions++;
+        failureCount++;
+        failures.add('Access denied for session $sessionId: ${e.message}');
+      } on StateError catch (e) {
+        missingSessions++;
+        failureCount++;
+        failures.add('Missing session $sessionId: ${e.message}');
       } catch (e) {
-        debugPrint('[RawGpsExportService] skipping session $sessionId during inventory: $e');
+        failureCount++;
+        failures.add('Failed to export session $sessionId: $e');
       }
     }
+
+    final audit = RawGpsDiscoveryAudit(
+      totalDiscovered: sessionIds.length,
+      sessionsWithGps: sessionsWithGps,
+      successfullyExported: successfullyExported,
+      missingSessions: missingSessions,
+      deniedSessions: deniedSessions,
+      failureCount: failureCount,
+      failures: failures,
+    );
 
     return RawGpsQualityAnalyzer.aggregateReports(
       sessionReports,
       appCommit: appCommit,
+      discoveryAudit: audit,
     );
   }
 

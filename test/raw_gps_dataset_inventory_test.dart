@@ -351,5 +351,154 @@ void main() {
 
       tempDir.deleteSync(recursive: true);
     });
+
+    test('ALG-0.9: Path traversal and session ID security validation (validateSessionId)', () {
+      // Valid IDs
+      expect(() => RawGpsDatasetExporter.validateSessionId('session-123_abc'), returnsNormally);
+      expect(() => RawGpsDatasetExporter.validateSessionId('550e8400-e29b-41d4-a716-446655440000'), returnsNormally);
+      expect(() => RawGpsDatasetExporter.validateSessionId('run_01'), returnsNormally);
+
+      // Path traversal and unsafe inputs must throw ArgumentError
+      expect(() => RawGpsDatasetExporter.validateSessionId(''), throwsArgumentError);
+      expect(() => RawGpsDatasetExporter.validateSessionId('../evil_path'), throwsArgumentError);
+      expect(() => RawGpsDatasetExporter.validateSessionId('session/with/slash'), throwsArgumentError);
+      expect(() => RawGpsDatasetExporter.validateSessionId(r'session\with\backslash'), throwsArgumentError);
+      expect(() => RawGpsDatasetExporter.validateSessionId('session with spaces'), throwsArgumentError);
+      expect(() => RawGpsDatasetExporter.validateSessionId('session\x00null'), throwsArgumentError);
+      expect(() => RawGpsDatasetExporter.validateSessionId('session;rm -rf'), throwsArgumentError);
+    });
+
+    test('ALG-0.10: Lossless JSONL round-trip replay verification with full field parity', () {
+      final points = [
+        RawGpsExportPoint(
+          workoutId: 'replay-test-01',
+          timestamp: baseTime,
+          latitude: 10.7712345,
+          longitude: 106.6987654,
+          altitude: 15.25,
+          speed: 4.12,
+          accuracy: 5.5,
+          heading: 180.0,
+          deviceSource: 'geolocator_position_stream',
+        ),
+        RawGpsExportPoint(
+          workoutId: 'replay-test-01',
+          timestamp: baseTime.add(const Duration(seconds: 1)),
+          latitude: 10.7713456,
+          longitude: 106.6988765,
+          altitude: 15.30,
+          speed: 4.15,
+          accuracy: 5.2,
+          heading: 181.0,
+          deviceSource: 'geolocator_position_stream',
+        ),
+      ];
+
+      final jsonl = RawGpsDatasetExporter.generateJsonl(points);
+
+      // 1. Lossless round-trip passes
+      expect(RawGpsDatasetExporter.verifyJsonlLosslessReplay(jsonl, points), isTrue);
+
+      // 2. Count mismatch throws StateError
+      expect(
+        () => RawGpsDatasetExporter.verifyJsonlLosslessReplay(
+          '$jsonl$jsonl',
+          points,
+        ),
+        throwsStateError,
+      );
+
+      // 3. Mutated speed in JSONL throws StateError
+      final mutatedSpeedJsonl = jsonl.replaceFirst('"speed":4.12', '"speed":4.99');
+      expect(
+        () => RawGpsDatasetExporter.verifyJsonlLosslessReplay(
+          mutatedSpeedJsonl,
+          points,
+        ),
+        throwsStateError,
+      );
+
+      // 4. Mutated altitude in JSONL throws StateError
+      final mutatedAltJsonl = jsonl.replaceFirst('"altitude":15.25', '"altitude":99.0');
+      expect(
+        () => RawGpsDatasetExporter.verifyJsonlLosslessReplay(
+          mutatedAltJsonl,
+          points,
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('ALG-0.11: Multi-scale outage tracking (>15s and >30s) and missing telemetry tracking', () {
+      final points = [
+        // Point 1: complete telemetry
+        RawGpsExportPoint(
+          workoutId: 'telemetry-test',
+          timestamp: baseTime,
+          latitude: 10.770,
+          longitude: 106.690,
+          altitude: 10.0,
+          speed: 3.0,
+          accuracy: 5.0,
+          heading: 45.0,
+          deviceSource: 'sensor',
+        ),
+        // Point 2: 20s gap (>15s, not >30s), missing altitude & heading
+        RawGpsExportPoint(
+          workoutId: 'telemetry-test',
+          timestamp: baseTime.add(const Duration(seconds: 20)),
+          latitude: 10.771,
+          longitude: 106.691,
+          speed: 3.5,
+          accuracy: 6.0,
+          deviceSource: 'sensor',
+        ),
+        // Point 3: 45s gap (>15s AND >30s), missing speed & accuracy & deviceSource
+        RawGpsExportPoint(
+          workoutId: 'telemetry-test',
+          timestamp: baseTime.add(const Duration(seconds: 65)),
+          latitude: 10.772,
+          longitude: 106.692,
+        ),
+      ];
+
+      final report = RawGpsQualityAnalyzer.analyzeSession(
+        workoutId: 'telemetry-test',
+        points: points,
+      );
+
+      expect(report.gapSummary.gapCountOver15s, 2);
+      expect(report.gapSummary.gapCountOver30s, 1);
+      expect(report.missingTelemetry.missingAltitudeCount, 2); // points 2 & 3
+      expect(report.missingTelemetry.missingSpeedCount, 1); // point 3
+      expect(report.missingTelemetry.missingAccuracyCount, 1); // point 3
+      expect(report.missingTelemetry.missingHeadingCount, 2); // points 2 & 3
+      expect(report.missingTelemetry.missingDeviceSourceCount, 1); // point 3
+      expect(report.rawCumulativeDistanceMeters, greaterThan(200.0));
+    });
+
+    test('ALG-0.12: Discovery audit captures error categories without silent suppression', () {
+      final audit = RawGpsDiscoveryAudit(
+        totalDiscovered: 5,
+        sessionsWithGps: 3,
+        successfullyExported: 2,
+        missingSessions: 1,
+        deniedSessions: 1,
+        failureCount: 2,
+        failures: const [
+          'Access denied for session foreign-01: Session belongs to another user account.',
+          'Missing session missing-02: Workout session missing-02 was not found in cloud database.',
+        ],
+      );
+
+      final json = audit.toJson();
+      expect(json['total_discovered'], 5);
+      expect(json['sessions_with_gps'], 3);
+      expect(json['successfully_exported'], 2);
+      expect(json['missing_sessions'], 1);
+      expect(json['denied_sessions'], 1);
+      expect(json['failure_count'], 2);
+      expect((json['failures'] as List).length, 2);
+    });
   });
 }

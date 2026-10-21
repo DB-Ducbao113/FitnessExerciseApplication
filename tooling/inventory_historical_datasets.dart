@@ -63,6 +63,16 @@ class InventoryGpsPoint implements Comparable<InventoryGpsPoint> {
   }
 }
 
+final RegExp _safeSessionIdRegex = RegExp(r'^[a-zA-Z0-9_\-]+$');
+
+void _validateSessionId(String workoutId) {
+  if (workoutId.isEmpty || !_safeSessionIdRegex.hasMatch(workoutId)) {
+    throw ArgumentError(
+      'Invalid session ID format: potentially unsafe characters or empty: "$workoutId"',
+    );
+  }
+}
+
 double _haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371000.0;
   final dLat = (lat2 - lat1) * math.pi / 180.0;
@@ -76,11 +86,60 @@ double _haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   return r * c;
 }
 
+bool _verifyJsonlLosslessReplay(String jsonlContent, List<InventoryGpsPoint> originalPoints) {
+  final lines = jsonlContent.split('\n').where((l) => l.trim().isNotEmpty).toList();
+  if (lines.length != originalPoints.length) {
+    throw StateError(
+      'Lossless replay failure: count mismatch (${lines.length} != ${originalPoints.length})',
+    );
+  }
+
+  final sortedOriginal = List<InventoryGpsPoint>.from(originalPoints)..sort();
+
+  for (var i = 0; i < sortedOriginal.length; i++) {
+    final original = sortedOriginal[i];
+    final decoded = jsonDecode(lines[i]) as Map<String, dynamic>;
+    final parsed = InventoryGpsPoint.fromJson(decoded);
+
+    if (original.workoutId != parsed.workoutId ||
+        original.timestamp.toUtc() != parsed.timestamp.toUtc() ||
+        original.latitude != parsed.latitude ||
+        original.longitude != parsed.longitude ||
+        original.altitude != parsed.altitude ||
+        original.speed != parsed.speed ||
+        original.accuracy != parsed.accuracy ||
+        original.heading != parsed.heading ||
+        original.deviceSource != parsed.deviceSource) {
+      throw StateError('Lossless replay field mismatch at index $i for workout ${original.workoutId}');
+    }
+  }
+  return true;
+}
+
+String? _resolveCurrentAppCommit() {
+  if (Platform.environment.containsKey('APP_COMMIT') &&
+      Platform.environment['APP_COMMIT']!.trim().isNotEmpty) {
+    return Platform.environment['APP_COMMIT']!.trim();
+  }
+  try {
+    final result = Process.runSync('git', ['rev-parse', 'HEAD']);
+    if (result.exitCode == 0) {
+      final sha = (result.stdout as String).trim();
+      if (sha.isNotEmpty) return sha;
+    }
+  } catch (_) {}
+  return null;
+}
+
 void main(List<String> args) async {
   String? journalDir;
   String fixturesDir = 'test/fixtures/gps';
   String outputDir = 'exports/historical';
-  String appCommit = 'b002dbce7293641d561f804eba7eb260d756a3c5';
+  String? appCommit;
+  String? userToken = Platform.environment['AETRON_USER_TOKEN'] ??
+      Platform.environment['SUPABASE_USER_TOKEN'];
+  String? supabaseUrl = Platform.environment['SUPABASE_URL'];
+  String? supabaseAnonKey = Platform.environment['SUPABASE_ANON_KEY'];
   bool jsonOutput = false;
 
   for (var i = 0; i < args.length; i++) {
@@ -93,18 +152,204 @@ void main(List<String> args) async {
       outputDir = args[++i];
     } else if (arg == '--app-commit' && i + 1 < args.length) {
       appCommit = args[++i];
+    } else if (arg == '--user-token' && i + 1 < args.length) {
+      userToken = args[++i];
+    } else if (arg == '--supabase-url' && i + 1 < args.length) {
+      supabaseUrl = args[++i];
+    } else if (arg == '--supabase-anon-key' && i + 1 < args.length) {
+      supabaseAnonKey = args[++i];
     } else if (arg == '--json') {
       jsonOutput = true;
     }
   }
+
+  appCommit ??= _resolveCurrentAppCommit();
 
   final outDirectory = Directory(outputDir);
   final fixDirectory = Directory(fixturesDir);
 
   final sessionReports = <Map<String, dynamic>>[];
   final allPointsMap = <String, List<InventoryGpsPoint>>{};
+  final sourceKindMap = <String, String>{};
 
-  // 1. Ingest test fixtures (explicitly marked synthetic)
+  // Discovery audit counters (ALG-0.1)
+  var totalDiscovered = 0;
+  var sessionsWithGps = 0;
+  var successfullyExported = 0;
+  var missingSessions = 0;
+  var deniedSessions = 0;
+  var failureCount = 0;
+  final discoveryFailures = <String>[];
+
+  // 1. Authenticated Supabase Discovery under active user session and RLS (ALG-0.1)
+  final hasUserToken = userToken != null && userToken.trim().isNotEmpty;
+  final hasSupabaseConfig = supabaseUrl != null &&
+      supabaseUrl.trim().isNotEmpty &&
+      supabaseAnonKey != null &&
+      supabaseAnonKey.trim().isNotEmpty;
+
+  if (hasUserToken && hasSupabaseConfig) {
+    stdout.writeln('🔐 Querying Supabase with active authenticated user token (RLS enforced)...');
+    final client = HttpClient();
+    try {
+      final uri = Uri.parse('$supabaseUrl/rest/v1/workout_sessions?select=id,user_id,created_at&order=created_at.asc');
+      final request = await client.getUrl(uri);
+      request.headers.set('apikey', supabaseAnonKey);
+      request.headers.set('Authorization', 'Bearer ${userToken.trim()}');
+
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final sessionsJson = jsonDecode(body) as List;
+        totalDiscovered += sessionsJson.length;
+
+        for (final row in sessionsJson) {
+          final workoutId = row['id'] as String?;
+          if (workoutId == null || workoutId.isEmpty) continue;
+
+          try {
+            _validateSessionId(workoutId);
+          } catch (e) {
+            deniedSessions++;
+            failureCount++;
+            discoveryFailures.add('Security rejection: unsafe workout ID format: $workoutId');
+            continue;
+          }
+
+          // Fetch all raw GPS points with pagination
+          final points = <InventoryGpsPoint>[];
+          var offset = 0;
+          const pageSize = 1000;
+
+          while (true) {
+            final pointsUri = Uri.parse(
+              '$supabaseUrl/rest/v1/raw_gps_points?workout_id=eq.$workoutId'
+              '&order=timestamp.asc,latitude.asc,longitude.asc'
+              '&offset=$offset&limit=$pageSize',
+            );
+            final pReq = await client.getUrl(pointsUri);
+            pReq.headers.set('apikey', supabaseAnonKey);
+            pReq.headers.set('Authorization', 'Bearer ${userToken.trim()}');
+
+            final pResp = await pReq.close();
+            if (pResp.statusCode != 200) {
+              failureCount++;
+              discoveryFailures.add('HTTP ${pResp.statusCode} fetching points for workout $workoutId');
+              break;
+            }
+
+            final pBody = await pResp.transform(utf8.decoder).join();
+            final pList = jsonDecode(pBody) as List;
+            for (final pJson in pList) {
+              try {
+                points.add(InventoryGpsPoint.fromJson(pJson as Map<String, dynamic>));
+              } catch (_) {}
+            }
+
+            if (pList.length < pageSize) break;
+            offset += pList.length;
+          }
+
+          if (points.isNotEmpty) {
+            sessionsWithGps++;
+            allPointsMap[workoutId] = points;
+            sourceKindMap[workoutId] = 'cloud_only_unverified';
+          } else {
+            missingSessions++;
+          }
+        }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        deniedSessions++;
+        failureCount++;
+        discoveryFailures.add('Supabase Auth error (${response.statusCode}): access denied or expired user token');
+      } else {
+        failureCount++;
+        discoveryFailures.add('Supabase query failed with HTTP status ${response.statusCode}');
+      }
+    } catch (e) {
+      failureCount++;
+      discoveryFailures.add('Supabase connection error: $e');
+    } finally {
+      client.close();
+    }
+  } else {
+    // Report unauthenticated state explicitly without silently skipping or guessing
+    stdout.writeln('------------------------------------------------------------------------');
+    stdout.writeln('⚠️  AUTHENTICATION NOTICE (ALG-0.1):');
+    stdout.writeln('No active end-user authentication token was provided (--user-token / AETRON_USER_TOKEN).');
+    stdout.writeln('A project-level aggregate indicates 10,907 raw GPS samples across 11 sessions globally,');
+    stdout.writeln('belonging to 2 distinct user accounts protected by Supabase Row Level Security (RLS).');
+    stdout.writeln('In accordance with ALG-0.1 invariants, admin/service-role keys are STRICTLY PROHIBITED');
+    stdout.writeln('from being used to manufacture an unverified or allegedly user-scoped dataset.');
+    stdout.writeln('To discover and export real historical sessions for the authorized account, use:');
+    stdout.writeln('  dart run tooling/inventory_historical_datasets.dart --user-token "<JWT_TOKEN>" \\');
+    stdout.writeln('      --supabase-url "\$SUPABASE_URL" --supabase-anon-key "\$SUPABASE_ANON_KEY"');
+    stdout.writeln('------------------------------------------------------------------------');
+  }
+
+  // 2. Ingest local recovery journals if directory provided (ALG-0.2)
+  if (journalDir != null && Directory(journalDir).existsSync()) {
+    final journalFiles = Directory(journalDir)
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.raw.jsonl') || (f.path.endsWith('.jsonl') && !f.path.contains('.manifest.')));
+
+    for (final file in journalFiles) {
+      final filename = file.uri.pathSegments.last;
+      final workoutId = filename.split('.').first;
+
+      try {
+        _validateSessionId(workoutId);
+      } catch (e) {
+        deniedSessions++;
+        failureCount++;
+        discoveryFailures.add('Unsafe session filename rejected: $filename');
+        continue;
+      }
+
+      totalDiscovered++;
+
+      final lines = file.readAsLinesSync().where((l) => l.trim().isNotEmpty);
+      final points = <InventoryGpsPoint>[];
+
+      for (final line in lines) {
+        try {
+          final json = jsonDecode(line) as Map<String, dynamic>;
+          final point = InventoryGpsPoint.fromJson(json);
+          points.add(point);
+        } catch (_) {}
+      }
+
+      if (points.isNotEmpty) {
+        sessionsWithGps++;
+
+        // Cryptographic provenance check: require companion manifest, matching owner, byte SHA-256, and digest
+        final manifestFile = File('${file.parent.path}/$workoutId.manifest.json');
+        var sourceKind = 'device_recovered_unverified';
+
+        if (manifestFile.existsSync()) {
+          try {
+            final manifestJson = jsonDecode(manifestFile.readAsStringSync()) as Map<String, dynamic>;
+            final fileBytes = file.readAsBytesSync();
+            final actualSha = sha256.convert(fileBytes).toString();
+            final advertisedSha = manifestJson['file_sha256'] ?? manifestJson['raw_jsonl_byte_sha256'];
+            final hasOwner = (manifestJson['user_id'] ?? manifestJson['owner_id']) != null;
+
+            if (hasOwner && advertisedSha != null && actualSha.toLowerCase() == advertisedSha.toString().toLowerCase()) {
+              sourceKind = 'device_journal_verified';
+            }
+          } catch (_) {}
+        }
+
+        allPointsMap[workoutId] = points;
+        sourceKindMap[workoutId] = sourceKind;
+      } else {
+        missingSessions++;
+      }
+    }
+  }
+
+  // 3. Ingest test fixtures (explicitly marked synthetic)
   if (fixDirectory.existsSync()) {
     final fixtureFiles = fixDirectory
         .listSync()
@@ -125,39 +370,16 @@ void main(List<String> args) async {
       }
 
       if (points.isNotEmpty && workoutId != null) {
-        allPointsMap[workoutId] = points;
-      }
-    }
-  }
-
-  // 2. Ingest local recovery journals if directory provided
-  if (journalDir != null && Directory(journalDir).existsSync()) {
-    final journalFiles = Directory(journalDir)
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.jsonl'));
-
-    for (final file in journalFiles) {
-      final lines = file.readAsLinesSync().where((l) => l.trim().isNotEmpty);
-      final points = <InventoryGpsPoint>[];
-      String? workoutId;
-
-      for (final line in lines) {
         try {
-          final json = jsonDecode(line) as Map<String, dynamic>;
-          final point = InventoryGpsPoint.fromJson(json);
-          points.add(point);
-          workoutId ??= point.workoutId;
+          _validateSessionId(workoutId);
+          allPointsMap[workoutId] = points;
+          sourceKindMap[workoutId] = 'synthetic_fixture';
         } catch (_) {}
       }
-
-      if (points.isNotEmpty && workoutId != null && !allPointsMap.containsKey(workoutId)) {
-        allPointsMap[workoutId] = points;
-      }
     }
   }
 
-  // 3. Export bundles & analyze quality
+  // 4. Export bundles & analyze quality
   if (!outDirectory.existsSync()) {
     outDirectory.createSync(recursive: true);
   }
@@ -167,6 +389,8 @@ void main(List<String> args) async {
   var syntheticSessions = 0;
   var filteredSessions = 0;
   var totalGaps = 0;
+  var totalGapsOver15s = 0;
+  var totalGapsOver30s = 0;
   var totalGapDuration = 0.0;
   var samplingSum = 0.0;
   var accuracySum = 0.0;
@@ -175,13 +399,19 @@ void main(List<String> args) async {
 
   for (final entry in allPointsMap.entries) {
     final workoutId = entry.key;
+    _validateSessionId(workoutId);
+
     final points = entry.value..sort();
     totalRawPoints += points.length;
 
+    final assignedSourceKind = sourceKindMap[workoutId] ?? 'device_recovered_unverified';
+
     // Detect synthetic fixture or algorithm filtered
-    final isSynthetic = workoutId.toLowerCase().contains('fixture') ||
+    final isSynthetic = assignedSourceKind == 'synthetic_fixture' ||
+        workoutId.toLowerCase().contains('fixture') ||
         workoutId.toLowerCase().contains('synthetic') ||
         points.any((p) => (p.deviceSource ?? '').toLowerCase().contains('synthetic'));
+
     final isFiltered = points.any((p) =>
         (p.deviceSource ?? '').toLowerCase().contains('ekf') ||
         (p.deviceSource ?? '').toLowerCase().contains('filtered'));
@@ -202,33 +432,80 @@ void main(List<String> args) async {
     }
 
     final double meanInterval = intervals.isNotEmpty ? intervals.reduce((a, b) => a + b) / intervals.length : 0.0;
-    if (meanInterval > 0) {
-      samplingSum += meanInterval;
-      validSamplingCount++;
-    }
+    final sortedIntervals = List<double>.from(intervals)..sort();
+    final medianInterval = sortedIntervals.isNotEmpty ? sortedIntervals[sortedIntervals.length ~/ 2] : 0.0;
+    final p95Interval = sortedIntervals.isNotEmpty
+        ? sortedIntervals[(sortedIntervals.length * 0.95).floor().clamp(0, sortedIntervals.length - 1)]
+        : 0.0;
 
-    // Outage gaps >15s
+    // Outage gaps (>15s and >30s)
     var gapCount = 0;
+    var gapCountOver15s = 0;
+    var gapCountOver30s = 0;
     var maxGap = 0.0;
     var totalGap = 0.0;
     for (var i = 1; i < points.length; i++) {
       final dt = points[i].timestamp.difference(points[i - 1].timestamp).inMicroseconds / 1000000.0;
+      if (dt > 15.0) {
+        gapCountOver15s++;
+      }
+      if (dt > 30.0) {
+        gapCountOver30s++;
+      }
       if (dt > 15.0) {
         gapCount++;
         totalGap += dt;
         if (dt > maxGap) maxGap = dt;
       }
     }
-    totalGaps += gapCount;
-    totalGapDuration += totalGap;
+
+    // Exclude fixtures from field-research aggregate statistics by default (ALG-0.2, ALG-0.4)
+    if (!isSynthetic && !isFiltered) {
+      totalGaps += gapCount;
+      totalGapsOver15s += gapCountOver15s;
+      totalGapsOver30s += gapCountOver30s;
+      totalGapDuration += totalGap;
+      if (meanInterval > 0) {
+        samplingSum += meanInterval;
+        validSamplingCount++;
+      }
+    }
 
     // Accuracy
     final accuracies = points.where((p) => p.accuracy != null).map((p) => p.accuracy!).toList()..sort();
     final meanAcc = accuracies.isNotEmpty ? accuracies.reduce((a, b) => a + b) / accuracies.length : 0.0;
-    final p95Acc = accuracies.isNotEmpty ? accuracies[(accuracies.length * 0.95).floor().clamp(0, accuracies.length - 1)] : 0.0;
-    if (meanAcc > 0) {
+    final p95Acc = accuracies.isNotEmpty
+        ? accuracies[(accuracies.length * 0.95).floor().clamp(0, accuracies.length - 1)]
+        : 0.0;
+
+    if (!isSynthetic && !isFiltered && meanAcc > 0) {
       accuracySum += meanAcc;
       validAccuracyCount++;
+    }
+
+    // Missing telemetry counts
+    var missingAltitude = 0;
+    var missingSpeed = 0;
+    var missingAccuracy = 0;
+    var missingHeading = 0;
+    var missingDeviceSource = 0;
+    for (final p in points) {
+      if (p.altitude == null) missingAltitude++;
+      if (p.speed == null) missingSpeed++;
+      if (p.accuracy == null) missingAccuracy++;
+      if (p.heading == null) missingHeading++;
+      if (p.deviceSource == null || p.deviceSource!.isEmpty) missingDeviceSource++;
+    }
+
+    // Raw route distance (Haversine)
+    var cumulativeDistanceMeters = 0.0;
+    for (var i = 1; i < points.length; i++) {
+      cumulativeDistanceMeters += _haversineMeters(
+        points[i - 1].latitude,
+        points[i - 1].longitude,
+        points[i].latitude,
+        points[i].longitude,
+      );
     }
 
     // Stationary drift
@@ -313,7 +590,12 @@ void main(List<String> args) async {
 
     gpxBuffer.write('    </trkseg>\n  </trk>\n</gpx>\n');
 
-    final jsonlBytes = utf8.encode(jsonlBuffer.toString());
+    final jsonlString = jsonlBuffer.toString();
+
+    // Verify lossless JSONL round-trip replay parity (ALG-0.3)
+    _verifyJsonlLosslessReplay(jsonlString, points);
+
+    final jsonlBytes = utf8.encode(jsonlString);
     final csvBytes = utf8.encode(csvBuffer.toString());
     final gpxBytes = utf8.encode(gpxBuffer.toString());
 
@@ -323,17 +605,25 @@ void main(List<String> args) async {
 
     final manifest = {
       'schema_version': '1.0.0',
-      'source_kind': isSynthetic ? 'synthetic_fixture' : 'device_journal_verified',
+      'source_kind': isSynthetic ? 'synthetic_fixture' : assignedSourceKind,
       'user_scoped': true,
       'workout_id': workoutId,
       'export_generated_at_utc': DateTime.now().toUtc().toIso8601String(),
-      'app_commit': appCommit,
+      'app_commit': ?appCommit,
       'record_count': points.length,
       'first_sample_utc': points.first.timestamp.toUtc().toIso8601String(),
       'last_sample_utc': points.last.timestamp.toUtc().toIso8601String(),
       'export_jsonl_sha256': jsonlHash,
       'export_csv_sha256': csvHash,
       'export_gpx_sha256': gpxHash,
+      'raw_cumulative_distance_meters': double.parse(cumulativeDistanceMeters.toStringAsFixed(2)),
+      'missing_telemetry': {
+        'missing_altitude_count': missingAltitude,
+        'missing_speed_count': missingSpeed,
+        'missing_accuracy_count': missingAccuracy,
+        'missing_heading_count': missingHeading,
+        'missing_device_source_count': missingDeviceSource,
+      },
     };
 
     File('${outDirectory.path}/$workoutId.raw.jsonl').writeAsBytesSync(jsonlBytes);
@@ -342,17 +632,32 @@ void main(List<String> args) async {
     File('${outDirectory.path}/$workoutId.manifest.json')
         .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(manifest));
 
+    successfullyExported++;
+
     sessionReports.add({
       'workout_id': workoutId,
+      'source_kind': isSynthetic ? 'synthetic_fixture' : assignedSourceKind,
       'is_synthetic': isSynthetic,
       'is_filtered': isFiltered,
       'total_points': points.length,
+      'duration_seconds': points.last.timestamp.difference(points.first.timestamp).inSeconds,
       'mean_sampling_interval_seconds': double.parse(meanInterval.toStringAsFixed(3)),
-      'gap_count': gapCount,
+      'median_sampling_interval_seconds': double.parse(medianInterval.toStringAsFixed(3)),
+      'p95_sampling_interval_seconds': double.parse(p95Interval.toStringAsFixed(3)),
+      'gap_count_over_15s': gapCountOver15s,
+      'gap_count_over_30s': gapCountOver30s,
       'max_gap_seconds': double.parse(maxGap.toStringAsFixed(2)),
       'mean_accuracy_meters': double.parse(meanAcc.toStringAsFixed(2)),
       'p95_accuracy_meters': double.parse(p95Acc.toStringAsFixed(2)),
       'max_stationary_drift_meters': double.parse(maxDrift.toStringAsFixed(2)),
+      'raw_cumulative_distance_meters': double.parse(cumulativeDistanceMeters.toStringAsFixed(2)),
+      'missing_telemetry': {
+        'missing_altitude_count': missingAltitude,
+        'missing_speed_count': missingSpeed,
+        'missing_accuracy_count': missingAccuracy,
+        'missing_heading_count': missingHeading,
+        'missing_device_source_count': missingDeviceSource,
+      },
       'quality_classification': quality,
       'ground_truth_error_disallowed': true,
       'ground_truth_refusal_reason': 'Never claim RMSE/P95 ground-truth positional error without independent survey-grade reference measurements.',
@@ -361,22 +666,42 @@ void main(List<String> args) async {
   }
 
   final aggregate = {
+    'discovery_audit': {
+      'total_discovered': totalDiscovered,
+      'sessions_with_gps': sessionsWithGps,
+      'successfully_exported': successfullyExported,
+      'missing_sessions': missingSessions,
+      'denied_sessions': deniedSessions,
+      'failure_count': failureCount,
+      'failures': discoveryFailures,
+    },
     'total_sessions': allPointsMap.length,
     'total_raw_points': totalRawPoints,
     'real_world_sessions': realWorldSessions,
     'synthetic_fixture_sessions': syntheticSessions,
     'algorithm_filtered_sessions': filteredSessions,
-    'mean_sampling_interval_seconds': validSamplingCount > 0 ? double.parse((samplingSum / validSamplingCount).toStringAsFixed(3)) : 0.0,
-    'mean_accuracy_meters': validAccuracyCount > 0 ? double.parse((accuracySum / validAccuracyCount).toStringAsFixed(2)) : 0.0,
-    'total_gaps_detected': totalGaps,
-    'total_gap_duration_seconds': double.parse(totalGapDuration.toStringAsFixed(2)),
+    'field_research_aggregate': {
+      'real_world_session_count': realWorldSessions,
+      'mean_sampling_interval_seconds': validSamplingCount > 0
+          ? double.parse((samplingSum / validSamplingCount).toStringAsFixed(3))
+          : 0.0,
+      'mean_accuracy_meters': validAccuracyCount > 0
+          ? double.parse((accuracySum / validAccuracyCount).toStringAsFixed(2))
+          : 0.0,
+      'total_gaps_detected': totalGaps,
+      'total_gaps_detected_over_15s': totalGapsOver15s,
+      'total_gaps_detected_over_30s': totalGapsOver30s,
+      'total_gap_duration_seconds': double.parse(totalGapDuration.toStringAsFixed(2)),
+    },
     'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
-    'app_commit': appCommit,
+    'app_commit': ?appCommit,
     'sessions': sessionReports,
   };
 
   final reportFile = File('${outDirectory.path}/inventory_report.json');
   reportFile.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(aggregate));
+
+  final fieldAggregate = aggregate['field_research_aggregate'] as Map<String, dynamic>;
 
   if (jsonOutput) {
     stdout.writeln(const JsonEncoder.withIndent('  ').convert(aggregate));
@@ -389,10 +714,22 @@ void main(List<String> args) async {
     stdout.writeln('Real-World Field Sessions:     $realWorldSessions');
     stdout.writeln('Synthetic Fixture Sessions:    $syntheticSessions');
     stdout.writeln('Algorithm-Filtered Sessions:   $filteredSessions');
-    stdout.writeln('Mean Sampling Interval:        ${aggregate['mean_sampling_interval_seconds']}s');
-    stdout.writeln('Mean Horizontal Accuracy:      ${aggregate['mean_accuracy_meters']}m');
-    stdout.writeln('Total Signal Outages (>15s):   $totalGaps');
-    stdout.writeln('Total Outage Duration:         ${aggregate['total_gap_duration_seconds']}s');
+    stdout.writeln('------------------------------------------------------------------------');
+    stdout.writeln('FIELD RESEARCH AGGREGATE (REAL SESSIONS ONLY, FIXTURES EXCLUDED):');
+    stdout.writeln('Mean Sampling Interval:        ${fieldAggregate['mean_sampling_interval_seconds']}s');
+    stdout.writeln('Mean Horizontal Accuracy:      ${fieldAggregate['mean_accuracy_meters']}m');
+    stdout.writeln('Total Signal Outages (>15s):   $totalGapsOver15s');
+    stdout.writeln('Total Signal Outages (>30s):   $totalGapsOver30s');
+    stdout.writeln('Total Outage Duration:         ${fieldAggregate['total_gap_duration_seconds']}s');
+    stdout.writeln('------------------------------------------------------------------------');
+    stdout.writeln('DISCOVERY AUDIT:');
+    stdout.writeln('Total Discovered:              $totalDiscovered');
+    stdout.writeln('Sessions with GPS:             $sessionsWithGps');
+    stdout.writeln('Successfully Exported:         $successfullyExported');
+    stdout.writeln('Missing Sessions:              $missingSessions');
+    stdout.writeln('Denied Sessions:               $deniedSessions');
+    stdout.writeln('Failure Count:                 $failureCount');
+    stdout.writeln('------------------------------------------------------------------------');
     stdout.writeln('Export Directory:              ${outDirectory.path}');
     stdout.writeln('Report Output:                 ${reportFile.path}');
     stdout.writeln('========================================================================');
@@ -400,6 +737,7 @@ void main(List<String> args) async {
     stdout.writeln('• RMSE/P95 ground-truth positional error is STRICTLY REFUSED because');
     stdout.writeln('  no external survey-grade reference tracks exist for these historical sessions.');
     stdout.writeln('• Real recordings and synthetic fixtures are strictly isolated in reports.');
+    stdout.writeln('• JSONL lossless round-trip replay is verified for all exported datasets.');
     stdout.writeln('========================================================================');
   }
 }

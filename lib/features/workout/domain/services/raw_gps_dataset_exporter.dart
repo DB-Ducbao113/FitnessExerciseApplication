@@ -217,6 +217,86 @@ class RawGpsDatasetExporter {
     };
   }
 
+  static final RegExp _safeSessionIdRegex = RegExp(r'^[a-zA-Z0-9_\-]+$');
+
+  /// Validates session ID against path traversal and dangerous characters.
+  static void validateSessionId(String workoutId) {
+    if (workoutId.isEmpty || !_safeSessionIdRegex.hasMatch(workoutId)) {
+      throw ArgumentError(
+        'Invalid session ID format: potentially unsafe characters or empty: "$workoutId"',
+      );
+    }
+  }
+
+  /// Verifies that replaying [jsonlContent] reproduces identical points with full field parity.
+  ///
+  /// Throws [StateError] if record count differs or any field fails exact equality check.
+  static bool verifyJsonlLosslessReplay(
+    String jsonlContent,
+    List<RawGpsExportPoint> originalPoints,
+  ) {
+    final parsed = parseJsonl(jsonlContent);
+    if (parsed.length != originalPoints.length) {
+      throw StateError(
+        'Lossless replay failure: count mismatch (replayed: ${parsed.length}, original: ${originalPoints.length})',
+      );
+    }
+
+    final sortedOriginal = List<RawGpsExportPoint>.from(originalPoints)..sort();
+
+    for (var i = 0; i < sortedOriginal.length; i++) {
+      final p1 = sortedOriginal[i];
+      final p2 = parsed[i];
+
+      if (p1.workoutId != p2.workoutId) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: workoutId (${p1.workoutId} != ${p2.workoutId})',
+        );
+      }
+      if (p1.timestamp.toUtc() != p2.timestamp.toUtc()) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: timestamp (${p1.timestamp} != ${p2.timestamp})',
+        );
+      }
+      if (p1.latitude != p2.latitude) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: latitude (${p1.latitude} != ${p2.latitude})',
+        );
+      }
+      if (p1.longitude != p2.longitude) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: longitude (${p1.longitude} != ${p2.longitude})',
+        );
+      }
+      if (p1.altitude != p2.altitude) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: altitude (${p1.altitude} != ${p2.altitude})',
+        );
+      }
+      if (p1.speed != p2.speed) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: speed (${p1.speed} != ${p2.speed})',
+        );
+      }
+      if (p1.accuracy != p2.accuracy) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: accuracy (${p1.accuracy} != ${p2.accuracy})',
+        );
+      }
+      if (p1.heading != p2.heading) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: heading (${p1.heading} != ${p2.heading})',
+        );
+      }
+      if (p1.deviceSource != p2.deviceSource) {
+        throw StateError(
+          'Lossless replay mismatch at index $i: deviceSource (${p1.deviceSource} != ${p2.deviceSource})',
+        );
+      }
+    }
+    return true;
+  }
+
   /// Builds a complete export bundle with deterministic hashes and provenance manifest.
   static RawGpsExportBundle buildBundle({
     required String workoutId,
@@ -229,6 +309,7 @@ class RawGpsDatasetExporter {
     DateTime? exportGeneratedAtUtc,
     double gapThresholdSeconds = defaultGapThresholdSeconds,
   }) {
+    validateSessionId(workoutId);
     final sorted = List<RawGpsExportPoint>.from(rawPoints)..sort();
 
     // Calculate duplicates by identityKey
@@ -242,6 +323,8 @@ class RawGpsDatasetExporter {
 
     final exportTime = exportGeneratedAtUtc ?? DateTime.now().toUtc();
     final jsonlContent = generateJsonl(sorted);
+    verifyJsonlLosslessReplay(jsonlContent, sorted);
+
     final csvContent = generateCsv(sorted);
     final gpxContent = generateGpx(
       sorted,

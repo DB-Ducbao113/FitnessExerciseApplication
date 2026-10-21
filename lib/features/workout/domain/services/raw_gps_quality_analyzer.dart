@@ -59,6 +59,8 @@ class RawGpsQualityAnalyzer {
         nonMonotonicTimestampsCount: 0,
         gapSummary: const RawGpsGapSummary(
           gapCount: 0,
+          gapCountOver15s: 0,
+          gapCountOver30s: 0,
           totalGapDurationSeconds: 0,
           maxGapDurationSeconds: 0,
         ),
@@ -81,6 +83,14 @@ class RawGpsQualityAnalyzer {
           stationaryPointsCount: 0,
           maxDriftRadiusMeters: 0,
           meanDriftRadiusMeters: 0,
+        ),
+        rawCumulativeDistanceMeters: 0.0,
+        missingTelemetry: const MissingTelemetryCounts(
+          missingAltitudeCount: 0,
+          missingSpeedCount: 0,
+          missingAccuracyCount: 0,
+          missingHeadingCount: 0,
+          missingDeviceSourceCount: 0,
         ),
         classification: SessionQualityClassification.unusable,
         qualityIssues: ['Session contains 0 GPS points.'],
@@ -139,8 +149,10 @@ class RawGpsQualityAnalyzer {
 
     final samplingStats = _computeSamplingStats(intervals);
 
-    // 4. Outage gaps
+    // 4. Outage gaps (>15s and >30s)
     var gapCount = 0;
+    var gapCountOver15s = 0;
+    var gapCountOver30s = 0;
     var maxGapSec = 0.0;
     var totalGapSec = 0.0;
 
@@ -150,6 +162,12 @@ class RawGpsQualityAnalyzer {
               .difference(sorted[i - 1].timestamp)
               .inMicroseconds /
           1000000.0;
+      if (deltaSec > 15.0) {
+        gapCountOver15s += 1;
+      }
+      if (deltaSec > 30.0) {
+        gapCountOver30s += 1;
+      }
       if (deltaSec > gapThresholdSeconds) {
         gapCount += 1;
         totalGapSec += deltaSec;
@@ -160,12 +178,14 @@ class RawGpsQualityAnalyzer {
     }
     final gapSummary = RawGpsGapSummary(
       gapCount: gapCount,
+      gapCountOver15s: gapCountOver15s,
+      gapCountOver30s: gapCountOver30s,
       totalGapDurationSeconds: totalGapSec,
       maxGapDurationSeconds: maxGapSec,
     );
     if (gapSummary.gapCount > 0) {
       issues.add(
-        '${gapSummary.gapCount} signal outage gaps >${gapThresholdSeconds}s detected (max gap: ${gapSummary.maxGapDurationSeconds.toStringAsFixed(1)}s).',
+        '${gapSummary.gapCount} signal outage gaps >${gapThresholdSeconds}s detected (max gap: ${gapSummary.maxGapDurationSeconds.toStringAsFixed(1)}s, >30s: $gapCountOver30s).',
       );
     }
 
@@ -205,7 +225,41 @@ class RawGpsQualityAnalyzer {
       );
     }
 
-    // 8. Quality classification
+    // 8. Cumulative route distance (Haversine on raw points)
+    var cumulativeDistanceMeters = 0.0;
+    for (var i = 1; i < sorted.length; i++) {
+      cumulativeDistanceMeters += _distanceCalculator.as(
+        LengthUnit.Meter,
+        LatLng(sorted[i - 1].latitude, sorted[i - 1].longitude),
+        LatLng(sorted[i].latitude, sorted[i].longitude),
+      );
+    }
+
+    // 9. Missing telemetry field counts
+    var missingAltitude = 0;
+    var missingSpeed = 0;
+    var missingAccuracy = 0;
+    var missingHeading = 0;
+    var missingDeviceSource = 0;
+
+    for (final p in sorted) {
+      if (p.altitude == null) missingAltitude++;
+      if (p.speed == null) missingSpeed++;
+      if (p.accuracy == null) missingAccuracy++;
+      if (p.heading == null) missingHeading++;
+      if (p.deviceSource == null || p.deviceSource!.isEmpty) {
+        missingDeviceSource++;
+      }
+    }
+    final missingTelemetry = MissingTelemetryCounts(
+      missingAltitudeCount: missingAltitude,
+      missingSpeedCount: missingSpeed,
+      missingAccuracyCount: missingAccuracy,
+      missingHeadingCount: missingHeading,
+      missingDeviceSourceCount: missingDeviceSource,
+    );
+
+    // 10. Quality classification
     final classification = _determineClassification(
       totalPoints: sorted.length,
       gapSummary: gapSummary,
@@ -233,6 +287,8 @@ class RawGpsQualityAnalyzer {
       speedStats: speedStats,
       accuracyStats: accuracyStats,
       stationaryStats: stationaryStats,
+      rawCumulativeDistanceMeters: cumulativeDistanceMeters,
+      missingTelemetry: missingTelemetry,
       classification: classification,
       qualityIssues: issues,
       groundTruthErrorDisallowed: true,
@@ -240,9 +296,13 @@ class RawGpsQualityAnalyzer {
   }
 
   /// Aggregates multiple session reports into an inventory summary.
+  ///
+  /// Strictly isolates real-world field sessions from synthetic fixtures and algorithm-filtered tracks.
+  /// Aggregate statistics (sampling interval, accuracy, outages) reflect ONLY real field sessions.
   static RawGpsAggregateInventoryReport aggregateReports(
     List<RawGpsSessionQualityReport> reports, {
     String? appCommit,
+    RawGpsDiscoveryAudit? discoveryAudit,
   }) {
     var totalPoints = 0;
     var realWorldSessions = 0;
@@ -266,6 +326,18 @@ class RawGpsQualityAnalyzer {
         filteredSessions++;
       } else {
         realWorldSessions++;
+        // Exclude fixtures from field-research statistics: aggregate strictly on real sessions
+        totalGaps += r.gapSummary.gapCount;
+        totalGapDuration += r.gapSummary.totalGapDurationSeconds;
+
+        if (r.samplingStats.meanIntervalSeconds > 0) {
+          samplingSum += r.samplingStats.meanIntervalSeconds;
+          validSamplingCount++;
+        }
+        if (r.accuracyStats.meanAccuracyMeters > 0) {
+          accuracySum += r.accuracyStats.meanAccuracyMeters;
+          validAccuracyCount++;
+        }
       }
 
       provenanceMap[r.sourceKind] = (provenanceMap[r.sourceKind] ?? 0) + 1;
@@ -274,24 +346,23 @@ class RawGpsQualityAnalyzer {
 
       final activity = r.activityType ?? 'unspecified';
       activityMap[activity] = (activityMap[activity] ?? 0) + 1;
-
-      totalGaps += r.gapSummary.gapCount;
-      totalGapDuration += r.gapSummary.totalGapDurationSeconds;
-
-      if (r.samplingStats.meanIntervalSeconds > 0) {
-        samplingSum += r.samplingStats.meanIntervalSeconds;
-        validSamplingCount++;
-      }
-      if (r.accuracyStats.meanAccuracyMeters > 0) {
-        accuracySum += r.accuracyStats.meanAccuracyMeters;
-        validAccuracyCount++;
-      }
     }
 
     final meanInterval =
         validSamplingCount > 0 ? samplingSum / validSamplingCount : 0.0;
     final meanAccuracy =
         validAccuracyCount > 0 ? accuracySum / validAccuracyCount : 0.0;
+
+    final audit = discoveryAudit ??
+        RawGpsDiscoveryAudit(
+          totalDiscovered: reports.length,
+          sessionsWithGps: reports.where((r) => r.totalPoints > 0).length,
+          successfullyExported: reports.length,
+          missingSessions: 0,
+          deniedSessions: 0,
+          failureCount: 0,
+          failures: const [],
+        );
 
     return RawGpsAggregateInventoryReport(
       totalSessions: reports.length,
@@ -306,6 +377,7 @@ class RawGpsQualityAnalyzer {
       aggregateMeanAccuracyMeters: meanAccuracy,
       totalGapsDetected: totalGaps,
       aggregateTotalGapDurationSeconds: totalGapDuration,
+      discoveryAudit: audit,
       sessionReports: reports,
       generatedAtUtc: DateTime.now().toUtc(),
       appCommit: appCommit,
