@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
-// [UPGRADE: 4-State EKF Core Service - Tạm thời comment import để làm UI/UX trước]
-// import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
+import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -22,11 +21,19 @@ class GpsSmoothingUpdate {
 }
 
 class GpsSmoothingService {
-  const GpsSmoothingService();
+  final ExtendedKalmanFilter _ekf;
 
-  // [UPGRADE: EKF Reset Hook - Để trống khi dùng thuật toán cũ, kích hoạt lại khi bật EKF]
+  GpsSmoothingService({ExtendedKalmanFilter? ekf})
+      : _ekf = ekf ??
+            ExtendedKalmanFilter(
+              processPosStd: 0.6,
+              processSpeedStd: 1.2,
+              processHeadingStd: 0.5,
+            );
+
+  /// Resets filter state (e.g. at workout start, mode flip, or after long GPS blackout)
   void reset() {
-    // _ekf.reset();
+    _ekf.reset();
   }
 
   GpsSmoothingUpdate smoothAcceptedPoint({
@@ -66,6 +73,7 @@ class GpsSmoothingService {
       accuracyMeters: accuracyMeters,
       speedMs: speedMs,
       timeDeltaSec: timeDeltaSec,
+      gpsGapDurationSec: gpsGapDurationSec,
     );
 
     final appendThreshold = _minAppendDistanceMeters(activityType);
@@ -113,18 +121,23 @@ class GpsSmoothingService {
     required double accuracyMeters,
     required double speedMs,
     required double timeDeltaSec,
+    required double gpsGapDurationSec,
   }) {
-    if (previousSmoothedPoint == null) return acceptedPoint;
+    if (previousSmoothedPoint == null || gpsGapDurationSec > 5.0) {
+      _ekf.reset();
+      _ekf.init(
+        initialPoint: acceptedPoint,
+        initialAccuracyMeters: accuracyMeters,
+        initialSpeedMs: speedMs,
+      );
+      return acceptedPoint;
+    }
+
     if (isStationary && acceptedDelta < _stationaryFreezeMeters(activityType)) {
       return previousSmoothedPoint;
     }
 
-    /*
-    // =========================================================================
     // [UPGRADE: 4-State Extended Kalman Filter (EKF) Core]
-    // Tạm thời comment khối này để làm UI/UX trước theo yêu cầu của bạn.
-    // Khi muốn kích hoạt lại, chỉ việc mở comment khối này và comment khối bên dưới:
-    // =========================================================================
     final headingDeg = previousAcceptedPoint != null
         ? _bearing(previousAcceptedPoint, acceptedPoint)
         : null;
@@ -133,37 +146,11 @@ class GpsSmoothingService {
       measurementPoint: acceptedPoint,
       accuracyMeters: accuracyMeters,
       timeDeltaSec: timeDeltaSec,
-      speedMs: speedMs,
+      speedMs: speedMs >= 0.0 ? speedMs : null,
       headingDeg: headingDeg,
     );
 
     return estimate.position;
-    // =========================================================================
-    */
-
-    // --- THUẬT TOÁN GỐC (Fixed Alpha & Turn-Boost) ---
-    var alpha = switch (confidence) {
-      GpsConfidence.high => 0.72,
-      GpsConfidence.medium => 0.52,
-      GpsConfidence.low => 0.34,
-    };
-
-    if (previousAcceptedPoint != null) {
-      final turnDelta = _bearingDelta(
-        _bearing(previousAcceptedPoint, acceptedPoint),
-        _bearing(previousSmoothedPoint, acceptedPoint),
-      );
-      if (turnDelta > 28.0 && acceptedDelta > 4.0) {
-        alpha = math.max(alpha, 0.82);
-      }
-    }
-
-    return LatLng(
-      previousSmoothedPoint.latitude * (1 - alpha) +
-          acceptedPoint.latitude * alpha,
-      previousSmoothedPoint.longitude * (1 - alpha) +
-          acceptedPoint.longitude * alpha,
-    );
   }
 
   double _minAppendDistanceMeters(String activityType) {
@@ -212,10 +199,5 @@ class GpsSmoothingService {
         math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
     final bearing = math.atan2(y, x) * 180.0 / math.pi;
     return (bearing + 360.0) % 360.0;
-  }
-
-  double _bearingDelta(double a, double b) {
-    final delta = (a - b).abs();
-    return delta > 180 ? 360 - delta : delta;
   }
 }

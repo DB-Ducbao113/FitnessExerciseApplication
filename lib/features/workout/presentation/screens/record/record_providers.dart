@@ -105,7 +105,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   final Ref _ref;
   final WorkoutRecordingCoordinator _recordingCoordinator;
   final WorkoutTrackingEngine _trackingEngine = const WorkoutTrackingEngine();
-  final GpsSmoothingService _gpsSmoothingService = const GpsSmoothingService();
+  final GpsSmoothingService _gpsSmoothingService = GpsSmoothingService();
   final WorkoutSessionFinalizer _sessionFinalizer =
       const WorkoutSessionFinalizer();
   final WorkoutSessionLifecycle _sessionLifecycle =

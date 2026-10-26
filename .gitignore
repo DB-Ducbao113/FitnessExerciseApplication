@@ -84,3 +84,6 @@ GEMINI.md
 
 # Vercel deployment cache
 .vercel
+
+# Local research and GPS exports
+exports/
