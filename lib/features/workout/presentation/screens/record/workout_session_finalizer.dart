@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:fitness_exercise_application/features/workout/domain/entities/workout_session.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_metrics_calculator.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/workout_tracking_engine.dart';
@@ -37,6 +38,7 @@ class WorkoutSessionFinalizer {
     required WorkoutTrackingEngine trackingEngine,
     required List<Position> rawGpsPositions,
     required List<List<LatLng>> filteredRouteSegments,
+    String gpsAlgorithm = 'ekf_4state',
   }) {
     final gpsAnalysis = trackingEngine.analyzeGpsWorkout(
       GpsWorkoutAnalysisInput(
@@ -51,8 +53,10 @@ class WorkoutSessionFinalizer {
     final distanceKm = gpsAnalysis.validDistanceKm > 0
         ? gpsAnalysis.validDistanceKm
         : (gpsAnalysis.totalDistanceKm > 0
-            ? gpsAnalysis.totalDistanceKm
-            : WorkoutMetricsCalculator.distanceMetersToKm(state.distanceMeters));
+              ? gpsAnalysis.totalDistanceKm
+              : WorkoutMetricsCalculator.distanceMetersToKm(
+                  state.distanceMeters,
+                ));
     final avgSpeedKmh = WorkoutMetricsCalculator.computeAverageSpeedKmh(
       distanceKm: distanceKm,
       durationSec: durationSec,
@@ -72,6 +76,28 @@ class WorkoutSessionFinalizer {
     final sessionId = _isUuid(state.sessionId)
         ? state.sessionId!
         : const Uuid().v4();
+
+    double filteredRouteDistanceM = 0.0;
+    for (final segment in filteredRouteSegments) {
+      for (var i = 1; i < segment.length; i++) {
+        filteredRouteDistanceM += Geolocator.distanceBetween(
+          segment[i - 1].latitude,
+          segment[i - 1].longitude,
+          segment[i].latitude,
+          segment[i].longitude,
+        );
+      }
+    }
+
+    final routeMetrics = <String, dynamic>{
+      'gps_algorithm': gpsAlgorithm,
+      'dbscan_enabled': false,
+      'filter_branch': 'experiment/ekf4-field-recording',
+      'source_revision': kGitRevision,
+      'source_fingerprint': kSourceFingerprint,
+      'filtered_route_distance_km': filteredRouteDistanceM / 1000.0,
+      'raw_valid_distance_km': gpsAnalysis.validDistanceKm,
+    };
     final session = WorkoutSession(
       id: sessionId,
       userId: userId,
@@ -94,7 +120,7 @@ class WorkoutSessionFinalizer {
       matchedRouteJson: '[]',
       routeMatchStatus: 'pending',
       routeDistanceSource: 'filtered',
-      routeMatchMetricsJson: '{}',
+      routeMatchMetricsJson: jsonEncode(routeMetrics),
     );
 
     return WorkoutSessionFinalization(
@@ -111,8 +137,7 @@ final RegExp _uuidPattern = RegExp(
   r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
 );
 
-bool _isUuid(String? value) =>
-    value != null && _uuidPattern.hasMatch(value);
+bool _isUuid(String? value) => value != null && _uuidPattern.hasMatch(value);
 
 String _encodeRouteSegments(List<List<LatLng>> segments) {
   final jsonSegments = segments

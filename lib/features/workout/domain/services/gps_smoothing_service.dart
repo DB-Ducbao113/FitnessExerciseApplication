@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:fitness_exercise_application/core/constants/debug_config.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/ekf/extended_kalman_filter.dart';
 import 'package:fitness_exercise_application/features/workout/domain/services/gps_validation_models.dart';
 import 'package:latlong2/latlong.dart';
@@ -20,19 +21,41 @@ class GpsSmoothingUpdate {
   });
 }
 
+/// Filter algorithm selection for GPS trajectory smoothing.
+enum GpsFilterAlgorithm {
+  /// Standard 4-State Extended Kalman Filter (State: [px, py, v, theta]).
+  ekf4State,
+
+  /// Original Fixed Alpha with turn-boost filter (Historical baseline).
+  fixedAlpha,
+}
+
 class GpsSmoothingService {
+  final GpsFilterAlgorithm algorithm;
   final ExtendedKalmanFilter _ekf;
 
   /// Duration after which a GPS absence is treated as a major blackout gap.
   static const double kGpsGapThresholdSec = 20.0;
 
-  GpsSmoothingService({ExtendedKalmanFilter? ekf})
-      : _ekf = ekf ??
-            ExtendedKalmanFilter(
-              processPosStd: 0.6,
-              processSpeedStd: 1.2,
-              processHeadingStd: 0.5,
-            );
+  GpsSmoothingService({
+    ExtendedKalmanFilter? ekf,
+    GpsFilterAlgorithm? algorithm,
+  }) : algorithm =
+           algorithm ??
+           (kGpsFilterAlgoConfig.toLowerCase() == 'fixedalpha'
+               ? GpsFilterAlgorithm.fixedAlpha
+               : GpsFilterAlgorithm.ekf4State),
+       _ekf =
+           ekf ??
+           ExtendedKalmanFilter(
+             processPosStd: 0.6,
+             processSpeedStd: 1.2,
+             processHeadingStd: 0.5,
+           );
+
+  /// Human-readable identifier of the active smoothing algorithm.
+  String get algorithmName =>
+      algorithm == GpsFilterAlgorithm.ekf4State ? 'ekf_4state' : 'fixed_alpha';
 
   /// Resets filter state (e.g. at workout start, mode flip, or after long GPS blackout)
   void reset() {
@@ -141,7 +164,33 @@ class GpsSmoothingService {
       return previousSmoothedPoint;
     }
 
-    // [UPGRADE: 4-State Extended Kalman Filter (EKF) Core]
+    if (algorithm == GpsFilterAlgorithm.fixedAlpha) {
+      return _smoothPointFixedAlpha(
+        acceptedPoint: acceptedPoint,
+        previousAcceptedPoint: previousAcceptedPoint,
+        previousSmoothedPoint: previousSmoothedPoint,
+        confidence: confidence,
+        acceptedDelta: acceptedDelta,
+      );
+    }
+
+    // Default: 4-State Extended Kalman Filter (EKF) Core
+    return _smoothPointEkf(
+      acceptedPoint: acceptedPoint,
+      previousAcceptedPoint: previousAcceptedPoint,
+      accuracyMeters: accuracyMeters,
+      speedMs: speedMs,
+      timeDeltaSec: timeDeltaSec,
+    );
+  }
+
+  LatLng _smoothPointEkf({
+    required LatLng acceptedPoint,
+    required LatLng? previousAcceptedPoint,
+    required double accuracyMeters,
+    required double speedMs,
+    required double timeDeltaSec,
+  }) {
     final headingDeg = previousAcceptedPoint != null
         ? _bearing(previousAcceptedPoint, acceptedPoint)
         : null;
@@ -155,6 +204,42 @@ class GpsSmoothingService {
     );
 
     return estimate.position;
+  }
+
+  LatLng _smoothPointFixedAlpha({
+    required LatLng acceptedPoint,
+    required LatLng? previousAcceptedPoint,
+    required LatLng previousSmoothedPoint,
+    required GpsConfidence confidence,
+    required double acceptedDelta,
+  }) {
+    var alpha = switch (confidence) {
+      GpsConfidence.high => 0.72,
+      GpsConfidence.medium => 0.52,
+      GpsConfidence.low => 0.34,
+    };
+
+    if (previousAcceptedPoint != null) {
+      final turnDelta = _bearingDelta(
+        _bearing(previousAcceptedPoint, acceptedPoint),
+        _bearing(previousSmoothedPoint, acceptedPoint),
+      );
+      if (turnDelta > 28.0 && acceptedDelta > 4.0) {
+        alpha = math.max(alpha, 0.82);
+      }
+    }
+
+    return LatLng(
+      previousSmoothedPoint.latitude * (1 - alpha) +
+          acceptedPoint.latitude * alpha,
+      previousSmoothedPoint.longitude * (1 - alpha) +
+          acceptedPoint.longitude * alpha,
+    );
+  }
+
+  double _bearingDelta(double a, double b) {
+    final delta = (a - b).abs();
+    return delta > 180 ? 360 - delta : delta;
   }
 
   double _minAppendDistanceMeters(String activityType) {
