@@ -100,6 +100,10 @@ class GpsWorkoutAnalysisInput {
 class WorkoutTrackingEngine {
   const WorkoutTrackingEngine();
 
+  /// Maximum time delta allowed between accepted fixes before treating as a blackout gap.
+  /// 20.0s allows healthy GPS jitter and momentary pauses while preventing teleporting.
+  static const double kStaleSignalGapThresholdSec = 20.0;
+
   TrackingGpsDecision evaluateGpsUpdate({
     required Position position,
     required String activityType,
@@ -221,7 +225,7 @@ class WorkoutTrackingEngine {
         ? 0.0
         : position.timestamp.difference(previousAcceptedTime).inMilliseconds /
               1000.0;
-    if (timeDeltaSec > 5.0) {
+    if (timeDeltaSec > kStaleSignalGapThresholdSec) {
       return TrackingGpsDecision(
         type: TrackingGpsDecisionType.acceptRoute,
         livePoint: livePoint,
@@ -590,12 +594,12 @@ class WorkoutTrackingEngine {
   double getInitialFixAccuracy(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'cycling':
-        return 20.0;
+        return 24.0;
       case 'walking':
-        return 18.0;
+        return 22.0;
       case 'running':
       default:
-        return 16.0;
+        return 22.0;
     }
   }
 
@@ -679,7 +683,7 @@ class WorkoutTrackingEngine {
         continue;
       }
 
-      if (deltaSec > 5.0) {
+      if (deltaSec > kStaleSignalGapThresholdSec) {
         gpsGapCount += 1;
         gpsGapDurationSec += deltaSec;
         _finalizeSegment(

@@ -101,14 +101,14 @@ void main() {
     });
 
     test(
-      'accepts GPS recovery route without adding distance after a stale gap',
+      'accepts GPS recovery route without adding distance after a stale gap (> 20s)',
       () {
         final t0 = DateTime.utc(2026, 4, 14, 10);
         final decision = engine.evaluateGpsUpdate(
           position: buildPosition(
             latitude: 10.0002,
             longitude: 106.0,
-            timestamp: t0.add(const Duration(seconds: 8)),
+            timestamp: t0.add(const Duration(seconds: 25)),
             accuracy: 4,
           ),
           activityType: 'running',
@@ -122,7 +122,34 @@ void main() {
         expect(decision.type, TrackingGpsDecisionType.acceptRoute);
         expect(decision.shouldAddDistance, isFalse);
         expect(decision.segmentMeters, 0);
-        expect(decision.gpsGapDurationSec, greaterThan(5));
+        expect(decision.gpsGapDurationSec, greaterThan(20));
+      },
+    );
+
+    test(
+      'accumulates distance and preserves route during moderate GPS latency (<= 20s)',
+      () {
+        final t0 = DateTime.utc(2026, 4, 14, 10);
+        final decision = engine.evaluateGpsUpdate(
+          position: buildPosition(
+            latitude: 10.0002, // ~22.2m displacement
+            longitude: 106.0,
+            timestamp: t0.add(const Duration(seconds: 8)), // implied speed 2.78m/s (10km/h)
+            accuracy: 6,
+            speed: 2.8,
+          ),
+          activityType: 'running',
+          routePoints: const [LatLng(10.0, 106.0)],
+          currentLatLng: const LatLng(10.0, 106.0),
+          distanceAnchorPoint: const LatLng(10.0, 106.0),
+          lastAcceptedPositionTime: t0,
+          shouldResetAnchorOnResume: false,
+        );
+
+        expect(decision.type, TrackingGpsDecisionType.acceptRoute);
+        expect(decision.shouldAddDistance, isTrue);
+        expect(decision.segmentMeters, greaterThan(20.0));
+        expect(decision.shouldBreakRouteForDisplay, isFalse);
       },
     );
 

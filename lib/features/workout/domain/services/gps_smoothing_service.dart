@@ -23,6 +23,9 @@ class GpsSmoothingUpdate {
 class GpsSmoothingService {
   final ExtendedKalmanFilter _ekf;
 
+  /// Duration after which a GPS absence is treated as a major blackout gap.
+  static const double kGpsGapThresholdSec = 20.0;
+
   GpsSmoothingService({ExtendedKalmanFilter? ekf})
       : _ekf = ekf ??
             ExtendedKalmanFilter(
@@ -81,7 +84,7 @@ class GpsSmoothingService {
         ? double.infinity
         : _gpsDistance.distance(lastSmoothedRoutePoint, smoothedPoint);
     final shouldAppendRoutePoint =
-        gpsGapDurationSec > 5.0 ||
+        gpsGapDurationSec > kGpsGapThresholdSec ||
         lastSmoothedRoutePoint == null ||
         (!isStationary &&
             routeDelta >= appendThreshold &&
@@ -101,7 +104,7 @@ class GpsSmoothingService {
     required double timeDeltaSec,
     required double gpsGapDurationSec,
   }) {
-    if (gpsGapDurationSec > 5.0 || accuracyMeters > 30.0) {
+    if (gpsGapDurationSec > kGpsGapThresholdSec || accuracyMeters > 30.0) {
       return GpsConfidence.low;
     }
     if (accuracyMeters > 15.0 || timeDeltaSec > 2.5 || speedMs <= 0.4) {
@@ -123,7 +126,8 @@ class GpsSmoothingService {
     required double timeDeltaSec,
     required double gpsGapDurationSec,
   }) {
-    if (previousSmoothedPoint == null || gpsGapDurationSec > 5.0) {
+    if (previousSmoothedPoint == null ||
+        gpsGapDurationSec > kGpsGapThresholdSec) {
       _ekf.reset();
       _ekf.init(
         initialPoint: acceptedPoint,
