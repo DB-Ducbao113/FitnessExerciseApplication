@@ -159,9 +159,7 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   static const Duration _kIndoorStallAutoPause = Duration(seconds: 8);
   static const Duration _kRecoveredGpsWindow = Duration(seconds: 3);
   static const Duration _kGpsHealthCheckTick = Duration(seconds: 5);
-  static const Duration _kGpsStreamStaleThreshold = Duration(seconds: 15);
-  static const Duration _kGpsRecoveryCooldown = Duration(seconds: 20);
-  DateTime? _lastGpsRecoveryTime;
+  static const Duration _kGpsStreamStaleThreshold = Duration(seconds: 5);
   static const Duration _kModeFlipCooldown = Duration(seconds: 30);
   static const double _kModeFlipHighConfidence = 0.95;
   static const int _kPauseCountdownUiThrottleSec = 10;
@@ -471,12 +469,6 @@ class WorkoutSessionNotifier extends StateNotifier<WorkoutSessionState> {
   }) async {
     if (_isRecoveringGpsStream || _isStopping || !mounted) return;
     if (state.status != RecordingState.active) return;
-    final now = DateTime.now();
-    if (_lastGpsRecoveryTime != null &&
-        now.difference(_lastGpsRecoveryTime!) < _kGpsRecoveryCooldown) {
-      return;
-    }
-    _lastGpsRecoveryTime = now;
     _isRecoveringGpsStream = true;
     final locationService = _ref.read(locationTrackingServiceProvider);
 
