@@ -53,7 +53,7 @@ void main() {
 
         final decision = engine.evaluateGpsUpdate(
           position: p0,
-          activityType: 'running',
+          activityType: 'cycling',
           routePoints: const [],
           currentLatLng: null,
           distanceAnchorPoint: null,
@@ -651,7 +651,7 @@ void main() {
       () {
         final t0 = DateTime.utc(2026, 10, 28, 0, 30, 0);
 
-        // 1. Initial fix with accuracy > 22.0m (e.g. 26.0m) MUST BE REJECTED
+        // 1. Main policy for running: initial accuracy > 16m must be rejected
         final poorInitialFix = buildPosition(
           latitude: 10.740000,
           longitude: 106.630000,
@@ -675,7 +675,7 @@ void main() {
           latitude: 10.740000,
           longitude: 106.630000,
           timestamp: t0,
-          accuracy: 18.0,
+          accuracy: 15.0,
         );
         final dSeed = engine.evaluateGpsUpdate(
           position: legitimateSeed,
