@@ -53,7 +53,7 @@ void main() {
 
         final decision = engine.evaluateGpsUpdate(
           position: p0,
-          activityType: 'running',
+          activityType: 'cycling',
           routePoints: const [],
           currentLatLng: null,
           distanceAnchorPoint: null,
@@ -297,7 +297,7 @@ void main() {
     );
 
     test(
-      'Gate 5: Temporary GPS latency (5-15s, e.g. pocket insertion) does not break route or lose distance',
+      'Gate 5: Baseline-parity 12s GPS gap breaks route without adding unverified distance',
       () {
         final pipeline = GpsPipeline();
         final smoothingService = GpsSmoothingService(
@@ -341,11 +341,12 @@ void main() {
           shouldResetAnchorOnResume: false,
         );
 
-        // Under the relaxed threshold (20s), 12s is treated as continuous movement
+        // The historical main 5s gap policy treats a 12s gap as unverified.
         expect(d1.type, TrackingGpsDecisionType.acceptRoute);
-        expect(d1.shouldAddDistance, isTrue);
-        expect(d1.shouldBreakRouteForDisplay, isFalse);
-        expect(d1.segmentMeters, closeTo(36.0, 3.0));
+        expect(d1.shouldAddDistance, isFalse);
+        expect(d1.shouldBreakRouteForDisplay, isTrue);
+        expect(d1.gpsGapDurationSec, 12.0);
+        expect(d1.segmentMeters, 0.0);
 
         final update = smoothingService.smoothAcceptedPoint(
           activityType: 'running',
@@ -356,7 +357,7 @@ void main() {
           accuracyMeters: p1.accuracy,
           speedMs: p1.speed,
           timeDeltaSec: 12.0,
-          gpsGapDurationSec: 0.0,
+          gpsGapDurationSec: d1.gpsGapDurationSec,
         );
 
         pipeline.appendAcceptedSegment(
@@ -367,14 +368,15 @@ void main() {
           shouldAppendSmoothedPoint: update.shouldAppendRoutePoint,
         );
 
-        // Polyline remains 1 unbroken segment with 2 points
-        expect(pipeline.smoothedRouteSegments.length, 1);
-        expect(pipeline.smoothedRouteSegments.first.length, 2);
+        // The new segment is not bridged to the previously accepted fix.
+        expect(pipeline.smoothedRouteSegments.length, 2);
+        expect(pipeline.smoothedRouteSegments.last.length, 1);
+        expect(pipeline.gpsGapSegments.length, 1);
       },
     );
 
     test(
-      'Gate 6: Major GPS blackout (> 20s) triggers clean route break, zero distance jump, and safe EKF re-anchoring',
+      'Gate 6: Major GPS blackout (> 5s) triggers clean route break, zero distance jump, and safe EKF re-anchoring',
       () {
         final pipeline = GpsPipeline();
         final smoothingService = GpsSmoothingService(
@@ -649,7 +651,7 @@ void main() {
       () {
         final t0 = DateTime.utc(2026, 10, 28, 0, 30, 0);
 
-        // 1. Initial fix with accuracy > 22.0m (e.g. 26.0m) MUST BE REJECTED
+        // 1. Main policy for running: initial accuracy > 16m must be rejected
         final poorInitialFix = buildPosition(
           latitude: 10.740000,
           longitude: 106.630000,
@@ -673,7 +675,7 @@ void main() {
           latitude: 10.740000,
           longitude: 106.630000,
           timestamp: t0,
-          accuracy: 18.0,
+          accuracy: 15.0,
         );
         final dSeed = engine.evaluateGpsUpdate(
           position: legitimateSeed,
@@ -726,7 +728,7 @@ void main() {
         expect(dTeleport.shouldAddDistance, isFalse);
         expect(dTeleport.segmentMeters, 0.0);
 
-        // 4. Blackout gap > 20s (e.g. 25s) MUST ZERO DISTANCE and BREAK ROUTE
+        // 4. Blackout gap > 5s (e.g. 25s) MUST ZERO DISTANCE and BREAK ROUTE
         final t2 = t0.add(const Duration(seconds: 25));
         final blackoutFix = buildPosition(
           latitude: 10.740500, // ~55m away
