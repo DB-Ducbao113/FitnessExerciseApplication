@@ -100,9 +100,10 @@ class GpsWorkoutAnalysisInput {
 class WorkoutTrackingEngine {
   const WorkoutTrackingEngine();
 
-  /// Maximum time delta allowed between accepted fixes before treating as a blackout gap.
-  /// 20.0s allows healthy GPS jitter and momentary pauses while preventing teleporting.
-  static const double kStaleSignalGapThresholdSec = 20.0;
+  /// Historical main baseline uses a 5s accepted-fix gap policy.
+  /// NOTE: stationary fixes rejected by validation may appear as a GPS gap;
+  /// baseline parity does not itself fix that distinction.
+  static const double kStaleSignalGapThresholdSec = 5.0;
 
   TrackingGpsDecision evaluateGpsUpdate({
     required Position position,
@@ -594,12 +595,12 @@ class WorkoutTrackingEngine {
   double getInitialFixAccuracy(String activityType) {
     switch (activityType.toLowerCase()) {
       case 'cycling':
-        return 24.0;
+        return 20.0;
       case 'walking':
-        return 22.0;
+        return 18.0;
       case 'running':
       default:
-        return 22.0;
+        return 16.0;
     }
   }
 
