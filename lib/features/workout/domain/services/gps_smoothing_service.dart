@@ -35,7 +35,7 @@ class GpsSmoothingService {
   final ExtendedKalmanFilter _ekf;
 
   /// Duration after which a GPS absence is treated as a major blackout gap.
-  static const double kGpsGapThresholdSec = 20.0;
+  static const double kGpsGapThresholdSec = 5.0;
 
   GpsSmoothingService({
     ExtendedKalmanFilter? ekf,
